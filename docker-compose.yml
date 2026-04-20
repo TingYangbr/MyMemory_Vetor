@@ -1,0 +1,17 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: mymemory-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_secret
+      MYSQL_DATABASE: mymemory
+      MYSQL_USER: mymemory
+      MYSQL_PASSWORD: mymemory_secret
+    ports:
+      - "3306:3306"
+    volumes:
+      - mymemory_mysql_data:/var/lib/mysql
+
+volumes:
+  mymemory_mysql_data:
