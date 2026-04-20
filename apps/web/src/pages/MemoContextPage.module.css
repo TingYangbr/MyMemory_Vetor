@@ -1,0 +1,691 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0.55rem 1.25rem 2.5rem;
+}
+
+.layoutSplit {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (min-width: 900px) {
+  .layoutSplit {
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 0;
+  }
+
+  .treePanel {
+    position: sticky;
+    top: 0.75rem;
+    max-height: calc(100vh - 5rem);
+  }
+}
+
+.treePanel {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: 100%;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  background: var(--mm-card, #fff);
+  box-shadow: var(--mm-shadow);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (min-width: 900px) {
+  .treePanel {
+    width: min(340px, 38%);
+    max-width: 340px;
+    margin-right: 1.25rem;
+    border-right: 1px solid var(--mm-border);
+    border-radius: var(--mm-radius);
+  }
+}
+
+.treePanelHead {
+  padding: 0.85rem 1rem;
+  border-bottom: 1px solid var(--mm-border);
+  background: var(--mm-primary-faint, #f0f9ff);
+}
+
+.treePanelTitle {
+  margin: 0 0 0.35rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--mm-muted);
+}
+
+.treeRootName {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--mm-text, #1a2332);
+  line-height: 1.3;
+}
+
+.treeStats {
+  margin: 0.5rem 0 0;
+  font-size: 0.78rem;
+  color: var(--mm-text-secondary);
+  line-height: 1.45;
+}
+
+.treeModelHint {
+  margin: 0.65rem 0 0;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.74rem;
+  line-height: 1.5;
+  color: var(--mm-text-secondary);
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: var(--mm-radius-sm);
+  border: 1px solid var(--mm-border);
+}
+
+.treeModelHint code {
+  font-size: 0.68rem;
+  padding: 0.05rem 0.2rem;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.treeBranchCaption {
+  margin: 0 0 0.35rem 0.65rem;
+  font-size: 0.68rem;
+  font-family: ui-monospace, monospace;
+  color: var(--mm-muted);
+}
+
+.treeForkArm {
+  margin-bottom: 0.65rem;
+}
+
+.treeForkArm:last-child {
+  margin-bottom: 0;
+}
+
+.treeSectionTable {
+  font-weight: 600;
+  font-size: 0.62rem;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--mm-muted);
+}
+
+.treeSectionHint {
+  margin: 0.15rem 0 0.35rem 0.65rem;
+  font-size: 0.68rem;
+  color: var(--mm-text-secondary);
+  line-height: 1.35;
+}
+
+.fieldHelp {
+  margin: 0 0 0.4rem;
+  font-size: 0.72rem;
+  line-height: 1.4;
+  color: var(--mm-text-secondary);
+}
+
+.fieldHelp code {
+  font-size: 0.65rem;
+}
+
+.mediaField {
+  margin-bottom: 0.85rem;
+}
+
+.mediaRadioRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  margin-bottom: 0.4rem;
+  font-size: 0.88rem;
+  line-height: 1.35;
+}
+
+.mediaRadioRow input {
+  margin-top: 0.2rem;
+  flex-shrink: 0;
+}
+
+.mediaCheckboxGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 0.35rem 0.65rem;
+  margin: 0.5rem 0 0 1.5rem;
+  padding: 0.55rem 0.65rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  background: #f8fafc;
+}
+
+.mediaCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+
+.mediaCheckboxLabel input {
+  flex-shrink: 0;
+}
+
+.treeToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--mm-border);
+  background: #fafbfc;
+}
+
+.treeToolbar button {
+  font-size: 0.75rem;
+  padding: 0.35rem 0.55rem;
+}
+
+.treeScroll {
+  overflow: auto;
+  padding: 0.35rem 0 0.65rem;
+  max-height: min(52vh, 420px);
+}
+
+@media (min-width: 900px) {
+  .treeScroll {
+    max-height: none;
+    flex: 1;
+    min-height: 200px;
+  }
+}
+
+.treeCatBlock {
+  margin-bottom: 0.15rem;
+}
+
+.treeCatRowWrap {
+  display: flex;
+  align-items: stretch;
+  width: 100%;
+}
+
+.treeCatRow {
+  display: flex;
+  align-items: stretch;
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  font: inherit;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  border-radius: 0;
+  color: inherit;
+}
+
+.treeCatRow:hover {
+  background: var(--mm-primary-faint, #f0f9ff);
+}
+
+.treeCatRowSelected {
+  background: var(--mm-primary-soft, #e0f2fe);
+  box-shadow: inset 3px 0 0 var(--mm-accent, #0d9488);
+}
+
+.treeChevron {
+  flex: 0 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--mm-muted);
+  font-size: 0.65rem;
+  padding: 0;
+}
+
+.treeChevron:hover {
+  color: var(--mm-text);
+}
+
+.treeChevronSpacer {
+  flex: 0 0 2rem;
+}
+
+.treeCatLabel {
+  flex: 1;
+  padding: 0.5rem 0.65rem 0.5rem 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+}
+
+.treeCatTitle {
+  font-weight: 700;
+  font-size: 0.88rem;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+.treeCatMeta {
+  font-size: 0.72rem;
+  color: var(--mm-muted);
+  font-weight: 600;
+}
+
+.treeBranch {
+  margin-left: 1rem;
+  padding-left: 0.65rem;
+  border-left: 2px solid var(--mm-border);
+}
+
+.treeSectionLabel {
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mm-muted);
+  margin: 0.35rem 0 0.2rem 0.65rem;
+  padding-top: 0.25rem;
+}
+
+.treeLeaf {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.45rem;
+  padding: 0.28rem 0.5rem 0.28rem 0.65rem;
+  font-size: 0.82rem;
+  color: var(--mm-text-secondary);
+  line-height: 1.35;
+}
+
+.treeLeafIcon {
+  flex-shrink: 0;
+  width: 1.1rem;
+  text-align: center;
+  font-size: 0.75rem;
+  opacity: 0.75;
+}
+
+.treeLeafText {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.detailPanel {
+  flex: 1;
+  min-width: 0;
+}
+
+.detailPanelEmpty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--mm-muted);
+  border: 1px dashed var(--mm-border);
+  border-radius: var(--mm-radius);
+  background: #fafbfc;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.groupField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: min(280px, 100%);
+}
+
+.groupField label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mm-muted);
+}
+
+.groupSelect {
+  font: inherit;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  background: #fff;
+  max-width: 100%;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  padding: 1rem 1.15rem;
+  background: #fff;
+  box-shadow: var(--mm-shadow);
+  text-align: left;
+}
+
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.cardTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.cardHeading {
+  margin: 0 0 0.85rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--mm-muted);
+}
+
+.badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.2rem 0.45rem;
+  border-radius: 6px;
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary-hover);
+}
+
+.row {
+  margin-top: 0.75rem;
+}
+
+.rowLabel {
+  display: block;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mm-muted);
+  margin-bottom: 0.35rem;
+}
+
+.rowActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  align-items: center;
+  margin-top: 0.35rem;
+}
+
+.inlineSelect {
+  flex: 1;
+  min-width: 160px;
+  font: inherit;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+}
+
+.detailBox {
+  margin-top: 0.45rem;
+  padding: 0.5rem 0.65rem;
+  background: #f8fafc;
+  border-radius: var(--mm-radius-sm);
+  font-size: 0.82rem;
+  color: var(--mm-text-secondary);
+}
+
+.empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--mm-muted);
+  border: 1px dashed var(--mm-border);
+  border-radius: var(--mm-radius);
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.modalField {
+  margin-bottom: 0.75rem;
+}
+
+.modalField label {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 0.3rem;
+}
+
+.pageTitle {
+  margin: 0 0 1rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.filtersRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
+  align-items: flex-end;
+  margin-bottom: 0.75rem;
+}
+
+.readOnlyBanner {
+  margin: 0 0 1rem;
+  padding: 0.55rem 0.75rem;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--mm-text-secondary);
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: var(--mm-radius-sm);
+}
+
+.sortHint {
+  margin: 0 0 0.85rem;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  color: var(--mm-text-secondary);
+}
+
+.newCatRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.hierarchyToolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-right: auto;
+}
+
+.hierarchyToolbarBtn {
+  font-size: 0.78rem !important;
+  padding: 0.35rem 0.55rem !important;
+}
+
+.hierarchy {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.catSection {
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  background: var(--mm-card, #fff);
+  box-shadow: var(--mm-shadow);
+  padding: 0.75rem 1rem 1rem;
+}
+
+.catLine {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.catToggle {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  background: #f8fafc;
+  cursor: pointer;
+  color: var(--mm-text-secondary);
+}
+
+.catToggle:hover {
+  background: var(--mm-primary-faint, #f0f9ff);
+  color: var(--mm-text);
+}
+
+.catChevron {
+  font-size: 0.65rem;
+  line-height: 1;
+}
+
+.catName {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.catMeta {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--mm-text-secondary);
+}
+
+.lineActions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-left: auto;
+}
+
+.iconBtn {
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0.25rem 0.4rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  border-radius: var(--mm-radius-sm);
+  opacity: 0.85;
+}
+
+.iconBtn:hover {
+  background: var(--mm-primary-faint, #f0f9ff);
+  opacity: 1;
+}
+
+.iconBtnDanger:hover {
+  background: #fef2f2;
+}
+
+.nested {
+  margin-top: 0.75rem;
+  padding-left: 0.5rem;
+  border-left: 2px solid var(--mm-border);
+}
+
+.subBlock {
+  margin-bottom: 1rem;
+}
+
+.subBlock:last-child {
+  margin-bottom: 0;
+}
+
+.subHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.subHeadLabel {
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mm-muted);
+}
+
+.subHeadBtn {
+  font-size: 0.78rem !important;
+  padding: 0.3rem 0.5rem !important;
+}
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.itemLine {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.25rem;
+  font-size: 0.9rem;
+  border-radius: var(--mm-radius-sm);
+}
+
+.itemLine:hover {
+  background: #f8fafc;
+}
+
+.fieldHelpSmall {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: var(--mm-text-secondary);
+}

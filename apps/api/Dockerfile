@@ -1,0 +1,43 @@
+# ─── Build ────────────────────────────────────────────────────────────────────
+FROM node:20-alpine AS builder
+WORKDIR /build
+
+# Manifests primeiro — camada de cache para npm ci
+COPY package.json           ./package.json
+COPY package-lock.json      ./package-lock.json
+COPY tsconfig.base.json     ./tsconfig.base.json
+COPY packages/shared/package.json ./packages/shared/package.json
+COPY apps/api/package.json  ./apps/api/package.json
+COPY apps/web/package.json  ./apps/web/package.json
+
+RUN npm ci
+
+COPY packages/shared/ ./packages/shared/
+COPY apps/api/        ./apps/api/
+
+# shared precisa estar compilado antes da api (dependência de workspace)
+# Remove tsbuildinfo local para forçar compilação limpa dentro do container
+RUN rm -f packages/shared/tsconfig.tsbuildinfo \
+ && npm run build --workspace=@mymemory/shared \
+ && npm run build --workspace=@mymemory/api
+
+# Remove devDependencies para reduzir o tamanho da imagem final
+RUN npm prune --omit=dev
+
+# ─── Runtime ──────────────────────────────────────────────────────────────────
+FROM node:20-alpine
+WORKDIR /app
+
+ENV NODE_ENV=production
+
+COPY --from=builder /build/node_modules                  ./node_modules
+COPY --from=builder /build/package.json                  ./package.json
+COPY --from=builder /build/packages/shared/dist          ./packages/shared/dist
+COPY --from=builder /build/packages/shared/package.json  ./packages/shared/package.json
+COPY --from=builder /build/apps/api/dist                 ./apps/api/dist
+COPY --from=builder /build/apps/api/package.json         ./apps/api/package.json
+
+RUN mkdir -p /app/uploads
+
+EXPOSE 4000
+CMD ["node", "apps/api/dist/server.js"]

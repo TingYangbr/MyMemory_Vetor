@@ -1,0 +1,130 @@
+.page {
+  min-height: 100vh;
+  padding: 0.6rem 1rem 2.5rem;
+  max-width: 920px;
+  margin: 0 auto;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 650;
+}
+
+.meta {
+  font-size: 0.85rem;
+  opacity: 0.85;
+  margin: 0.25rem 0 0;
+}
+
+.grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+@media (min-width: 720px) {
+  .grid {
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.panelTitle {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.metadataPre {
+  margin: 0;
+  min-height: 80px;
+  max-height: 280px;
+  overflow: auto;
+  padding: 0.75rem 0.85rem;
+  border-radius: 8px;
+  border: 1px solid var(--mm-border, #d8dee6);
+  background: #0f172a0a;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.metadataEmpty {
+  margin: 0;
+  font-size: 0.88rem;
+  opacity: 0.75;
+  font-style: italic;
+}
+
+.fieldLabel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.hint {
+  font-weight: 400;
+  opacity: 0.8;
+  font-size: 0.82rem;
+}
+
+.textarea {
+  width: 100%;
+  min-height: 200px;
+  resize: vertical;
+  font: inherit;
+  line-height: 1.45;
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--mm-border, #d8dee6);
+}
+
+.keywordsInput {
+  width: 100%;
+  min-height: 4.35rem;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--mm-border, #d8dee6);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--mm-border, #e4e8ee);
+}
+
+.error {
+  color: #b00020;
+  font-size: 0.9rem;
+  margin-top: 0.5rem;
+}
+
+.gridFullWidth {
+  grid-column: 1 / -1;
+}

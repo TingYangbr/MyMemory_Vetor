@@ -1,0 +1,46 @@
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.meta {
+  font-size: 0.9rem;
+  color: var(--mm-text-muted, #64748b);
+}
+
+.blocks {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.block {
+  border: 1px solid var(--mm-border, #d8dee6);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-card, #fff);
+  padding: 0.8rem;
+}
+
+.blockTitle {
+  margin: 0 0 0.45rem;
+  font-size: 1rem;
+  text-transform: lowercase;
+}
+
+.codeArea {
+  width: 100%;
+  min-height: 180px;
+  resize: vertical;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  font-size: 0.82rem;
+  line-height: 1.45;
+  border-radius: var(--mm-radius-sm);
+  border: 1px solid var(--mm-border, #d8dee6);
+  background: var(--mm-surface-2, #f8fafc);
+  color: var(--mm-text, #0f172a);
+  padding: 0.7rem;
+  box-sizing: border-box;
+}

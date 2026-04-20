@@ -1,0 +1,23 @@
+.wrap {
+  display: inline;
+  line-height: inherit;
+  text-transform: none;
+}
+
+.pair {
+  display: inline;
+}
+
+.sep {
+  opacity: 0.55;
+}
+
+.label {
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.value {
+  font-weight: 800;
+  color: var(--mm-accent, #0d9488);
+}

@@ -1,0 +1,37 @@
+.shell {
+  min-height: 100vh;
+  padding: 0.7rem 1.35rem 3rem;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mm-accent, #0d9488);
+  text-decoration: none;
+}
+
+.back:hover {
+  text-decoration: underline;
+}
+
+.title {
+  margin: 0 0 0.75rem;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--mm-text, #1a2332);
+}
+
+.text {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: var(--mm-muted, #5a6578);
+}
+
+.text code {
+  font-size: 0.85em;
+}

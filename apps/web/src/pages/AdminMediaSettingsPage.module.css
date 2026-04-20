@@ -1,0 +1,164 @@
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.planField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: min(280px, 100%);
+}
+
+.planField label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--mm-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.select {
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--mm-radius-sm);
+  border: 1px solid var(--mm-border);
+  font-size: 0.95rem;
+  background: var(--mm-card);
+  color: var(--mm-text);
+  max-width: 100%;
+}
+
+.summaryStrip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  padding: 0.65rem 0.85rem;
+  margin-bottom: 1rem;
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-primary-faint);
+  border: 1px solid var(--mm-border);
+  font-size: 0.82rem;
+  color: var(--mm-text-secondary);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary-hover);
+}
+
+.badgeOff {
+  opacity: 0.55;
+}
+
+.legend {
+  margin: 0 0 0.75rem;
+  font-size: 0.85rem;
+  color: var(--mm-muted);
+  line-height: 1.45;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  background: var(--mm-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+
+.table th,
+.table td {
+  padding: 0.45rem 0.5rem;
+  border-bottom: 1px solid var(--mm-border);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.table th {
+  background: #f8fafc;
+  font-weight: 700;
+  color: var(--mm-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.typeCell {
+  font-weight: 600;
+  color: var(--mm-text);
+  white-space: nowrap;
+}
+
+.numInput {
+  width: 5.5rem;
+  max-width: 100%;
+  padding: 0.3rem 0.4rem;
+  font-size: 0.82rem;
+}
+
+.numInputWide {
+  width: 6.25rem;
+}
+
+.mutedCell {
+  color: var(--mm-muted);
+  font-size: 0.8rem;
+}
+
+.foot {
+  margin-top: 0.85rem;
+  font-size: 0.78rem;
+  color: var(--mm-muted);
+  line-height: 1.45;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  align-items: center;
+}
+
+.savedOk {
+  font-size: 0.85rem;
+  color: var(--mm-primary-hover);
+  font-weight: 600;
+}
+
+.groupHead th {
+  background: #eef2f7;
+  font-size: 0.68rem;
+  text-align: center;
+}
+
+.subHead th {
+  background: #f8fafc;
+}
+
+.thSub {
+  display: block;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.92;
+  margin-top: 0.2rem;
+  white-space: normal;
+}

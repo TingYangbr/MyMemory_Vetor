@@ -1,0 +1,474 @@
+.shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main {
+  flex: 1;
+  padding: 0.55rem 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.mainWide {
+  max-width: min(1680px, 100%);
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--mm-primary-hover);
+}
+
+.title {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--mm-text);
+}
+
+.lead {
+  margin: 0 0 1.25rem;
+  color: var(--mm-muted);
+  font-size: 0.95rem;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.35rem;
+  margin-bottom: 1.25rem;
+  border-bottom: 1px solid var(--mm-border);
+  padding-bottom: 0.25rem;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mm-muted);
+  cursor: pointer;
+  border-radius: var(--mm-radius-sm) var(--mm-radius-sm) 0 0;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--mm-text-secondary);
+  background: var(--mm-primary-faint);
+}
+
+.tabActive {
+  color: var(--mm-primary-hover);
+  background: var(--mm-primary-soft);
+  box-shadow: inset 0 -2px 0 var(--mm-accent);
+}
+
+.panel {
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  padding: 1.25rem;
+  box-shadow: var(--mm-shadow);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.tableToolbarLabel {
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+  font-size: 1.05rem;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.tableToolbarCode {
+  font-family: ui-monospace, "Cascadia Code", "Segoe UI Mono", monospace;
+  font-size: 1.12rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--mm-text);
+  padding: 0.12em 0.45em;
+  background: var(--mm-primary-soft);
+  border-radius: 6px;
+  border: 1px solid var(--mm-border);
+}
+
+.tableWrap {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  margin: 0 -0.25rem;
+  padding: 0 0.25rem;
+}
+
+.tablePlans {
+  min-width: 1180px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+
+.thActions,
+.thIcon {
+  width: 1%;
+  text-align: center !important;
+}
+
+.thIcon svg {
+  display: block;
+  margin: 0 auto;
+  width: 1.15rem;
+  height: 1.15rem;
+  color: var(--mm-text-secondary);
+}
+
+.trashLoading {
+  font-size: 1.35rem;
+  line-height: 1;
+  font-weight: 700;
+  min-width: 1.45rem;
+  min-height: 1.45rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cellActions {
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.btnEditIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem;
+  border: none;
+  border-radius: var(--mm-radius-sm);
+  background: transparent;
+  color: var(--mm-muted);
+  cursor: pointer;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.btnEditIcon:hover {
+  color: var(--mm-primary-hover);
+  background: var(--mm-primary-faint);
+}
+
+.btnEditIcon svg {
+  display: block;
+  width: 1.35rem;
+  height: 1.35rem;
+}
+
+.btnTrash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: var(--mm-radius-sm);
+  background: transparent;
+  color: var(--mm-muted);
+  cursor: pointer;
+  line-height: 1;
+  transition:
+    color 0.15s ease,
+    background 0.15s ease;
+}
+
+.btnTrash svg {
+  display: block;
+  width: 1.45rem;
+  height: 1.45rem;
+}
+
+.btnTrash:hover:not(:disabled) {
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.btnTrash:disabled {
+  cursor: not-allowed;
+  opacity: 0.35;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 0.55rem 0.65rem;
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.table th {
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+  white-space: nowrap;
+}
+
+.tablePlans thead th {
+  background: #e8f5e9;
+  color: var(--mm-text);
+  border-bottom: 1px solid #c8e6c9;
+}
+
+.table tr:hover td {
+  background: var(--mm-primary-faint);
+}
+
+.badge {
+  display: inline-block;
+  padding: 0.15rem 0.45rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary-hover);
+}
+
+.badgeOff {
+  background: #f1f5f9;
+  color: var(--mm-muted);
+}
+
+.modalGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem 1rem;
+}
+
+@media (max-width: 640px) {
+  .modalGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.modalField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.modalField label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+}
+
+.modalFieldFull {
+  grid-column: 1 / -1;
+}
+
+.hint {
+  margin: 0.75rem 0 0;
+  font-size: 0.82rem;
+  color: var(--mm-muted);
+}
+
+.purgeHeader {
+  margin-bottom: 1.25rem;
+}
+
+.purgeTitle {
+  margin: 0 0 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--mm-text);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.purgeTitleIcon {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.purgeLead {
+  margin: 0 0 0.65rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--mm-muted);
+}
+
+.purgeNote {
+  margin: 0;
+  font-size: 0.85rem;
+  color: var(--mm-text-secondary);
+}
+
+.purgeOk {
+  margin: 0 0 0.85rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: var(--mm-radius-sm);
+  background: rgba(209, 250, 229, 0.55);
+  color: #065f46;
+  font-size: 0.88rem;
+}
+
+.hardDeleteBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  font-family: inherit;
+  color: #fff;
+  background: #dc2626;
+  border: none;
+  border-radius: var(--mm-radius-sm);
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    opacity 0.15s ease;
+}
+
+.hardDeleteBtn:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.hardDeleteBtn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.hardDeleteBtn svg {
+  width: 1rem;
+  height: 1rem;
+  flex-shrink: 0;
+  stroke: currentColor;
+}
+
+.costFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.costField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.costField label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+}
+
+.costField input,
+.costField select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--mm-radius-sm);
+  border: 1px solid var(--mm-border);
+  background: var(--mm-bg, #fff);
+  color: var(--mm-text);
+  min-width: 9.5rem;
+}
+
+.costMeta {
+  margin: 0 0 1rem;
+  font-size: 0.85rem;
+  color: var(--mm-muted);
+  line-height: 1.5;
+}
+
+.costTableWrap {
+  margin-bottom: 1.25rem;
+}
+
+.costTable {
+  min-width: 720px;
+}
+
+.costExpandBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.65rem;
+  height: 1.65rem;
+  margin-right: 0.35rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-primary-faint);
+  color: var(--mm-primary-hover);
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+.costExpandBtn:hover {
+  background: var(--mm-primary-soft);
+}
+
+.costRowL1 td:first-child {
+  font-weight: 700;
+}
+
+.costRowL2 td:nth-child(2) {
+  padding-left: 1.75rem;
+  font-size: 0.92em;
+  color: var(--mm-text-secondary);
+}
+
+.costRowTotal td {
+  font-weight: 700;
+  border-top: 2px solid var(--mm-border);
+  background: var(--mm-primary-soft);
+}
+
+.costDetail {
+  margin-top: 1.25rem;
+  border-top: 1px solid var(--mm-border);
+  padding-top: 1rem;
+}
+
+.costDetail summary {
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--mm-text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.costDetailTable {
+  font-size: 0.8rem;
+}
+
+.costDetailTableWrap {
+  max-height: 320px;
+  overflow: auto;
+  margin-top: 0.35rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+}

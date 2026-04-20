@@ -1,0 +1,180 @@
+.memoCardPrimary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--mm-radius-sm);
+  padding: 0.2rem 0.25rem;
+  margin: -0.2rem -0.25rem;
+  transition: background 0.12s ease;
+}
+
+.memoCardPrimary:hover {
+  background: rgba(15, 23, 42, 0.05);
+}
+
+.memoCardPrimaryConsult:hover {
+  background: rgba(13, 148, 136, 0.08);
+}
+
+.memoCardPrimaryLabel {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--mm-text);
+  text-transform: none;
+}
+
+.memoCardPrimaryDate {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.searchCardGlyphWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #0d9488;
+}
+
+.searchCardGlyphSvg {
+  width: 1.875rem;
+  height: 1.875rem;
+  display: block;
+}
+
+.searchCardGlyphWrapMail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #4f46e5;
+}
+
+.searchCardDocTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 2.775rem;
+  height: 2.025rem;
+  padding: 0 0.45rem;
+  border-radius: 6px;
+  font-size: 0.93rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  color: #fff;
+  line-height: 1;
+}
+
+.searchCardDocPdf {
+  background: linear-gradient(145deg, #f43f5e 0%, #be123c 100%);
+}
+
+.searchCardDocWord {
+  background: linear-gradient(145deg, #3b82f6 0%, #1d4ed8 100%);
+}
+
+.searchCardDocNeutral {
+  background: linear-gradient(145deg, #64748b 0%, #475569 100%);
+}
+
+.searchCardTextTag {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.175rem;
+  height: 2.175rem;
+  flex-shrink: 0;
+  border-radius: 6px;
+  background: linear-gradient(165deg, #2dd4bf 0%, #0d9488 100%);
+  color: #fff;
+  font-weight: 900;
+  font-size: 1.23rem;
+  line-height: 1;
+  box-shadow: 0 2px 4px rgba(13, 148, 136, 0.35);
+}
+
+/* Visualização compacta (memos recentes: imagem / vídeo / áudio) */
+.miniMediaRow {
+  margin: 0;
+  border-radius: var(--mm-radius-sm);
+  overflow: hidden;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  background: #0f172a;
+  line-height: 0;
+}
+
+.miniMediaLink {
+  display: block;
+  text-decoration: none;
+}
+
+.miniImg {
+  display: block;
+  width: 100%;
+  max-height: 7.5rem;
+  object-fit: cover;
+}
+
+.miniVideo {
+  display: block;
+  width: 100%;
+  max-height: 7.5rem;
+  object-fit: cover;
+  background: #000;
+}
+
+.miniAudioWrap {
+  padding: 0.5rem 0.65rem;
+  background: linear-gradient(160deg, #fffbeb 0%, #fde68a 45%, #fbbf24 100%);
+  line-height: normal;
+}
+
+.miniAudio {
+  display: block;
+  width: 100%;
+  min-height: 2.25rem;
+}
+
+.memoCardUrlBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.35rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.memoCardUrlActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding-left: 0.25rem;
+}
+
+.memoCardUrlAction {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #0d9488;
+  text-decoration: none;
+  border-radius: var(--mm-radius-sm);
+  padding: 0.15rem 0.35rem;
+}
+
+.memoCardUrlAction:hover {
+  text-decoration: underline;
+  background: rgba(13, 148, 136, 0.08);
+}

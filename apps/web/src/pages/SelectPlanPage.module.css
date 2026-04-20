@@ -1,0 +1,250 @@
+/* Página dedicada — plano claro, destaque teal (referência UI escolha de plano) */
+.shell {
+  min-height: 100vh;
+  background: #f0f2f5;
+  color: #1a2332;
+  display: flex;
+  flex-direction: column;
+}
+
+.topBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.25rem;
+  max-width: 1120px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+}
+
+.brand img {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
+}
+
+.topLinks {
+  display: flex;
+  gap: 1rem;
+  font-size: 0.9rem;
+}
+
+.topLinks a {
+  color: #2d6a6a;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.topLinks a:hover {
+  text-decoration: underline;
+}
+
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 0.65rem 1.25rem 3rem;
+}
+
+.head {
+  text-align: center;
+  margin-bottom: 2.25rem;
+}
+
+.title {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.5rem, 3.5vw, 1.85rem);
+  font-weight: 750;
+  letter-spacing: -0.03em;
+  color: #121820;
+}
+
+.subtitle {
+  margin: 0;
+  font-size: 1rem;
+  color: #5a6578;
+  line-height: 1.5;
+  max-width: 520px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+  align-items: stretch;
+}
+
+@media (min-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.card {
+  position: relative;
+  background: #fff;
+  border-radius: 16px;
+  padding: 1.5rem 1.35rem 1.35rem;
+  border: 1px solid #e2e6ed;
+  box-shadow: 0 4px 24px rgba(18, 24, 32, 0.06);
+  display: flex;
+  flex-direction: column;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.cardPopular {
+  border-color: #2d6a6a;
+  box-shadow: 0 8px 32px rgba(45, 106, 106, 0.15);
+}
+
+.badge {
+  position: absolute;
+  top: -11px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d6a6a;
+  color: #fff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+.planName {
+  margin: 0.35rem 0 0.65rem;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #121820;
+}
+
+.price {
+  font-size: 1.35rem;
+  font-weight: 750;
+  color: #2d6a6a;
+  margin-bottom: 1.1rem;
+}
+
+.priceSuffix {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: #5a6578;
+}
+
+.features {
+  list-style: none;
+  margin: 0 0 1.25rem;
+  padding: 0;
+  flex: 1;
+}
+
+.features li {
+  position: relative;
+  padding-left: 1.35rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.92rem;
+  line-height: 1.45;
+  color: #3d4a5c;
+}
+
+.features li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  color: #2d6a6a;
+  font-weight: 800;
+  font-size: 0.85rem;
+}
+
+.ctaPrimary {
+  display: block;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 10px;
+  background: #2d6a6a;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.ctaPrimary:hover:not(:disabled) {
+  background: #245858;
+}
+
+.ctaPrimary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.ctaLink {
+  display: block;
+  width: 100%;
+  padding: 0.65rem 1rem;
+  border: none;
+  background: none;
+  color: #2d6a6a;
+  font-size: 0.95rem;
+  font-weight: 700;
+  cursor: pointer;
+  text-align: center;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ctaLink:hover:not(:disabled) {
+  color: #1d4a4a;
+}
+
+.ctaLink:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.footerNote {
+  margin-top: 2.5rem;
+  text-align: center;
+  font-size: 0.82rem;
+  color: #7a8698;
+  line-height: 1.55;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.footerNote p {
+  margin: 0 0 0.35rem;
+}
+
+.loading,
+.errorBox {
+  text-align: center;
+  padding: 2rem 1rem;
+  color: #5a6578;
+}
+
+.errorBox {
+  color: #b03030;
+  font-weight: 600;
+}
