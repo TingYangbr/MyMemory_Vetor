@@ -1,5 +1,5 @@
 import type { UserMediaLimitsResponse } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { clampChunkMinutes } from "../lib/mediaChunkMinutes.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
@@ -19,8 +19,8 @@ const DEFAULT_KB: Record<string, number> = {
 function isUnknownColumnErr(err: unknown, col: string): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; errno?: number; sqlMessage?: string };
-  if (e.code !== "ER_BAD_FIELD_ERROR" && e.errno !== 1054) return false;
-  return String(e.sqlMessage ?? "").includes(col);
+  if (e.code !== "42703") return false;
+  return String((e as {message?: string}).message ?? "").includes(col);
 }
 
 type MsRow = {
@@ -226,7 +226,7 @@ export async function resolvePlanIdForUserWorkspace(
   }
   await assertUserWorkspaceGroupAccess(userId, workspaceGroupId, isAdmin);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT s.planId FROM \`groups\` g
+    `SELECT s.planId FROM groups g
      INNER JOIN subscriptions s ON s.id = g.subscriptionId
      WHERE g.id = ?
      LIMIT 1`,

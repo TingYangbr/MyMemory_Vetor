@@ -9,7 +9,7 @@ import type {
   UserUsageDashboardResponse,
   WorkspaceGroupsResponse,
 } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { z } from "zod";
 import { pool } from "../db.js";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
@@ -111,8 +111,8 @@ function attachMemoPrefsToMe(body: MeResponse, u: RowDataPacket, includeExtended
 function isUnknownColumnErr(err: unknown, col: string): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; errno?: number; sqlMessage?: string };
-  if (e.code !== "ER_BAD_FIELD_ERROR" && e.errno !== 1054) return false;
-  return String(e.sqlMessage ?? "").includes(col);
+  if (e.code !== "42703") return false;
+  return String((e as {message?: string}).message ?? "").includes(col);
 }
 
 async function resolveWorkspaceDisplay(
@@ -131,7 +131,7 @@ async function resolveWorkspaceDisplay(
   }
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT g.name AS groupName FROM \`groups\` g WHERE g.id = ? LIMIT 1`,
+    `SELECT g.name AS groupName FROM groups g WHERE g.id = ? LIMIT 1`,
     [gid]
   );
   if (!rows.length) {

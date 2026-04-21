@@ -1,17 +1,16 @@
 services:
-  mysql:
-    image: mysql:8.4
-    container_name: mymemory-mysql
+  postgres:
+    image: pgvector/pgvector:pg17
+    container_name: mymemory-postgres
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root_secret
-      MYSQL_DATABASE: mymemory
-      MYSQL_USER: mymemory
-      MYSQL_PASSWORD: mymemory_secret
+      POSTGRES_DB: mymemory
+      POSTGRES_USER: mymemory
+      POSTGRES_PASSWORD: mymemory_secret
     ports:
-      - "3306:3306"
+      - "5432:5432"
     volumes:
-      - mymemory_mysql_data:/var/lib/mysql
+      - mymemory_pg_data:/var/lib/postgresql/data
 
 volumes:
-  mymemory_mysql_data:
+  mymemory_pg_data:

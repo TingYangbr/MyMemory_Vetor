@@ -1,5 +1,5 @@
 import type { MemoRecentCard, MemoSearchHighlightTerm, MemoSearchMode } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import {
   attachmentDisplayNameFromMemoLike,
   primaryMediaFileUrlFromMemoLike,
@@ -7,6 +7,7 @@ import {
 import { getSingularPluralSearchVariants } from "../lib/ptSearchExpand.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
+import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
 
 const MAX_SEGMENTS = 24;
 const MAX_OR_BRANCHES_TOTAL = 48;
@@ -72,16 +73,20 @@ function parseSegments(raw: string): Segment[] {
 }
 
 /**
- * Escapa metacaracteres para `REGEXP` (ICU) no MySQL 8+.
- * @see https://dev.mysql.com/doc/refman/8.0/en/regexp.html
+ * Escapa metacaracteres para operador POSIX `~*` do PostgreSQL.
  */
-function mysqlRegexpEscape(s: string): string {
+function pgRegexpEscape(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** Remove acentos para busca accent-insensitive (espelha o unaccent() do PostgreSQL). */
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "");
+}
+
 /**
- * Correspondência por **palavra inteira** (não substring): "ting" não casa "softing";
- * "softing" casa em "Softing Automação Ltda". Várias palavras no ramo: mesma ordem, não-guloso.
+ * Correspondência por **palavra inteira** usando `\y` (word boundary POSIX no PostgreSQL).
+ * "ting" não casa "softing"; "softing" casa em "Softing Automação Ltda".
  */
 function wholeWordRegexpPattern(termLower: string): string | null {
   const words = termLower
@@ -90,7 +95,7 @@ function wholeWordRegexpPattern(termLower: string): string | null {
     .map((w) => w.trim())
     .filter(Boolean);
   if (!words.length) return null;
-  const parts = words.map((w) => `\\b${mysqlRegexpEscape(w)}\\b`);
+  const parts = words.map((w) => `\\y${pgRegexpEscape(w)}\\y`);
   return parts.join(".*?");
 }
 
@@ -126,6 +131,7 @@ interface MemoSearchRow extends RowDataPacket {
   mediaMetadata: string | null;
   apiCost?: unknown;
   usedApiCred?: unknown;
+  hasChunks?: unknown;
 }
 
 function headlineFromRow(r: MemoSearchRow): string {
@@ -133,6 +139,19 @@ function headlineFromRow(r: MemoSearchRow): string {
   if (text.length > 120) return text.slice(0, 117) + "…";
   if (text) return text;
   return r.mediaType;
+}
+
+function extractIaUseLevel(mediaMetadata: string | null | undefined): string | null {
+  if (!mediaMetadata) return null;
+  try {
+    const m = typeof mediaMetadata === "string"
+      ? (JSON.parse(mediaMetadata) as Record<string, unknown>)
+      : mediaMetadata as Record<string, unknown>;
+    const v = m.iaUseTexto ?? m.iaUseImagem ?? m.iaUseAudio ?? m.iaUseVideo ?? m.iaUseDocumento ?? m.iaUseUrl;
+    return typeof v === "string" ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 function rowToCard(r: MemoSearchRow): MemoRecentCard {
@@ -153,20 +172,24 @@ function rowToCard(r: MemoSearchRow): MemoRecentCard {
     userId: r.userId,
     apiCost: numDb(r.apiCost),
     usedApiCred: numDb(r.usedApiCred),
+    iaUseLevel: extractIaUseLevel(r.mediaMetadata),
+    hasSemanticChunks: Boolean(r.hasChunks),
   };
 }
 
 function haystackSql(mode: MemoSearchMode): string {
-  const dadosValuesOnly = `LOWER(TRIM(REGEXP_REPLACE(COALESCE(m.dadosEspecificosJson,''), '"[^"]+"[[:space:]]*:', ' ')))`;
+  // unaccent() + LOWER() → busca accent-insensitive (ã=a, é=e, etc.)
+  // REGEXP_REPLACE remove chaves JSON ("campo":) para buscar apenas nos valores
+  const dadosValuesOnly = `unaccent(LOWER(TRIM(REGEXP_REPLACE(COALESCE(m.dadosespecificosjson,''), '"[^"]+"\\s*:', ' ', 'g'))))`;
   switch (mode) {
     case "mediaText":
-      return `LOWER(COALESCE(m.mediaText,''))`;
+      return `unaccent(LOWER(COALESCE(m.mediatext,'')))`;
     case "keywords":
-      return `LOWER(COALESCE(m.keywords,''))`;
+      return `unaccent(LOWER(COALESCE(m.keywords,'')))`;
     case "dadosEspecificos":
       return dadosValuesOnly;
     default:
-      return `LOWER(CONCAT(COALESCE(m.mediaText,''), ' ', COALESCE(m.keywords,''), ' ', ${dadosValuesOnly}))`;
+      return `unaccent(LOWER(CONCAT(COALESCE(m.mediatext,''), ' ', COALESCE(m.keywords,''), ' ', ${dadosValuesOnly})))`;
   }
 }
 
@@ -183,7 +206,7 @@ async function assertAuthorFilterAllowed(input: {
   }
   await assertUserWorkspaceGroupAccess(input.viewerId, input.groupId, input.isAdmin);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM group_members WHERE groupId = ? AND userId = ? LIMIT 1`,
+    `SELECT 1 FROM group_members WHERE groupid = ? AND userid = ? LIMIT 1`,
     [input.groupId, input.authorUserId]
   );
   if (!rows.length) throw new Error("forbidden_author_filter");
@@ -208,7 +231,7 @@ export async function listMemoSearchAuthors(input: {
     `SELECT DISTINCT u.id, u.name, u.email
      FROM users u
      INNER JOIN group_members gm ON gm.userId = u.id AND gm.groupId = ?
-     ORDER BY (u.name IS NULL), u.name ASC, u.email ASC`,
+     ORDER BY u.name ASC NULLS LAST, u.email ASC`,
     [input.groupId]
   );
   return rows.map((r) => ({
@@ -283,9 +306,9 @@ export async function searchMemosForUser(input: {
       );
       const sub: string[] = [];
       for (const term of uniq) {
-        const pat = wholeWordRegexpPattern(term);
+        const pat = wholeWordRegexpPattern(stripAccents(term));
         if (!pat) continue;
-        sub.push(`${hay} REGEXP ?`);
+        sub.push(`${hay} ~* ?`);
         vals.push(pat);
       }
       if (sub.length) orParts.push(sub.length === 1 ? sub[0]! : `(${sub.join(" OR ")})`);
@@ -315,11 +338,11 @@ export async function searchMemosForUser(input: {
     extraVals.push(input.authorUserId);
   }
   if (cFrom) {
-    extra.push("DATE(m.createdAt) >= ?");
+    extra.push(`m.createdat::date >= ?`);
     extraVals.push(cFrom);
   }
   if (cTo) {
-    extra.push("DATE(m.createdAt) <= ?");
+    extra.push(`m.createdat::date <= ?`);
     extraVals.push(cTo);
   }
 
@@ -332,7 +355,8 @@ export async function searchMemosForUser(input: {
 
   const listSql = `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
       m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
-      m.createdAt, m.keywords, m.dadosEspecificosJson, m.mediaMetadata, m.apiCost, m.usedApiCred
+      m.createdAt, m.keywords, m.dadosEspecificosJson, m.mediaMetadata, m.apiCost, m.usedApiCred,
+      (EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks
     FROM memos m
     WHERE ${whereSql}
     ORDER BY m.createdAt DESC
@@ -361,4 +385,55 @@ export async function searchMemosForUser(input: {
     displayLabel,
     highlightTerms,
   };
+}
+
+export async function searchMemosSemantic(input: {
+  userId: number;
+  isAdmin: boolean;
+  groupId: number | null;
+  query: string;
+  limit?: number;
+}): Promise<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string }> {
+  const q = input.query.trim();
+  if (!q) return { items: [], totalCount: 0, displayLabel: "" };
+
+  if (input.groupId != null) {
+    await assertUserWorkspaceGroupAccess(input.userId, input.groupId, input.isAdmin);
+  }
+
+  const hits = await searchMemosByEmbedding({
+    query: q,
+    userId: input.userId,
+    groupId: input.groupId,
+    limit: input.limit ?? 40,
+  });
+
+  if (!hits.length) {
+    return { items: [], totalCount: 0, displayLabel: q.length > 140 ? `${q.slice(0, 137)}…` : q };
+  }
+
+  const simMap = new Map(hits.map((h) => [h.memoId, h.similarity]));
+  const ids = hits.map((h) => h.memoId);
+  const ph = ids.map(() => "?").join(",");
+
+  const [rows] = await pool.query<MemoSearchRow[]>(
+    `SELECT m.id, m.userid, m.groupid, m.mediatype, m.mediatext, m.mediaweburl,
+            m.mediaaudiourl, m.mediaimageurl, m.mediavideourl, m.mediadocumenturl,
+            m.createdat, m.keywords, m.dadosespecificosjson, m.mediametadata, m.apicost, m.usedapicred,
+            (EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks
+     FROM memos m
+     WHERE m.id IN (${ph}) AND m.isactive = 1`,
+    ids
+  );
+
+  const items: MemoRecentCard[] = hits
+    .map((h) => {
+      const row = rows.find((r) => r.id === h.memoId);
+      if (!row) return null;
+      return { ...rowToCard(row), similarity: Math.round(h.similarity * 100) / 100 };
+    })
+    .filter((x): x is MemoRecentCard => x !== null);
+
+  const displayLabel = q.length > 140 ? `${q.slice(0, 137)}…` : q;
+  return { items, totalCount: items.length, displayLabel };
 }

@@ -1,6 +1,6 @@
 import type { TextMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
 import { normalizeMemoKeywordKey } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { fetchAndExtractPlainTextFromUrl } from "../lib/urlFetchText.js";
 import { openaiChatJson } from "../lib/openaiChat.js";
@@ -32,7 +32,7 @@ export async function loadCategoryContext(
   }
   let [catRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, name FROM categories
-     WHERE groupId <=> ? AND isActive = 1
+     WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1
        AND (mediaType IS NULL OR mediaType = 'text')
      ORDER BY id ASC`,
     [groupId]
@@ -51,19 +51,19 @@ export async function loadCategoryContext(
   const ids = catRows.map((r) => r.id as number);
   const ph = ids.map(() => "?").join(",");
   const [subRows] = await pool.query<RowDataPacket[]>(
-    `SELECT categoryId, name FROM subCategories WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+    `SELECT categoryId, name FROM subcategories WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
     ids
   );
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name, normalizedTerms FROM categoryCampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name, normalizedTerms FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
   } catch {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name FROM categoryCampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
@@ -386,7 +386,7 @@ async function resolveAllowFreeSpecificFieldsWithoutCategoryMatch(
   try {
     if (groupId != null) {
       const [gRows] = await pool.query<RowDataPacket[]>(
-        `SELECT allowFreeSpecificFieldsWithoutCategoryMatch FROM \`groups\` WHERE id = ? LIMIT 1`,
+        `SELECT allowFreeSpecificFieldsWithoutCategoryMatch FROM groups WHERE id = ? LIMIT 1`,
         [groupId]
       );
       const raw = gRows[0]?.allowFreeSpecificFieldsWithoutCategoryMatch;

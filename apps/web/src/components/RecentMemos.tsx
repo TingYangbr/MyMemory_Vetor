@@ -93,6 +93,8 @@ function normalizeRecentItem(raw: Record<string, unknown>): MemoRecentCard | nul
     userId: Number.isFinite(uid) ? uid : -1,
     apiCost: Number.isFinite(apiCost) ? apiCost : 0,
     usedApiCred: Number.isFinite(usedApiCred) ? usedApiCred : 0,
+    iaUseLevel: typeof raw.iaUseLevel === "string" ? raw.iaUseLevel : null,
+    hasSemanticChunks: Boolean(raw.hasSemanticChunks),
   };
 }
 
@@ -235,6 +237,20 @@ export default function RecentMemos({
           </div>
           <span className={styles.memoRef}>#{m.id}</span>
         </header>
+
+        {(m.iaUseLevel || m.hasSemanticChunks) ? (
+          <div className={styles.metaBadges}>
+            {m.iaUseLevel === "semIA" && (
+              <span className={`${styles.badge} ${styles.badgeSemIA}`} title="Processado sem IA">sem IA</span>
+            )}
+            {m.iaUseLevel === "basico" && (
+              <span className={`${styles.badge} ${styles.badgeBasico}`} title="IA básica: keywords e categoria">IA básica</span>
+            )}
+            {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
+              <span className={`${styles.badge} ${styles.badgeSemantic}`} title="Processamento semântico — embedding pgvector gravado">⊛ semântico</span>
+            )}
+          </div>
+        ) : null}
 
         {showCostRow ? (
           <p className={styles.costStrip}>

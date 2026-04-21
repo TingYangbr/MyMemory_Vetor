@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { FastifyInstance, FastifyPluginAsync, RouteHandlerMethod } from "fastify";
 import bcrypt from "bcryptjs";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import { z } from "zod";
 import { config } from "../config.js";
 import { pool } from "../db.js";
@@ -51,11 +51,7 @@ function safeAuthNextParam(raw: unknown): string | undefined {
   return t;
 }
 
-function mysqlErrText(err: unknown): string {
-  if (err && typeof err === "object" && "sqlMessage" in err) {
-    const m = (err as { sqlMessage?: string }).sqlMessage;
-    if (m) return m;
-  }
+function dbErrText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
@@ -63,9 +59,9 @@ function mysqlErrText(err: unknown): string {
 const EMAIL_TAKEN_REGISTER_MSG =
   "Este e-mail já está cadastrado. Use Entrar se já tem conta; se esqueceu a senha, use Esqueci a senha.";
 
-function isMysqlDuplicateKey(err: unknown): boolean {
-  const e = err as { errno?: number; code?: string };
-  return e.errno === 1062 || e.code === "ER_DUP_ENTRY";
+function isDuplicateKey(err: unknown): boolean {
+  const e = err as { code?: string };
+  return e.code === "23505";
 }
 
 /**
@@ -150,15 +146,15 @@ const plugin: FastifyPluginAsync = async (app) => {
 
       let userId: number;
       try {
-        const [ins] = await conn.query<ResultSetHeader>(
-          `INSERT INTO users (openId, name, email, loginMethod, emailVerified, passwordHash)
-           VALUES (?, ?, ?, 'password', 0, ?)`,
+        const [insRows] = await conn.query<{ id: number }[]>(
+          `INSERT INTO users ("openId", name, email, "loginMethod", "emailVerified", "passwordHash")
+           VALUES (?, ?, ?, 'password', 0, ?) RETURNING id`,
           [openId, name, email, passwordHash]
         );
-        userId = Number(ins.insertId);
+        userId = Number(insRows[0]?.id);
       } catch (insErr) {
         await conn.rollback();
-        if (isMysqlDuplicateKey(insErr)) {
+        if (isDuplicateKey(insErr)) {
           return reply.code(409).send({
             error: "email_taken",
             message: EMAIL_TAKEN_REGISTER_MSG,
@@ -321,7 +317,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       const isProd = process.env.NODE_ENV === "production";
       const msg = isProd
         ? "Erro no servidor ao entrar. Confirme que a API e o MySQL estão acessíveis."
-        : mysqlErrText(e);
+        : dbErrText(e);
       return reply.code(500).send({ error: "server_error", message: msg });
     }
   });
@@ -427,7 +423,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       app.log.error({ err }, "forgot-password");
       return reply.code(500).send({
         error: "internal",
-        message: mysqlErrText(err),
+        message: dbErrText(err),
         hint:
           "Causa frequente: tabela user_auth_tokens em falta. Na base mymemory execute docs/migrations/003_user_auth_tokens.sql",
       });

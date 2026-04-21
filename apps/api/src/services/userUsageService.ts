@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import type { UserUsageDashboardResponse } from "@mymemory/shared";
 import { pool } from "../db.js";
 

@@ -77,6 +77,15 @@ export function MemoResultListRow({
         <div className={styles.listRow1Rest}>
           <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} className={styles.listRow1Link} title="Abrir memo">
             <span className={styles.listFilename}>{label}</span>
+            {m.iaUseLevel === "semIA" && (
+              <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
+            )}
+            {m.iaUseLevel === "basico" && (
+              <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
+            )}
+            {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
+              <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
+            )}
             <time className={styles.listDate} dateTime={m.createdAt}>
               {dateStr}
             </time>
@@ -94,9 +103,7 @@ export function MemoResultListRow({
             </span>
             <span className={styles.metricChip}>
               <span className={styles.metricLbl}>dados</span>
-              <span className={styles.metricVal}>
-                {xx}/{yy}
-              </span>
+              <span className={styles.metricVal}>{xx}/{yy}</span>
             </span>
           </div>
         </div>

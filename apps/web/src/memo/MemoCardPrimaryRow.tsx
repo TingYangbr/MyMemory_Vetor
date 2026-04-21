@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 import type { MemoRecentCard } from "@mymemory/shared";
 import {
@@ -13,15 +14,18 @@ type Props = {
   apiBase: string;
   /** `state.returnTo` ao consultar memo sem arquivo (ex.: `/`, `/buscar`). */
   returnTo: string;
+  /** Badge opcional renderizado entre o label e a data. */
+  badge?: ReactNode;
 };
 
-export function MemoCardPrimaryRow({ m, apiBase, returnTo }: Props) {
+export function MemoCardPrimaryRow({ m, apiBase, returnTo, badge }: Props) {
   const label = searchCardPrimaryLabel(m);
   const dateStr = formatSearchCardDate(m.createdAt);
   const row = (
     <>
       <MemoCardTypeGlyph m={m} />
       <span className={styles.memoCardPrimaryLabel}>{label}</span>
+      {badge}
       <time className={styles.memoCardPrimaryDate} dateTime={m.createdAt}>
         {dateStr}
       </time>

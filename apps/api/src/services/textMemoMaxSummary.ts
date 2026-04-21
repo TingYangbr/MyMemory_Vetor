@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { resolvePlanIdForUserWorkspace } from "./mediaLimitsService.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
@@ -33,7 +33,7 @@ export async function resolveMaxSummaryCharsForText(
     return Math.min(fromSettings, ABSOLUTE_CAP);
   }
   const [grows] = await pool.query<RowDataPacket[]>(
-    `SELECT maxSummaryLength FROM \`groups\` WHERE id = ? LIMIT 1`,
+    `SELECT maxSummaryLength FROM groups WHERE id = ? LIMIT 1`,
     [groupId]
   );
   const gMax =
@@ -79,7 +79,7 @@ export async function resolveMaxSummaryCharsForImage(
     return Math.min(fromSettings, ABSOLUTE_CAP);
   }
   const [grows] = await pool.query<RowDataPacket[]>(
-    `SELECT maxSummaryLength FROM \`groups\` WHERE id = ? LIMIT 1`,
+    `SELECT maxSummaryLength FROM groups WHERE id = ? LIMIT 1`,
     [groupId]
   );
   const gMax =
@@ -124,7 +124,7 @@ export async function resolveMaxSummaryCharsForDocument(
     return Math.min(fromSettings, ABSOLUTE_CAP);
   }
   const [grows] = await pool.query<RowDataPacket[]>(
-    `SELECT maxSummaryLength FROM \`groups\` WHERE id = ? LIMIT 1`,
+    `SELECT maxSummaryLength FROM groups WHERE id = ? LIMIT 1`,
     [groupId]
   );
   const gMax =
@@ -169,7 +169,7 @@ export async function resolveMaxSummaryCharsForAudio(
     return Math.min(fromSettings, ABSOLUTE_CAP);
   }
   const [grows] = await pool.query<RowDataPacket[]>(
-    `SELECT maxSummaryLength FROM \`groups\` WHERE id = ? LIMIT 1`,
+    `SELECT maxSummaryLength FROM groups WHERE id = ? LIMIT 1`,
     [groupId]
   );
   const gMax =
@@ -214,7 +214,7 @@ export async function resolveMaxSummaryCharsForVideo(
     return Math.min(fromSettings, ABSOLUTE_CAP);
   }
   const [grows] = await pool.query<RowDataPacket[]>(
-    `SELECT maxSummaryLength FROM \`groups\` WHERE id = ? LIMIT 1`,
+    `SELECT maxSummaryLength FROM groups WHERE id = ? LIMIT 1`,
     [groupId]
   );
   const gMax =

@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 
 async function getConfigValueRaw(configKey: string): Promise<string | null> {

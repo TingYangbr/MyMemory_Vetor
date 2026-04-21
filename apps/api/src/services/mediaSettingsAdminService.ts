@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import type { AdminMediaSettingRow, AdminMediaSettingsResponse, MediaSettingsMediaTypeDb } from "@mymemory/shared";
 import { pool } from "../db.js";
 
@@ -37,8 +37,8 @@ function nullablePosInt(v: unknown): number | null {
 function isUnknownColumnErr(err: unknown, col?: string): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; errno?: number; sqlMessage?: string };
-  if (e.code !== "ER_BAD_FIELD_ERROR" && e.errno !== 1054) return false;
-  if (col) return String(e.sqlMessage ?? "").includes(col);
+  if (e.code !== "42703") return false;
+  if (col) return String((e as {message?: string}).message ?? "").includes(col);
   return true;
 }
 
@@ -46,8 +46,8 @@ function isUnknownColumnErr(err: unknown, col?: string): boolean {
 function isMediaSettings013Missing(err: unknown): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; errno?: number; sqlMessage?: string };
-  const m = String(e.sqlMessage ?? "");
-  if (e.code === "ER_BAD_FIELD_ERROR" || e.errno === 1054) {
+  const m = String((e as {message?: string}).message ?? "");
+  if (e.code === "42703") {
     if (
       m.includes("video_chunk_minutes") ||
       m.includes("audio_chunk_minutes") ||
@@ -59,7 +59,7 @@ function isMediaSettings013Missing(err: unknown): boolean {
       return true;
     }
   }
-  if ((e.errno === 1265 || e.code === "WARN_DATA_TRUNCATED") && m.includes("mediaType")) {
+  if ((e.code === "22001" || e.code === "22P02") && m.includes("mediaType")) {
     return true;
   }
   return false;
@@ -262,19 +262,19 @@ export async function upsertPlanMediaSettingsAdmin(planId: number, inputRows: Me
       try {
         await conn.query<ResultSetHeader>(
           `INSERT INTO media_settings (
-          planId, mediaType, maxFileSizeKB,
-          video_chunk_minutes, audio_chunk_minutes, maxLargeVideoKb, maxLargeAudioKb,
-          maxSummaryChars, textImagemMin, compressBeforeAI
+          planid, mediatype, maxfilesizekb,
+          video_chunk_minutes, audio_chunk_minutes, maxlargevideokb, maxlargeaudiokb,
+          maxsummarychars, textimagemmin, compressbeforeai
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE
-          maxFileSizeKB = VALUES(maxFileSizeKB),
-          video_chunk_minutes = VALUES(video_chunk_minutes),
-          audio_chunk_minutes = VALUES(audio_chunk_minutes),
-          maxLargeVideoKb = VALUES(maxLargeVideoKb),
-          maxLargeAudioKb = VALUES(maxLargeAudioKb),
-          maxSummaryChars = VALUES(maxSummaryChars),
-          textImagemMin = VALUES(textImagemMin),
-          compressBeforeAI = VALUES(compressBeforeAI)`,
+        ON CONFLICT (planid, mediatype) DO UPDATE SET
+          maxfilesizekb = EXCLUDED.maxfilesizekb,
+          video_chunk_minutes = EXCLUDED.video_chunk_minutes,
+          audio_chunk_minutes = EXCLUDED.audio_chunk_minutes,
+          maxlargevideokb = EXCLUDED.maxlargevideokb,
+          maxlargeaudiokb = EXCLUDED.maxlargeaudiokb,
+          maxsummarychars = EXCLUDED.maxsummarychars,
+          textimagemmin = EXCLUDED.textimagemmin,
+          compressbeforeai = EXCLUDED.compressbeforeai`,
           [
             planId,
             row.mediaType,

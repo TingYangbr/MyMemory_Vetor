@@ -8,7 +8,7 @@ import type {
   MemoContextSubcategory,
   WorkspaceGroupItem,
 } from "@mymemory/shared";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
+import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 
 function ts(v: unknown): string {
@@ -46,13 +46,13 @@ export async function userHasMemoContextAccess(userId: number): Promise<boolean>
 export async function listGroupsForMemoContext(userId: number, isAdmin: boolean): Promise<MemoContextGroupOption[]> {
   if (isAdmin) {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, name FROM \`groups\` ORDER BY name ASC`
+      `SELECT id, name FROM groups ORDER BY name ASC`
     );
     return rows.map((r) => ({ id: r.id as number, name: r.name as string }));
   }
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT DISTINCT g.id, g.name
-     FROM \`groups\` g
+     FROM groups g
      WHERE EXISTS (
        SELECT 1 FROM subscriptions s
        WHERE s.id = g.subscriptionId AND s.ownerId = ? AND s.type = 'group' AND s.status = 'active'
@@ -74,12 +74,12 @@ export async function assertUserWorkspaceGroupAccess(
   isAdmin: boolean
 ): Promise<void> {
   if (isAdmin) {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM `groups` WHERE id = ? LIMIT 1", [groupId]);
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM groups WHERE id = ? LIMIT 1", [groupId]);
     if (!rows[0]) throw new Error("group_not_found");
     return;
   }
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM \`groups\` g
+    `SELECT 1 FROM groups g
      WHERE g.id = ?
      AND (
        EXISTS (SELECT 1 FROM group_members gm WHERE gm.groupId = g.id AND gm.userId = ?)
@@ -114,7 +114,7 @@ export async function listWorkspaceGroupsForUser(userId: number, isAdmin: boolea
   if (isAdmin) {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT g.id, g.name, g.description, 1 AS isOwner, u.email AS subscriptionOwnerEmail
-       FROM \`groups\` g
+       FROM groups g
        INNER JOIN subscriptions s ON s.id = g.subscriptionId
        LEFT JOIN users u ON u.id = s.ownerId
        ORDER BY g.name ASC`
@@ -134,7 +134,7 @@ export async function listWorkspaceGroupsForUser(userId: number, isAdmin: boolea
           )
         ) AS isOwner,
         ou.email AS subscriptionOwnerEmail
-     FROM \`groups\` g
+     FROM groups g
      INNER JOIN subscriptions s ON s.id = g.subscriptionId
      LEFT JOIN users ou ON ou.id = s.ownerId
      WHERE EXISTS (SELECT 1 FROM group_members gm2 WHERE gm2.groupId = g.id AND gm2.userId = ?)
@@ -150,12 +150,12 @@ export async function listWorkspaceGroupsForUser(userId: number, isAdmin: boolea
 
 export async function assertUserCanAccessGroup(userId: number, groupId: number, isAdmin: boolean): Promise<void> {
   if (isAdmin) {
-    const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM `groups` WHERE id = ? LIMIT 1", [groupId]);
+    const [rows] = await pool.query<RowDataPacket[]>("SELECT 1 FROM groups WHERE id = ? LIMIT 1", [groupId]);
     if (!rows[0]) throw new Error("group_not_found");
     return;
   }
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM \`groups\` g
+    `SELECT 1 FROM groups g
      WHERE g.id = ?
      AND (
        EXISTS (
@@ -197,7 +197,7 @@ export async function assertMemoContextReadScope(
 
 async function userOwnsGroupForMemoContext(userId: number, groupId: number): Promise<boolean> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT 1 FROM \`groups\` g
+    `SELECT 1 FROM groups g
      WHERE g.id = ?
      AND (
        EXISTS (
@@ -252,10 +252,10 @@ export async function loadMemoContextStructure(
   const canEditStructure = await computeMemoContextCanEditScope(userId, scopeGroupId, isAdmin);
 
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt
-     FROM categories WHERE groupId <=> ? AND isActive = 1`;
+     FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
   if (filterMediaType != null) {
-    sql += ` AND mediaType <=> ?`;
+    sql += ` AND mediaType IS NOT DISTINCT FROM ?`;
     params.push(filterMediaType);
   }
   sql += ` ORDER BY id ASC`;
@@ -270,21 +270,21 @@ export async function loadMemoContextStructure(
 
   const [subRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, categoryId, name, description, isActive, createdAt, updatedAt
-     FROM subCategories WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
+     FROM subcategories WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
     catIds
   );
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT id, categoryId, name, description, normalizedTerms, isActive, createdAt, updatedAt
-       FROM categoryCampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
+       FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
     campoRows = rows;
   } catch {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT id, categoryId, name, description, isActive, createdAt, updatedAt
-       FROM categoryCampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
+       FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
     campoRows = rows;
@@ -361,15 +361,15 @@ export async function createCategory(
   const isAdmin = await getUserAdminFlag(userId);
   await assertMemoContextWriteForGroupScope(userId, input.groupId, isAdmin);
   try {
-    const [res] = await pool.execute<ResultSetHeader>(
-      `INSERT INTO categories (groupId, mediaType, name, description, isActive)
-       VALUES (?, ?, ?, ?, 1)`,
+    const [rows] = await pool.query<{ id: number }[]>(
+      `INSERT INTO categories (groupid, mediatype, name, description, isactive)
+       VALUES (?, ?, ?, ?, 1) RETURNING id`,
       [input.groupId, input.mediaType ?? null, input.name.trim(), input.description?.trim() ?? null]
     );
-    return res.insertId;
+    return rows[0].id;
   } catch (e) {
-    const err = e as { errno?: number; sqlMessage?: string };
-    if (err.errno === 1048 && /groupId/i.test(err.sqlMessage ?? "")) {
+    const err = e as { code?: string; constraint?: string; message?: string };
+    if (err.code === "23502" && /groupId/i.test(err.constraint ?? err.message ?? "")) {
       throw new Error("migration_groupid_null");
     }
     throw e;
@@ -407,16 +407,16 @@ export async function updateCategory(
     vals.push(patch.description?.trim() ?? null);
   }
   if (patch.mediaType !== undefined) {
-    sets.push("mediaType = ?");
+    sets.push("mediatype = ?");
     vals.push(patch.mediaType);
   }
   if (patch.isActive !== undefined) {
-    sets.push("isActive = ?");
+    sets.push("isactive = ?");
     vals.push(patch.isActive);
   }
   if (sets.length === 0) return;
   vals.push(categoryId);
-  await pool.execute(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
+  await pool.query(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
 }
 
 async function assertCategoryInAccessibleGroup(userId: number, categoryId: number): Promise<void> {
@@ -437,11 +437,11 @@ export async function createSubcategory(
   input: { name: string; description?: string | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
-  const [res] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO subCategories (categoryId, name, description, isActive) VALUES (?, ?, ?, 1)`,
+  const [rows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO subcategories (categoryid, name, description, isactive) VALUES (?, ?, ?, 1) RETURNING id`,
     [categoryId, input.name.trim(), input.description?.trim() ?? null]
   );
-  return res.insertId;
+  return rows[0].id;
 }
 
 export async function updateSubcategory(
@@ -451,7 +451,7 @@ export async function updateSubcategory(
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.groupId FROM subCategories sc
+    `SELECT c.groupId FROM subcategories sc
      INNER JOIN categories c ON c.id = sc.categoryId
      WHERE sc.id = ? LIMIT 1`,
     [subCategoryId]
@@ -472,12 +472,12 @@ export async function updateSubcategory(
     vals.push(patch.description?.trim() ?? null);
   }
   if (patch.isActive !== undefined) {
-    sets.push("isActive = ?");
+    sets.push("isactive = ?");
     vals.push(patch.isActive);
   }
   if (sets.length === 0) return;
   vals.push(subCategoryId);
-  await pool.execute(`UPDATE subCategories SET ${sets.join(", ")} WHERE id = ?`, vals);
+  await pool.query(`UPDATE subcategories SET ${sets.join(", ")} WHERE id = ?`, vals);
 }
 
 export async function createCampo(
@@ -486,11 +486,11 @@ export async function createCampo(
   input: { name: string; description?: string | null; normalizedTerms?: string | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
-  const [res] = await pool.execute<ResultSetHeader>(
-    `INSERT INTO categoryCampos (categoryId, name, description, normalizedTerms, isActive) VALUES (?, ?, ?, ?, 1)`,
+  const [rows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO categorycampos (categoryid, name, description, normalizedterms, isactive) VALUES (?, ?, ?, ?, 1) RETURNING id`,
     [categoryId, input.name.trim(), input.description?.trim() ?? null, input.normalizedTerms?.trim() ?? null]
   );
-  return res.insertId;
+  return rows[0].id;
 }
 
 export async function updateCampo(
@@ -500,7 +500,7 @@ export async function updateCampo(
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.groupId FROM categoryCampos cc
+    `SELECT c.groupId FROM categorycampos cc
      INNER JOIN categories c ON c.id = cc.categoryId
      WHERE cc.id = ? LIMIT 1`,
     [campoId]
@@ -521,16 +521,16 @@ export async function updateCampo(
     vals.push(patch.description?.trim() ?? null);
   }
   if (patch.normalizedTerms !== undefined) {
-    sets.push("normalizedTerms = ?");
+    sets.push("normalizedterms = ?");
     vals.push(patch.normalizedTerms?.trim() ?? null);
   }
   if (patch.isActive !== undefined) {
-    sets.push("isActive = ?");
+    sets.push("isactive = ?");
     vals.push(patch.isActive);
   }
   if (sets.length === 0) return;
   vals.push(campoId);
-  await pool.execute(`UPDATE categoryCampos SET ${sets.join(", ")} WHERE id = ?`, vals);
+  await pool.query(`UPDATE categorycampos SET ${sets.join(", ")} WHERE id = ?`, vals);
 }
 
 export async function softDeleteCategory(userId: number, categoryId: number): Promise<void> {

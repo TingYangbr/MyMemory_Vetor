@@ -43,6 +43,10 @@ const SUGGESTION_PANEL_POS_KEY = "mm_buscar_suggestion_panel_pos_v1";
 /** Campo de pesquisa: até 2 linhas visíveis; sem quebras reais no termo (Enter = buscar). */
 const SEARCH_QUERY_MAX_LINES = 2;
 
+const SILENCE_MS_TEXTUAL = 2500;
+const SILENCE_MS_SEMANTIC = 5000;
+const PAUSE_TIMEOUT_MS_SEMANTIC = 15000;
+
 function loadSuggestionPanelPos(): { x: number; y: number } | null {
   try {
     const raw = sessionStorage.getItem(SUGGESTION_PANEL_POS_KEY);
@@ -123,7 +127,7 @@ function loadBuscarSnapshot(): BuscarSnapshot | null {
 }
 
 function coalesceSearchMode(raw: unknown): MemoSearchMode {
-  if (raw === "mediaText" || raw === "keywords" || raw === "dadosEspecificos" || raw === "all") return raw;
+  if (raw === "mediaText" || raw === "keywords" || raw === "dadosEspecificos" || raw === "all" || raw === "semantic") return raw;
   return "all";
 }
 
@@ -518,6 +522,9 @@ export default function MemoSearchPage() {
   const [searchBusy, setSearchBusy] = useState(false);
   const [expandBusy, setExpandBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"textual" | "semantic">("textual");
+  const [micState, setMicState] = useState<"idle" | "listening" | "paused" | "done">("idle");
+  const [showTimeoutPopup, setShowTimeoutPopup] = useState(false);
   const [listeningMode, setListeningMode] = useState<"nova" | "mais" | null>(null);
   const [ttsBusy, setTtsBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<MemoRecentCard | null>(null);
@@ -546,6 +553,8 @@ export default function MemoSearchPage() {
 
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pauseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeTabRef = useRef<"textual" | "semantic">("textual");
   const lastFinalIdxRef = useRef(-1);
   /** Incrementa a cada sessão de voz; 0 = inactivo. Evita onend/onerror deixarem UI presa em “Ouvindo…”. */
   const voiceSessionRef = useRef(0);
@@ -555,6 +564,7 @@ export default function MemoSearchPage() {
     (q?: string, snap?: SearchFilterSnap, forcedSearchMode?: MemoSearchMode) => Promise<void>
   >(async () => {});
 
+  activeTabRef.current = activeTab;
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const currentUserId = me?.id ?? null;
   const showApiCost = me?.showApiCost !== false;
@@ -767,11 +777,15 @@ export default function MemoSearchPage() {
     setError(null);
   }, [location.pathname]);
 
-  const stopListening = useCallback(() => {
+  const stopListening = useCallback((toMicState: "idle" | "done" = "idle") => {
     voiceSessionRef.current = 0;
     if (silenceTimerRef.current) {
       clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = null;
+    }
+    if (pauseTimeoutRef.current) {
+      clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = null;
     }
     const rec = recognitionRef.current;
     recognitionRef.current = null;
@@ -781,21 +795,23 @@ export default function MemoSearchPage() {
       /* já parado */
     }
     setListeningMode(null);
+    setMicState(toMicState);
   }, []);
 
   const resetSilenceTimer = useCallback(
     (sessionId: number) => {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      const delay = activeTabRef.current === "semantic" ? SILENCE_MS_SEMANTIC : SILENCE_MS_TEXTUAL;
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
         if (voiceSessionRef.current !== sessionId) return;
         const qV = voiceTranscriptRef.current.trim();
         const had = voiceHadResultRef.current;
-        stopListening();
+        stopListening("done");
         if (had && qV) {
-          queueMicrotask(() => void runSearchRef.current(qV, undefined, "all"));
+          queueMicrotask(() => void runSearchRef.current(qV, undefined, activeTabRef.current === "semantic" ? "semantic" : "all"));
         }
-      }, 2200);
+      }, delay);
     },
     [stopListening]
   );
@@ -831,7 +847,7 @@ export default function MemoSearchPage() {
       }
 
       rec.lang = "pt-BR";
-      rec.continuous = false;
+      rec.continuous = activeTabRef.current === "semantic";
       rec.interimResults = true;
 
       rec.onresult = (ev: {
@@ -897,27 +913,53 @@ export default function MemoSearchPage() {
         recognitionRef.current = null;
         voiceSessionRef.current = 0;
         setListeningMode(null);
+        setMicState("done");
         const qV = voiceTranscriptRef.current.trim();
         const had = voiceHadResultRef.current;
         if (had && qV) {
-          queueMicrotask(() => void runSearchRef.current(qV, undefined, "all"));
+          const mode = activeTabRef.current === "semantic" ? "semantic" : "all";
+          queueMicrotask(() => void runSearchRef.current(qV, undefined, mode));
         }
       };
 
       recognitionRef.current = rec;
       setListeningMode(mode);
+      setMicState("listening");
       try {
         rec.start();
-        resetSilenceTimer(sessionId);
+        // Não inicia o timer aqui — começa apenas quando voz é detectada (onresult)
       } catch {
         voiceSessionRef.current = 0;
         recognitionRef.current = null;
         setListeningMode(null);
+        setMicState("idle");
         setError("Não foi possível iniciar o microfone.");
       }
     },
     [resetSilenceTimer, stopListening, query]
   );
+
+  const pauseMic = useCallback(() => {
+    if (silenceTimerRef.current) {
+      clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = null;
+    }
+    voiceSessionRef.current = 0;
+    const rec = recognitionRef.current;
+    recognitionRef.current = null;
+    try { rec?.stop?.(); } catch { /* */ }
+    setListeningMode(null);
+    setMicState("paused");
+
+    if (activeTabRef.current === "semantic") {
+      if (pauseTimeoutRef.current) clearTimeout(pauseTimeoutRef.current);
+      pauseTimeoutRef.current = setTimeout(() => {
+        pauseTimeoutRef.current = null;
+        setMicState("done");
+        setShowTimeoutPopup(true);
+      }, PAUSE_TIMEOUT_MS_SEMANTIC);
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -943,6 +985,10 @@ export default function MemoSearchPage() {
       const cFrom = snap?.createdAtFrom !== undefined ? snap.createdAtFrom : filterDateFrom;
       const cTo = snap?.createdAtTo !== undefined ? snap.createdAtTo : filterDateTo;
       const author = snap?.authorUserId !== undefined ? snap.authorUserId : filterAuthorUserId;
+      setItems([]);
+      setTotalCount(0);
+      setDisplayLabel("");
+      setHighlightTerms([]);
       setSearchBusy(true);
       setError(null);
       setNoResultsFor(null);
@@ -952,16 +998,25 @@ export default function MemoSearchPage() {
         setTtsBusy(false);
       }
       try {
-        const body = await apiPostJson<MemoSearchResponse>("/api/memos/search", {
-          query: raw,
-          logic,
-          groupId: workspaceGroupId,
-          excludeIds: [],
-          createdAtFrom: cFrom ? cFrom : null,
-          createdAtTo: cTo ? cTo : null,
-          authorUserId: author,
-          searchMode: modeForRequest,
-        });
+        let body: MemoSearchResponse;
+        if (modeForRequest === "semantic") {
+          const sem = await apiPostJson<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string }>(
+            "/api/memos/search/semantic",
+            { query: raw, groupId: workspaceGroupId }
+          );
+          body = { items: sem.items, totalCount: sem.totalCount, displayLabel: sem.displayLabel, highlightTerms: [] };
+        } else {
+          body = await apiPostJson<MemoSearchResponse>("/api/memos/search", {
+            query: raw,
+            logic,
+            groupId: workspaceGroupId,
+            excludeIds: [],
+            createdAtFrom: cFrom ? cFrom : null,
+            createdAtTo: cTo ? cTo : null,
+            authorUserId: author,
+            searchMode: modeForRequest,
+          });
+        }
         setItems(body.items);
         setTotalCount(body.totalCount);
         setDisplayLabel(body.displayLabel);
@@ -1287,7 +1342,7 @@ export default function MemoSearchPage() {
           <div className={styles.searchBlock}>
             <div className={styles.topBar}>
               <h2 id={panelTitleId} className={styles.panelTitle}>
-                Buscar Memos
+                Buscar Memo
               </h2>
               <div className={styles.filterPills}>
                 <button
@@ -1320,14 +1375,46 @@ export default function MemoSearchPage() {
               </div>
             </div>
 
+            <div className={styles.modeSwitcher} role="tablist" aria-label="Modo de busca">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "textual"}
+                className={`${styles.modeSwitcherBtn} ${activeTab === "textual" ? styles.modeSwitcherTextualOn : ""}`}
+                onClick={() => { setActiveTab("textual"); setMicState("idle"); setShowTimeoutPopup(false); }}
+              >
+                <span className={styles.modeSwitcherIcon} aria-hidden>🔤</span>
+                Busca por Texto
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === "semantic"}
+                className={`${styles.modeSwitcherBtn} ${activeTab === "semantic" ? styles.modeSwitcherSemanticOn : ""}`}
+                onClick={() => { setActiveTab("semantic"); setMicState("idle"); setShowTimeoutPopup(false); }}
+              >
+                <span className={styles.modeSwitcherIcon} aria-hidden>⊛</span>
+                Busca Semântica
+              </button>
+            </div>
+
             <div className={styles.searchRow}>
-              <div className={styles.searchFieldWrap}>
+              <div
+                className={styles.searchFieldWrap}
+                style={{
+                  borderWidth: micState === "listening" || micState === "paused" ? "1.5px" : undefined,
+                  borderColor:
+                    micState === "paused" ? "#BA7517" :
+                    micState === "listening" ? (activeTab === "semantic" ? "#7F77DD" : "#1D9E75") :
+                    undefined,
+                }}
+              >
                 <button
                   type="button"
                   className={styles.searchIconBtn}
                   aria-label={searchBusy ? "A buscar…" : "Buscar"}
                   disabled={searchBusy || !query.trim()}
-                  onClick={() => void runSearch(undefined, undefined, "all")}
+                  onClick={() => void runSearch(undefined, undefined, activeTab === "semantic" ? "semantic" : "all")}
                 >
                   <IconSearch className={styles.searchIcon} />
                 </button>
@@ -1339,7 +1426,7 @@ export default function MemoSearchPage() {
                   rows={1}
                   autoComplete="off"
                   spellCheck={false}
-                  placeholder="Digite para buscar…"
+                  placeholder={activeTab === "semantic" ? "Descreva o que você quer encontrar…" : "Digite para buscar…"}
                   value={query}
                   onChange={(e) => {
                     const v = e.target.value.replace(/\r\n|\r|\n/g, " ");
@@ -1350,7 +1437,7 @@ export default function MemoSearchPage() {
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
-                      void runSearch(undefined, undefined, "all");
+                      void runSearch(undefined, undefined, activeTab === "semantic" ? "semantic" : "all");
                     }
                   }}
                   aria-describedby={searchFormId}
@@ -1360,13 +1447,14 @@ export default function MemoSearchPage() {
               <button
                 type="button"
                 className={styles.undoTermBtn}
-                title="Desfazer último trecho (última vírgula) e voltar a buscar"
-                aria-label="Desfazer último trecho da pesquisa"
-                disabled={querySegmentCount <= 1 || searchBusy || !query.trim()}
-                onClick={() => undoLastSearchTerm()}
+                title={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho (última vírgula) e voltar a buscar"}
+                aria-label={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho da pesquisa"}
+                disabled={activeTab === "semantic" ? (!query.trim() || searchBusy) : (querySegmentCount <= 1 || searchBusy || !query.trim())}
+                onClick={() => activeTab === "semantic" ? (setQuery(""), setMicState("idle")) : undoLastSearchTerm()}
               >
                 <IconUndoTerm className={styles.undoTermIcon} />
               </button>
+              {activeTab === "textual" ? (
               <div className={styles.logicGroup} role="group" aria-label="Operador entre trechos separados por vírgula">
                 <button
                   type="button"
@@ -1389,27 +1477,102 @@ export default function MemoSearchPage() {
                   OU
                 </button>
               </div>
+              ) : null}
+            </div>
+
+            {/* State badge */}
+            <div className={styles.micStateBadge} data-state={micState}>
+              {micState === "idle" && <span>Pronto para ouvir</span>}
+              {micState === "listening" && <span>Ouvindo…</span>}
+              {micState === "paused" && <span>Pausado</span>}
+              {micState === "done" && <span>Pronto para buscar</span>}
             </div>
 
             <div className={styles.voiceRowBelow}>
+              {/* Botão Nova (ambos os modos) */}
               <button
                 type="button"
-                className={`${styles.voiceBtn} ${listeningMode === "nova" ? styles.voiceBtnListening : styles.voiceBtnNova}`}
-                title="Clicar para nova busca por voz"
-                onClick={() => (listeningMode === "nova" ? stopListening() : startListening("nova"))}
+                className={`${styles.voiceBtn} ${
+                  micState === "listening"
+                    ? styles.voiceBtnListening
+                    : micState === "paused"
+                      ? styles.voiceBtnPaused
+                      : activeTab === "semantic"
+                        ? styles.voiceBtnSemantic
+                        : styles.voiceBtnNova
+                }`}
+                title={
+                  micState === "idle" || micState === "done" ? "Iniciar nova gravação" :
+                  micState === "listening" ? "Pausar gravação" :
+                  "Retomar gravação"
+                }
+                onClick={() => {
+                  if (micState === "done" || micState === "idle") {
+                    if (micState === "done") { setQuery(""); setMicState("idle"); }
+                    else startListening("nova");
+                  } else if (micState === "listening") {
+                    pauseMic();
+                  } else {
+                    if (pauseTimeoutRef.current) { clearTimeout(pauseTimeoutRef.current); pauseTimeoutRef.current = null; }
+                    startListening("nova");
+                  }
+                }}
               >
                 <IconMic />
-                {listeningMode === "nova" ? "Ouvindo…" : "Nova"}
+                {micState === "idle" || micState === "done" ? "Nova" : micState === "listening" ? "Pausar" : "Retomar"}
               </button>
-              <button
-                type="button"
-                className={`${styles.voiceBtn} ${listeningMode === "mais" ? styles.voiceBtnListening : styles.voiceBtnMais}`}
-                title="Clicar para acrescentar texto por voz para pesquisa, usando E/OU selecionado"
-                onClick={() => (listeningMode === "mais" ? stopListening() : startListening("mais"))}
-              >
-                <IconMic />
-                + Mais
-              </button>
+
+              {/* + Mais — só textual */}
+              {activeTab === "textual" ? (
+                <button
+                  type="button"
+                  className={`${styles.voiceBtn} ${listeningMode === "mais" ? styles.voiceBtnListening : styles.voiceBtnMais}`}
+                  title="Acrescentar texto por voz à pesquisa"
+                  onClick={() => (listeningMode === "mais" ? pauseMic() : startListening("mais"))}
+                >
+                  <IconMic />
+                  + Mais
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className={`${styles.voiceBtn} ${styles.voiceBtnDisabled}`}
+                  disabled
+                  title="Não disponível no modo semântico"
+                >
+                  <IconMic />
+                  + Mais
+                </button>
+              )}
+
+              {/* Finalizar narrativa — só semântico, visível em listening/paused */}
+              {activeTab === "semantic" && (micState === "listening" || micState === "paused") ? (
+                <button
+                  type="button"
+                  className={`${styles.voiceBtn} ${styles.voiceBtnFinalizarNarrativa}`}
+                  title="Finalizar narrativa e buscar imediatamente"
+                  onClick={() => {
+                    const qV = voiceTranscriptRef.current.trim() || query.trim();
+                    stopListening("done");
+                    if (qV) void runSearchRef.current(qV, undefined, "semantic");
+                  }}
+                >
+                  Finalizar narrativa
+                </button>
+              ) : null}
+
+              {/* Buscar — só semântico, após finalizar via botão */}
+              {activeTab === "semantic" && micState === "done" && query.trim() ? (
+                <button
+                  type="button"
+                  className={`${styles.voiceBtn} ${styles.voiceBtnBuscarSemantic}`}
+                  disabled={searchBusy}
+                  title="Executar busca semântica"
+                  onClick={() => void runSearch(undefined, undefined, "semantic")}
+                >
+                  {searchBusy ? "Buscando…" : "Buscar"}
+                </button>
+              ) : null}
             </div>
 
             <div className={styles.secondaryRow}>
@@ -1417,8 +1580,8 @@ export default function MemoSearchPage() {
                 type="button"
                 className={`${styles.secondaryBtn} ${styles.btnSugestao}`}
                 aria-label="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
-                disabled={items.length === 0 || searchBusy}
-                title="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
+                disabled={items.length === 0 || searchBusy || activeTab === "semantic"}
+                title={activeTab === "semantic" ? "Não disponível no modo semântico" : "Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."}
                 onClick={() => {
                   setSuggestionSort("relevance");
                   setSuggestionViewMode("all");
@@ -1431,7 +1594,7 @@ export default function MemoSearchPage() {
                 <IconBulb className={styles.secondarySvg} />
                 Sugestão
               </button>
-              {showBuscaExpandida ? (
+              {showBuscaExpandida && activeTab === "textual" ? (
                 <button
                   type="button"
                   className={`${styles.secondaryBtn} ${styles.btnBuscaExpandida}`}
@@ -1442,23 +1605,44 @@ export default function MemoSearchPage() {
                   <IconExpandSearch className={styles.secondarySvg} />
                   {expandBusy ? "A expandir…" : "Busca expandida"}
                 </button>
-              ) : (
-                <div className={styles.secondaryPlaceholder} aria-hidden />
-              )}
-              <button
-                type="button"
-                className={`${styles.secondaryBtn} ${styles.btnSemantica}`}
-                aria-label="Busca semântica (em breve)"
-                disabled
-                title="Em breve"
-              >
-                <span className={styles.secondaryIcon} aria-hidden>
-                  🧠
-                </span>
-                Semântica
-              </button>
+              ) : <div className={styles.secondaryPlaceholder} aria-hidden />}
             </div>
           </div>
+
+          {/* Popup timeout de pausa semântico */}
+          {showTimeoutPopup ? (
+            <div className={styles.timeoutOverlay} role="dialog" aria-modal aria-labelledby="timeout-popup-title"
+              onClick={() => setShowTimeoutPopup(false)}
+            >
+              <div className={styles.timeoutPopup} onClick={(e) => e.stopPropagation()}>
+                <h3 id="timeout-popup-title" className={styles.timeoutPopupTitle}>Tempo esgotado</h3>
+                <p className={styles.timeoutPopupMsg}>Nenhuma fala detectada por 15s. Sua narrativa foi salva.</p>
+                <div className={styles.timeoutPopupActions}>
+                  <button
+                    type="button"
+                    className="mm-btn mm-btn--primary"
+                    onClick={() => {
+                      setShowTimeoutPopup(false);
+                      void runSearch(undefined, undefined, "semantic");
+                    }}
+                  >
+                    Buscar agora
+                  </button>
+                  <button
+                    type="button"
+                    className="mm-btn"
+                    onClick={() => {
+                      setShowTimeoutPopup(false);
+                      setMicState("idle");
+                      setQuery("");
+                    }}
+                  >
+                    Recomeçar
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : null}
 
           {items.length > 0 || noResultsFor ? (
             <div className={styles.resultsInner} aria-label="Resultados">
@@ -1554,7 +1738,26 @@ export default function MemoSearchPage() {
                     return (
                       <li key={m.id} className={styles.memoCard}>
                         <div className={styles.memoCardTop}>
-                          <MemoCardPrimaryRow m={m} apiBase={apiBase} returnTo={returnTo} />
+                          <MemoCardPrimaryRow
+                            m={m}
+                            apiBase={apiBase}
+                            returnTo={returnTo}
+                            badge={
+                              (m.iaUseLevel || m.hasSemanticChunks) ? (
+                                <>
+                                  {m.iaUseLevel === "semIA" && (
+                                    <span className={`${styles.cardBadge} ${styles.cardBadgeSemIA}`} title="Processado sem IA">sem IA</span>
+                                  )}
+                                  {m.iaUseLevel === "basico" && (
+                                    <span className={`${styles.cardBadge} ${styles.cardBadgeBasico}`} title="IA básica">IA básica</span>
+                                  )}
+                                  {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
+                                    <span className={`${styles.cardBadge} ${styles.cardBadgeSemantic}`} title="Semântico">⊛ semântico</span>
+                                  )}
+                                </>
+                              ) : undefined
+                            }
+                          />
                           <div className={styles.memoIconActions}>
                             {isOwner ? (
                               <Link
@@ -1581,6 +1784,11 @@ export default function MemoSearchPage() {
                             ) : null}
                           </div>
                         </div>
+                        {m.similarity != null && (
+                          <span className={styles.similarityBadge}>
+                            {Math.round(m.similarity * 100)}% similar
+                          </span>
+                        )}
                         <p className={styles.memoBody}>
                           {highlightText((m.mediaText || "").trim() || m.headline, highlightTerms)}
                         </p>

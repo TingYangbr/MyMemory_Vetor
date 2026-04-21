@@ -37,7 +37,7 @@ export function photoAiUsageFromUserIaLevel(level: UserIaUseLevel | undefined | 
 export const USER_IA_USE_LABELS: Record<UserIaUseLevel, string> = {
   semIA: "Sem IA",
   basico: "Básico",
-  completo: "Completo",
+  completo: "Semântico",
 };
 
 export interface UserMemoPreferences {
@@ -311,6 +311,12 @@ export interface MemoRecentCard {
   apiCost?: number;
   /** Créditos consumidos (`apiCost` × fator da config). */
   usedApiCred?: number;
+  /** Score de similaridade semântica 0–1 (só presente em resultados de busca semântica). */
+  similarity?: number;
+  /** Modo IA usado no processamento: 'semIA' | 'basico' | 'completo' (extraído de mediaMetadata). */
+  iaUseLevel?: string | null;
+  /** Indica se o memo tem chunks semânticos gravados em memo_chunks. */
+  hasSemanticChunks?: boolean;
 }
 
 /** Termo normalizado (minúsculas) para realce na UI; `bucket` distingue ramo OR (0 = primeiro, …). */
@@ -320,7 +326,7 @@ export interface MemoSearchHighlightTerm {
 }
 
 /** Escopo da expressão SQL em `POST /api/memos/search`. */
-export type MemoSearchMode = "all" | "mediaText" | "keywords" | "dadosEspecificos";
+export type MemoSearchMode = "all" | "mediaText" | "keywords" | "dadosEspecificos" | "semantic";
 
 /** Resposta de `POST /api/memos/search`. */
 export interface MemoSearchResponse {

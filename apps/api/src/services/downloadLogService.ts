@@ -1,4 +1,4 @@
-import type { ResultSetHeader } from "mysql2";
+import type { ResultSetHeader } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
 import { creditsFromUsdCost, getUsdToCreditsMultiplier } from "./systemConfigService.js";

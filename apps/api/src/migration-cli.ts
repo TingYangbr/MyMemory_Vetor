@@ -4,11 +4,26 @@
  *   npm run migration:run     → aplica todas as migrations pendentes
  *   npm run migration:revert  → desfaz a última migration aplicada
  *   npm run migration:show    → lista o status de cada migration
- *
- * Para criar uma nova migration vazia:
- *   npm run migration:create -- src/migrations/NomeDaMigracao
  */
+import "reflect-metadata";
 import { AppDataSource } from "./data-source.js";
+
+// Importa migration classes diretamente (sem glob) para evitar o bug
+// de emptyQuery do TypeORM ao usar import() dinâmico com pg 8.20.x
+import { InitialSchema1700000000000 } from "./migrations/1700000000000-InitialSchema.js";
+import { SeedDev1700000000001 } from "./migrations/1700000000001-SeedDev.js";
+import { CategoryCampoPatternsAndDadosEspecificos1700000000025 } from "./migrations/1700000000025-CategoryCampoPatternsAndDadosEspecificos.js";
+import { PgvectorMemoChunks1700000000100 } from "./migrations/1700000000100-PgvectorMemoChunks.js";
+
+// Injeta as classes diretamente no DataSource antes de inicializar
+AppDataSource.setOptions({
+  migrations: [
+    InitialSchema1700000000000,
+    SeedDev1700000000001,
+    CategoryCampoPatternsAndDadosEspecificos1700000000025,
+    PgvectorMemoChunks1700000000100,
+  ],
+});
 
 const command = process.argv[2];
 

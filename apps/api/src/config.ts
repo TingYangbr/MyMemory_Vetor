@@ -45,12 +45,12 @@ export const config = {
     if (fromEnv.length) return fromEnv;
     return ["http://localhost:5173"];
   })(),
-  mysql: {
-    host: process.env.MYSQL_HOST ?? "127.0.0.1",
-    port: Number(process.env.MYSQL_PORT ?? 3306),
-    user: process.env.MYSQL_USER ?? "mymemory",
-    password: process.env.MYSQL_PASSWORD ?? "mymemory_secret",
-    database: process.env.MYSQL_DATABASE ?? "mymemory",
+  postgres: {
+    host: process.env.POSTGRES_HOST ?? process.env.MYSQL_HOST ?? "127.0.0.1",
+    port: Number(process.env.POSTGRES_PORT ?? process.env.MYSQL_PORT ?? 5432),
+    user: process.env.POSTGRES_USER ?? process.env.MYSQL_USER ?? "mymemory",
+    password: process.env.POSTGRES_PASSWORD ?? process.env.MYSQL_PASSWORD ?? "mymemory_secret",
+    database: process.env.POSTGRES_DB ?? process.env.MYSQL_DATABASE ?? "mymemory",
   },
   /** Relativo a `apps/api` se não for caminho absoluto */
   uploadsDir: process.env.UPLOADS_DIR ?? "uploads",

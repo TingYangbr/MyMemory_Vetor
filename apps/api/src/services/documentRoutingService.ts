@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import {
   DEFAULT_DOCUMENT_ROUTING,
@@ -11,8 +11,8 @@ const OPERATION = "memo_document_ia";
 function isUnknownColumnErr(err: unknown, col: string): boolean {
   if (!err || typeof err !== "object") return false;
   const e = err as { code?: string; errno?: number; sqlMessage?: string };
-  if (e.code !== "ER_BAD_FIELD_ERROR" && e.errno !== 1054) return false;
-  return String(e.sqlMessage ?? "").includes(col);
+  if (e.code !== "42703") return false;
+  return String((e as {message?: string}).message ?? "").includes(col);
 }
 
 function shallowMerge(base: DocumentRoutingConfig, patch: Partial<DocumentRoutingConfig>): DocumentRoutingConfig {

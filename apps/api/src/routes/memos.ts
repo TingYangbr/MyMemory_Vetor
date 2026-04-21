@@ -47,7 +47,7 @@ import {
   processUrlMemoForReview,
 } from "../services/textMemoProcessService.js";
 import { llmSynonymsForTerm } from "../lib/invokeLlm.js";
-import { listMemoSearchAuthors, searchMemosForUser } from "../services/memoSearchService.js";
+import { listMemoSearchAuthors, searchMemosForUser, searchMemosSemantic } from "../services/memoSearchService.js";
 
 const photoAiUsageField = z.enum(["none", "keywords", "full"]);
 
@@ -1134,6 +1134,43 @@ const plugin: FastifyPluginAsync = async (app) => {
       unavailable: unavailable || undefined,
     };
     return body;
+  });
+
+  app.post("/api/memos/search/semantic", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) {
+      return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    }
+    const parsed = z
+      .object({
+        query: z.string().min(1).max(4000),
+        groupId: z.number().int().positive().nullable().optional(),
+        limit: z.number().int().min(1).max(100).optional(),
+      })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    }
+    const isAdmin = await getUserIsAdmin(userId);
+    try {
+      const out = await searchMemosSemantic({
+        userId,
+        isAdmin,
+        groupId: parsed.data.groupId ?? null,
+        query: parsed.data.query,
+        limit: parsed.data.limit,
+      });
+      return out;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "forbidden_group" || msg === "group_not_found") {
+        return reply.code(403).send({ error: "forbidden", message: "Sem acesso a este grupo." });
+      }
+      if (msg === "openai_not_configured" || msg.includes("embeddings")) {
+        return reply.code(503).send({ error: "semantic_unavailable", message: "Busca semântica indisponível — configure OPENAI_API_KEY." });
+      }
+      throw e;
+    }
   });
 
   app.get("/api/memos/:id/file", async (req, reply) => {

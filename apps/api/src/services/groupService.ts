@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 
 export type CreateGroupForOwnerInput = {
@@ -46,9 +46,9 @@ export async function createGroupForOwner(input: CreateGroupForOwnerInput): Prom
 
     const nameTrim = input.name.trim();
     const [dupRows] = await conn.query<RowDataPacket[]>(
-      `SELECT g.id FROM \`groups\` g
-       INNER JOIN subscriptions s ON s.id = g.subscriptionId
-       WHERE s.ownerId = ?
+      `SELECT g.id FROM groups g
+       INNER JOIN subscriptions s ON s.id = g.subscriptionid
+       WHERE s.ownerid = ?
          AND s.type = 'group'
          AND LOWER(TRIM(g.name)) = LOWER(?)
        LIMIT 1`,
@@ -61,28 +61,28 @@ export async function createGroupForOwner(input: CreateGroupForOwnerInput): Prom
       throw err;
     }
 
-    const [subRes] = await conn.query<ResultSetHeader>(
-      `INSERT INTO subscriptions (type, userId, ownerId, planId, status, endDate)
-       VALUES ('group', ?, ?, ?, 'active', ?)`,
-      [input.userId, input.userId, input.planId, endDate]
+    const [subRows] = await conn.query<{ id: number }[]>(
+      `INSERT INTO subscriptions (type, userid, ownerid, planid, status, enddate)
+       VALUES ('group', NULL, ?, ?, 'active', ?) RETURNING id`,
+      [input.userId, input.planId, endDate]
     );
-    const subscriptionId = Number(subRes.insertId);
+    const subscriptionId = Number(subRows[0]?.id);
     if (!Number.isFinite(subscriptionId) || subscriptionId < 1) {
       throw new Error("subscription_insert_failed");
     }
 
-    const [gRes] = await conn.query<ResultSetHeader>(
-      `INSERT INTO \`groups\` (name, description, subscriptionId, accessCode, isPublic, maxSummaryLength, allowPersonalContext)
-       VALUES (?, ?, ?, NULL, 0, 1000, 1)`,
+    const [gRows] = await conn.query<{ id: number }[]>(
+      `INSERT INTO groups (name, description, subscriptionid, accesscode, ispublic, maxsummarylength, allowpersonalcontext)
+       VALUES (?, ?, ?, NULL, 0, 1000, 1) RETURNING id`,
       [nameTrim, input.description?.trim() || null, subscriptionId]
     );
-    const groupId = Number(gRes.insertId);
+    const groupId = Number(gRows[0]?.id);
     if (!Number.isFinite(groupId) || groupId < 1) {
       throw new Error("group_insert_failed");
     }
 
     await conn.query(
-      `INSERT INTO group_members (groupId, userId, role) VALUES (?, ?, 'owner')`,
+      `INSERT INTO group_members (groupid, userid, role) VALUES (?, ?, 'owner')`,
       [groupId, input.userId]
     );
 

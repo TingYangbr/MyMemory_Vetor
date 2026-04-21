@@ -1,4 +1,4 @@
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import type {
   AdminCostReportDetailApiRow,
   AdminCostReportDetailDownloadRow,
@@ -93,7 +93,7 @@ async function loadGroupPlanNameByGroupId(groupIds: number[]): Promise<Map<numbe
 
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT g.id AS groupId, p.name AS planName
-     FROM \`groups\` g
+     FROM groups g
      INNER JOIN subscriptions s ON s.id = g.subscriptionId AND s.status = 'active' AND s.type = 'group'
      INNER JOIN subscription_plans p ON p.id = s.planId
      WHERE g.id IN (${ph})`,
@@ -186,7 +186,7 @@ async function loadGroupMetaForCostReport(
   if (!uniq.length) return map;
   const ph = uniq.map(() => "?").join(",");
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, accessCode FROM \`groups\` WHERE id IN (${ph})`,
+    `SELECT id, name, accessCode FROM groups WHERE id IN (${ph})`,
     uniq
   );
   for (const r of rows) {
@@ -304,8 +304,8 @@ export async function buildAdminCostReport(input: {
               WHEN COALESCE(d.groupId, m.groupId) IS NULL THEN 'pessoal'
               ELSE CONCAT('g:', COALESCE(d.groupId, m.groupId))
             END AS ws,
-            SUM(IFNULL(d.costUsd, 0)) AS dlCostUsd,
-            SUM(IFNULL(d.usedCred, 0)) AS dlCred
+            SUM(COALESCE(d.costUsd, 0)) AS dlCostUsd,
+            SUM(COALESCE(d.usedCred, 0)) AS dlCred
      FROM download_logs d
      LEFT JOIN memos m ON m.id = d.memoId
      WHERE d.downloadedAt >= ? AND d.downloadedAt <= ?

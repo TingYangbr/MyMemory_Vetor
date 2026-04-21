@@ -12,12 +12,13 @@ import type {
   VideoMemoProcessSource,
 } from "@mymemory/shared";
 import { dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
-import type { RowDataPacket, ResultSetHeader } from "mysql2";
+import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
 import { getMaxUploadBytesForUser } from "./mediaLimitsService.js";
 import { uploadsAbsolutePath } from "../paths.js";
+import { upsertMemoChunks } from "../lib/openaiEmbedding.js";
 import { attachmentDisplayNameFromMemoLike } from "../lib/memoAttachmentDisplayName.js";
 import { classifyFile, guessMimeFromFilename, safeBasename } from "../lib/media.js";
 import { insertMemoS3DownloadLog } from "./downloadLogService.js";
@@ -92,7 +93,7 @@ async function resolveDadosCategory(input: {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT id FROM categories
        WHERE id = ?
-         AND groupId <=> ?
+         AND groupId IS NOT DISTINCT FROM ?
          AND isActive = 1
          AND (mediaType IS NULL OR mediaType = ?) LIMIT 1`,
       [input.explicitCategoryId, input.groupId, input.mediaType]
@@ -104,9 +105,9 @@ async function resolveDadosCategory(input: {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.id AS categoryId, cc.name AS campoName
      FROM categories c
-     INNER JOIN categoryCampos cc ON cc.categoryId = c.id AND cc.isActive = 1
+     INNER JOIN categorycampos cc ON cc.categoryId = c.id AND cc.isActive = 1
      WHERE c.isActive = 1
-       AND c.groupId <=> ?
+       AND c.groupId IS NOT DISTINCT FROM ?
        AND (c.mediaType IS NULL OR c.mediaType = ?)`,
     [input.groupId, input.mediaType]
   );
@@ -157,11 +158,11 @@ async function syncMemoDadosEspecificosRows(input: {
     dadosLabels: labels,
   });
 
-  await pool.query(`DELETE FROM dadosEspecificos WHERE id_memo = ?`, [input.memoId]);
+  await pool.query(`DELETE FROM dadosespecificos WHERE id_memo = ?`, [input.memoId]);
   if (categoryId == null) return;
 
   const [fieldRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name FROM categoryCampos WHERE categoryId = ? AND isActive = 1 ORDER BY id ASC`,
+    `SELECT name FROM categorycampos WHERE categoryId = ? AND isActive = 1 ORDER BY id ASC`,
     [categoryId]
   );
   if (!fieldRows.length) return;
@@ -186,7 +187,7 @@ async function syncMemoDadosEspecificosRows(input: {
   if (!tuples.length) return;
 
   await pool.query(
-    `INSERT INTO dadosEspecificos (id_Categoria, id_memo, label, dadoOriginal, dadoPadronizado, isActive)
+    `INSERT INTO dadosespecificos (id_categoria, id_memo, label, dadooriginal, dadopadronizado, isactive)
      VALUES ${tuples.join(",")}`,
     values
   );
@@ -278,10 +279,10 @@ export async function canAccessMemoMediaForDownload(input: {
     `SELECT userId, groupId FROM memos
      WHERE isActive = 1
        AND (
-         mediaAudioUrl <=> ?
-         OR mediaImageUrl <=> ?
-         OR mediaVideoUrl <=> ?
-         OR mediaDocumentUrl <=> ?
+         mediaAudioUrl IS NOT DISTINCT FROM ?
+         OR mediaImageUrl IS NOT DISTINCT FROM ?
+         OR mediaVideoUrl IS NOT DISTINCT FROM ?
+         OR mediaDocumentUrl IS NOT DISTINCT FROM ?
        )
      LIMIT 1`,
     [relPath, relPath, relPath, relPath]
@@ -373,7 +374,7 @@ export async function createMemoFromUpload(input: {
       mediaText, mediaMetadata, tamMediaUrl, isActive
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     mediaType,
@@ -387,7 +388,7 @@ export async function createMemoFromUpload(input: {
     input.buffer.length,
   ]);
 
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
   return rowToCreated(row);
@@ -410,13 +411,13 @@ export async function createMemoText(input: {
       mediaText, mediaMetadata, isActive
     ) VALUES (?, ?, 'text', NULL, NULL, NULL, NULL, NULL, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     input.mediaText.trim(),
     mediaMetadata,
   ]);
-  const row = await getMemoById(res.insertId, input.userId);
+  const row = await getMemoById(memoRows[0].id, input.userId);
   if (!row) throw new Error("insert_failed");
   return rowToCreated(row);
 }
@@ -454,7 +455,7 @@ export async function createMemoTextReviewed(input: {
       mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
     ) VALUES (?, ?, 'text', NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     text,
@@ -465,7 +466,7 @@ export async function createMemoTextReviewed(input: {
     usedCred,
     tam,
   ]);
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
     memoId,
     groupId: input.groupId,
@@ -484,6 +485,9 @@ export async function createMemoTextReviewed(input: {
     } catch {
       /* tabela opcional / ambiente sem FK */
     }
+  }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -529,7 +533,7 @@ export async function createMemoUrlReviewed(input: {
       mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
     ) VALUES (?, ?, 'url', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     archive,
@@ -542,7 +546,7 @@ export async function createMemoUrlReviewed(input: {
     usedCred,
     tam,
   ]);
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
     memoId,
     groupId: input.groupId,
@@ -561,6 +565,9 @@ export async function createMemoUrlReviewed(input: {
     } catch {
       /* tabela opcional / ambiente sem FK */
     }
+  }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -607,7 +614,7 @@ export async function createMemoImageReviewed(input: {
       mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
     ) VALUES (?, ?, 'image', NULL, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     input.mediaImageUrl.trim(),
@@ -619,7 +626,7 @@ export async function createMemoImageReviewed(input: {
     usedCred,
     tam,
   ]);
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
     memoId,
     groupId: input.groupId,
@@ -638,6 +645,9 @@ export async function createMemoImageReviewed(input: {
     } catch {
       /* opcional */
     }
+  }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -684,7 +694,7 @@ export async function createMemoAudioReviewed(input: {
       mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
     ) VALUES (?, ?, 'audio', ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     input.mediaAudioUrl.trim(),
@@ -696,7 +706,7 @@ export async function createMemoAudioReviewed(input: {
     usedCred,
     tam,
   ]);
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
     memoId,
     groupId: input.groupId,
@@ -715,6 +725,9 @@ export async function createMemoAudioReviewed(input: {
     } catch {
       /* opcional */
     }
+  }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -757,7 +770,7 @@ export async function createMemoVideoReviewed(input: {
       mediaText, keywords, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
     ) VALUES (?, ?, 'video', NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     input.mediaVideoUrl.trim(),
@@ -768,7 +781,7 @@ export async function createMemoVideoReviewed(input: {
     usedCred,
     tam,
   ]);
-  const memoId = res.insertId;
+  const memoId = memoRows[0].id;
   if (cost > 0) {
     try {
       await pool.query(
@@ -779,6 +792,9 @@ export async function createMemoVideoReviewed(input: {
     } catch {
       /* opcional */
     }
+  }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: null }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -814,14 +830,14 @@ export async function createMemoUrl(input: {
       mediaText, mediaMetadata, isActive
     ) VALUES (?, ?, 'url', NULL, NULL, NULL, NULL, ?, ?, ?, 1)
   `;
-  const [res] = await pool.execute<ResultSetHeader>(sql, [
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
     input.mediaWebUrl.trim(),
     mediaText,
     metadata,
   ]);
-  const row = await getMemoById(res.insertId, input.userId);
+  const row = await getMemoById(memoRows[0].id, input.userId);
   if (!row) throw new Error("insert_failed");
   return rowToCreated(row);
 }
@@ -844,6 +860,7 @@ interface MemoRow extends RowDataPacket {
   tamMediaUrl?: number | null;
   apiCost?: unknown;
   usedApiCred?: unknown;
+  hasChunks?: unknown;
 }
 
 function primaryMediaFileUrl(
@@ -1177,6 +1194,9 @@ export async function finalizeDocumentMemoReview(input: {
       /* opcional */
     }
   }
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId: input.memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
+  }
   const row = await getMemoById(input.memoId, input.userId);
   if (!row) throw new Error("not_found");
   return rowToCreated(row);
@@ -1206,6 +1226,17 @@ function rowToCreated(r: MemoRow): MemoCreatedResponse {
   };
 }
 
+function extractIaUseLevel(mediaMetadata: string | null | undefined): string | null {
+  if (!mediaMetadata) return null;
+  try {
+    const m = typeof mediaMetadata === "string" ? (JSON.parse(mediaMetadata) as Record<string, unknown>) : mediaMetadata;
+    const v = m.iaUseTexto ?? m.iaUseImagem ?? m.iaUseAudio ?? m.iaUseVideo ?? m.iaUseDocumento ?? m.iaUseUrl;
+    return typeof v === "string" ? v : null;
+  } catch {
+    return null;
+  }
+}
+
 function headlineFromRow(r: MemoRow): string {
   const text = (r.mediaText ?? "").trim();
   if (text.length > 120) return text.slice(0, 117) + "…";
@@ -1222,15 +1253,18 @@ export async function listRecentMemos(
   const gid = opts?.workspaceGroupId ?? null;
   const isAdmin = opts?.isAdmin ?? false;
 
+  const chunksSubquery = `(EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks`;
+
   if (gid != null) {
     await assertUserWorkspaceGroupAccess(userId, gid, isAdmin);
     const [rows] = await pool.query<MemoRow[]>(
-      `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
-              mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
-              createdAt, mediaMetadata, keywords, dadosEspecificosJson, apiCost, usedApiCred
-       FROM memos
-       WHERE groupId = ? AND isActive = 1
-       ORDER BY createdAt DESC
+      `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
+              m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
+              m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+              ${chunksSubquery}
+       FROM memos m
+       WHERE m.groupId = ? AND m.isActive = 1
+       ORDER BY m.createdAt DESC
        LIMIT ?`,
       [gid, lim]
     );
@@ -1251,16 +1285,19 @@ export async function listRecentMemos(
       userId: r.userId,
       apiCost: numDb(r.apiCost),
       usedApiCred: numDb(r.usedApiCred),
+      iaUseLevel: extractIaUseLevel(r.mediaMetadata),
+      hasSemanticChunks: Boolean(r.hasChunks),
     }));
   }
 
   const [rows] = await pool.query<MemoRow[]>(
-    `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
-            mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
-            createdAt, mediaMetadata, keywords, dadosEspecificosJson, apiCost, usedApiCred
-     FROM memos
-     WHERE userId = ? AND groupId IS NULL AND isActive = 1
-     ORDER BY createdAt DESC
+    `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
+            m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
+            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+            ${chunksSubquery}
+     FROM memos m
+     WHERE m.userId = ? AND m.groupId IS NULL AND m.isActive = 1
+     ORDER BY m.createdAt DESC
      LIMIT ?`,
     [userId, lim]
   );
@@ -1279,5 +1316,7 @@ export async function listRecentMemos(
     userId: r.userId,
     apiCost: numDb(r.apiCost),
     usedApiCred: numDb(r.usedApiCred),
+    iaUseLevel: extractIaUseLevel(r.mediaMetadata),
+    hasSemanticChunks: Boolean(r.hasChunks),
   }));
 }

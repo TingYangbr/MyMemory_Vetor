@@ -1,4 +1,4 @@
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import type {
   IndividualPlanOption,
   SubscriptionPlanAdmin,
@@ -239,11 +239,11 @@ export type SubscriptionPlanCreateInput = {
 };
 
 export async function createSubscriptionPlanAdmin(input: SubscriptionPlanCreateInput): Promise<number> {
-  const [res] = await pool.query<ResultSetHeader>(
+  const [rows] = await pool.query<{ id: number }[]>(
     `INSERT INTO subscription_plans (
-      name, planType, price, maxMemos, maxStorageGB, maxMembers, durationDays, isActive,
-      monthlyApiCredits, monthlyDownloadLimitGB, supportLargeAudio, supportLargeVideo
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      name, plantype, price, maxmemos, maxstoragegb, maxmembers, durationdays, isactive,
+      monthlyapicredits, monthlydownloadlimitgb, supportlargeaudio, supportlargevideo
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
     [
       input.name,
       input.planType,
@@ -259,5 +259,5 @@ export async function createSubscriptionPlanAdmin(input: SubscriptionPlanCreateI
       input.supportLargeVideo,
     ]
   );
-  return res.insertId;
+  return rows[0].id;
 }

@@ -1,5 +1,5 @@
 import type { AudioMemoProcessResponse, AudioMemoProcessSource, UserIaUseLevel } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { openaiTranscribeAudio } from "../lib/openaiTranscription.js";
 import { transcribeByTimeSegments } from "../lib/mediaTimeSegmentTranscribe.js";

@@ -8,7 +8,7 @@ import type {
 import { z } from "zod";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
 import { pool } from "../db.js";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import {
   acceptGroupInviteToken,
   createGroupEmailInvite,

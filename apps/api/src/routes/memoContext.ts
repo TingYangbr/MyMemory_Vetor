@@ -1,5 +1,5 @@
 import type { FastifyPluginAsync, FastifyRequest } from "fastify";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { z } from "zod";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";

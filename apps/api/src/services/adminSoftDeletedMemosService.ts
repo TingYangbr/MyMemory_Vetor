@@ -1,7 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import type { SoftDeletedMemosMonthlyRow } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
 import { uploadsAbsolutePath } from "../paths.js";
@@ -24,10 +24,10 @@ interface InactiveMemoRow extends RowDataPacket {
 
 export async function listSoftDeletedMemosByMonth(): Promise<SoftDeletedMemosMonthlyRow[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT DATE_FORMAT(updatedAt, '%Y-%m') AS ym, COUNT(*) AS cnt
+    `SELECT TO_CHAR(updatedat, 'YYYY-MM') AS ym, COUNT(*) AS cnt
      FROM memos
-     WHERE isActive = 0
-     GROUP BY DATE_FORMAT(updatedAt, '%Y-%m')
+     WHERE isactive = 0
+     GROUP BY TO_CHAR(updatedat, 'YYYY-MM')
      ORDER BY ym DESC`
   );
   return rows.map((r) => {
@@ -133,7 +133,7 @@ export async function hardDeleteInactiveMemosForMonth(month: string): Promise<Ha
   const [rows] = await pool.query<InactiveMemoRow[]>(
     `SELECT id, userId, mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl
      FROM memos
-     WHERE isActive = 0 AND DATE_FORMAT(updatedAt, '%Y-%m') = ?`,
+     WHERE isactive = 0 AND TO_CHAR(updatedat, 'YYYY-MM') = ?`,
     [ym]
   );
 
@@ -154,7 +154,7 @@ export async function hardDeleteInactiveMemosForMonth(month: string): Promise<Ha
   }
 
   const ids = rows.map((r) => r.id);
-  const placeholders = ids.map(() => "?").join(",");
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(",");
   await pool.query(`DELETE FROM memos WHERE id IN (${placeholders})`, ids);
 
   return {

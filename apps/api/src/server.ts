@@ -8,6 +8,11 @@ import fastifyStatic from "@fastify/static";
 import { assertMediaStorageEnv, config } from "./config.js";
 import { uploadsAbsolutePath } from "./paths.js";
 import { AppDataSource } from "./data-source.js";
+import { InitialSchema1700000000000 } from "./migrations/1700000000000-InitialSchema.js";
+import { SeedDev1700000000001 } from "./migrations/1700000000001-SeedDev.js";
+import { CategoryCampoPatternsAndDadosEspecificos1700000000025 } from "./migrations/1700000000025-CategoryCampoPatternsAndDadosEspecificos.js";
+import { PgvectorMemoChunks1700000000100 } from "./migrations/1700000000100-PgvectorMemoChunks.js";
+import { Unaccent1700000000101 } from "./migrations/1700000000101-Unaccent.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -27,6 +32,15 @@ assertMediaStorageEnv();
 // Aplica migrations pendentes antes de abrir conexões da aplicação.
 // É seguro rodar toda vez: o TypeORM verifica `typeorm_migrations` e pula as já aplicadas.
 {
+  AppDataSource.setOptions({
+    migrations: [
+      InitialSchema1700000000000,
+      SeedDev1700000000001,
+      CategoryCampoPatternsAndDadosEspecificos1700000000025,
+      PgvectorMemoChunks1700000000100,
+      Unaccent1700000000101,
+    ],
+  });
   const ds = await AppDataSource.initialize();
   await ds.runMigrations({ transaction: "each" });
   await ds.destroy();

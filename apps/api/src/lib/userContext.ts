@@ -1,6 +1,6 @@
 import "@fastify/jwt";
 import type { FastifyRequest } from "fastify";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "./dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
 

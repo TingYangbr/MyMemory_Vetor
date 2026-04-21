@@ -1,5 +1,5 @@
 import type { GroupOwnerPanelInviteRow } from "@mymemory/shared";
-import type { ResultSetHeader, RowDataPacket } from "mysql2";
+import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import crypto from "node:crypto";
 import { pool } from "../db.js";
 import { config } from "../config.js";
@@ -41,12 +41,12 @@ export async function getGroupOwnerPanelData(
   let gRows: RowDataPacket[];
   try {
     [gRows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, description, allowFreeSpecificFieldsWithoutCategoryMatch FROM `groups` WHERE id = ? LIMIT 1",
+      "SELECT id, name, description, allowFreeSpecificFieldsWithoutCategoryMatch FROM groups WHERE id = ? LIMIT 1",
       [groupId]
     );
   } catch {
     [gRows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, description FROM `groups` WHERE id = ? LIMIT 1",
+      "SELECT id, name, description FROM groups WHERE id = ? LIMIT 1",
       [groupId]
     );
   }
@@ -90,15 +90,12 @@ export async function updateGroupOwnerSettings(input: {
   await assertUserCanAccessGroup(input.userId, input.groupId, input.isAdmin);
   try {
     await pool.query(
-      `UPDATE \`groups\` SET allowFreeSpecificFieldsWithoutCategoryMatch = ? WHERE id = ?`,
+      `UPDATE groups SET allowfreespecificfieldswithoutcategorymatch = ? WHERE id = ?`,
       [input.allowFreeSpecificFieldsWithoutCategoryMatch ? 1 : 0, input.groupId]
     );
   } catch (e) {
-    const msg =
-      e && typeof e === "object" && "sqlMessage" in e
-        ? String((e as { sqlMessage?: string }).sqlMessage ?? "")
-        : "";
-    if (msg.includes("allowFreeSpecificFieldsWithoutCategoryMatch")) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("allowfreespecificfieldswithoutcategorymatch")) {
       throw new Error("group_settings_schema_outdated");
     }
     throw e;
@@ -134,7 +131,7 @@ export async function createGroupEmailInvite(input: {
   }
 
   const [gRows] = await pool.query<RowDataPacket[]>(
-    "SELECT name FROM `groups` WHERE id = ? LIMIT 1",
+    "SELECT name FROM groups WHERE id = ? LIMIT 1",
     [input.groupId]
   );
   if (!gRows[0]) throw new Error("group_not_found");
@@ -149,12 +146,12 @@ export async function createGroupEmailInvite(input: {
   const token = crypto.randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000);
 
-  const [ins] = await pool.query<ResultSetHeader>(
-    `INSERT INTO email_invites (groupId, email, invitedByUserId, role, adminRole, token, status, expiresAt)
-     VALUES (?, ?, ?, ?, 'user', ?, 'pending', ?)`,
+  const [insRows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO email_invites (groupid, email, invitedbyuserid, role, adminrole, token, status, expiresat)
+     VALUES (?, ?, ?, ?, 'user', ?, 'pending', ?) RETURNING id`,
     [input.groupId, email, input.ownerUserId, input.role, token, expiresAt]
   );
-  const insertId = Number(ins.insertId);
+  const insertId = Number(insRows[0]?.id);
   if (!Number.isFinite(insertId)) throw new Error("insert_failed");
 
   const acceptPath = `/convite/grupo?token=${encodeURIComponent(token)}`;
@@ -206,7 +203,7 @@ export async function acceptGroupInviteToken(input: {
     const [rows] = await conn.query<RowDataPacket[]>(
       `SELECT ei.id, ei.groupId, ei.email, ei.role, ei.status, ei.expiresAt, g.name AS groupName
        FROM email_invites ei
-       INNER JOIN \`groups\` g ON g.id = ei.groupId
+       INNER JOIN groups g ON g.id = ei.groupId
        WHERE ei.token = ?
        LIMIT 1
        FOR UPDATE`,

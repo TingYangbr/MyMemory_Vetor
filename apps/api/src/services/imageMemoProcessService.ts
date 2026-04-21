@@ -1,5 +1,5 @@
 import type { ImageMemoProcessResponse, ImageMemoProcessSource, UserIaUseLevel } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { recognizeImageWithTesseract } from "../lib/imageOcr.js";
 import { openaiChatJson } from "../lib/openaiChat.js";

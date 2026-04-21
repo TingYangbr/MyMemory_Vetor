@@ -1,5 +1,5 @@
 import type { DocumentMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
-import type { RowDataPacket } from "mysql2";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
 import type { VisionContentPart } from "../lib/openaiVision.js";
