@@ -44,7 +44,7 @@ const SUGGESTION_PANEL_POS_KEY = "mm_buscar_suggestion_panel_pos_v1";
 const SEARCH_QUERY_MAX_LINES = 2;
 
 const SILENCE_MS_TEXTUAL = 2500;
-const SILENCE_MS_SEMANTIC = 5000;
+const SILENCE_MS_SEMANTIC = 3000;
 const PAUSE_TIMEOUT_MS_SEMANTIC = 15000;
 
 function loadSuggestionPanelPos(): { x: number; y: number } | null {
@@ -1508,13 +1508,13 @@ export default function MemoSearchPage() {
                 }
                 onClick={() => {
                   if (micState === "done" || micState === "idle") {
-                    if (micState === "done") { setQuery(""); setMicState("idle"); }
-                    else startListening("nova");
+                    if (micState === "done") setQuery("");
+                    startListening("nova");
                   } else if (micState === "listening") {
                     pauseMic();
                   } else {
                     if (pauseTimeoutRef.current) { clearTimeout(pauseTimeoutRef.current); pauseTimeoutRef.current = null; }
-                    startListening("nova");
+                    startListening("mais");
                   }
                 }}
               >
