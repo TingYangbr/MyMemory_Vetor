@@ -15,11 +15,16 @@ export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
+    setErrorCode(null);
+    setResendMsg(null);
     setBusy(true);
     try {
       await apiPostJson("/api/auth/login", { email, password });
@@ -28,12 +33,26 @@ export default function LoginPage() {
       const raw = err instanceof Error ? err.message : String(err);
       try {
         const j = JSON.parse(raw) as { message?: string; error?: string };
+        setErrorCode(j.error ?? null);
         setError(j.message ?? raw);
       } catch {
         setError(raw || "Não foi possível entrar.");
       }
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function onResendVerification() {
+    setResendBusy(true);
+    setResendMsg(null);
+    try {
+      const res = await apiPostJson<{ message?: string }>("/api/auth/resend-verification", { email });
+      setResendMsg(res.message ?? "E-mail de confirmação reenviado.");
+    } catch {
+      setResendMsg("Não foi possível reenviar. Tente novamente.");
+    } finally {
+      setResendBusy(false);
     }
   }
 
@@ -44,9 +63,25 @@ export default function LoginPage() {
         <p className={styles.sub}>Use o e-mail e a senha da sua conta MyMemory.</p>
 
         {error ? (
-          <p className={styles.error} role="alert">
-            {error}
-          </p>
+          <div className={styles.error} role="alert">
+            <p style={{ margin: 0 }}>{error}</p>
+            {errorCode === "email_not_verified" ? (
+              <p style={{ margin: "0.65rem 0 0", fontSize: "0.92rem" }}>
+                {resendMsg ? (
+                  resendMsg
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => void onResendVerification()}
+                    disabled={resendBusy}
+                    style={{ background: "none", border: "none", padding: 0, cursor: "pointer", textDecoration: "underline", color: "inherit", fontSize: "inherit" }}
+                  >
+                    {resendBusy ? "Enviando…" : "Reenviar e-mail de confirmação"}
+                  </button>
+                )}
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <form onSubmit={(e) => void onSubmit(e)}>
@@ -86,7 +121,9 @@ export default function LoginPage() {
         </form>
 
         <div className={styles.links}>
-          <Link to="/select-plan">Criar conta</Link>
+          <Link to={afterLogin !== "/" ? `/select-plan?next=${encodeURIComponent(afterLogin)}` : "/select-plan"}>
+            Criar conta
+          </Link>
           <Link to="/esqueci-senha">Esqueci a senha</Link>
         </div>
       </div>

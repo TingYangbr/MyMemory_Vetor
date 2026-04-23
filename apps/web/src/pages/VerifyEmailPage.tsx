@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
 
 export default function VerifyEmailPage() {
   const [search] = useSearchParams();
+  const navigate = useNavigate();
   const token = useMemo(() => search.get("token") ?? "", [search]);
   const loginHref = useMemo(() => {
     const n = search.get("next")?.trim();
@@ -17,6 +18,7 @@ export default function VerifyEmailPage() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [countdown, setCountdown] = useState<number | null>(null);
 
   useEffect(() => {
     if (!token) {
@@ -31,6 +33,7 @@ export default function VerifyEmailPage() {
         if (!cancelled) {
           setMessage(res.message ?? "E-mail confirmado.");
           setDone(true);
+          setCountdown(3);
         }
       } catch (err) {
         const raw = err instanceof Error ? err.message : String(err);
@@ -50,6 +53,16 @@ export default function VerifyEmailPage() {
     };
   }, [token]);
 
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown <= 0) {
+      navigate(loginHref, { replace: true });
+      return;
+    }
+    const t = setTimeout(() => setCountdown((c) => (c ?? 1) - 1), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, loginHref, navigate]);
+
   return (
     <div className={styles.shell}>
       <div className={styles.card}>
@@ -62,14 +75,19 @@ export default function VerifyEmailPage() {
           </p>
         ) : null}
         {message ? (
-          <p className={styles.success} role="status">
-            {message}
-          </p>
+          <div className={styles.success} role="status">
+            <p style={{ margin: 0, fontWeight: 600 }}>E-mail confirmado!</p>
+            <p style={{ margin: "0.4rem 0 0" }}>
+              {countdown !== null && countdown > 0
+                ? `Redirecionando para o login em ${countdown}…`
+                : "Redirecionando…"}
+            </p>
+          </div>
         ) : null}
 
         {done ? (
           <div className={styles.links}>
-            <Link to={loginHref}>Entrar na conta</Link>
+            <Link to={loginHref}>Entrar agora</Link>
           </div>
         ) : null}
       </div>

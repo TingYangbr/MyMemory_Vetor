@@ -15,7 +15,7 @@ const passwordIn = z.string().min(8, "Senha: no mínimo 8 caracteres.");
 const registerBody = z.object({
   email: z.string(),
   password: z.string(),
-  name: z.string().max(120).optional(),
+  name: z.string().min(2, "Nome: mínimo 2 caracteres.").max(120),
   planId: z.coerce.number().int().positive(),
   next: z.string().max(512).optional(),
 });
@@ -112,13 +112,13 @@ const plugin: FastifyPluginAsync = async (app) => {
       return reply.code(400).send({ error: "invalid_password", message: msg });
     }
 
-    const name = parsed.data.name?.trim() || email.split("@")[0] || "Usuário";
+    const name = parsed.data.name.trim();
 
-    const [exists] = await pool.query<RowDataPacket[]>(
-      "SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+    const [existRows] = await pool.query<RowDataPacket[]>(
+      "SELECT id, emailVerified FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
       [email]
     );
-    if (exists.length) {
+    if (existRows.length && existRows[0].emailVerified) {
       return reply.code(409).send({
         error: "email_taken",
         message: EMAIL_TAKEN_REGISTER_MSG,
@@ -133,10 +133,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       await conn.beginTransaction();
 
       const [existsTx] = await conn.query<RowDataPacket[]>(
-        "SELECT id FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+        "SELECT id, emailVerified FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
         [email]
       );
-      if (existsTx.length) {
+      if (existsTx.length && existsTx[0].emailVerified) {
         await conn.rollback();
         return reply.code(409).send({
           error: "email_taken",
@@ -144,10 +144,47 @@ const plugin: FastifyPluginAsync = async (app) => {
         });
       }
 
+      if (existsTx.length && !existsTx[0].emailVerified) {
+        // Conta existente mas não verificada: atualiza credenciais e reenviar verificação
+        const userId = Number(existsTx[0].id);
+        await conn.query(
+          "UPDATE users SET passwordhash = ?, name = ? WHERE id = ?",
+          [passwordHash, name, userId]
+        );
+        await conn.query(
+          "DELETE FROM user_auth_tokens WHERE userid = ? AND purpose = 'verify_email'",
+          [userId]
+        );
+        const { raw, hash: tokenHash } = newOpaqueToken();
+        const expiresAt = new Date(Date.now() + 48 * 3600 * 1000);
+        await conn.query(
+          "INSERT INTO user_auth_tokens (userid, tokenhash, purpose, expiresat) VALUES (?, ?, 'verify_email', ?)",
+          [userId, tokenHash, expiresAt]
+        );
+        await conn.commit();
+        const nextAfterVerify = safeAuthNextParam(parsed.data.next);
+        let verifyUrl = `${config.publicWebUrl}/verificar-email?token=${encodeURIComponent(raw)}`;
+        if (nextAfterVerify) verifyUrl += `&next=${encodeURIComponent(nextAfterVerify)}`;
+        try {
+          await sendVerificationEmail(email, verifyUrl);
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          return reply.code(201).send({
+            ok: true,
+            message: `Conta criada. Mas o envio do e-mail falhou: ${detail}`,
+            emailSendFailed: true,
+          });
+        }
+        return reply.code(201).send({
+          ok: true,
+          message: "Conta criada. Verifique seu e-mail para ativar o acesso.",
+        });
+      }
+
       let userId: number;
       try {
         const [insRows] = await conn.query<{ id: number }[]>(
-          `INSERT INTO users ("openId", name, email, "loginMethod", "emailVerified", "passwordHash")
+          `INSERT INTO users (openid, name, email, loginmethod, emailverified, passwordhash)
            VALUES (?, ?, ?, 'password', 0, ?) RETURNING id`,
           [openId, name, email, passwordHash]
         );
@@ -357,6 +394,46 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { ok: true, message: "E-mail confirmado. Você já pode entrar." };
   });
 
+  registerApiRouteMirrored(app, "post", "/api/auth/resend-verification", async (req, reply) => {
+    const parsed = z.object({ email: z.string() }).safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_body", message: "Dados inválidos." });
+    }
+    let email: string;
+    try {
+      email = normEmail(emailIn.parse(parsed.data.email));
+    } catch {
+      return { ok: true, message: "Se o e-mail existir e não estiver verificado, enviaremos o link de confirmação." };
+    }
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT id, emailVerified FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+      [email]
+    );
+    const row = rows[0];
+    if (!row || row.emailVerified) {
+      return { ok: true, message: "Se o e-mail existir e não estiver verificado, enviaremos o link de confirmação." };
+    }
+    const userId = Number(row.id);
+    await pool.query(
+      "DELETE FROM user_auth_tokens WHERE userid = ? AND purpose = 'verify_email'",
+      [userId]
+    );
+    const { raw, hash } = newOpaqueToken();
+    const expiresAt = new Date(Date.now() + 48 * 3600 * 1000);
+    await pool.query(
+      "INSERT INTO user_auth_tokens (userid, tokenhash, purpose, expiresat) VALUES (?, ?, 'verify_email', ?)",
+      [userId, hash, expiresAt]
+    );
+    const verifyUrl = `${config.publicWebUrl}/verificar-email?token=${encodeURIComponent(raw)}`;
+    try {
+      await sendVerificationEmail(email, verifyUrl);
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      return { ok: true, message: `Falha ao enviar e-mail: ${detail}`, emailSendFailed: true };
+    }
+    return { ok: true, message: "E-mail de confirmação reenviado. Verifique sua caixa de entrada." };
+  });
+
   registerApiRouteMirrored(app, "post", "/api/auth/forgot-password", async (req, reply) => {
     try {
       const parsed = forgotBody.safeParse(req.body);
@@ -398,7 +475,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         [userId]
       );
       const { raw, hash } = newOpaqueToken();
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000);
       await pool.query(
         `INSERT INTO user_auth_tokens (userId, tokenHash, purpose, expiresAt) VALUES (?, ?, 'reset_password', ?)`,
         [userId, hash, expiresAt]

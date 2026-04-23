@@ -41,7 +41,7 @@ export class SeedDev1700000000001 implements MigrationInterface {
 
     await queryRunner.query(`
       UPDATE users
-      SET passwordhash = '$2b$10$EmjchteMvFMj4/ACt4oa7uNQXaG4mJ6HXlb0/OWLP74ADZ194Rw6i',
+      SET passwordhash = '$2b$10$Y64Ic7KvWsYJGDy3vLGbmOt5P44BX9edmtW5Jq47VPbeUMD/s9YoG',
           loginmethod  = 'password',
           emailverified = 1,
           role          = 'admin'

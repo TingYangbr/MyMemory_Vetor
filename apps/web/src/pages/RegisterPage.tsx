@@ -172,18 +172,13 @@ export default function RegisterPage() {
         ) : null}
         {success && !mailFailed ? (
           <div className={styles.success} role="status">
-            <p style={{ margin: 0 }}>{success}</p>
-            <p style={{ margin: "0.5rem 0 0", fontSize: "0.82rem", opacity: 0.95 }}>
-              Não achou a mensagem? Verifique spam, Promoções (Gmail) e os logs em{" "}
-              <a
-                href="https://resend.com/emails"
-                target="_blank"
-                rel="noreferrer"
-                style={{ color: "inherit" }}
-              >
-                resend.com/emails
-              </a>
-              .
+            <p style={{ margin: 0, fontWeight: 600 }}>Verifique sua caixa de entrada!</p>
+            <p style={{ margin: "0.45rem 0 0" }}>
+              Enviamos um link de confirmação para <strong>{email}</strong>.
+              Clique nele para ativar sua conta — só depois disso será possível entrar.
+            </p>
+            <p style={{ margin: "0.45rem 0 0", fontSize: "0.82rem", opacity: 0.9 }}>
+              Não encontrou? Verifique spam, Promoções (Gmail) e aguarde alguns minutos.
             </p>
           </div>
         ) : null}
@@ -192,7 +187,7 @@ export default function RegisterPage() {
           <form onSubmit={(e) => void onSubmit(e)}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="reg-name">
-                Nome (opcional)
+                Nome
               </label>
               <input
                 id="reg-name"
@@ -201,6 +196,8 @@ export default function RegisterPage() {
                 autoComplete="name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
+                required
+                minLength={2}
               />
             </div>
             <div className={styles.field}>
@@ -241,7 +238,10 @@ export default function RegisterPage() {
         ) : null}
 
         <div className={styles.links}>
-          <Link to={loginHref}>← Já tenho conta — entrar</Link>
+          {success
+            ? <Link to={loginHref}>Já confirmei meu e-mail → Entrar</Link>
+            : <Link to={loginHref}>← Já tenho conta — entrar</Link>
+          }
         </div>
       </div>
     </div>
