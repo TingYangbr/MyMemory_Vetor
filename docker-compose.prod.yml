@@ -1,0 +1,92 @@
+# MyMemory Vetor — Docker Compose de Produção (Servidor)
+#
+# Este arquivo é versionado no repositório e copiado para o servidor pelo CI.
+# As imagens são publicadas pelo GitHub Actions no registry:
+#   registry.mymemory.com.br/mymemory-vetor/api:<sha>
+#   registry.mymemory.com.br/mymemory-vetor/web:<sha>
+#
+# Para fazer deploy manual:
+#   IMAGE_TAG=<sha-ou-latest> docker compose -f docker-compose.prod.yml pull
+#   IMAGE_TAG=<sha-ou-latest> docker compose -f docker-compose.prod.yml up -d
+#
+# Pré-requisitos no servidor:
+#   - docker login registry.mymemory.com.br
+#   - Arquivo .env preenchido no mesmo diretório
+#   - Rede Docker "traefik-net" já existente
+#   - Container PostgreSQL (container_name: postgresql) já rodando na traefik-net
+
+services:
+
+  # ─────────────────────────────────────────
+  # API — Fastify + Node 20
+  # ─────────────────────────────────────────
+  api:
+    image: registry.mymemory.com.br/mymemory-vetor/api:${IMAGE_TAG:-latest}
+
+    environment:
+      PORT: "4000"
+      JWT_SECRET: ${JWT_SECRET}
+      PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
+      CORS_ORIGIN: ${CORS_ORIGIN:-}
+
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgresql}
+      POSTGRES_PORT: "5432"
+      POSTGRES_USER: ${POSTGRES_USER:-mymemory}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-mymemory}
+
+      STORAGE_MODE: ${STORAGE_MODE:-local}
+      UPLOADS_DIR: /data/uploads
+
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: ${EMAIL_FROM:-}
+
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_API_BASE_URL: ${OPENAI_API_BASE_URL:-https://api.openai.com/v1}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-4o-mini}
+      OPENAI_WHISPER_MODEL: ${OPENAI_WHISPER_MODEL:-whisper-1}
+      OPENAI_WHISPER_LANGUAGE: ${OPENAI_WHISPER_LANGUAGE:-}
+
+      # S3 (apenas se STORAGE_MODE=s3)
+      S3_BUCKET: ${S3_BUCKET:-}
+      AWS_REGION: ${AWS_REGION:-}
+      S3_PUBLIC_BASE_URL: ${S3_PUBLIC_BASE_URL:-}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+
+    volumes:
+      - uploads_data:/data/uploads
+
+    networks:
+      - traefik-net
+
+    restart: unless-stopped
+
+  web:
+    image: registry.mymemory.com.br/mymemory-vetor/web:${IMAGE_TAG:-latest}
+
+    networks:
+      - traefik-net
+
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik-net"
+      - "traefik.http.routers.mymemory-vetor.rule=Host(`pro.mymemory.com.br`)"
+      - "traefik.http.routers.mymemory-vetor.entrypoints=web,websecure"
+      - "traefik.http.routers.mymemory-vetor.tls.certresolver=letsencrypt"
+      - "traefik.http.services.mymemory-vetor.loadbalancer.server.port=80"
+
+    depends_on:
+      - api
+
+    restart: unless-stopped
+
+# ─────────────────────────────────────────
+# Volumes
+# ─────────────────────────────────────────
+volumes:
+  uploads_data:
+networks:
+  traefik-net:
+    external: true

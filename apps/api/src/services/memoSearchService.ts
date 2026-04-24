@@ -426,13 +426,11 @@ export async function searchMemosSemantic(input: {
     ids
   );
 
-  const items: MemoRecentCard[] = hits
-    .map((h) => {
-      const row = rows.find((r) => r.id === h.memoId);
-      if (!row) return null;
-      return { ...rowToCard(row), similarity: Math.round(h.similarity * 100) / 100 };
-    })
-    .filter((x): x is MemoRecentCard => x !== null);
+  const items: MemoRecentCard[] = hits.flatMap((h) => {
+    const row = rows.find((r) => r.id === h.memoId);
+    if (!row) return [];
+    return [{ ...rowToCard(row), similarity: Math.round(h.similarity * 100) / 100 }];
+  });
 
   const displayLabel = q.length > 140 ? `${q.slice(0, 137)}…` : q;
   return { items, totalCount: items.length, displayLabel };
