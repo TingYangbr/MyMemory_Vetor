@@ -80,11 +80,13 @@ export async function sendGroupInviteEmail(
   const html = `
     <p>Olá,</p>
     <p>Você foi convidado a participar do grupo <strong>${escapeHtml(groupName)}</strong> no MyMemory.</p>
-    <p><a href="${loginUrl}">Entrar e aceitar o convite</a> (use a conta com este e-mail)</p>
-    <p>Ainda não tem conta? <a href="${registerStartUrl}">Criar conta e escolher plano individual</a>; depois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.</p>
+    <p><strong>Se você ainda não tem conta:</strong><br>
+    <a href="${registerStartUrl}">Criar conta e escolher plano individual</a>; depois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.</p>
+    <p><strong>Se você já tem conta cadastrada:</strong><br>
+    <a href="${loginUrl}">Entrar e aceitar o convite</a> (use a conta com este e-mail)</p>
     <p>O convite expira em 14 dias. Se não foi você, ignore este e-mail.</p>
   `;
-  const text = `Convite para o grupo "${groupName}" no MyMemory.\n\nEntrar e aceitar:\n${loginUrl}\n\nSem conta ainda — cadastro e plano individual:\n${registerStartUrl}\n\nExpira em 14 dias.`;
+  const text = `Olá,\n\nVocê foi convidado a participar do grupo "${groupName}" no MyMemory.\n\nSe você ainda não tem conta:\nCriar conta e escolher plano individual: ${registerStartUrl}\nDepois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.\n\nSe você já tem conta cadastrada:\nEntrar e aceitar o convite (use a conta com este e-mail): ${loginUrl}\n\nO convite expira em 14 dias. Se não foi você, ignore este e-mail.`;
   const client = getResend();
   const { data, error } = await client.emails.send({
     from: config.emailFrom,
