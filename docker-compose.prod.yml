@@ -63,11 +63,6 @@ services:
 
     restart: unless-stopped
 
-  # ─────────────────────────────────────────
-  # Web — React (Vite) servido por Nginx
-  # Nginx faz proxy /api/ e /media/ → api:4000
-  # Traefik roteia o tráfego externo para este container
-  # ─────────────────────────────────────────
   web:
     image: registry.mymemory.com.br/mymemory-vetor/web:${IMAGE_TAG:-latest}
 
@@ -92,10 +87,6 @@ services:
 # ─────────────────────────────────────────
 volumes:
   uploads_data:
-
-    # ─────────────────────────────────────────
-    # Redes
-    # ─────────────────────────────────────────
 networks:
   traefik-net:
     external: true
