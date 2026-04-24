@@ -211,7 +211,7 @@ export async function runDocumentExtractPipeline(
         res = await fetch(`${converterUrl}/convert`, {
           method: "POST",
           headers: dwgHeaders,
-          body: buffer,
+          body: new Uint8Array(buffer),
           signal: AbortSignal.timeout(90_000),
         });
       } catch (err) {
