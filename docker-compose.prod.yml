@@ -13,26 +13,9 @@
 #   - docker login registry.mymemory.com.br
 #   - Arquivo .env preenchido no mesmo diretório
 #   - Rede Docker "traefik-net" já existente
-#   - Container PostgreSQL acessível nessa rede (nome definido em POSTGRES_HOST)
-#     ou use o serviço "db" incluído neste arquivo (com volume persistente)
+#   - Container PostgreSQL (container_name: postgresql) já rodando na traefik-net
 
 services:
-
-  # ─────────────────────────────────────────
-  # Banco de dados — PostgreSQL + pgvector
-  # Mantenha em rede interna; não exponha porta ao host em produção.
-  # ─────────────────────────────────────────
-  db:
-    image: pgvector/pgvector:pg17
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-mymemory}
-      POSTGRES_USER: ${POSTGRES_USER:-mymemory}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - pg_data:/var/lib/postgresql/data
-    networks:
-      - internal
-    restart: unless-stopped
 
   # ─────────────────────────────────────────
   # API — Fastify + Node 20
@@ -46,7 +29,7 @@ services:
       PUBLIC_WEB_URL: ${PUBLIC_WEB_URL}
       CORS_ORIGIN: ${CORS_ORIGIN:-}
 
-      POSTGRES_HOST: ${POSTGRES_HOST:-db}
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgresql}
       POSTGRES_PORT: "5432"
       POSTGRES_USER: ${POSTGRES_USER:-mymemory}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -76,11 +59,7 @@ services:
       - uploads_data:/data/uploads
 
     networks:
-      - internal
       - traefik-net
-
-    depends_on:
-      - db
 
     restart: unless-stopped
 
@@ -93,7 +72,6 @@ services:
     image: registry.mymemory.com.br/mymemory-vetor/web:${IMAGE_TAG:-latest}
 
     networks:
-      - internal
       - traefik-net
 
     labels:
@@ -113,14 +91,11 @@ services:
 # Volumes
 # ─────────────────────────────────────────
 volumes:
-  pg_data:
   uploads_data:
 
-    # ─────────────────────────────────────────
-    # Redes
-    # ─────────────────────────────────────────
+# ─────────────────────────────────────────
+# Redes
+# ─────────────────────────────────────────
 networks:
-  internal:
-    internal: true
   traefik-net:
     external: true
