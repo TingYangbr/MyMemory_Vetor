@@ -284,9 +284,17 @@ export default function MemoDocumentReviewPage() {
           </a>
         </p>
 
-        <section className={styles.panel} style={{ marginBottom: "1.25rem" }}>
-          <div className={styles.originalBox}>{state.originalText || "—"}</div>
-        </section>
+        {state.pipelineUsed === "skip_extract" ? (
+          <section className={styles.panel} style={{ marginBottom: "1.25rem" }}>
+            <p style={{ margin: 0, fontSize: "0.9rem", color: "var(--color-warning, #b45309)" }}>
+              Arquivo binário sem extração de texto disponível. Preencha o resumo e as palavras-chave manualmente abaixo.
+            </p>
+          </section>
+        ) : (
+          <section className={styles.panel} style={{ marginBottom: "1.25rem" }}>
+            <div className={styles.originalBox}>{state.originalText || "—"}</div>
+          </section>
+        )}
 
       <div className={styles.grid}>
         <label className={styles.fieldLabel} htmlFor="memo-doc-review-body">

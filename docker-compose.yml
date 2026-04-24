@@ -1,4 +1,11 @@
 services:
+  dwg-converter:
+    build: ./dwg-converter
+    container_name: mymemory-dwg-converter
+    restart: unless-stopped
+    ports:
+      - "3010:3010"
+
   postgres:
     image: pgvector/pgvector:pg17
     container_name: mymemory-postgres

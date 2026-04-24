@@ -1,6 +1,7 @@
 import { createRequire } from "node:module";
 import { recognizeImageWithTesseract } from "../lib/imageOcr.js";
 import { renderPdfPagesToPngBuffers } from "../lib/pdfRenderer.js";
+import { config } from "../config.js";
 
 const require = createRequire(import.meta.url);
 const MsgReaderCtor = require("@kenjiuno/msgreader").default as new (
@@ -32,7 +33,8 @@ function stripSimpleHtml(html: string): string {
 export async function runDocumentExtractPipeline(
   pipeline: string,
   buffer: Buffer,
-  mime: string
+  mime: string,
+  filename?: string
 ): Promise<{
   text: string;
   pipelineUsed: string;
@@ -81,7 +83,7 @@ export async function runDocumentExtractPipeline(
       }
       const raw = String(data?.text ?? "").replace(/\0/g, "");
       if (!raw.trim()) {
-        throw new Error("document_pdf_empty_text");
+        return runDocumentExtractPipeline("extract_pdf_ocr", buffer, mime);
       }
       if (isLikelyGarbledPdfText(raw)) {
         return runDocumentExtractPipeline("extract_pdf_ocr", buffer, mime);
@@ -194,6 +196,45 @@ export async function runDocumentExtractPipeline(
         throw new Error("document_eml_empty");
       }
       return { text: truncateExtract(text), pipelineUsed: pipeline };
+    }
+    case "skip_extract":
+      return { text: "", pipelineUsed: pipeline };
+    case "extract_dwg_text": {
+      const converterUrl = config.dwgConverterUrl;
+      if (!converterUrl) throw new Error("document_unsupported_format");
+      let res: Response;
+      const dwgHeaders: Record<string, string> = { "Content-Type": "application/octet-stream" };
+      if (filename) {
+        dwgHeaders["Content-Disposition"] = `attachment; filename="${filename.replace(/"/g, "")}"`;
+      }
+      try {
+        res = await fetch(`${converterUrl}/convert`, {
+          method: "POST",
+          headers: dwgHeaders,
+          body: buffer,
+          signal: AbortSignal.timeout(90_000),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new Error(`document_dwg_converter_unreachable: ${msg}`);
+      }
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`document_dwg_conversion_failed: HTTP ${res.status} ${body}`);
+      }
+      const json = (await res.json()) as { text?: string; entityCount?: number };
+      const text = (json.text ?? "").trim();
+      if (!text) throw new Error("document_dwg_empty_text");
+      return { text: truncateExtract(text), pipelineUsed: pipeline };
+    }
+    case "dwg_not_supported":
+      throw new Error("document_unsupported_format");
+    case "cad_not_enabled":
+      throw new Error("document_format_not_in_plan");
+    case "extract_ifc_text": {
+      const raw = utf8FromBuffer(buffer);
+      if (!raw.trim()) throw new Error("document_ifc_empty");
+      return { text: truncateExtract(raw), pipelineUsed: pipeline };
     }
     case "unsupported":
       throw new Error("document_unsupported_format");

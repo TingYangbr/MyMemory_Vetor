@@ -815,6 +815,9 @@ export default function AdminPage() {
             <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
               Último prompt LLM
             </Link>
+            <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
+              CAD/BIM pipeline
+            </Link>
           </div>
         ) : null}
 

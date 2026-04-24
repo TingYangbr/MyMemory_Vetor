@@ -135,13 +135,44 @@ export async function processDocumentMemoForReview(input: {
   const mime = String(meta.mime ?? "application/octet-stream").slice(0, 256);
   const ext = path.extname(originalFilename) || path.extname(row.mediaDocumentUrl) || "";
 
+  const dbLevel = await getUserIaUseDocumento(input.userId);
+  const iaLevel = input.iaUseDocumento ?? dbLevel;
+
   const routing = await loadDocumentRoutingConfig();
-  const pipeline = resolveDocumentPipeline(mime, ext || ".bin", routing);
+  let pipeline = resolveDocumentPipeline(mime, ext || ".bin", routing);
+  if (pipeline === "cad_not_enabled" && iaLevel === "semIA") {
+    pipeline = "extract_ifc_text";
+  }
+  if ((pipeline === "dwg_not_supported" || pipeline === "extract_dwg_text") && iaLevel === "semIA") {
+    pipeline = "skip_extract";
+  }
 
   const { buffer } = await readMemoMediaBuffer(input.userId, row.mediaDocumentUrl);
   const tamMediaUrl = buffer.length;
 
-  const extract = await runDocumentExtractPipeline(pipeline, buffer, mime);
+  if (pipeline === "skip_extract") {
+    const maxDoc = await resolveMaxSummaryCharsForDocument(input.userId, row.groupId, input.isAdmin);
+    return {
+      originalText: "",
+      suggestedMediaText: "",
+      suggestedKeywords: "",
+      maxSummaryChars: maxDoc,
+      apiCost: 0,
+      iaLevel,
+      processingWarning: "Arquivo DWG sem extração de texto disponível. Preencha o resumo manualmente.",
+      dadosEspecificosJson: null,
+      dadosEspecificosOriginaisJson: null,
+      matchedCategoryId: null,
+      memoId: input.memoId,
+      mediaDocumentUrl: row.mediaDocumentUrl,
+      originalFilename,
+      mime,
+      pipelineUsed: "skip_extract",
+      tamMediaUrl,
+    };
+  }
+
+  const extract = await runDocumentExtractPipeline(pipeline, buffer, mime, originalFilename);
   let extracted = extract.text;
   let pipelineUsed = extract.pipelineUsed;
   let preProcessWarning: string | null = null;
@@ -155,8 +186,6 @@ export async function processDocumentMemoForReview(input: {
   const textImagemMin = await resolveTextImagemMinForPlan(input.userId, row.groupId, input.isAdmin);
   const imageOcrVisionMinConfidence = await getImageOcrVisionMinConfidence(input.userId);
   const ocrMinConf = imageOcrVisionMinConfidence ?? OCR_TEXT_BRANCH_CONFIDENCE_FALLBACK;
-  const dbLevel = await getUserIaUseDocumento(input.userId);
-  const iaLevel = input.iaUseDocumento ?? dbLevel;
 
   if (pipelineUsed === "extract_pdf_ocr") {
     const ocrConfidence = extract.ocrConfidence ?? null;

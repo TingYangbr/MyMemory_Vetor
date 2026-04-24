@@ -13,6 +13,8 @@ import { SeedDev1700000000001 } from "./migrations/1700000000001-SeedDev.js";
 import { CategoryCampoPatternsAndDadosEspecificos1700000000025 } from "./migrations/1700000000025-CategoryCampoPatternsAndDadosEspecificos.js";
 import { PgvectorMemoChunks1700000000100 } from "./migrations/1700000000100-PgvectorMemoChunks.js";
 import { Unaccent1700000000101 } from "./migrations/1700000000101-Unaccent.js";
+import { BackfillIndividualSubscriptions1700000000102 } from "./migrations/1700000000102-BackfillIndividualSubscriptions.js";
+import { ResyncSequences1700000000103 } from "./migrations/1700000000103-ResyncSequences.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -21,6 +23,7 @@ import adminCostReportRoutes from "./routes/adminCostReport.js";
 import adminSoftDeletedMemosRoutes from "./routes/adminSoftDeletedMemos.js";
 import adminSubscriptionPlansRoutes from "./routes/adminSubscriptionPlans.js";
 import adminLlmPromptRoutes from "./routes/adminLlmPrompt.js";
+import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -39,6 +42,8 @@ assertMediaStorageEnv();
       CategoryCampoPatternsAndDadosEspecificos1700000000025,
       PgvectorMemoChunks1700000000100,
       Unaccent1700000000101,
+      BackfillIndividualSubscriptions1700000000102,
+      ResyncSequences1700000000103,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -96,6 +101,7 @@ await app.register(adminDocumentAiRoutes);
 await app.register(adminSoftDeletedMemosRoutes);
 await app.register(adminCostReportRoutes);
 await app.register(adminLlmPromptRoutes);
+await app.register(adminCadPipelineRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

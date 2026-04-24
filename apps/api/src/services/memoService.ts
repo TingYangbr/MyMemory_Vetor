@@ -27,6 +27,13 @@ import {
   tryExtractMemoS3KeyFromPublicUrl,
 } from "./s3MediaStorage.js";
 import { creditsFromUsdCost, getUsdToCreditsMultiplier } from "./systemConfigService.js";
+import { loadDocumentRoutingConfig, resolveDocumentPipeline } from "./documentRoutingService.js";
+
+const ORIGINAL_TEXT_META_MAX = 65_000;
+
+function truncateOriginalTextForMeta(s: string): string {
+  return s.length <= ORIGINAL_TEXT_META_MAX ? s : s.slice(0, ORIGINAL_TEXT_META_MAX);
+}
 
 function keywordsForStorage(raw: string | null | undefined): string | null {
   if (raw == null) return null;
@@ -345,6 +352,11 @@ export async function createMemoFromUpload(input: {
     (err as Error & { maxBytes?: number }).maxBytes = maxBytes;
     throw err;
   }
+  if (mediaType === "document") {
+    const routing = await loadDocumentRoutingConfig();
+    const pipeline = resolveDocumentPipeline(input.mime, path.extname(input.originalName) || ".bin", routing);
+    if (pipeline === "unsupported") throw new Error("document_unsupported_format");
+  }
   const { mediaUrl: rel } = await storeMemoBinaryAndGetUrl({
     userId: input.userId,
     buffer: input.buffer,
@@ -436,9 +448,10 @@ export async function createMemoTextReviewed(input: {
   originalText: string;
 }): Promise<MemoCreatedResponse> {
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
+  const tam = Buffer.byteLength(input.originalText, "utf8");
   const meta = JSON.stringify({
     iaUseTexto: input.iaLevel,
-    originalText: input.originalText,
+    originalText: truncateOriginalTextForMeta(input.originalText),
     reviewFlow: "text_v1",
   });
   const cost = Number.isFinite(input.apiCost) && input.apiCost >= 0 ? input.apiCost : 0;
@@ -447,7 +460,6 @@ export async function createMemoTextReviewed(input: {
   const kw = keywordsForStorage(input.keywords);
   const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
   const text = input.mediaText.trim();
-  const tam = Buffer.byteLength(input.originalText, "utf8");
   const sql = `
     INSERT INTO memos (
       userId, groupId, mediaType,
@@ -516,7 +528,7 @@ export async function createMemoUrlReviewed(input: {
   const href = input.mediaWebUrl.trim();
   const meta = JSON.stringify({
     iaUseUrl: input.iaLevel,
-    originalText: input.originalText,
+    originalText: truncateOriginalTextForMeta(input.originalText),
     reviewFlow: "url_v1",
   });
   const cost = Number.isFinite(input.apiCost) && input.apiCost >= 0 ? input.apiCost : 0;
@@ -595,7 +607,7 @@ export async function createMemoImageReviewed(input: {
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
   const meta = JSON.stringify({
     iaUseImagem: input.iaLevel,
-    originalText: input.originalText,
+    originalText: truncateOriginalTextForMeta(input.originalText),
     reviewFlow: "image_v1",
     source: input.source,
     originalFilename: input.originalFilename,
@@ -675,7 +687,7 @@ export async function createMemoAudioReviewed(input: {
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
   const meta = JSON.stringify({
     iaUseAudio: input.iaLevel,
-    originalText: input.originalText,
+    originalText: truncateOriginalTextForMeta(input.originalText),
     reviewFlow: "audio_v1",
     source: input.source,
     originalFilename: input.originalFilename,
@@ -752,7 +764,7 @@ export async function createMemoVideoReviewed(input: {
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
   const meta = JSON.stringify({
     iaUseVideo: input.iaLevel,
-    originalText: input.originalText,
+    originalText: truncateOriginalTextForMeta(input.originalText),
     reviewFlow: "video_v1",
     source: input.source,
     originalFilename: input.originalFilename,
@@ -1153,7 +1165,7 @@ export async function finalizeDocumentMemoReview(input: {
   delete meta.reviewSuggestedMatchedCategoryId;
   meta.reviewFlow = "document_v1";
   meta.documentPipeline = input.pipelineUsed;
-  meta.originalExtractedText = input.originalText;
+  meta.originalExtractedText = truncateOriginalTextForMeta(input.originalText);
   meta.originalFilename = input.originalFilename;
   meta.mime = input.mime;
   meta.iaUseDocumento = input.iaLevel;

@@ -28,8 +28,12 @@ export const DEFAULT_DOCUMENT_ROUTING: DocumentRoutingConfig = {
   version: 1,
   preprocess: [
     {
+      match: { ext: [".ifc"], mimePrefix: ["application/x-step", "application/ifc"] },
+      pipeline: "cad_not_enabled",
+    },
+    {
       match: { ext: [".dwg"] },
-      pipeline: "unsupported",
+      pipeline: "dwg_not_supported",
     },
     {
       match: { ext: [".msg"] },

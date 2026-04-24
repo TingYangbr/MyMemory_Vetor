@@ -1,10 +1,12 @@
 import type { ResultSetHeader, RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
+import { config } from "../config.js";
 import {
   DEFAULT_DOCUMENT_ROUTING,
   type DocumentPreprocessRule,
   type DocumentRoutingConfig,
 } from "./documentRoutingDefaults.js";
+import { getCadPipelineEnabled } from "./cadPipelineService.js";
 
 const OPERATION = "memo_document_ia";
 
@@ -38,6 +40,7 @@ function parseJsonRouting(raw: string | null | undefined): Partial<DocumentRouti
 }
 
 export async function loadDocumentRoutingConfig(): Promise<DocumentRoutingConfig> {
+  let cfg: DocumentRoutingConfig;
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT documentRoutingJson FROM ai_config WHERE operation = ? LIMIT 1`,
@@ -45,14 +48,28 @@ export async function loadDocumentRoutingConfig(): Promise<DocumentRoutingConfig
     );
     const raw = rows[0]?.documentRoutingJson;
     const patch = parseJsonRouting(raw == null ? null : String(raw));
-    if (patch) return shallowMerge(DEFAULT_DOCUMENT_ROUTING, patch);
-    return { ...DEFAULT_DOCUMENT_ROUTING, preprocess: [...DEFAULT_DOCUMENT_ROUTING.preprocess] };
+    cfg = patch
+      ? shallowMerge(DEFAULT_DOCUMENT_ROUTING, patch)
+      : { ...DEFAULT_DOCUMENT_ROUTING, preprocess: [...DEFAULT_DOCUMENT_ROUTING.preprocess] };
   } catch (e) {
     if (isUnknownColumnErr(e, "documentRoutingJson")) {
-      return { ...DEFAULT_DOCUMENT_ROUTING, preprocess: [...DEFAULT_DOCUMENT_ROUTING.preprocess] };
+      cfg = { ...DEFAULT_DOCUMENT_ROUTING, preprocess: [...DEFAULT_DOCUMENT_ROUTING.preprocess] };
+    } else {
+      throw e;
     }
-    throw e;
   }
+  const cadEnabled = await getCadPipelineEnabled();
+  if (cadEnabled) {
+    cfg.preprocess = cfg.preprocess.map((rule) =>
+      rule.pipeline === "cad_not_enabled" ? { ...rule, pipeline: "extract_ifc_text" } : rule
+    );
+  }
+  if (config.dwgConverterUrl) {
+    cfg.preprocess = cfg.preprocess.map((rule) =>
+      rule.pipeline === "dwg_not_supported" ? { ...rule, pipeline: "extract_dwg_text" } : rule
+    );
+  }
+  return cfg;
 }
 
 export async function getAdminDocumentRoutingJson(): Promise<{ json: string; usingDefaults: boolean }> {

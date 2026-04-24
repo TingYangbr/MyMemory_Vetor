@@ -105,6 +105,12 @@ export const config = {
       return Number.isFinite(n) && n >= 0 ? n : null;
     })(),
   },
+  /**
+   * URL do microserviço de conversão DWG (ex.: http://dwg-converter:3010).
+   * Quando definido, `.dwg` é processado via LibreDWG; caso contrário, DWG fica em `dwg_not_supported`.
+   */
+  dwgConverterUrl: (process.env.DWG_CONVERTER_URL ?? "").trim().replace(/\/$/, ""),
+
   openai: {
     apiKey: (process.env.OPENAI_API_KEY ?? "").trim(),
     /** Base com `/v1` (ex.: https://api.openai.com/v1). */

@@ -63,6 +63,20 @@ export class SeedDev1700000000001 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
+      INSERT INTO subscriptions (type, userid, ownerid, planid, status)
+      SELECT 'individual', u.id, u.id, p.id, 'active'
+      FROM users u
+      CROSS JOIN (
+        SELECT id FROM subscription_plans WHERE plantype = 'individual' AND isactive = 1 ORDER BY id LIMIT 1
+      ) AS p
+      WHERE u.email = 'ting8088@gmail.com'
+        AND NOT EXISTS (
+          SELECT 1 FROM subscriptions s
+          WHERE s.userid = u.id AND s.type = 'individual'
+        )
+    `);
+
+    await queryRunner.query(`
       INSERT INTO groups (name, description, subscriptionid, ispublic, maxsummarylength, allowpersonalcontext)
       SELECT 'Teste', 'Grupo criado pelo seed', s.id, 0, 1000, 1
       FROM subscriptions s
@@ -103,6 +117,11 @@ export class SeedDev1700000000001 implements MigrationInterface {
       DELETE FROM subscriptions s
       USING users u
       WHERE u.id = s.ownerid AND u.email = 'ting8088@gmail.com' AND s.type = 'group'
+    `);
+    await queryRunner.query(`
+      DELETE FROM subscriptions s
+      USING users u
+      WHERE u.id = s.userid AND u.email = 'ting8088@gmail.com' AND s.type = 'individual'
     `);
     await queryRunner.query(`
       DELETE FROM users WHERE email IN ('ting8088@gmail.com', 'dev@mymemory.local')

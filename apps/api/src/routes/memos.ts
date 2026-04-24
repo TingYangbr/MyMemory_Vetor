@@ -128,7 +128,7 @@ const textConfirmBody = z.object({
   keywords: z.string().max(8000).optional().default(""),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
@@ -148,7 +148,7 @@ const urlConfirmBody = z.object({
   keywords: z.string().max(8000).optional().default(""),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
@@ -176,7 +176,7 @@ const imageConfirmBody = z.object({
   matchedCategoryId: z.number().int().positive().nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   mediaImageUrl: z.string().min(1).max(2048),
   tamMediaUrl: z.number().int().min(0).max(500_000_000),
@@ -192,7 +192,7 @@ const audioConfirmBody = z.object({
   matchedCategoryId: z.number().int().positive().nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   mediaAudioUrl: z.string().min(1).max(2048),
   tamMediaUrl: z.number().int().min(0).max(500_000_000),
@@ -205,7 +205,7 @@ const videoConfirmBody = z.object({
   keywords: z.string().max(8000).optional().default(""),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   mediaVideoUrl: z.string().min(1).max(2048),
   tamMediaUrl: z.number().int().min(0).max(500_000_000),
@@ -228,7 +228,7 @@ const documentConfirmBody = z.object({
   matchedCategoryId: z.number().int().positive().nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
-  originalText: z.string().max(65_000),
+  originalText: z.string(),
   iaLevel: userIaTextoEnum.optional(),
   mediaDocumentUrl: z.string().min(1).max(2048),
   tamMediaUrl: z.number().int().min(0).max(500_000_000),
@@ -794,6 +794,12 @@ const plugin: FastifyPluginAsync = async (app) => {
       if (msg === "group_mismatch") {
         return reply.code(400).send({ error: "group_mismatch", message: "Grupo não coincide com o memo." });
       }
+      if (msg === "document_format_not_in_plan") {
+        return reply.code(422).send({
+          error: "document_format_not_in_plan",
+          message: "Formato não suportado neste plano.",
+        });
+      }
       if (msg === "document_unsupported_format") {
         return reply.code(422).send({
           error: "document_unsupported_format",
@@ -838,6 +844,24 @@ const plugin: FastifyPluginAsync = async (app) => {
         return reply.code(422).send({
           error: "document_docx_empty_text",
           message: "DOCX sem texto extraível (arquivo vazio ou formato inválido).",
+        });
+      }
+      if (msg === "document_dwg_empty_text") {
+        return reply.code(422).send({
+          error: "document_dwg_empty_text",
+          message: "Arquivo DWG sem entidades de texto (TEXT/MTEXT/ATTRIB). O desenho pode conter apenas geometria.",
+        });
+      }
+      if (msg.startsWith("document_dwg_converter_unreachable")) {
+        return reply.code(503).send({
+          error: "document_dwg_converter_unreachable",
+          message: "Serviço de conversão DWG indisponível. Verifique se o container dwg-converter está rodando.",
+        });
+      }
+      if (msg.startsWith("document_dwg_conversion_failed")) {
+        return reply.code(422).send({
+          error: "document_dwg_conversion_failed",
+          message: "Falha na conversão do arquivo DWG. O arquivo pode estar corrompido ou em versão não suportada.",
         });
       }
       if (msg === "invalid_media_url" || msg === "document_fetch_failed" || msg === "document_empty_file") {
@@ -998,8 +1022,20 @@ const plugin: FastifyPluginAsync = async (app) => {
         const maxBytes = (e as Error & { maxBytes?: number }).maxBytes;
         return reply.code(413).send({
           error: "file_too_large",
-          message: "O arquivo excede o tamanho m?ximo permitido para este tipo de m?dia e plano.",
+          message: "O arquivo excede o tamanho máximo permitido para este tipo de mídia e plano.",
           maxBytes: typeof maxBytes === "number" ? maxBytes : undefined,
+        });
+      }
+      if (e instanceof Error && e.message === "document_format_not_in_plan") {
+        return reply.code(422).send({
+          error: "document_format_not_in_plan",
+          message: "Formato não suportado neste plano. O processamento de arquivos IFC/CAD precisa ser habilitado nas configurações.",
+        });
+      }
+      if (e instanceof Error && e.message === "document_unsupported_format") {
+        return reply.code(422).send({
+          error: "document_unsupported_format",
+          message: "Formato de arquivo não suportado.",
         });
       }
       throw e;

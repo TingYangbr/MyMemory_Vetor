@@ -308,9 +308,7 @@ export default function MemoRegisterPanel({
           kind === "document" && options?.documentIaLevel != null
             ? options.documentIaLevel
             : prefs.iaUseDocumento;
-        const docIaReview =
-          memo.mediaType === "document" && aiUsage !== "none" && docIa !== "semIA";
-        if (docIaReview) {
+        if (memo.mediaType === "document") {
           navigate("/revisao/memo-documento", {
             state: {
               memoId: memo.id,

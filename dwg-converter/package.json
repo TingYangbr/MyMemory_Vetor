@@ -1,0 +1,10 @@
+{
+  "name": "dwg-converter",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Microserviço de extração de metadados e textos de DWG por parsing binário direto (sem dependências externas)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  }
+}
