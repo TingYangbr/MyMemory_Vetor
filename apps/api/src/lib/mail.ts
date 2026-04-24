@@ -80,11 +80,27 @@ export async function sendGroupInviteEmail(
   const html = `
     <p>Olá,</p>
     <p>Você foi convidado a participar do grupo <strong>${escapeHtml(groupName)}</strong> no MyMemory.</p>
-    <p><strong>Se você ainda não tem conta:</strong><br>
-    <a href="${registerStartUrl}">Criar conta e escolher plano individual</a>; depois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.</p>
-    <p><strong>Se você já tem conta cadastrada:</strong><br>
-    <a href="${loginUrl}">Entrar e aceitar o convite</a> (use a conta com este e-mail)</p>
-    <p>O convite expira em 14 dias. Se não foi você, ignore este e-mail.</p>
+    <p style="margin-bottom:8px"><strong>Escolha a opção correta para você:</strong></p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+      <tr>
+        <td style="border:2px solid #4F46E5;border-radius:8px;padding:16px 20px;background:#F5F5FF">
+          <p style="margin:0 0 4px 0;font-size:13px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">OPÇÃO 1</p>
+          <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#1F2937">Ainda não tenho conta</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#374151">Crie sua conta e escolha o plano individual. Após confirmar o e-mail e entrar, o grupo é aceito automaticamente.</p>
+          <a href="${registerStartUrl}" style="display:inline-block;background:#4F46E5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">Criar conta →</a>
+        </td>
+      </tr>
+      <tr><td style="height:12px"></td></tr>
+      <tr>
+        <td style="border:2px solid #059669;border-radius:8px;padding:16px 20px;background:#F0FDF4">
+          <p style="margin:0 0 4px 0;font-size:13px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">OPÇÃO 2</p>
+          <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#1F2937">Já tenho conta cadastrada</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#374151">Entre com a conta associada a este e-mail e aceite o convite.</p>
+          <a href="${loginUrl}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">Entrar e aceitar →</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin-top:20px;font-size:13px;color:#6B7280">O convite expira em 14 dias. Se não foi você, ignore este e-mail.</p>
   `;
   const text = `Olá,\n\nVocê foi convidado a participar do grupo "${groupName}" no MyMemory.\n\nSe você ainda não tem conta:\nCriar conta e escolher plano individual: ${registerStartUrl}\nDepois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.\n\nSe você já tem conta cadastrada:\nEntrar e aceitar o convite (use a conta com este e-mail): ${loginUrl}\n\nO convite expira em 14 dias. Se não foi você, ignore este e-mail.`;
   const client = getResend();
