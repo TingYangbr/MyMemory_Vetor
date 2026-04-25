@@ -47,7 +47,10 @@ export default function LoginPage() {
     setResendBusy(true);
     setResendMsg(null);
     try {
-      const res = await apiPostJson<{ message?: string }>("/api/auth/resend-verification", { email });
+      const res = await apiPostJson<{ message?: string }>("/api/auth/resend-verification", {
+        email,
+        ...(afterLogin && afterLogin !== "/" ? { next: afterLogin } : {}),
+      });
       setResendMsg(res.message ?? "E-mail de confirmação reenviado.");
     } catch {
       setResendMsg("Não foi possível reenviar. Tente novamente.");

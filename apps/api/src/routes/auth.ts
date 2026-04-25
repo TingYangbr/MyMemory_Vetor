@@ -395,7 +395,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/resend-verification", async (req, reply) => {
-    const parsed = z.object({ email: z.string() }).safeParse(req.body);
+    const parsed = z.object({ email: z.string(), next: z.string().optional() }).safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_body", message: "Dados inválidos." });
     }
@@ -424,7 +424,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       "INSERT INTO user_auth_tokens (userid, tokenhash, purpose, expiresat) VALUES (?, ?, 'verify_email', ?)",
       [userId, hash, expiresAt]
     );
-    const verifyUrl = `${config.publicWebUrl}/verificar-email?token=${encodeURIComponent(raw)}`;
+    const nextAfterVerify = safeAuthNextParam(parsed.data.next);
+    let verifyUrl = `${config.publicWebUrl}/verificar-email?token=${encodeURIComponent(raw)}`;
+    if (nextAfterVerify) verifyUrl += `&next=${encodeURIComponent(nextAfterVerify)}`;
     try {
       await sendVerificationEmail(email, verifyUrl);
     } catch (err) {

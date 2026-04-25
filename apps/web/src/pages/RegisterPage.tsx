@@ -172,7 +172,7 @@ export default function RegisterPage() {
         ) : null}
         {success && !mailFailed ? (
           <div className={styles.success} role="status">
-            <p style={{ margin: 0, fontWeight: 600 }}>Verifique sua caixa de entrada!</p>
+            <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", letterSpacing: "0.01em" }}>Verifique sua Caixa de Entrada de E-mail</p>
             <p style={{ margin: "0.45rem 0 0" }}>
               Enviamos um link de confirmação para <strong>{email}</strong>.
               Clique nele para ativar sua conta — só depois disso será possível entrar.
