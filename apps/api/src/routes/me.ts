@@ -141,8 +141,11 @@ async function resolveWorkspaceDisplay(
 
   try {
     await assertUserWorkspaceGroupAccess(userId, gid, isAdmin);
-  } catch {
-    await pool.query("UPDATE users SET lastWorkspaceGroupId = NULL WHERE id = ?", [userId]);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "forbidden_group" || msg === "group_not_found") {
+      await pool.query("UPDATE users SET lastWorkspaceGroupId = NULL WHERE id = ?", [userId]);
+    }
     return { lastWorkspaceGroupId: null, groupLabel: "Pessoal" };
   }
 
@@ -436,8 +439,12 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (workspaceGroupId != null) {
       try {
         await assertUserWorkspaceGroupAccess(userId, workspaceGroupId, isAdmin);
-      } catch {
-        return reply.code(403).send({ error: "forbidden_group", message: "Sem acesso a este grupo." });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        if (msg === "forbidden_group" || msg === "group_not_found") {
+          return reply.code(403).send({ error: "forbidden_group", message: "Sem acesso a este grupo." });
+        }
+        throw e;
       }
     }
     const body: UserMediaLimitsResponse = await getUserMediaLimits(userId, workspaceGroupId, isAdmin);
@@ -606,11 +613,16 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (nextId != null) {
       try {
         await assertUserWorkspaceGroupAccess(userId, nextId, isAdmin);
-      } catch {
-        return reply.code(403).send({
-          error: "forbidden_group",
-          message: "Sem acesso a este grupo.",
-        });
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        app.log.warn({ err: e, userId, groupId: nextId }, `PATCH workspace: acesso negado — ${msg}`);
+        if (msg === "forbidden_group" || msg === "group_not_found") {
+          return reply.code(403).send({
+            error: "forbidden_group",
+            message: "Sem acesso a este grupo.",
+          });
+        }
+        throw e;
       }
     }
 

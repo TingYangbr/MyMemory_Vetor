@@ -37,7 +37,12 @@ export default function GroupInviteAcceptPage() {
       setErrorCode(null);
       try {
         const res = await apiPostJson<AcceptGroupInviteResponse>("/api/group-invites/accept", { token });
-        await apiPatchJson("/api/me/workspace", { groupId: res.groupId });
+        try {
+          await apiPatchJson("/api/me/workspace", { groupId: res.groupId });
+        } catch {
+          if (!cancelled) navigate("/?escolherEspaco=1", { replace: true });
+          return;
+        }
         if (!cancelled) navigate("/", { replace: true });
       } catch (err) {
         const raw = err instanceof Error ? err.message : String(err);
