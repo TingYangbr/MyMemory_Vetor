@@ -574,6 +574,7 @@ export interface MemoContextCategory {
   updatedAt: string;
   subcategories: MemoContextSubcategory[];
   campos: MemoContextCampo[];
+  queries: QueryCategoria[];
 }
 
 export interface MemoContextSubcategory {
@@ -596,6 +597,41 @@ export interface MemoContextCampo {
   isActive: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export type QueryCategoriaParamTipo = "string" | "number" | "date" | "boolean";
+
+export const OPERADORES_SQL = [
+  "=", "!=", "LIKE", "NOT LIKE", ">", ">=", "<", "<=",
+  "IN", "NOT IN", "IS NULL", "IS NOT NULL", "BETWEEN",
+] as const;
+
+export type OperadorSql = (typeof OPERADORES_SQL)[number];
+
+export interface QueryCategoriaParam {
+  id: number;
+  queryId: number;
+  campo: string;
+  tipo: QueryCategoriaParamTipo;
+  obrigatorio: number;
+  operadorSql: string;
+  normalizar: number;
+  ordem: number;
+  isActive: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface QueryCategoria {
+  id: number;
+  categoryId: number;
+  nome: string;
+  descricao: string | null;
+  sentencaSql: string;
+  isActive: number;
+  createdAt: string;
+  updatedAt: string;
+  params: QueryCategoriaParam[];
 }
 
 export interface MemoContextStructureCapabilities {

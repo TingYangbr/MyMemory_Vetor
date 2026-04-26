@@ -689,3 +689,124 @@
   font-size: 0.72rem;
   color: var(--mm-text-secondary);
 }
+
+/* ── Queries SQL ───────────────────────────────────────────── */
+
+.queryEmpty {
+  margin: 0.25rem 0 0 0.15rem;
+  font-size: 0.8rem;
+  color: var(--mm-muted);
+}
+
+.queryList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  margin-top: 0.25rem;
+}
+
+.queryItem {
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  background: #fafbfc;
+  padding: 0.6rem 0.75rem;
+}
+
+.queryItemHead {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-bottom: 0.35rem;
+}
+
+.queryItemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.18rem;
+  min-width: 0;
+  flex: 1;
+}
+
+.queryItemNome {
+  font-weight: 700;
+  font-size: 0.9rem;
+  line-height: 1.25;
+}
+
+.queryItemDesc {
+  font-size: 0.78rem;
+  color: var(--mm-text-secondary);
+}
+
+.queryItemSql {
+  display: block;
+  font-family: ui-monospace, monospace;
+  font-size: 0.72rem;
+  color: var(--mm-text-secondary);
+  word-break: break-all;
+  background: rgba(0, 0, 0, 0.04);
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  margin-top: 0.15rem;
+}
+
+.paramsTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+}
+
+.paramsTable th {
+  text-align: left;
+  font-size: 0.65rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--mm-muted);
+  padding: 0.25rem 0.45rem;
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.paramsTable td {
+  padding: 0.28rem 0.45rem;
+  vertical-align: middle;
+  border-bottom: 1px solid #f0f0f0;
+  color: var(--mm-text-secondary);
+}
+
+.paramsTable tr:last-child td {
+  border-bottom: none;
+}
+
+.paramsTable code {
+  font-size: 0.72rem;
+  background: rgba(0, 0, 0, 0.05);
+  padding: 0.05rem 0.25rem;
+  border-radius: 3px;
+}
+
+.paramActions {
+  white-space: nowrap;
+}
+
+/* ── Modal: parâmetro ────────────────────────────────────────── */
+
+.modalParamGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 5rem;
+  gap: 0 0.75rem;
+}
+
+.paramCheckboxRow {
+  display: flex;
+  gap: 1.25rem;
+  margin-bottom: 0.75rem;
+}
+
+.paramCheckboxLabel {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.88rem;
+  cursor: pointer;
+}

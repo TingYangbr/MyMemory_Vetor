@@ -6,6 +6,8 @@ import type {
   MemoContextMediaType,
   MemoContextStructureResponse,
   MemoContextSubcategory,
+  QueryCategoria,
+  QueryCategoriaParam,
   WorkspaceGroupItem,
 } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
@@ -290,11 +292,38 @@ export async function loadMemoContextStructure(
     campoRows = rows;
   }
 
+  let queryRows: RowDataPacket[] = [];
+  let queryParamRows: RowDataPacket[] = [];
+  try {
+    const [qRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, categoryid, nome, descricao, sentencasql, isactive, createdat, updatedat
+       FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
+      catIds
+    );
+    queryRows = qRows;
+    if (queryRows.length > 0) {
+      const qIds = queryRows.map((r) => r.id as number);
+      const qph = qIds.map(() => "?").join(",");
+      const [pRows] = await pool.query<RowDataPacket[]>(
+        `SELECT id, queryid, campo, tipo, obrigatorio, operadorsql, normalizar, ordem, isactive, createdat, updatedat
+         FROM queries_categoria_params WHERE queryid IN (${qph}) AND isactive = 1 ORDER BY ordem ASC, id ASC`,
+        qIds
+      );
+      queryParamRows = pRows;
+    }
+  } catch {
+    queryRows = [];
+    queryParamRows = [];
+  }
+
   const subsByCat = new Map<number, MemoContextSubcategory[]>();
   const camposByCat = new Map<number, MemoContextCampo[]>();
+  const queriesByCat = new Map<number, QueryCategoria[]>();
+  const paramsByQuery = new Map<number, QueryCategoriaParam[]>();
   for (const id of catIds) {
     subsByCat.set(id, []);
     camposByCat.set(id, []);
+    queriesByCat.set(id, []);
   }
   for (const r of subRows) {
     const cid = r.categoryId as number;
@@ -326,6 +355,48 @@ export async function loadMemoContextStructure(
       });
   }
 
+  for (const r of queryRows) {
+    const cid = r.categoryId as number;
+    const qid = r.id as number;
+    paramsByQuery.set(qid, []);
+    const list = queriesByCat.get(cid);
+    if (list)
+      list.push({
+        id: qid,
+        categoryId: cid,
+        nome: r.nome as string,
+        descricao: (r.descricao as string) ?? null,
+        sentencaSql: r.sentencaSql as string,
+        isActive: r.isActive as number,
+        createdAt: ts(r.createdAt),
+        updatedAt: ts(r.updatedAt),
+        params: [],
+      });
+  }
+  for (const r of queryParamRows) {
+    const qid = r.queryId as number;
+    const list = paramsByQuery.get(qid);
+    if (list)
+      list.push({
+        id: r.id as number,
+        queryId: qid,
+        campo: r.campo as string,
+        tipo: r.tipo as QueryCategoriaParam["tipo"],
+        obrigatorio: r.obrigatorio as number,
+        operadorSql: r.operadorSql as string,
+        normalizar: r.normalizar as number,
+        ordem: r.ordem as number,
+        isActive: r.isActive as number,
+        createdAt: ts(r.createdAt),
+        updatedAt: ts(r.updatedAt),
+      });
+  }
+  for (const queryList of queriesByCat.values()) {
+    for (const q of queryList) {
+      q.params = paramsByQuery.get(q.id) ?? [];
+    }
+  }
+
   const categories: MemoContextCategory[] = catRows.map((r) => ({
     id: r.id as number,
     groupId: r.groupId != null ? (r.groupId as number) : null,
@@ -337,6 +408,7 @@ export async function loadMemoContextStructure(
     updatedAt: ts(r.updatedAt),
     subcategories: subsByCat.get(r.id as number) ?? [],
     campos: camposByCat.get(r.id as number) ?? [],
+    queries: queriesByCat.get(r.id as number) ?? [],
   }));
 
   return { categories, capabilities: { canEditStructure } };
@@ -543,4 +615,129 @@ export async function softDeleteSubcategory(userId: number, subCategoryId: numbe
 
 export async function softDeleteCampo(userId: number, campoId: number): Promise<void> {
   await updateCampo(userId, campoId, { isActive: 0 });
+}
+
+export async function createQueryCategoria(
+  userId: number,
+  categoryId: number,
+  input: { nome: string; descricao?: string | null; sentencaSql: string }
+): Promise<number> {
+  await assertCategoryInAccessibleGroup(userId, categoryId);
+  const [rows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, isactive)
+     VALUES (?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim()]
+  );
+  return rows[0].id;
+}
+
+export async function updateQueryCategoria(
+  userId: number,
+  queryId: number,
+  patch: { nome?: string; descricao?: string | null; sentencaSql?: string; isActive?: number }
+): Promise<void> {
+  const isAdmin = await getUserAdminFlag(userId);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.groupId FROM queries_categoria q
+     INNER JOIN categories c ON c.id = q.categoryid
+     WHERE q.id = ? LIMIT 1`,
+    [queryId]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("not_found");
+  const gid = row.groupId != null ? (row.groupId as number) : null;
+  await assertMemoContextWriteForGroupScope(userId, gid, isAdmin);
+
+  const sets: string[] = [];
+  const vals: (string | number | null)[] = [];
+  if (patch.nome !== undefined) { sets.push("nome = ?"); vals.push(patch.nome.trim()); }
+  if (patch.descricao !== undefined) { sets.push("descricao = ?"); vals.push(patch.descricao?.trim() ?? null); }
+  if (patch.sentencaSql !== undefined) { sets.push("sentencasql = ?"); vals.push(patch.sentencaSql.trim()); }
+  if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
+  if (sets.length === 0) return;
+  vals.push(queryId);
+  await pool.query(`UPDATE queries_categoria SET ${sets.join(", ")} WHERE id = ?`, vals);
+}
+
+export async function softDeleteQueryCategoria(userId: number, queryId: number): Promise<void> {
+  await updateQueryCategoria(userId, queryId, { isActive: 0 });
+}
+
+async function assertQueryInAccessibleCategory(userId: number, queryId: number): Promise<void> {
+  const isAdmin = await getUserAdminFlag(userId);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.groupId FROM queries_categoria q
+     INNER JOIN categories c ON c.id = q.categoryid
+     WHERE q.id = ? LIMIT 1`,
+    [queryId]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("not_found");
+  const gid = row.groupId != null ? (row.groupId as number) : null;
+  await assertMemoContextWriteForGroupScope(userId, gid, isAdmin);
+}
+
+export async function createQueryCategoriaParam(
+  userId: number,
+  queryId: number,
+  input: {
+    campo: string;
+    tipo: string;
+    obrigatorio: number;
+    operadorSql: string;
+    normalizar: number;
+    ordem: number;
+  }
+): Promise<number> {
+  await assertQueryInAccessibleCategory(userId, queryId);
+  const [rows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO queries_categoria_params (queryid, campo, tipo, obrigatorio, operadorsql, normalizar, ordem, isactive)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [queryId, input.campo.trim(), input.tipo, input.obrigatorio, input.operadorSql, input.normalizar, input.ordem]
+  );
+  return rows[0].id;
+}
+
+export async function updateQueryCategoriaParam(
+  userId: number,
+  paramId: number,
+  patch: {
+    campo?: string;
+    tipo?: string;
+    obrigatorio?: number;
+    operadorSql?: string;
+    normalizar?: number;
+    ordem?: number;
+    isActive?: number;
+  }
+): Promise<void> {
+  const isAdmin = await getUserAdminFlag(userId);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.groupId FROM queries_categoria_params p
+     INNER JOIN queries_categoria q ON q.id = p.queryid
+     INNER JOIN categories c ON c.id = q.categoryid
+     WHERE p.id = ? LIMIT 1`,
+    [paramId]
+  );
+  const row = rows[0];
+  if (!row) throw new Error("not_found");
+  const gid = row.groupId != null ? (row.groupId as number) : null;
+  await assertMemoContextWriteForGroupScope(userId, gid, isAdmin);
+
+  const sets: string[] = [];
+  const vals: (string | number | null)[] = [];
+  if (patch.campo !== undefined) { sets.push("campo = ?"); vals.push(patch.campo.trim()); }
+  if (patch.tipo !== undefined) { sets.push("tipo = ?"); vals.push(patch.tipo); }
+  if (patch.obrigatorio !== undefined) { sets.push("obrigatorio = ?"); vals.push(patch.obrigatorio); }
+  if (patch.operadorSql !== undefined) { sets.push("operadorsql = ?"); vals.push(patch.operadorSql); }
+  if (patch.normalizar !== undefined) { sets.push("normalizar = ?"); vals.push(patch.normalizar); }
+  if (patch.ordem !== undefined) { sets.push("ordem = ?"); vals.push(patch.ordem); }
+  if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
+  if (sets.length === 0) return;
+  vals.push(paramId);
+  await pool.query(`UPDATE queries_categoria_params SET ${sets.join(", ")} WHERE id = ?`, vals);
+}
+
+export async function softDeleteQueryCategoriaParam(userId: number, paramId: number): Promise<void> {
+  await updateQueryCategoriaParam(userId, paramId, { isActive: 0 });
 }

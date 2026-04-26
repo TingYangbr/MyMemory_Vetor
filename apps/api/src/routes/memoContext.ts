@@ -6,6 +6,8 @@ import { resolveUserId } from "../lib/userContext.js";
 import {
   createCampo,
   createCategory,
+  createQueryCategoria,
+  createQueryCategoriaParam,
   createSubcategory,
   getMemoContextEditorMeta,
   listGroupsForMemoContext,
@@ -13,9 +15,13 @@ import {
   loadStructureForGroup,
   softDeleteCampo,
   softDeleteCategory,
+  softDeleteQueryCategoria,
+  softDeleteQueryCategoriaParam,
   softDeleteSubcategory,
   updateCampo,
   updateCategory,
+  updateQueryCategoria,
+  updateQueryCategoriaParam,
   updateSubcategory,
   userHasMemoContextAccess,
 } from "../services/memoContextService.js";
@@ -312,6 +318,122 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (!campoId.success) return reply.code(400).send({ error: "invalid_id" });
     try {
       await softDeleteCampo(userId, campoId.data);
+      return { ok: true };
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+  const VALID_OPERADORES = [
+    "=", "!=", "LIKE", "NOT LIKE", ">", ">=", "<", "<=",
+    "IN", "NOT IN", "IS NULL", "IS NOT NULL", "BETWEEN",
+  ] as const;
+
+  const createQueryBody = z.object({
+    nome: z.string().min(1).max(255),
+    descricao: z.string().max(16_000).nullable().optional(),
+    sentencaSql: z.string().min(1).max(65_000),
+  });
+
+  const patchQueryBody = z.object({
+    nome: z.string().min(1).max(255).optional(),
+    descricao: z.string().max(16_000).nullable().optional(),
+    sentencaSql: z.string().min(1).max(65_000).optional(),
+    isActive: z.number().int().min(0).max(1).optional(),
+  });
+
+  const createQueryParamBody = z.object({
+    campo: z.string().min(1).max(255),
+    tipo: z.enum(["string", "number", "date", "boolean"]).default("string"),
+    obrigatorio: z.number().int().min(0).max(1).default(1),
+    operadorSql: z.enum(VALID_OPERADORES).default("="),
+    normalizar: z.number().int().min(0).max(1).default(0),
+    ordem: z.number().int().min(0).default(0),
+  });
+
+  const patchQueryParamBody = z.object({
+    campo: z.string().min(1).max(255).optional(),
+    tipo: z.enum(["string", "number", "date", "boolean"]).optional(),
+    obrigatorio: z.number().int().min(0).max(1).optional(),
+    operadorSql: z.enum(VALID_OPERADORES).optional(),
+    normalizar: z.number().int().min(0).max(1).optional(),
+    ordem: z.number().int().min(0).optional(),
+    isActive: z.number().int().min(0).max(1).optional(),
+  });
+
+  app.post("/api/memo-context/categories/:categoryId/queries", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const categoryId = z.coerce.number().int().positive().safeParse((req.params as { categoryId: string }).categoryId);
+    if (!categoryId.success) return reply.code(400).send({ error: "invalid_id" });
+    const parsed = createQueryBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    try {
+      const id = await createQueryCategoria(userId, categoryId.data, parsed.data);
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  app.patch("/api/memo-context/queries/:queryId", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const queryId = z.coerce.number().int().positive().safeParse((req.params as { queryId: string }).queryId);
+    if (!queryId.success) return reply.code(400).send({ error: "invalid_id" });
+    const parsed = patchQueryBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    try {
+      await updateQueryCategoria(userId, queryId.data, parsed.data);
+      return { ok: true };
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  app.delete("/api/memo-context/queries/:queryId", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const queryId = z.coerce.number().int().positive().safeParse((req.params as { queryId: string }).queryId);
+    if (!queryId.success) return reply.code(400).send({ error: "invalid_id" });
+    try {
+      await softDeleteQueryCategoria(userId, queryId.data);
+      return { ok: true };
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  app.post("/api/memo-context/queries/:queryId/params", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const queryId = z.coerce.number().int().positive().safeParse((req.params as { queryId: string }).queryId);
+    if (!queryId.success) return reply.code(400).send({ error: "invalid_id" });
+    const parsed = createQueryParamBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    try {
+      const id = await createQueryCategoriaParam(userId, queryId.data, parsed.data);
+      return reply.code(201).send({ id });
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  app.patch("/api/memo-context/queries-params/:paramId", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const paramId = z.coerce.number().int().positive().safeParse((req.params as { paramId: string }).paramId);
+    if (!paramId.success) return reply.code(400).send({ error: "invalid_id" });
+    const parsed = patchQueryParamBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    try {
+      await updateQueryCategoriaParam(userId, paramId.data, parsed.data);
+      return { ok: true };
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  app.delete("/api/memo-context/queries-params/:paramId", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const paramId = z.coerce.number().int().positive().safeParse((req.params as { paramId: string }).paramId);
+    if (!paramId.success) return reply.code(400).send({ error: "invalid_id" });
+    try {
+      await softDeleteQueryCategoriaParam(userId, paramId.data);
       return { ok: true };
     } catch (e) {
       return mapErr(reply, e);
