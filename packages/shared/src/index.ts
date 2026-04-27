@@ -982,6 +982,7 @@ export interface PerguntaRequest {
   workspaceGroupId?: number | null;
   filtros?: PerguntaFiltros;
   contextoSessao?: PerguntaCardHistorico[];
+  forcePipe?: PerguntaPipe;
 }
 
 export interface PerguntaCardHistorico {
@@ -995,4 +996,21 @@ export interface PerguntaResponse {
   classificacao: PerguntaClassificacao;
   apiCost: number;
   aguardaFase2?: boolean;
+  /** Limiar inicial configurado (0-1) com que a busca semântica começou. */
+  limiarInicial?: number;
+  /** Limiar de similaridade (0-1) no qual foram encontrados resultados (pipe semântico). */
+  limiarUsado?: number;
+  /** Limiar mínimo configurado (0-1) — menor valor possível antes de retornar vazio. */
+  limiarMinimo?: number;
+}
+
+export interface AdminSystemConfigItem {
+  configkey: string;
+  configvalue: string;
+  description: string | null;
+  updatedat: string;
+}
+
+export interface AdminSystemConfigResponse {
+  items: AdminSystemConfigItem[];
 }

@@ -143,31 +143,36 @@ export async function classificarPergunta(input: {
 interface MemoHit {
   memoId: number;
   score: number;
+  similarity: number;
   mediatext: string;
   keywords: string | null;
   dadosespecificosjson: string | null;
   createdat: string;
 }
 
-async function buscarComBoost(input: {
+interface RawHit {
+  memoId: number;
+  similarity: number;
+  mediatext: string;
+  keywords: string | null;
+  dadosespecificosjson: string | null;
+  createdat: string;
+}
+
+// Busca embedding + metadados do DB uma única vez (sem threshold)
+async function fetchHitsWithMeta(input: {
   pergunta: string;
   userId: number;
   groupId: number | null;
   filtros: PerguntaFiltros;
-  categoriaNames: string[];
-  topN?: number;
-  topK?: number;
-}): Promise<MemoHit[]> {
-  const topN = input.topN ?? 30;
-  const topK = input.topK ?? 10;
-
+  topN: number;
+}): Promise<RawHit[]> {
   const hits = await searchMemosByEmbedding({
     query: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
-    limit: topN,
+    limit: input.topN,
   });
-
   if (!hits.length) return [];
 
   const ids = hits.map((h) => h.memoId);
@@ -175,7 +180,6 @@ async function buscarComBoost(input: {
 
   const extraWhere: string[] = [];
   const extraVals: unknown[] = [];
-
   if (input.filtros.autorId != null) {
     extraWhere.push("m.userid = ?");
     extraVals.push(input.filtros.autorId);
@@ -188,7 +192,6 @@ async function buscarComBoost(input: {
     extraWhere.push("m.createdat <= ?");
     extraVals.push(input.filtros.dataFim + " 23:59:59");
   }
-
   const whereExtra = extraWhere.length ? " AND " + extraWhere.join(" AND ") : "";
 
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -199,38 +202,43 @@ async function buscarComBoost(input: {
   );
 
   const rowMap = new Map(rows.map((r) => [r.id as number, r]));
-
-  const catNamesLower = new Set(input.categoriaNames.map((n) => n.toLowerCase()));
-
-  const BOOST = 0.15;
-
-  const scored = hits.flatMap((h) => {
+  return hits.flatMap((h) => {
     const row = rowMap.get(h.memoId);
     if (!row) return [];
-    let score = h.similarity;
-    if (catNamesLower.size > 0) {
-      const kw = String(row.keywords ?? "").toLowerCase();
-      const dados = String(row.dadosespecificosjson ?? "").toLowerCase();
-      for (const cat of catNamesLower) {
-        if (kw.includes(cat) || dados.includes(cat)) {
-          score += BOOST;
-          break;
-        }
-      }
-    }
     return [{
       memoId: h.memoId,
-      score,
+      similarity: h.similarity,
       mediatext: String(row.mediatext ?? ""),
       keywords: row.keywords as string | null,
       dadosespecificosjson: row.dadosespecificosjson as string | null,
       createdat: String(row.createdat ?? ""),
     }];
   });
+}
 
-  return scored
+// Aplica threshold, boost por categoria e retorna top-K
+function rankAndFilter(
+  rawHits: RawHit[],
+  opts: { minSimilarity: number; categoriaNames: string[]; topK: number }
+): MemoHit[] {
+  const catNamesLower = new Set(opts.categoriaNames.map((n) => n.toLowerCase()));
+  const BOOST = 0.15;
+
+  return rawHits
+    .filter((h) => h.similarity >= opts.minSimilarity)
+    .map((h) => {
+      let score = h.similarity;
+      if (catNamesLower.size > 0) {
+        const kw = h.keywords?.toLowerCase() ?? "";
+        const dados = h.dadosespecificosjson?.toLowerCase() ?? "";
+        for (const cat of catNamesLower) {
+          if (kw.includes(cat) || dados.includes(cat)) { score += BOOST; break; }
+        }
+      }
+      return { ...h, score };
+    })
     .sort((a, b) => b.score - a.score)
-    .slice(0, topK);
+    .slice(0, opts.topK);
 }
 
 // ── 4ª chamada LLM — Resposta semântica ──────────────────────────────────────
@@ -301,20 +309,40 @@ export async function perguntarMemory(input: {
   filtros: PerguntaFiltros;
   historico: PerguntaCardHistorico[];
   categories: MemoContextCategory[];
+  forcePipe?: import("@mymemory/shared").PerguntaPipe;
+  thresholdInitial?: number;
+  thresholdMin?: number;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
   apiCost: number;
   aguardaFase2: boolean;
+  limiarInicial?: number;
+  limiarUsado?: number;
+  limiarMinimo?: number;
 }> {
   let totalCost = 0;
 
-  const { classificacao, costUsd: c1 } = await classificarPergunta({
-    pergunta: input.pergunta,
-    categories: input.categories,
-    historico: input.historico,
-  });
-  totalCost += c1;
+  let classificacao: PerguntaClassificacao;
+  if (input.forcePipe) {
+    classificacao = {
+      pipe: input.forcePipe,
+      categorias: [],
+      multi_categoria: false,
+      intencao: "outro",
+      contexto: "nova",
+      escopo_sugerido: "global",
+      justificativa: `pipe forçado pelo usuário: ${input.forcePipe}`,
+    };
+  } else {
+    const r = await classificarPergunta({
+      pergunta: input.pergunta,
+      categories: input.categories,
+      historico: input.historico,
+    });
+    classificacao = r.classificacao;
+    totalCost += r.costUsd;
+  }
 
   if (classificacao.pipe === "estruturada" || classificacao.pipe === "hibrida") {
     return {
@@ -331,16 +359,31 @@ export async function perguntarMemory(input: {
     };
   }
 
-  // Pipe 1 — semântico
-  const memos = await buscarComBoost({
+  // Pipe 1 — semântico com retry por threshold decrescente
+  const thInitial = input.thresholdInitial ?? 0.7;
+  const thMin = input.thresholdMin ?? 0.3;
+  const STEP = 0.1;
+
+  const rawHits = await fetchHitsWithMeta({
     pergunta: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
     filtros: input.filtros,
-    categoriaNames: classificacao.categorias,
-    topN: 30,
-    topK: 10,
+    topN: 50,
   });
+
+  let memos: MemoHit[] = [];
+  let limiarUsado = thInitial;
+
+  // Tenta threshold decrescente até encontrar resultados ou atingir o mínimo
+  let th = thInitial;
+  while (true) {
+    memos = rankAndFilter(rawHits, { minSimilarity: th, categoriaNames: classificacao.categorias, topK: 10 });
+    limiarUsado = th;
+    if (memos.length > 0) break;
+    if (th <= thMin) break;
+    th = Math.max(Math.round((th - STEP) * 100) / 100, thMin);
+  }
 
   const { resposta, costUsd: c4 } = await gerarRespostaSemantica({
     pergunta: input.pergunta,
@@ -348,5 +391,5 @@ export async function perguntarMemory(input: {
   });
   totalCost += c4;
 
-  return { resposta, classificacao, apiCost: totalCost, aguardaFase2: false };
+  return { resposta, classificacao, apiCost: totalCost, aguardaFase2: false, limiarInicial: thInitial, limiarUsado, limiarMinimo: thMin };
 }

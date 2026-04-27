@@ -1332,3 +1332,47 @@ export async function listRecentMemos(
     hasSemanticChunks: Boolean(r.hasChunks),
   }));
 }
+
+export async function getMemoCardForViewer(input: {
+  memoId: number;
+  userId: number;
+  isAdmin: boolean;
+}): Promise<MemoRecentCard> {
+  const chunksSubquery = `(EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks`;
+  const [rows] = await pool.query<MemoRow[]>(
+    `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
+            m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
+            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+            ${chunksSubquery}
+     FROM memos m
+     WHERE m.id = ? AND m.isActive = 1`,
+    [input.memoId]
+  );
+  const m = rows[0];
+  if (!m) throw new Error("not_found");
+  if (!input.isAdmin) {
+    if (m.groupId == null) {
+      if (m.userId !== input.userId) throw new Error("forbidden");
+    } else {
+      await assertUserWorkspaceGroupAccess(input.userId, m.groupId, input.isAdmin);
+    }
+  }
+  return {
+    id: m.id,
+    mediaType: m.mediaType,
+    headline: headlineFromRow(m),
+    mediaText: m.mediaText ?? "",
+    createdAt: m.createdAt instanceof Date ? m.createdAt.toISOString() : String(m.createdAt),
+    mediaWebUrl: m.mediaWebUrl,
+    hasFile: Boolean(m.mediaAudioUrl || m.mediaImageUrl || m.mediaVideoUrl || m.mediaDocumentUrl),
+    keywords: m.keywords ?? null,
+    dadosEspecificosJson: m.dadosEspecificosJson ?? null,
+    mediaFileUrl: primaryMediaFileUrl(m),
+    attachmentDisplayName: attachmentDisplayNameFromMemoLike(m),
+    userId: m.userId,
+    apiCost: numDb(m.apiCost),
+    usedApiCred: numDb(m.usedApiCred),
+    iaUseLevel: extractIaUseLevel(m.mediaMetadata),
+    hasSemanticChunks: Boolean(m.hasChunks),
+  };
+}

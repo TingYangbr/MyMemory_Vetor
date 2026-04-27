@@ -20,6 +20,7 @@ import {
   createMemoUrlReviewed,
   finalizeDocumentMemoReview,
   getMemoAttachmentForViewer,
+  getMemoCardForViewer,
   getMemoForAuthorEdit,
   listRecentMemos,
   softDeleteMemoForUser,
@@ -1254,6 +1255,24 @@ const plugin: FastifyPluginAsync = async (app) => {
       ) {
         return reply.code(502).send({ error: "media_unavailable", message: "Não foi possível obter o arquivo." });
       }
+      throw e;
+    }
+  });
+
+  app.get("/api/memos/:id/card", async (req, reply) => {
+    const idParsed = z.coerce.number().int().positive().safeParse((req.params as { id: string }).id);
+    if (!idParsed.success) return reply.code(400).send({ error: "invalid_id" });
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const isAdmin = await getUserIsAdmin(userId);
+    try {
+      const card = await getMemoCardForViewer({ memoId: idParsed.data, userId, isAdmin });
+      return card;
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
+      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden" });
+      if (msg === "forbidden_group" || msg === "group_not_found") return reply.code(403).send({ error: "forbidden" });
       throw e;
     }
   });

@@ -33,6 +33,52 @@ export async function showApiCostInUi(): Promise<boolean> {
   return true;
 }
 
+/** Limiares de similaridade semântica para o Pipe 1. */
+export async function getSemanticSearchThresholds(): Promise<{ initial: number; min: number }> {
+  const [rawInitial, rawMin] = await Promise.all([
+    getConfigValueRaw("semanticSearchInitialThreshold"),
+    getConfigValueRaw("semanticSearchMinThreshold"),
+  ]);
+  const parse = (raw: string | null, def: number) => {
+    if (!raw) return def;
+    const n = Number.parseFloat(raw.replace(",", "."));
+    return Number.isFinite(n) && n > 0 && n <= 1 ? n : def;
+  };
+  return { initial: parse(rawInitial, 0.7), min: parse(rawMin, 0.3) };
+}
+
+/** Lista todos os itens de system_config. */
+export async function listSystemConfig(): Promise<
+  { configkey: string; configvalue: string; description: string | null; updatedat: string }[]
+> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT configkey, configvalue, description, updatedat FROM system_config ORDER BY configkey`
+  );
+  return rows.map((r) => ({
+    configkey: String(r.configkey),
+    configvalue: String(r.configvalue),
+    description: r.description != null ? String(r.description) : null,
+    updatedat: r.updatedat instanceof Date ? r.updatedat.toISOString() : String(r.updatedat),
+  }));
+}
+
+/** Upsert de um valor de config. */
+export async function upsertSystemConfig(
+  configkey: string,
+  configvalue: string,
+  updatedByUserId: number
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO system_config (configkey, configvalue, updatedat, updatedbyuserid)
+     VALUES (?, ?, NOW(), ?)
+     ON CONFLICT (configkey) DO UPDATE
+       SET configvalue = EXCLUDED.configvalue,
+           updatedat = NOW(),
+           updatedbyuserid = EXCLUDED.updatedbyuserid`,
+    [configkey, configvalue, updatedByUserId]
+  );
+}
+
 export function creditsFromUsdCost(apiCostUsd: number, multiplier: number): number {
   const c = Number(apiCostUsd);
   const m = Number(multiplier);

@@ -2,12 +2,17 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
   MeResponse,
+  MemoRecentCard,
   PerguntaCardHistorico,
   PerguntaResponse,
 } from "@mymemory/shared";
-import { apiGetOptional, apiPostJson } from "../api";
+import { apiGet, apiGetOptional, apiPostJson } from "../api";
 import Header from "../components/Header";
+import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
+import { MemoResultListRow } from "../components/MemoResultListRow";
 import styles from "./PerguntaPage.module.css";
+
+const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
 const SILENCE_MS = 3000;
 
@@ -41,6 +46,11 @@ export default function PerguntaPage() {
   const [respostas, setRespostas] = useState<(PerguntaResponse & { perguntaTexto: string })[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refazerIdx, setRefazerIdx] = useState<number | null>(null);
+  const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
+  const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
+  const [filePreviewMemo, setFilePreviewMemo] = useState<MemoRecentCard | null>(null);
+  const [loadingCardId, setLoadingCardId] = useState<number | null>(null);
 
   // Filtros
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -54,6 +64,7 @@ export default function PerguntaPage() {
 
   // Voz
   const [micState, setMicState] = useState<"idle" | "listening" | "done">("idle");
+  const [voiceAutoSubmitText, setVoiceAutoSubmitText] = useState<string | null>(null);
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const voiceSessionRef = useRef(0);
@@ -85,6 +96,14 @@ export default function PerguntaPage() {
       .then((r) => { if (r.ok) setAuthorOptions(r.data.authors); })
       .catch(() => {});
   }, [isGroup, workspaceGroupId]);
+
+  // Auto-submit após timeout de silêncio: usa estado para evitar closure stale
+  useEffect(() => {
+    if (!voiceAutoSubmitText) return;
+    setVoiceAutoSubmitText(null);
+    void enviar({ perguntaOverride: voiceAutoSubmitText });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceAutoSubmitText]);
 
   const stopListening = useCallback((toState: "idle" | "done" = "idle") => {
     voiceSessionRef.current = 0;
@@ -132,7 +151,9 @@ export default function PerguntaPage() {
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
         if (voiceSessionRef.current !== sessionId) return;
-        stopListening("done");
+        const transcript = voiceTranscriptRef.current;
+        stopListening("idle");
+        if (transcript) setVoiceAutoSubmitText(transcript);
       }, SILENCE_MS);
     };
 
@@ -168,13 +189,15 @@ export default function PerguntaPage() {
     }
   }, [stopListening]);
 
-  async function enviar() {
-    const q = pergunta.trim();
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string }) {
+    const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
     setError(null);
     setBusy(true);
+    setRefazerIdx(null);
+    setPendingQuestion(q);
     try {
-      const res = await apiPostJson<PerguntaResponse>("/api/perguntas", {
+      const body: Record<string, unknown> = {
         pergunta: q,
         workspaceGroupId: workspaceGroupId ?? null,
         filtros: {
@@ -183,7 +206,9 @@ export default function PerguntaPage() {
           dataFim: filterDateTo || null,
         },
         contextoSessao: historico,
-      });
+      };
+      if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
+      const res = await apiPostJson<PerguntaResponse>("/api/perguntas", body);
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
       setHistorico((prev) => [
@@ -197,6 +222,20 @@ export default function PerguntaPage() {
       catch { setError(raw || "Não foi possível obter a resposta."); }
     } finally {
       setBusy(false);
+      setPendingQuestion(null);
+    }
+  }
+
+  async function openMemoCard(id: number) {
+    if (loadingCardId === id) return;
+    setLoadingCardId(id);
+    try {
+      const card = await apiGet<MemoRecentCard>(`/api/memos/${id}/card`);
+      setCardMemo(card);
+    } catch {
+      /* silencioso — memo pode não estar mais acessível */
+    } finally {
+      setLoadingCardId(null);
     }
   }
 
@@ -352,6 +391,23 @@ export default function PerguntaPage() {
 
         {error ? <p className="mm-error" role="alert">{error}</p> : null}
 
+        {pendingQuestion ? (
+          <div className={styles.cards}>
+            <article className={`${styles.card} ${styles.cardPending}`}>
+              <div className={styles.cardPergunta}>
+                <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
+                <p className={styles.cardPerguntaText}>{pendingQuestion}</p>
+              </div>
+              <div className={styles.cardResposta}>
+                <div className={styles.searchingIndicator}>
+                  <span className={styles.searchingSpinner} aria-hidden />
+                  <span className={styles.searchingLabel}>Pesquisando nos seus memos…</span>
+                </div>
+              </div>
+            </article>
+          </div>
+        ) : null}
+
         {respostas.length > 0 ? (
           <div className={styles.cards}>
             {respostas.map((r, i) => (
@@ -359,19 +415,73 @@ export default function PerguntaPage() {
                 <div className={styles.cardPergunta}>
                   <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
                   <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
+                  <div className={styles.refazerArea}>
+                    {refazerIdx === i ? (
+                      <div className={styles.refazerPipes}>
+                        {(["semantica", "estruturada", "hibrida"] as const).map((p) => (
+                          <button
+                            key={p}
+                            type="button"
+                            className={`${styles.refazerPipeBtn} ${r.classificacao.pipe === p ? styles.refazerPipeCurrent : ""}`}
+                            disabled={busy || r.classificacao.pipe === p}
+                            onClick={() => void enviar({ forcePipe: p, perguntaOverride: r.perguntaTexto })}
+                          >
+                            {renderPipeLabel(p)}
+                          </button>
+                        ))}
+                        <button type="button" className={styles.refazerClose} onClick={() => setRefazerIdx(null)} title="Cancelar">×</button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.refazerBtn}
+                        disabled={busy}
+                        onClick={() => setRefazerIdx(i)}
+                        title="Refazer com outro pipe"
+                      >
+                        ↺ Refazer
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className={styles.cardResposta}>
                   <div className={styles.cardRespostaMeta}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
                     </span>
-                    <span className={styles.confianca}>
-                      Confiança: {Math.round(r.resposta.confianca_estimada * 100)}%
+                    <span className={`${styles.scopeBadge} ${r.classificacao.escopo_sugerido === "contexto_sessao" ? styles.scopeContexto : styles.scopeGlobal}`}>
+                      {r.classificacao.escopo_sugerido === "contexto_sessao" ? "No contexto" : "Global"}
                     </span>
+                    {r.classificacao.pipe === "semantica" && r.limiarUsado != null ? (
+                      <span
+                        className={styles.confianca}
+                        title={`Confiança estimada pelo LLM / Limiar de similaridade utilizado (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
+                      >
+                        {Math.round(r.resposta.confianca_estimada * 100)}/{Math.round(r.limiarUsado * 100)}%
+                      </span>
+                    ) : (
+                      <span className={styles.confianca}>
+                        Confiança: {Math.round(r.resposta.confianca_estimada * 100)}%
+                      </span>
+                    )}
+                    {r.classificacao.pipe === "semantica" && r.limiarInicial != null && r.limiarUsado != null && r.limiarUsado < r.limiarInicial - 0.001 ? (
+                      <span
+                        className={styles.limiarAmpliadoBadge}
+                        title={`Busca ampliada automaticamente: limiar reduzido de ${Math.round(r.limiarInicial * 100)}% para ${Math.round(r.limiarUsado * 100)}%`}
+                      >
+                        ↓ Busca ampliada
+                      </span>
+                    ) : null}
                     {r.aguardaFase2 ? (
                       <span className={styles.fase2Badge}>Em desenvolvimento</span>
                     ) : null}
                   </div>
+                  {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
+                    <p className={styles.limiarMinimoAviso}>
+                      Limiar mínimo de {Math.round(r.limiarMinimo * 100)}% atingido sem memos relevantes encontrados.
+                      O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
+                    </p>
+                  ) : null}
                   <p className={styles.cardRespostaText}>{r.resposta.resposta}</p>
                   {r.resposta.limitacoes.length > 0 ? (
                     <ul className={styles.limitacoes}>
@@ -386,7 +496,15 @@ export default function PerguntaPage() {
                       <ul className={styles.memosList}>
                         {r.resposta.dados_usados.map((d, j) => (
                           <li key={j} className={styles.memosItem}>
-                            <span className={styles.memoId}>Memo #{d.memo_id}</span>
+                            <button
+                              type="button"
+                              className={styles.memoIdBtn}
+                              onClick={() => void openMemoCard(d.memo_id)}
+                              disabled={loadingCardId === d.memo_id}
+                              title="Abrir memo"
+                            >
+                              {loadingCardId === d.memo_id ? "…" : `Memo #${d.memo_id}`}
+                            </button>
                             {d.trecho_usado ? <span className={styles.memoTrecho}>"{d.trecho_usado}"</span> : null}
                           </li>
                         ))}
@@ -401,6 +519,33 @@ export default function PerguntaPage() {
           <p className={styles.emptyHint}>As respostas aparecerão aqui. Faça sua primeira pergunta!</p>
         )}
       </main>
+
+      {cardMemo ? (
+        <div className={styles.memoCardOverlay} onClick={() => setCardMemo(null)}>
+          <div className={styles.memoCardModal} onClick={(e) => e.stopPropagation()}>
+            <button type="button" className={styles.memoCardClose} onClick={() => setCardMemo(null)} aria-label="Fechar">×</button>
+            <ul className={styles.memoCardList}>
+              <MemoResultListRow
+                m={cardMemo}
+                returnTo="/perguntar"
+                currentUserId={me?.id ?? null}
+                deletingId={null}
+                onOpenPreview={(m) => { setFilePreviewMemo(m); setCardMemo(null); }}
+                onRequestDelete={() => {}}
+              />
+            </ul>
+          </div>
+        </div>
+      ) : null}
+
+      {filePreviewMemo ? (
+        <MemoFilePreviewModal
+          m={filePreviewMemo}
+          apiBase={apiBase}
+          returnTo="/perguntar"
+          onClose={() => setFilePreviewMemo(null)}
+        />
+      ) : null}
     </div>
   );
 }

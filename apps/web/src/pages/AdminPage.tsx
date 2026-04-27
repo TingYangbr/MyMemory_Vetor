@@ -818,6 +818,9 @@ export default function AdminPage() {
             <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
               CAD/BIM pipeline
             </Link>
+            <Link to="/admin/system-config" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
+              Configurações do sistema
+            </Link>
           </div>
         ) : null}
 

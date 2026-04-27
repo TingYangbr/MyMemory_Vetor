@@ -166,6 +166,87 @@
   border-bottom: 1px solid var(--mm-border, #e2e8f0);
 }
 
+/* ── Refazer ── */
+.refazerArea {
+  margin-left: auto;
+  flex-shrink: 0;
+  align-self: center;
+}
+
+.refazerBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.28rem 0.65rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--mm-border, #e2e8f0);
+  background: #fff;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--mm-text-muted, #64748b);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.refazerBtn:hover:not(:disabled) {
+  border-color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent, #0d9488);
+}
+
+.refazerBtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.refazerPipes {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  flex-wrap: nowrap;
+}
+
+.refazerPipeBtn {
+  padding: 0.26rem 0.6rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--mm-border, #e2e8f0);
+  background: #fff;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mm-text-muted, #64748b);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.refazerPipeBtn:hover:not(:disabled) {
+  border-color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent, #0d9488);
+  background: rgba(13, 148, 136, 0.07);
+}
+
+.refazerPipeCurrent {
+  opacity: 0.38;
+  cursor: default;
+}
+
+.refazerClose {
+  padding: 0.22rem 0.5rem;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.12s;
+}
+
+.refazerClose:hover { opacity: 1; }
+
 .cardPerguntaIcon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
 
 .cardPerguntaText {
@@ -197,6 +278,40 @@
 .pipe_semantica { background: rgba(13, 148, 136, 0.12); color: #0d9488; }
 .pipe_estruturada { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
 .pipe_hibrida { background: rgba(245, 158, 11, 0.12); color: #d97706; }
+
+.scopeBadge {
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.scopeGlobal { background: rgba(100, 116, 139, 0.1); color: #475569; }
+.scopeContexto { background: rgba(99, 102, 241, 0.1); color: #6366f1; }
+
+.limiarAmpliadoBadge {
+  display: inline-block;
+  padding: 0.18rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: rgba(245, 158, 11, 0.12);
+  color: #b45309;
+  cursor: default;
+}
+
+.limiarMinimoAviso {
+  margin: 0 0 0.5rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  font-size: 0.82rem;
+  color: #92400e;
+  line-height: 1.5;
+}
 
 .confianca { font-size: 0.78rem; color: var(--mm-text-muted, #64748b); }
 
@@ -239,7 +354,68 @@
 
 .memoId { font-weight: 600; color: var(--mm-text-muted, #64748b); }
 
+.memoIdBtn {
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--mm-accent, #0d9488);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  text-decoration-style: dotted;
+}
+
+.memoIdBtn:hover { color: var(--mm-primary-hover, #0f766e); }
+.memoIdBtn:disabled { opacity: 0.5; cursor: default; text-decoration: none; }
+
 .memoTrecho { font-style: italic; color: var(--mm-text, #1e293b); }
+
+/* ── Memo card modal ── */
+.memoCardOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 300;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+
+.memoCardModal {
+  position: relative;
+  background: #fff;
+  border-radius: var(--mm-radius, 12px);
+  width: 100%;
+  max-width: 640px;
+  box-shadow: 0 12px 48px rgba(15, 23, 42, 0.22);
+  overflow: hidden;
+}
+
+.memoCardClose {
+  position: absolute;
+  top: 0.6rem;
+  right: 0.75rem;
+  z-index: 1;
+  border: none;
+  background: none;
+  font-size: 1.35rem;
+  line-height: 1;
+  color: var(--mm-text-muted, #64748b);
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+}
+
+.memoCardClose:hover { background: var(--mm-surface-alt, #f1f5f9); color: var(--mm-text, #1e293b); }
+
+.memoCardList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
 
 /* ── Filter modal ── */
 .filterOverlay {
@@ -295,6 +471,38 @@
   font-size: 0.9rem;
   cursor: pointer;
   color: var(--mm-text, #1e293b);
+}
+
+/* ── Searching indicator ── */
+.cardPending {
+  opacity: 0.88;
+}
+
+.searchingIndicator {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.2rem 0;
+}
+
+.searchingSpinner {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid rgba(13, 148, 136, 0.2);
+  border-top-color: var(--mm-accent, #0d9488);
+  border-radius: 50%;
+  animation: spinnerRotate 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spinnerRotate {
+  to { transform: rotate(360deg); }
+}
+
+.searchingLabel {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--mm-text-muted, #64748b);
 }
 
 /* ── Misc ── */

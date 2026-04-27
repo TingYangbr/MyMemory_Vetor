@@ -24,6 +24,7 @@ import adminSoftDeletedMemosRoutes from "./routes/adminSoftDeletedMemos.js";
 import adminSubscriptionPlansRoutes from "./routes/adminSubscriptionPlans.js";
 import adminLlmPromptRoutes from "./routes/adminLlmPrompt.js";
 import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
+import adminSystemConfigRoutes from "./routes/adminSystemConfig.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -104,6 +105,7 @@ await app.register(adminSoftDeletedMemosRoutes);
 await app.register(adminCostReportRoutes);
 await app.register(adminLlmPromptRoutes);
 await app.register(adminCadPipelineRoutes);
+await app.register(adminSystemConfigRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

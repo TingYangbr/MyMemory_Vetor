@@ -5,6 +5,7 @@ import { resolveUserId, getUserIsAdmin } from "../lib/userContext.js";
 import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
+import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 
 const perguntaBodySchema = z.object({
   pergunta: z.string().min(1).max(4000),
@@ -26,6 +27,7 @@ const perguntaBodySchema = z.object({
     )
     .max(10)
     .optional(),
+  forcePipe: z.enum(["semantica", "estruturada", "hibrida"]).optional(),
 });
 
 const plugin: FastifyPluginAsync = async (app) => {
@@ -62,25 +64,46 @@ const plugin: FastifyPluginAsync = async (app) => {
       structure = { categories: [], capabilities: { canEditStructure: false } };
     }
 
-    const result = await perguntarMemory({
-      userId,
-      isAdmin,
-      groupId,
-      pergunta,
-      filtros: {
-        autorId: filtros?.autorId ?? null,
-        dataInicio: filtros?.dataInicio ?? null,
-        dataFim: filtros?.dataFim ?? null,
-      },
-      historico: contextoSessao ?? [],
-      categories: structure.categories,
-    });
+    const thresholds = await getSemanticSearchThresholds();
+
+    let result;
+    try {
+      result = await perguntarMemory({
+        userId,
+        isAdmin,
+        groupId,
+        pergunta,
+        filtros: {
+          autorId: filtros?.autorId ?? null,
+          dataInicio: filtros?.dataInicio ?? null,
+          dataFim: filtros?.dataFim ?? null,
+        },
+        historico: contextoSessao ?? [],
+        categories: structure.categories,
+        forcePipe: parsed.data.forcePipe,
+        thresholdInitial: thresholds.initial,
+        thresholdMin: thresholds.min,
+      });
+    } catch (err) {
+      req.log.error(err, "perguntarMemory failed");
+      const msg = err instanceof Error ? err.message : "Erro interno";
+      const isNetwork = /fetch failed|ECONNREFUSED|ETIMEDOUT|socket hang up/i.test(msg);
+      return reply.code(503).send({
+        error: "service_unavailable",
+        message: isNetwork
+          ? "Não foi possível contatar o serviço de IA. Tente novamente em instantes."
+          : `Erro ao processar a pergunta: ${msg}`,
+      });
+    }
 
     const body: PerguntaResponse = {
       resposta: result.resposta,
       classificacao: result.classificacao,
       apiCost: result.apiCost,
       aguardaFase2: result.aguardaFase2 || undefined,
+      limiarInicial: result.limiarInicial,
+      limiarUsado: result.limiarUsado,
+      limiarMinimo: result.limiarMinimo,
     };
 
     return body;
