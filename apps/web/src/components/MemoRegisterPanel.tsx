@@ -1328,6 +1328,12 @@ export default function MemoRegisterPanel({
             </span>
             Buscar memos
           </Link>
+          <Link to="/perguntar" className={styles.buscarMemosBtn}>
+            <span className={styles.buscarMemosIcon} aria-hidden>
+              💬
+            </span>
+            Pergunte ao myMemory
+          </Link>
         </div>
       ) : null}
       <div className={styles.panelHead}>

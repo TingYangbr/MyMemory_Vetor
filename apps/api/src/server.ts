@@ -27,6 +27,7 @@ import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
+import perguntasRoutes from "./routes/perguntas.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 
@@ -95,6 +96,7 @@ await app.register(groupInvitesRoutes);
 await app.register(meRoutes);
 await app.register(memoRoutes);
 await app.register(memoContextRoutes);
+await app.register(perguntasRoutes);
 await app.register(adminSubscriptionPlansRoutes);
 await app.register(adminMediaSettingsRoutes);
 await app.register(adminDocumentAiRoutes);

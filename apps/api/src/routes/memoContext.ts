@@ -343,7 +343,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   const createQueryParamBody = z.object({
     campo: z.string().min(1).max(255),
-    tipo: z.enum(["string", "number", "date", "boolean"]).default("string"),
+    tipo: z.enum(["string", "number", "date", "boolean", "lista_texto"]).default("string"),
     obrigatorio: z.number().int().min(0).max(1).default(1),
     operadorSql: z.enum(VALID_OPERADORES).default("="),
     normalizar: z.number().int().min(0).max(1).default(0),
@@ -352,7 +352,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   const patchQueryParamBody = z.object({
     campo: z.string().min(1).max(255).optional(),
-    tipo: z.enum(["string", "number", "date", "boolean"]).optional(),
+    tipo: z.enum(["string", "number", "date", "boolean", "lista_texto"]).optional(),
     obrigatorio: z.number().int().min(0).max(1).optional(),
     operadorSql: z.enum(VALID_OPERADORES).optional(),
     normalizar: z.number().int().min(0).max(1).optional(),

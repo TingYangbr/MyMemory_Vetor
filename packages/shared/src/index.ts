@@ -599,7 +599,7 @@ export interface MemoContextCampo {
   updatedAt: string;
 }
 
-export type QueryCategoriaParamTipo = "string" | "number" | "date" | "boolean";
+export type QueryCategoriaParamTipo = "string" | "number" | "date" | "boolean" | "lista_texto";
 
 export const OPERADORES_SQL = [
   "=", "!=", "LIKE", "NOT LIKE", ">", ">=", "<", "<=",
@@ -935,4 +935,64 @@ export interface AdminLlmLastPromptResponse {
     source: string;
     messages: AdminLlmPromptMessage[];
   } | null;
+}
+
+// ── Perguntas ao MyMemory ────────────────────────────────────────────────────
+
+export type PerguntaPipe = "semantica" | "estruturada" | "hibrida";
+
+export type PerguntaIntencao =
+  | "contagem" | "percentual" | "listagem" | "resumo"
+  | "explicacao" | "comparacao" | "agrupamento" | "soma"
+  | "media" | "tendencia" | "outro";
+
+export type PerguntaContexto = "nova" | "continuidade" | "refinamento";
+
+export interface PerguntaClassificacao {
+  pipe: PerguntaPipe;
+  categorias: string[];
+  multi_categoria: boolean;
+  intencao: PerguntaIntencao;
+  contexto: PerguntaContexto;
+  escopo_sugerido: "global" | "contexto_sessao" | "indefinido";
+  justificativa: string;
+}
+
+export interface PerguntaMemoUsado {
+  memo_id: number;
+  trecho_usado: string;
+}
+
+export interface PerguntaResposta {
+  resposta: string;
+  tipo_resposta: PerguntaPipe;
+  dados_usados: PerguntaMemoUsado[];
+  limitacoes: string[];
+  confianca_estimada: number;
+}
+
+export interface PerguntaFiltros {
+  autorId?: number | null;
+  dataInicio?: string | null;
+  dataFim?: string | null;
+}
+
+export interface PerguntaRequest {
+  pergunta: string;
+  workspaceGroupId?: number | null;
+  filtros?: PerguntaFiltros;
+  contextoSessao?: PerguntaCardHistorico[];
+}
+
+export interface PerguntaCardHistorico {
+  pergunta: string;
+  resposta: string;
+  pipe: PerguntaPipe;
+}
+
+export interface PerguntaResponse {
+  resposta: PerguntaResposta;
+  classificacao: PerguntaClassificacao;
+  apiCost: number;
+  aguardaFase2?: boolean;
 }
