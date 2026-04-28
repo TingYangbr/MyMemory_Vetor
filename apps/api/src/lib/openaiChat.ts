@@ -18,6 +18,7 @@ export function estimateCostUsd(u: OpenAiUsage | null): number {
 export async function openaiChatJson(args: {
   messages: { role: "system" | "user"; content: string }[];
   temperature?: number;
+  source?: string;
 }): Promise<{ content: string; usage: OpenAiUsage | null; costUsd: number }> {
   const key = config.openai.apiKey;
   if (!key) {
@@ -52,7 +53,7 @@ export async function openaiChatJson(args: {
   setLastLlmPromptTrace({
     provider: "openai",
     model: config.openai.model,
-    source: "openaiChatJson",
+    source: args.source ?? "openaiChatJson",
     messages: [
       ...args.messages.map((m) => ({ role: m.role, content: m.content })),
       { role: "assistant" as const, content },

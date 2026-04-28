@@ -63,7 +63,9 @@ export default function MemoEditPage() {
   const { id: idParam } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const cancelTo = safeReturnPath((location.state as { returnTo?: string } | null)?.returnTo);
+  const stateReturnTo = (location.state as { returnTo?: string } | null)?.returnTo;
+  const queryReturnTo = new URLSearchParams(location.search).get("returnTo");
+  const cancelTo = safeReturnPath(stateReturnTo ?? queryReturnTo);
   const memoId = Number(idParam);
   const validId = Number.isFinite(memoId) && memoId > 0;
 

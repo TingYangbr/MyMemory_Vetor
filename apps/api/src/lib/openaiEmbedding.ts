@@ -114,14 +114,14 @@ export async function searchMemosByEmbedding(input: {
   const baseVal = input.groupId != null ? input.groupId : input.userId;
 
   const [rows] = await pool.query<{ memoId: number; similarity: number }[]>(
-    `SELECT DISTINCT ON (m.id) m.id AS memoid,
-            1 - (c.embedding <=> ?::vector) AS similarity
+    `SELECT m.id AS memoid, 1 - MIN(c.embedding <=> ?::vector) AS similarity
      FROM memo_chunks c
      JOIN memos m ON m.id = c.memo_id
      WHERE ${baseWhere}
-     ORDER BY m.id, c.embedding <=> ?::vector
+     GROUP BY m.id
+     ORDER BY similarity DESC
      LIMIT ?`,
-    [vectorStr, baseVal, vectorStr, limit]
+    [vectorStr, baseVal, limit]
   );
 
   return rows

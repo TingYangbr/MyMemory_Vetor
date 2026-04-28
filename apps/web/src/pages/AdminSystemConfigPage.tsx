@@ -20,6 +20,21 @@ const THRESHOLD_KEYS = [
   },
 ] as const;
 
+const BOOL_KEYS = [
+  {
+    key: "showApiCost",
+    label: "Exibir custo de API e créditos na UI",
+    hint: 'Quando ativo, memos exibem o custo em USD e créditos gastos na IA. Padrão: ativo (1).',
+    defaultValue: "1",
+  },
+  {
+    key: "showLlmTrace",
+    label: "Exibir botão de trace LLM (Pergunte ao myMemory)",
+    hint: 'Quando ativo, cada resposta da página "Pergunte ao myMemory" exibe um botão discreto para inspecionar as chamadas LLM que geraram a resposta. Padrão: inativo (0).',
+    defaultValue: "0",
+  },
+] as const;
+
 export default function AdminSystemConfigPage() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
@@ -41,6 +56,12 @@ export default function AdminSystemConfigPage() {
             const found = cfg.items.find((i) => i.configkey === k.key);
             init[k.key] = found ? found.configvalue : k.defaultValue;
           }
+          for (const k of BOOL_KEYS) {
+            const found = cfg.items.find((i) => i.configkey === k.key);
+            init[k.key] = found ? found.configvalue : k.defaultValue;
+          }
+          const fatorFound = cfg.items.find((i) => i.configkey === "fatorCredCost");
+          init["fatorCredCost"] = fatorFound ? fatorFound.configvalue : "100";
           setDrafts(init);
         })
         .catch((e) => setLoadErr(e instanceof Error ? e.message : "Erro ao carregar config."))
@@ -48,7 +69,7 @@ export default function AdminSystemConfigPage() {
     }).catch(() => { setLoadErr("Erro de rede."); setLoading(false); });
   }, [navigate]);
 
-  async function save(key: string) {
+  async function saveThreshold(key: string) {
     const value = drafts[key]?.trim();
     if (!value) return;
     const n = Number.parseFloat(value.replace(",", "."));
@@ -56,14 +77,29 @@ export default function AdminSystemConfigPage() {
       setSaveStatus((s) => ({ ...s, [key]: "err" }));
       return;
     }
+    await commitSave(key, String(n));
+  }
+
+  async function saveFator() {
+    const value = drafts["fatorCredCost"]?.trim();
+    if (!value) return;
+    const n = Number.parseFloat(value.replace(",", "."));
+    if (!Number.isFinite(n) || n <= 0) {
+      setSaveStatus((s) => ({ ...s, fatorCredCost: "err" }));
+      return;
+    }
+    await commitSave("fatorCredCost", String(n));
+  }
+
+  async function commitSave(key: string, value: string) {
     setSaving(key);
     setSaveStatus((s) => ({ ...s, [key]: undefined as unknown as "ok" }));
     try {
-      await apiPutJson(`/api/admin/system-config/${key}`, { value: String(n) });
+      await apiPutJson(`/api/admin/system-config/${key}`, { value });
       setSaveStatus((s) => ({ ...s, [key]: "ok" }));
       setItems((prev) => {
         const idx = prev.findIndex((i) => i.configkey === key);
-        const updated = { configkey: key, configvalue: String(n), description: null, updatedat: new Date().toISOString() };
+        const updated = { configkey: key, configvalue: value, description: null, updatedat: new Date().toISOString() };
         return idx >= 0 ? prev.map((i, x) => (x === idx ? updated : i)) : [...prev, updated];
       });
     } catch {
@@ -117,7 +153,7 @@ export default function AdminSystemConfigPage() {
                   type="button"
                   className="mm-btn mm-btn--primary"
                   disabled={saving === k.key}
-                  onClick={() => void save(k.key)}
+                  onClick={() => void saveThreshold(k.key)}
                 >
                   {saving === k.key ? "Salvando…" : "Salvar"}
                 </button>
@@ -126,6 +162,97 @@ export default function AdminSystemConfigPage() {
               </div>
             </div>
           ))}
+        </section>
+
+        <section className={adminStyles.panel} style={{ marginTop: "1.5rem" }}>
+          <h2 className={adminStyles.tableToolbarLabel} style={{ marginBottom: "1rem" }}>
+            Outros
+          </h2>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+            {/* fatorCredCost */}
+            <div style={{
+              display: "grid", gridTemplateColumns: "1fr auto",
+              gap: "0.75rem 1.5rem", alignItems: "start",
+              padding: "1rem 0", borderBottom: "1px solid var(--mm-border, #e2e8f0)",
+            }}>
+              <div>
+                <div style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.2rem" }}>
+                  Multiplicador USD → créditos
+                  <code style={{ marginLeft: "0.4rem", fontSize: "0.75rem", fontWeight: 400, background: "var(--mm-surface-alt, #f1f5f9)", padding: "0.1rem 0.35rem", borderRadius: 4 }}>fatorCredCost</code>
+                </div>
+                <div style={{ fontSize: "0.8rem", color: "var(--mm-text-muted, #64748b)", lineHeight: 1.45 }}>
+                  Multiplica o custo em USD para calcular créditos consumidos exibidos na UI. Padrão: 100.
+                </div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end", minWidth: 200 }}>
+                <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                  <input
+                    type="number"
+                    className="mm-field"
+                    min="0.001"
+                    step="1"
+                    style={{ width: 90 }}
+                    value={drafts["fatorCredCost"] ?? "100"}
+                    onChange={(e) => setDrafts((d) => ({ ...d, fatorCredCost: e.target.value }))}
+                  />
+                  <button
+                    type="button"
+                    className="mm-btn mm-btn--primary"
+                    disabled={saving === "fatorCredCost"}
+                    onClick={() => void saveFator()}
+                    style={{ whiteSpace: "nowrap" }}
+                  >
+                    {saving === "fatorCredCost" ? "Salvando…" : "Salvar"}
+                  </button>
+                </div>
+                {saveStatus["fatorCredCost"] === "ok" && <span style={{ color: "var(--mm-accent, #0d9488)", fontSize: "0.8rem" }}>✓ Salvo</span>}
+                {saveStatus["fatorCredCost"] === "err" && <span style={{ color: "#ef4444", fontSize: "0.8rem" }}>Número positivo obrigatório</span>}
+              </div>
+            </div>
+
+            {/* BOOL_KEYS */}
+            {BOOL_KEYS.map((k, idx) => (
+              <div key={k.key} style={{
+                display: "grid", gridTemplateColumns: "1fr auto",
+                gap: "0.75rem 1.5rem", alignItems: "start",
+                padding: "1rem 0",
+                borderBottom: idx < BOOL_KEYS.length - 1 ? "1px solid var(--mm-border, #e2e8f0)" : undefined,
+              }}>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.2rem" }}>
+                    {k.label}
+                    <code style={{ marginLeft: "0.4rem", fontSize: "0.75rem", fontWeight: 400, background: "var(--mm-surface-alt, #f1f5f9)", padding: "0.1rem 0.35rem", borderRadius: 4 }}>{k.key}</code>
+                  </div>
+                  <div style={{ fontSize: "0.8rem", color: "var(--mm-text-muted, #64748b)", lineHeight: 1.45 }}>{k.hint}</div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", alignItems: "flex-end", minWidth: 200 }}>
+                  <div style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                    <select
+                      className="mm-field"
+                      style={{ width: 110 }}
+                      value={drafts[k.key] ?? k.defaultValue}
+                      onChange={(e) => setDrafts((d) => ({ ...d, [k.key]: e.target.value }))}
+                    >
+                      <option value="1">Ativo (1)</option>
+                      <option value="0">Inativo (0)</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--primary"
+                      disabled={saving === k.key}
+                      onClick={() => void commitSave(k.key, drafts[k.key] ?? k.defaultValue)}
+                      style={{ whiteSpace: "nowrap" }}
+                    >
+                      {saving === k.key ? "Salvando…" : "Salvar"}
+                    </button>
+                  </div>
+                  {saveStatus[k.key] === "ok" && <span style={{ color: "var(--mm-accent, #0d9488)", fontSize: "0.8rem" }}>✓ Salvo</span>}
+                  {saveStatus[k.key] === "err" && <span style={{ color: "#ef4444", fontSize: "0.8rem" }}>Erro ao salvar</span>}
+                </div>
+              </div>
+            ))}
+          </div>
         </section>
 
         <section className={adminStyles.panel} style={{ marginTop: "1.5rem" }}>

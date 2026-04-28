@@ -139,6 +139,7 @@ export default function MemoImageReviewPage() {
         iaLevel: state.iaLevel,
         dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: state.matchedCategoryId ?? null,
+        category: state.category ?? null,
         mediaImageUrl: state.mediaImageUrl,
         tamMediaUrl: state.tamMediaUrl,
         originalFilename: state.originalFilename,

@@ -134,6 +134,7 @@ const textConfirmBody = z.object({
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
   matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
 });
 
 const urlProcessBody = z.object({
@@ -154,6 +155,7 @@ const urlConfirmBody = z.object({
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
   matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
 });
 
 const imageSourceEnum = z.enum(["none", "ocr_text", "vision_basic", "vision_full"]);
@@ -175,6 +177,7 @@ const imageConfirmBody = z.object({
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
   matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
   originalText: z.string(),
@@ -191,6 +194,7 @@ const audioConfirmBody = z.object({
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
   matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
   originalText: z.string(),
@@ -227,6 +231,7 @@ const documentConfirmBody = z.object({
   dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
   dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
   matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
   originalText: z.string(),
@@ -355,6 +360,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson ?? undefined,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson ?? undefined,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,
@@ -399,6 +405,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson ?? undefined,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson ?? undefined,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,
@@ -501,6 +508,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson ?? undefined,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson ?? undefined,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,
@@ -622,6 +630,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,
@@ -911,6 +920,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson ?? undefined,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson ?? undefined,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,

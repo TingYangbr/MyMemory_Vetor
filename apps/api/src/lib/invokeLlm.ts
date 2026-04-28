@@ -1,5 +1,6 @@
 import { openaiChatJson } from "./openaiChat.js";
 import { setLastLlmPromptTrace } from "../services/llmPromptTraceStore.js";
+export { resetLlmPromptTraces, getAllLlmPromptTraces } from "../services/llmPromptTraceStore.js";
 
 /**
  * Chamada LLM unificada: se existirem `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY`,
@@ -12,6 +13,8 @@ export async function invokeLLM(input: {
   jsonObject?: boolean;
   /** Por defeito 0.2; busca expandida (sinónimos) usa 0 para maior estabilidade. */
   temperature?: number;
+  /** Identificador da chamada para o trace de debug (ex.: "classificacao", "resposta_semantica"). */
+  source?: string;
 }): Promise<{ text: string; costUsd: number }> {
   const temperature = input.temperature ?? 0.2;
   const forgeUrl = (process.env.BUILT_IN_FORGE_API_URL ?? "").trim();
@@ -51,7 +54,7 @@ export async function invokeLLM(input: {
     setLastLlmPromptTrace({
       provider: "forge",
       model,
-      source: "invokeLLM",
+      source: input.source ?? "invokeLLM",
       messages: [
         { role: "system", content: input.system },
         { role: "user", content: input.user },
@@ -67,6 +70,7 @@ export async function invokeLLM(input: {
       { role: "user", content: input.user },
     ],
     temperature,
+    source: input.source,
   });
   return { text: content, costUsd };
 }

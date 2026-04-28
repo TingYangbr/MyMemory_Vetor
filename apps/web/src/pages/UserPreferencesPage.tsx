@@ -262,10 +262,9 @@ export default function UserPreferencesPage() {
                   onChange={(e) => updatePref("soundEnabled", e.target.checked)}
                 />
                 <span className={styles.toggleLabel}>
-                  Áudio para palavras-chave por voz
+                  Áudio habilitado (voz e narração)
                   <span className={styles.toggleHint}>
-                    Permite usar o microfone para inserir palavras-chave ao registrar memos (quando o fluxo da aplicação
-                    estiver preparado para isso).
+                    Ativa narração automática das respostas em "Pergunte ao myMemory" e permite usar o microfone para inserir palavras-chave ao registrar memos.
                   </span>
                 </span>
               </label>

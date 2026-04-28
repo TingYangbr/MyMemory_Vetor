@@ -272,6 +272,11 @@ export async function processDocumentMemoForReview(input: {
     } else {
       delete m.reviewSuggestedMatchedCategoryId;
     }
+    if (typeof textOut.category === "string" && textOut.category.trim()) {
+      m.reviewSuggestedCategory = textOut.category.trim();
+    } else {
+      delete m.reviewSuggestedCategory;
+    }
     await pool.query(`UPDATE memos SET mediaMetadata = ? WHERE id = ? AND userId = ?`, [
       JSON.stringify(m),
       input.memoId,

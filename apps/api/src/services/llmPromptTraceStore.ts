@@ -13,7 +13,7 @@ export interface LlmPromptTrace {
   messages: LlmPromptTraceMessage[];
 }
 
-let lastLlmPromptTrace: LlmPromptTrace | null = null;
+let traces: LlmPromptTrace[] = [];
 
 function normalizeContent(v: unknown): string {
   if (typeof v === "string") return v;
@@ -25,7 +25,7 @@ function normalizeContent(v: unknown): string {
   }
 }
 
-export function setLastLlmPromptTrace(input: {
+function buildTrace(input: {
   provider: "openai" | "forge";
   model: string;
   source: string;
@@ -33,7 +33,7 @@ export function setLastLlmPromptTrace(input: {
   user?: unknown;
   assistant?: unknown;
   messages?: Array<{ role: "system" | "user" | "assistant"; content: unknown }>;
-}): void {
+}): LlmPromptTrace {
   const messages: LlmPromptTraceMessage[] = [];
   if (Array.isArray(input.messages) && input.messages.length > 0) {
     for (const m of input.messages) {
@@ -50,16 +50,21 @@ export function setLastLlmPromptTrace(input: {
       messages.push({ role: "assistant", content: normalizeContent(input.assistant) });
     }
   }
+  return { createdAt: new Date().toISOString(), provider: input.provider, model: input.model, source: input.source, messages };
+}
 
-  lastLlmPromptTrace = {
-    createdAt: new Date().toISOString(),
-    provider: input.provider,
-    model: input.model,
-    source: input.source,
-    messages,
-  };
+export function resetLlmPromptTraces(): void {
+  traces = [];
+}
+
+export function setLastLlmPromptTrace(input: Parameters<typeof buildTrace>[0]): void {
+  traces.push(buildTrace(input));
+}
+
+export function getAllLlmPromptTraces(): LlmPromptTrace[] {
+  return [...traces];
 }
 
 export function getLastLlmPromptTrace(): LlmPromptTrace | null {
-  return lastLlmPromptTrace;
+  return traces.length > 0 ? traces[traces.length - 1]! : null;
 }

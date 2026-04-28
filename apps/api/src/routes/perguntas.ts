@@ -6,6 +6,7 @@ import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.j
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
+import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
 
 const perguntaBodySchema = z.object({
   pergunta: z.string().min(1).max(4000),
@@ -28,6 +29,8 @@ const perguntaBodySchema = z.object({
     .max(10)
     .optional(),
   forcePipe: z.enum(["semantica", "estruturada", "hibrida"]).optional(),
+  thresholdOverride: z.number().min(0).max(1).optional(),
+  forceCategories: z.array(z.string()).optional(),
 });
 
 const plugin: FastifyPluginAsync = async (app) => {
@@ -60,6 +63,11 @@ const plugin: FastifyPluginAsync = async (app) => {
     let structure;
     try {
       structure = await loadMemoContextStructure(userId, groupId, null);
+      // Fallback: se o contexto do grupo não tiver categorias, tenta as globais (groupId = null)
+      if (!structure.categories.length && groupId != null) {
+        const global = await loadMemoContextStructure(userId, null, null);
+        if (global.categories.length) structure = { ...structure, categories: global.categories };
+      }
     } catch {
       structure = { categories: [], capabilities: { canEditStructure: false } };
     }
@@ -81,7 +89,10 @@ const plugin: FastifyPluginAsync = async (app) => {
         historico: contextoSessao ?? [],
         categories: structure.categories,
         forcePipe: parsed.data.forcePipe,
-        thresholdInitial: thresholds.initial,
+        forceCategories: parsed.data.forceCategories,
+        thresholdInitial: parsed.data.thresholdOverride != null
+          ? Math.max(parsed.data.thresholdOverride, thresholds.min)
+          : thresholds.initial,
         thresholdMin: thresholds.min,
       });
     } catch (err) {
@@ -104,6 +115,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       limiarInicial: result.limiarInicial,
       limiarUsado: result.limiarUsado,
       limiarMinimo: result.limiarMinimo,
+      memosEncontrados: result.memosEncontrados,
+      llmTrace: getAllLlmPromptTraces(),
     };
 
     return body;

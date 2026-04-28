@@ -4,15 +4,148 @@ import type {
   MeResponse,
   MemoRecentCard,
   PerguntaCardHistorico,
+  PerguntaLlmTraceEntry,
   PerguntaResponse,
+  PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPostJson } from "../api";
+import { apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
+
+const COLUNA_LABELS: Record<string, string> = {
+  id: "ID", resumo: "Resumo", keywords: "Keywords",
+  mediaType: "Tipo", data: "Data", total: "Total", mes: "Mês",
+};
+
+const MEDIA_TYPE_LABELS: Record<string, string> = {
+  text: "Texto", audio: "Áudio", image: "Imagem",
+  video: "Vídeo", document: "Documento", url: "URL",
+};
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/\*\*(.*?)\*\*/gs, "$1")
+    .replace(/\*(.*?)\*/gs, "$1")
+    .replace(/^#{1,6}\s+/gm, "")
+    .replace(/`([^`]+)`/g, "$1");
+}
+
+function IconSpeaker({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
+  if (!dados.totalLinhas) return null;
+  return (
+    <div className={styles.tabelaWrap}>
+      <table className={styles.tabela}>
+        <thead>
+          <tr>
+            {dados.colunas.map((col) => (
+              <th key={col} className={styles.tabelaTh}>{COLUNA_LABELS[col] ?? col}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {dados.linhas.map((linha, i) => (
+            <tr key={i} className={styles.tabelaTr}>
+              {dados.colunas.map((col) => {
+                const val = linha[col];
+                const display =
+                  col === "mediaType" && typeof val === "string"
+                    ? (MEDIA_TYPE_LABELS[val] ?? val)
+                    : val == null ? "—" : String(val);
+                return (
+                  <td key={col} className={styles.tabelaTd}>{display}</td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {dados.totalLinhas > dados.linhas.length ? (
+        <p className={styles.tabelaRodape}>
+          Mostrando {dados.linhas.length} de {dados.totalLinhas} registros.
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+function tryPrettifyJson(text: string): string {
+  const t = text.trim();
+  const i = t.indexOf("{");
+  const k = t.lastIndexOf("}");
+  if (i >= 0 && k > i) {
+    try {
+      const parsed = JSON.parse(t.slice(i, k + 1)) as unknown;
+      const pretty = JSON.stringify(parsed, null, 2);
+      return t.slice(0, i) + pretty + t.slice(k + 1);
+    } catch { /* não é JSON válido */ }
+  }
+  return text;
+}
+
+function LlmTraceModal({
+  trace,
+  pergunta,
+  onClose,
+}: {
+  trace: PerguntaLlmTraceEntry[];
+  pergunta: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className={styles.traceOverlay} onClick={onClose}>
+      <div className={styles.traceModal} onClick={(e) => e.stopPropagation()}>
+        <div className={styles.traceHeader}>
+          <span className={styles.traceTitle}>LLM Trace</span>
+          <span className={styles.traceSubtitle} title={pergunta}>"{pergunta}"</span>
+          <button type="button" className={styles.traceCloseBtn} onClick={onClose} title="Fechar">×</button>
+        </div>
+        <div className={styles.traceBody}>
+          {trace.length === 0 ? (
+            <p className={styles.traceEmpty}>Nenhuma chamada LLM registrada para esta resposta.</p>
+          ) : trace.map((entry, idx) => (
+            <div key={idx} className={styles.traceEntry}>
+              <div className={styles.traceEntryHeader}>
+                <span className={styles.traceEntryIndex}>#{idx + 1}</span>
+                <span className={styles.traceEntrySource}>{entry.source}</span>
+                <span className={styles.traceEntryModel}>{entry.model}</span>
+                <span className={styles.traceEntryProvider}>{entry.provider}</span>
+              </div>
+              <div className={styles.traceMessages}>
+                {entry.messages.map((msg, mi) => (
+                  <div
+                    key={mi}
+                    className={`${styles.traceMessage} ${
+                      msg.role === "system" ? styles.traceRoleSystem
+                      : msg.role === "user" ? styles.traceRoleUser
+                      : styles.traceRoleAssistant
+                    }`}
+                  >
+                    <div className={styles.traceMessageRole}>{msg.role}</div>
+                    <pre className={styles.traceMessageContent}>{tryPrettifyJson(msg.content)}</pre>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const SILENCE_MS = 3000;
 
@@ -51,6 +184,16 @@ export default function PerguntaPage() {
   const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
   const [filePreviewMemo, setFilePreviewMemo] = useState<MemoRecentCard | null>(null);
   const [loadingCardId, setLoadingCardId] = useState<number | null>(null);
+  const [memoEditMode, setMemoEditMode] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [editKeywords, setEditKeywords] = useState("");
+  const [editDados, setEditDados] = useState("");
+  const [editBusy, setEditBusy] = useState(false);
+  const [editError, setEditError] = useState<string | null>(null);
+  const [traceModal, setTraceModal] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
+  const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
+  const ttsBusyRef = useRef<string | null>(null);
+  const prevRespostasLenRef = useRef(0);
 
   // Filtros
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -189,7 +332,7 @@ export default function PerguntaPage() {
     }
   }, [stopListening]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
     setError(null);
@@ -208,6 +351,8 @@ export default function PerguntaPage() {
         contextoSessao: historico,
       };
       if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
+      if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
+      if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
       const res = await apiPostJson<PerguntaResponse>("/api/perguntas", body);
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
@@ -236,6 +381,72 @@ export default function PerguntaPage() {
       /* silencioso — memo pode não estar mais acessível */
     } finally {
       setLoadingCardId(null);
+    }
+  }
+
+  function speakText(key: string, text: string) {
+    if (typeof window.speechSynthesis === "undefined") return;
+    window.speechSynthesis.cancel();
+    ttsBusyRef.current = key;
+    setTtsBusyPergunta(key);
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "pt-BR";
+    u.onend = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
+    u.onerror = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
+    window.speechSynthesis.speak(u);
+  }
+
+  function toggleSpeakResposta(key: string, text: string) {
+    if (typeof window.speechSynthesis === "undefined") return;
+    if (ttsBusyRef.current === key) {
+      window.speechSynthesis.cancel();
+      ttsBusyRef.current = null;
+      setTtsBusyPergunta(null);
+      return;
+    }
+    speakText(key, text);
+  }
+
+  // Auto-narrar a resposta mais recente quando soundEnabled
+  useEffect(() => {
+    const prev = prevRespostasLenRef.current;
+    prevRespostasLenRef.current = respostas.length;
+    if (respostas.length > prev && me?.soundEnabled && respostas[0]) {
+      const r = respostas[0];
+      speakText(r.perguntaTexto, r.resposta.resposta);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [respostas.length]);
+
+  function handleCloseMemoCard() {
+    setCardMemo(null);
+    setMemoEditMode(false);
+  }
+
+  function handleOpenMemoEdit(m: MemoRecentCard) {
+    setEditText(m.mediaText ?? "");
+    setEditKeywords(m.keywords ?? "");
+    setEditDados(m.dadosEspecificosJson ?? "");
+    setEditError(null);
+    setMemoEditMode(true);
+  }
+
+  async function handleSaveMemoEdit() {
+    if (!cardMemo) return;
+    setEditBusy(true);
+    setEditError(null);
+    try {
+      await apiPatchJson<unknown>(`/api/memos/${cardMemo.id}`, {
+        mediaText: editText.trim(),
+        keywords: editKeywords.trim() || null,
+        dadosEspecificosJson: editDados.trim() || null,
+      });
+      setCardMemo({ ...cardMemo, mediaText: editText.trim(), keywords: editKeywords.trim() || null, dadosEspecificosJson: editDados.trim() || null });
+      setMemoEditMode(false);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "Falha ao salvar.");
+    } finally {
+      setEditBusy(false);
     }
   }
 
@@ -416,7 +627,26 @@ export default function PerguntaPage() {
                   <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
                   <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
                   <div className={styles.refazerArea}>
-                    {refazerIdx === i ? (
+                    {r.classificacao.pipe === "semantica" ? (
+                      (() => {
+                        const proxLimiar = Math.max(
+                          Math.round(((r.limiarUsado ?? 0) - 0.1) * 100) / 100,
+                          r.limiarMinimo ?? 0,
+                        );
+                        const noMinimo = r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001;
+                        return (
+                          <button
+                            type="button"
+                            className={styles.ampliarBtn}
+                            disabled={busy || noMinimo}
+                            title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
+                            onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
+                          >
+                            ↓ Ampliar busca
+                          </button>
+                        );
+                      })()
+                    ) : refazerIdx === i ? (
                       <div className={styles.refazerPipes}>
                         {(["semantica", "estruturada", "hibrida"] as const).map((p) => (
                           <button
@@ -453,12 +683,21 @@ export default function PerguntaPage() {
                       {r.classificacao.escopo_sugerido === "contexto_sessao" ? "No contexto" : "Global"}
                     </span>
                     {r.classificacao.pipe === "semantica" && r.limiarUsado != null ? (
-                      <span
-                        className={styles.confianca}
-                        title={`Confiança estimada pelo LLM / Limiar de similaridade utilizado (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
-                      >
-                        {Math.round(r.resposta.confianca_estimada * 100)}/{Math.round(r.limiarUsado * 100)}%
-                      </span>
+                      r.resposta.dados_usados.length > 0 ? (
+                        <span
+                          className={styles.confianca}
+                          title={`Similaridade máxima dos memos citados / Limiar utilizado (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
+                        >
+                          {Math.round(r.resposta.confianca_estimada * 100)}/{Math.round(r.limiarUsado * 100)}%
+                        </span>
+                      ) : (
+                        <span
+                          className={styles.confianca}
+                          title={`Nenhum memo encontrado acima do limiar (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
+                        >
+                          —/{Math.round(r.limiarUsado * 100)}%
+                        </span>
+                      )
                     ) : (
                       <span className={styles.confianca}>
                         Confiança: {Math.round(r.resposta.confianca_estimada * 100)}%
@@ -475,6 +714,17 @@ export default function PerguntaPage() {
                     {r.aguardaFase2 ? (
                       <span className={styles.fase2Badge}>Em desenvolvimento</span>
                     ) : null}
+                    {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
+                      <button
+                        type="button"
+                        className={`${styles.speakerBtn} ${ttsBusyPergunta === r.perguntaTexto ? styles.speakerBtnActive : ""}`}
+                        onClick={() => toggleSpeakResposta(r.perguntaTexto, r.resposta.resposta)}
+                        aria-pressed={ttsBusyPergunta === r.perguntaTexto}
+                        title={ttsBusyPergunta === r.perguntaTexto ? "Parar narração" : "Narrar resposta em voz alta"}
+                      >
+                        <IconSpeaker />
+                      </button>
+                    ) : null}
                   </div>
                   {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
@@ -482,7 +732,10 @@ export default function PerguntaPage() {
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  <p className={styles.cardRespostaText}>{r.resposta.resposta}</p>
+                  <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
+                  {r.resposta.dados_estruturados ? (
+                    <TabelaEstruturada dados={r.resposta.dados_estruturados} />
+                  ) : null}
                   {r.resposta.limitacoes.length > 0 ? (
                     <ul className={styles.limitacoes}>
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
@@ -511,6 +764,16 @@ export default function PerguntaPage() {
                       </ul>
                     </details>
                   ) : null}
+                  {me?.showLlmTrace && r.llmTrace && r.llmTrace.length > 0 ? (
+                    <button
+                      type="button"
+                      className={styles.traceBtn}
+                      onClick={() => setTraceModal({ trace: r.llmTrace!, pergunta: r.perguntaTexto })}
+                      title={`Ver ${r.llmTrace.length} chamada(s) LLM desta resposta`}
+                    >
+                      &#123;&#125; {r.llmTrace.length} LLM call{r.llmTrace.length !== 1 ? "s" : ""}
+                    </button>
+                  ) : null}
                 </div>
               </article>
             ))}
@@ -521,19 +784,78 @@ export default function PerguntaPage() {
       </main>
 
       {cardMemo ? (
-        <div className={styles.memoCardOverlay} onClick={() => setCardMemo(null)}>
+        <div className={styles.memoCardOverlay} onClick={handleCloseMemoCard}>
           <div className={styles.memoCardModal} onClick={(e) => e.stopPropagation()}>
-            <button type="button" className={styles.memoCardClose} onClick={() => setCardMemo(null)} aria-label="Fechar">×</button>
-            <ul className={styles.memoCardList}>
-              <MemoResultListRow
-                m={cardMemo}
-                returnTo="/perguntar"
-                currentUserId={me?.id ?? null}
-                deletingId={null}
-                onOpenPreview={(m) => { setFilePreviewMemo(m); setCardMemo(null); }}
-                onRequestDelete={() => {}}
-              />
-            </ul>
+            <div className={styles.memoCardHeader}>
+              <button
+                type="button"
+                className={styles.memoCardBack}
+                onClick={() => memoEditMode ? setMemoEditMode(false) : handleCloseMemoCard()}
+              >
+                {memoEditMode ? "← Cancelar" : "← Voltar"}
+              </button>
+              {memoEditMode ? (
+                <button
+                  type="button"
+                  className={styles.memoCardSaveBtn}
+                  disabled={editBusy || !editText.trim()}
+                  onClick={() => void handleSaveMemoEdit()}
+                >
+                  {editBusy ? "Salvando…" : "Salvar"}
+                </button>
+              ) : (
+                <span className={styles.memoCardId}>Memo #{cardMemo.id}</span>
+              )}
+            </div>
+            <div className={styles.memoCardBody}>
+              {memoEditMode ? (
+                <div className={styles.memoEditForm}>
+                  <label className={styles.memoEditLabel}>
+                    Texto
+                    <textarea
+                      className={styles.memoEditTextarea}
+                      rows={8}
+                      value={editText}
+                      onChange={(e) => setEditText(e.target.value)}
+                    />
+                  </label>
+                  <label className={styles.memoEditLabel}>
+                    Palavras-chave
+                    <textarea
+                      className={styles.memoEditTextarea}
+                      rows={2}
+                      value={editKeywords}
+                      onChange={(e) => setEditKeywords(e.target.value)}
+                      placeholder="ex.: reunião, projeto"
+                    />
+                  </label>
+                  <label className={styles.memoEditLabel}>
+                    Dados específicos (JSON)
+                    <textarea
+                      className={styles.memoEditTextarea}
+                      rows={3}
+                      value={editDados}
+                      onChange={(e) => setEditDados(e.target.value)}
+                      placeholder='ex.: {"telefone":"(11) 99999-9999"}'
+                    />
+                  </label>
+                  {editError ? <p className={styles.memoEditError}>{editError}</p> : null}
+                </div>
+              ) : (
+                <ul className={styles.memoCardList}>
+                  <MemoResultListRow
+                    m={cardMemo}
+                    returnTo="/perguntar"
+                    currentUserId={me?.id ?? null}
+                    deletingId={null}
+                    onOpenPreview={(m) => { setFilePreviewMemo(m); setCardMemo(null); }}
+                    onRequestDelete={() => {}}
+                    noNavigate={true}
+                    onEdit={handleOpenMemoEdit}
+                  />
+                </ul>
+              )}
+            </div>
           </div>
         </div>
       ) : null}
@@ -544,6 +866,14 @@ export default function PerguntaPage() {
           apiBase={apiBase}
           returnTo="/perguntar"
           onClose={() => setFilePreviewMemo(null)}
+        />
+      ) : null}
+
+      {traceModal ? (
+        <LlmTraceModal
+          trace={traceModal.trace}
+          pergunta={traceModal.pergunta}
+          onClose={() => setTraceModal(null)}
         />
       ) : null}
     </div>

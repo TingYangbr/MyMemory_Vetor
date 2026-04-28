@@ -175,6 +175,7 @@ export default function MemoDocumentReviewPage() {
         dadosEspecificosJson: dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
         dadosEspecificosOriginaisJson: st.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: st.matchedCategoryId ?? null,
+        category: st.category ?? null,
         groupId: locState.groupId,
         apiCost: st.apiCost,
         originalText: st.originalText,

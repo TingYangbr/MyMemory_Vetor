@@ -3,15 +3,14 @@ import type {
   PerguntaCardHistorico,
   PerguntaClassificacao,
   PerguntaFiltros,
-  PerguntaMemoUsado,
   PerguntaResposta,
 } from "@mymemory/shared";
-import type { RowDataPacket } from "../lib/dbTypes.js";
-import { pool } from "../db.js";
-import { invokeLLM } from "../lib/invokeLlm.js";
-import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
+import { invokeLLM, resetLlmPromptTraces } from "../lib/invokeLlm.js";
+import { executarPipe1 } from "./perguntaPipe1.js";
+import { executarPipe2 } from "./perguntaPipe2.js";
+import { executarPipe3 } from "./perguntaPipe3.js";
 
-// ── Prompts ──────────────────────────────────────────────────────────────────
+// ── Prompt de classificação ───────────────────────────────────────────────────
 
 const SYSTEM_CLASSIFICACAO = `Você é um classificador de perguntas para o sistema MyMemory.
 
@@ -24,7 +23,6 @@ Você deve analisar:
 - a capacidade estruturada genérica disponível.
 
 Você NÃO deve responder à pergunta do usuário.
-Você NÃO deve inventar categorias.
 Você NÃO deve inventar capacidades.
 Você deve retornar somente JSON válido.
 
@@ -33,37 +31,26 @@ Definições:
 - estruturada: quando a resposta depende de contagem, soma, percentual, listagem, agrupamento ou consulta estruturada.
 - hibrida: quando precisa combinar dados estruturados com interpretação textual.
 
-Regras:
+Regras de roteamento:
 - Se a pergunta pedir número, total, quantidade, percentual, soma, média, agrupamento ou comparação quantitativa, prefira estruturada.
 - Se a pergunta pedir resumo, explicação, interpretação, relato ou conteúdo textual, prefira semantica.
-- Se a pergunta pedir número e também interpretação textual, use hibrida.
+- Se a pergunta pedir número e também interpretação textual na mesma frase, use hibrida.
 - Se a pergunta se refere a "desses", "destes", "anterior", "acima", "os mesmos", trate como continuidade ou refinamento.
-- Se houver dúvida entre estruturada e semantica, prefira hibrida.`;
+- Se houver dúvida entre estruturada e semantica, prefira semantica.
 
-const SYSTEM_RESPOSTA_SEMANTICA = `Você é um assistente de resposta do MyMemory.
+Regras de categoria_principal (campo para tuning do catálogo):
+- Identifique a categoria principal do conteúdo da pergunta.
+- Procure a correspondência em categorias_disponiveis: considere equivalentes plural/singular (ex.: "Prontuário" ≡ "Prontuários"), variações de acento e grafias muito próximas.
+- Se houver correspondência (mesmo aproximada), preencha "categorias" com o nome EXATO da lista e deixe categoria_principal null.
+- Só preencha categoria_principal quando não houver nenhuma correspondência razoável na lista — é um campo exclusivo para tuning do catálogo.
+- Nunca duplique: se preencheu categoria_principal, não coloque o mesmo valor em "categorias".`;
 
-Responda à pergunta do usuário usando somente os memos fornecidos.
-Não invente informações.
-Não use conhecimento externo.
-Se os memos não forem suficientes, diga claramente que não há dados suficientes.
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-A resposta deve ser clara, objetiva e em português do Brasil.
-Retorne somente JSON válido.`;
-
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function buildCategoriasPayload(categories: MemoContextCategory[]): object[] {
+function buildCategoriasPayload(categories: MemoContextCategory[]): string[] {
   return categories
     .filter((c) => c.isActive === 1)
-    .map((c) => ({
-      id: c.id,
-      nome: c.name,
-      descricao: c.description ?? null,
-      tipoMidia: c.mediaType ?? "qualquer",
-      subcategorias: c.subcategories
-        .filter((s) => s.isActive === 1)
-        .map((s) => s.name),
-    }));
+    .map((c) => c.name);
 }
 
 function buildContextoSessao(historico: PerguntaCardHistorico[]): object {
@@ -83,13 +70,11 @@ function safeParseJson<T>(raw: string, fallback: T): T {
     const i = t.indexOf("{");
     const k = t.lastIndexOf("}");
     if (i >= 0 && k > i) return JSON.parse(t.slice(i, k + 1)) as T;
-  } catch {
-    /* */
-  }
+  } catch { /* */ }
   return fallback;
 }
 
-// ── 1ª chamada LLM — Classificação ───────────────────────────────────────────
+// ── Classificação ─────────────────────────────────────────────────────────────
 
 export async function classificarPergunta(input: {
   pergunta: string;
@@ -111,9 +96,9 @@ export async function classificarPergunta(input: {
     2
   );
 
-  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","justificativa":""}`;
+  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":""}`;
 
-  const { text, costUsd } = await invokeLLM({ system: SYSTEM_CLASSIFICACAO, user, jsonObject: true });
+  const { text, costUsd } = await invokeLLM({ system: SYSTEM_CLASSIFICACAO, user, jsonObject: true, source: "classificacao" });
 
   const fallback: PerguntaClassificacao = {
     pipe: "semantica",
@@ -125,6 +110,10 @@ export async function classificarPergunta(input: {
     justificativa: "fallback",
   };
   const parsed = safeParseJson<Partial<PerguntaClassificacao>>(text, {});
+  const categoriaPrincipal =
+    typeof parsed.categoria_principal === "string" && parsed.categoria_principal.trim()
+      ? parsed.categoria_principal.trim()
+      : null;
   const classificacao: PerguntaClassificacao = {
     pipe: (["semantica", "estruturada", "hibrida"].includes(String(parsed.pipe ?? "")) ? parsed.pipe : "semantica") as PerguntaClassificacao["pipe"],
     categorias: Array.isArray(parsed.categorias) ? (parsed.categorias as string[]) : [],
@@ -132,171 +121,11 @@ export async function classificarPergunta(input: {
     intencao: (parsed.intencao ?? fallback.intencao) as PerguntaClassificacao["intencao"],
     contexto: (["nova", "continuidade", "refinamento"].includes(String(parsed.contexto ?? "")) ? parsed.contexto : "nova") as PerguntaClassificacao["contexto"],
     escopo_sugerido: (["global", "contexto_sessao", "indefinido"].includes(String(parsed.escopo_sugerido ?? "")) ? parsed.escopo_sugerido : "global") as PerguntaClassificacao["escopo_sugerido"],
+    categoria_principal: categoriaPrincipal,
     justificativa: String(parsed.justificativa ?? ""),
   };
 
   return { classificacao, costUsd };
-}
-
-// ── Pipe 1 — Busca semântica com boost por categoria ─────────────────────────
-
-interface MemoHit {
-  memoId: number;
-  score: number;
-  similarity: number;
-  mediatext: string;
-  keywords: string | null;
-  dadosespecificosjson: string | null;
-  createdat: string;
-}
-
-interface RawHit {
-  memoId: number;
-  similarity: number;
-  mediatext: string;
-  keywords: string | null;
-  dadosespecificosjson: string | null;
-  createdat: string;
-}
-
-// Busca embedding + metadados do DB uma única vez (sem threshold)
-async function fetchHitsWithMeta(input: {
-  pergunta: string;
-  userId: number;
-  groupId: number | null;
-  filtros: PerguntaFiltros;
-  topN: number;
-}): Promise<RawHit[]> {
-  const hits = await searchMemosByEmbedding({
-    query: input.pergunta,
-    userId: input.userId,
-    groupId: input.groupId,
-    limit: input.topN,
-  });
-  if (!hits.length) return [];
-
-  const ids = hits.map((h) => h.memoId);
-  const ph = ids.map(() => "?").join(",");
-
-  const extraWhere: string[] = [];
-  const extraVals: unknown[] = [];
-  if (input.filtros.autorId != null) {
-    extraWhere.push("m.userid = ?");
-    extraVals.push(input.filtros.autorId);
-  }
-  if (input.filtros.dataInicio) {
-    extraWhere.push("m.createdat >= ?");
-    extraVals.push(input.filtros.dataInicio);
-  }
-  if (input.filtros.dataFim) {
-    extraWhere.push("m.createdat <= ?");
-    extraVals.push(input.filtros.dataFim + " 23:59:59");
-  }
-  const whereExtra = extraWhere.length ? " AND " + extraWhere.join(" AND ") : "";
-
-  const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT m.id, m.mediatext, m.keywords, m.dadosespecificosjson, m.createdat
-     FROM memos m
-     WHERE m.id IN (${ph}) AND m.isactive = 1${whereExtra}`,
-    [...ids, ...extraVals]
-  );
-
-  const rowMap = new Map(rows.map((r) => [r.id as number, r]));
-  return hits.flatMap((h) => {
-    const row = rowMap.get(h.memoId);
-    if (!row) return [];
-    return [{
-      memoId: h.memoId,
-      similarity: h.similarity,
-      mediatext: String(row.mediatext ?? ""),
-      keywords: row.keywords as string | null,
-      dadosespecificosjson: row.dadosespecificosjson as string | null,
-      createdat: String(row.createdat ?? ""),
-    }];
-  });
-}
-
-// Aplica threshold, boost por categoria e retorna top-K
-function rankAndFilter(
-  rawHits: RawHit[],
-  opts: { minSimilarity: number; categoriaNames: string[]; topK: number }
-): MemoHit[] {
-  const catNamesLower = new Set(opts.categoriaNames.map((n) => n.toLowerCase()));
-  const BOOST = 0.15;
-
-  return rawHits
-    .filter((h) => h.similarity >= opts.minSimilarity)
-    .map((h) => {
-      let score = h.similarity;
-      if (catNamesLower.size > 0) {
-        const kw = h.keywords?.toLowerCase() ?? "";
-        const dados = h.dadosespecificosjson?.toLowerCase() ?? "";
-        for (const cat of catNamesLower) {
-          if (kw.includes(cat) || dados.includes(cat)) { score += BOOST; break; }
-        }
-      }
-      return { ...h, score };
-    })
-    .sort((a, b) => b.score - a.score)
-    .slice(0, opts.topK);
-}
-
-// ── 4ª chamada LLM — Resposta semântica ──────────────────────────────────────
-
-async function gerarRespostaSemantica(input: {
-  pergunta: string;
-  memos: MemoHit[];
-}): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
-  const memosPayload = input.memos.map((m) => ({
-    memo_id: m.memoId,
-    texto: m.mediatext.slice(0, 2000),
-    keywords: m.keywords ?? null,
-    data: m.createdat,
-    score: Math.round(m.score * 100) / 100,
-  }));
-
-  const userMsg = JSON.stringify(
-    {
-      pergunta: input.pergunta,
-      memos_usados: memosPayload,
-      metadados: {
-        quantidade_memos: input.memos.length,
-        scores: input.memos.map((m) => Math.round(m.score * 100) / 100),
-      },
-    },
-    null,
-    2
-  );
-
-  const user = `Elabore a resposta final.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON:\n{"resposta":"","tipo_resposta":"semantica","dados_usados":[{"memo_id":"","trecho_usado":""}],"limitacoes":[],"confianca_estimada":0.0}`;
-
-  const { text, costUsd } = await invokeLLM({ system: SYSTEM_RESPOSTA_SEMANTICA, user, jsonObject: true });
-
-  type RawResp = {
-    resposta?: string;
-    dados_usados?: { memo_id?: unknown; trecho_usado?: string }[];
-    limitacoes?: string[];
-    confianca_estimada?: number;
-  };
-
-  const parsed = safeParseJson<RawResp>(text, {});
-
-  const dadosUsados: PerguntaMemoUsado[] = Array.isArray(parsed.dados_usados)
-    ? parsed.dados_usados.map((d) => ({
-        memo_id: Number(d.memo_id ?? 0),
-        trecho_usado: String(d.trecho_usado ?? ""),
-      }))
-    : [];
-
-  const resposta: PerguntaResposta = {
-    resposta: String(parsed.resposta ?? "Não foi possível gerar uma resposta."),
-    tipo_resposta: "semantica",
-    dados_usados: dadosUsados,
-    limitacoes: Array.isArray(parsed.limitacoes) ? (parsed.limitacoes as string[]) : [],
-    confianca_estimada: typeof parsed.confianca_estimada === "number" ? parsed.confianca_estimada : 0,
-  };
-
-  return { resposta, costUsd };
 }
 
 // ── Orquestrador principal ────────────────────────────────────────────────────
@@ -310,24 +139,28 @@ export async function perguntarMemory(input: {
   historico: PerguntaCardHistorico[];
   categories: MemoContextCategory[];
   forcePipe?: import("@mymemory/shared").PerguntaPipe;
+  forceCategories?: string[];
   thresholdInitial?: number;
   thresholdMin?: number;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
   apiCost: number;
-  aguardaFase2: boolean;
+  aguardaFase2?: boolean;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
+  memosEncontrados?: number;
 }> {
+  resetLlmPromptTraces();
   let totalCost = 0;
 
+  // Classificação (ou pipe forçado)
   let classificacao: PerguntaClassificacao;
   if (input.forcePipe) {
     classificacao = {
       pipe: input.forcePipe,
-      categorias: [],
+      categorias: input.forceCategories ?? [],
       multi_categoria: false,
       intencao: "outro",
       contexto: "nova",
@@ -344,52 +177,65 @@ export async function perguntarMemory(input: {
     totalCost += r.costUsd;
   }
 
-  if (classificacao.pipe === "estruturada" || classificacao.pipe === "hibrida") {
+  const thInitial = input.thresholdInitial ?? 0.7;
+  const thMin = input.thresholdMin ?? 0.3;
+
+  // ── Pipe 1 — Semântica ────────────────────────────────────────────────────
+  if (classificacao.pipe === "semantica") {
+    const result = await executarPipe1({
+      pergunta: input.pergunta,
+      userId: input.userId,
+      groupId: input.groupId,
+      filtros: input.filtros,
+      categoriaNames: classificacao.categorias,
+      thresholdInitial: thInitial,
+      thresholdMin: thMin,
+    });
     return {
-      resposta: {
-        resposta: "Esta consulta requer dados estruturados (Pipe 2/3) — funcionalidade em desenvolvimento.",
-        tipo_resposta: classificacao.pipe,
-        dados_usados: [],
-        limitacoes: ["Pipe 2 e 3 ainda não implementados."],
-        confianca_estimada: 0,
-      },
+      resposta: result.resposta,
       classificacao,
-      apiCost: totalCost,
-      aguardaFase2: true,
+      apiCost: totalCost + result.apiCost,
+      limiarInicial: result.limiarInicial,
+      limiarUsado: result.limiarUsado,
+      limiarMinimo: result.limiarMinimo,
+      memosEncontrados: result.memosEncontrados,
     };
   }
 
-  // Pipe 1 — semântico com retry por threshold decrescente
-  const thInitial = input.thresholdInitial ?? 0.7;
-  const thMin = input.thresholdMin ?? 0.3;
-  const STEP = 0.1;
+  // ── Pipe 2 — Estruturada ──────────────────────────────────────────────────
+  if (classificacao.pipe === "estruturada") {
+    const result = await executarPipe2({
+      pergunta: input.pergunta,
+      userId: input.userId,
+      groupId: input.groupId,
+      filtros: input.filtros,
+      historico: input.historico,
+    });
+    return {
+      resposta: result.resposta,
+      classificacao,
+      apiCost: totalCost + result.apiCost,
+    };
+  }
 
-  const rawHits = await fetchHitsWithMeta({
+  // ── Pipe 3 — Híbrida ──────────────────────────────────────────────────────
+  const result = await executarPipe3({
     pergunta: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
     filtros: input.filtros,
-    topN: 50,
+    historico: input.historico,
+    categoriaNames: classificacao.categorias,
+    thresholdInitial: thInitial,
+    thresholdMin: thMin,
   });
-
-  let memos: MemoHit[] = [];
-  let limiarUsado = thInitial;
-
-  // Tenta threshold decrescente até encontrar resultados ou atingir o mínimo
-  let th = thInitial;
-  while (true) {
-    memos = rankAndFilter(rawHits, { minSimilarity: th, categoriaNames: classificacao.categorias, topK: 10 });
-    limiarUsado = th;
-    if (memos.length > 0) break;
-    if (th <= thMin) break;
-    th = Math.max(Math.round((th - STEP) * 100) / 100, thMin);
-  }
-
-  const { resposta, costUsd: c4 } = await gerarRespostaSemantica({
-    pergunta: input.pergunta,
-    memos,
-  });
-  totalCost += c4;
-
-  return { resposta, classificacao, apiCost: totalCost, aguardaFase2: false, limiarInicial: thInitial, limiarUsado, limiarMinimo: thMin };
+  return {
+    resposta: result.resposta,
+    classificacao,
+    apiCost: totalCost + result.apiCost,
+    limiarInicial: result.limiarInicial,
+    limiarUsado: result.limiarUsado,
+    limiarMinimo: result.limiarMinimo,
+    memosEncontrados: result.memosEncontrados,
+  };
 }

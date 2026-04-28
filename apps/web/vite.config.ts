@@ -35,6 +35,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    host: true,
     proxy: {
       /** Sem limite curto: `POST /api/memos/image/process` (OCR + IA) pode exceder o default (~2 min) do proxy. */
       "/api": {

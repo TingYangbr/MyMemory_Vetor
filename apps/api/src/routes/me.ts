@@ -18,7 +18,7 @@ import {
   listWorkspaceGroupsForUser,
 } from "../services/memoContextService.js";
 import { getUserMediaLimits } from "../services/mediaLimitsService.js";
-import { getUsdToCreditsMultiplier, showApiCostInUi } from "../services/systemConfigService.js";
+import { getUsdToCreditsMultiplier, showApiCostInUi, showLlmTraceInUi } from "../services/systemConfigService.js";
 import { getUserUsageDashboard } from "../services/userUsageService.js";
 
 const patchWorkspaceBody = z.object({
@@ -182,6 +182,7 @@ async function buildMeResponseFallback(log: FastifyInstance["log"], userId: numb
     attachMemoPrefsToMe(body, u, false);
     body.showApiCost = await showApiCostInUi();
     body.usdToCreditsMultiplier = await getUsdToCreditsMultiplier();
+    body.showLlmTrace = await showLlmTraceInUi();
     return body;
   } catch (err) {
     log.error({ err }, "GET /api/me: fallback mínimo também falhou");
@@ -393,6 +394,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     attachMemoPrefsToMe(body, u, hasExtendedMemoPrefs);
     body.showApiCost = await showApiCostInUi();
     body.usdToCreditsMultiplier = await getUsdToCreditsMultiplier();
+    body.showLlmTrace = await showLlmTraceInUi();
     return body;
     } catch (err) {
       app.log.error({ err }, "GET /api/me: erro no carregamento completo do perfil");

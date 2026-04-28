@@ -539,6 +539,7 @@ Regras: ${summaryRule}`;
         dadosEspecificosJson,
         dadosEspecificosOriginaisJson,
         matchedCategoryId: selectedCat?.id ?? null,
+        category: selectedCat?.name ?? catFree ?? categoriaLista ?? null,
       };
     }
 
@@ -639,6 +640,7 @@ ${forLlm.slice(0, 12_000)}`;
       dadosEspecificosJson,
       dadosEspecificosOriginaisJson,
       matchedCategoryId: cat?.id ?? null,
+      category: cat?.name ?? catList ?? catFree ?? null,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -651,6 +653,7 @@ ${forLlm.slice(0, 12_000)}`;
       apiCost: Math.round(totalCost * 1e8) / 1e8,
       iaLevel,
       processingWarning,
+      category: null,
     };
   }
 }

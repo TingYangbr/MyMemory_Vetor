@@ -94,6 +94,8 @@ export interface TextMemoProcessResponse {
   dadosEspecificosOriginaisJson?: string | null;
   /** Categoria reconhecida no contexto (quando houver match exato/aproximado). */
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
 }
 
 /** Corpo de `POST /api/memos/text/confirm` após o usuário revisar. */
@@ -112,6 +114,8 @@ export interface TextMemoConfirmBody {
   dadosEspecificosOriginaisJson?: string | null;
   /** Categoria reconhecida no processamento da IA, quando disponível. */
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
 }
 
 /** Corpo de `POST /api/memos/url/confirm` após revisão do memo por URL. */
@@ -128,6 +132,8 @@ export interface UrlMemoConfirmBody {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
 }
 
 /** Estado passado ao navegar para a página de revisão de memo texto. */
@@ -166,6 +172,8 @@ export interface ImageMemoConfirmBody {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
   groupId: number | null;
   apiCost: number;
   originalText: string;
@@ -201,6 +209,8 @@ export interface AudioMemoConfirmBody {
   /** Valor original extraído antes de eventual padronização. */
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
   mediaAudioUrl: string;
   tamMediaUrl: number;
   originalFilename: string;
@@ -267,6 +277,8 @@ export interface DocumentMemoConfirmBody {
   /** Objeto JSON (string) com os valores originais extraídos antes da padronização. */
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  /** Nome da categoria principal extraída pela IA. */
+  category?: string | null;
   groupId: number | null;
   apiCost: number;
   originalText: string;
@@ -390,6 +402,8 @@ export interface MeResponse {
   showApiCost?: boolean;
   /** De `system_config.fatorCredCost` — multiplicador para estimativa de créditos no cliente. */
   usdToCreditsMultiplier?: number;
+  /** De `system_config.showLlmTrace` — exibir botão de trace LLM na página Pergunte ao myMemory. */
+  showLlmTrace?: boolean;
   /** Preferências de memo (após migração 008_user_memo_preferences.sql) */
   soundEnabled?: boolean;
   confirmEnabled?: boolean;
@@ -955,6 +969,8 @@ export interface PerguntaClassificacao {
   intencao: PerguntaIntencao;
   contexto: PerguntaContexto;
   escopo_sugerido: "global" | "contexto_sessao" | "indefinido";
+  /** Categoria sugerida pelo LLM que NÃO está no catálogo — usada para tuning. Null quando a categoria está na lista. */
+  categoria_principal?: string | null;
   justificativa: string;
 }
 
@@ -963,12 +979,19 @@ export interface PerguntaMemoUsado {
   trecho_usado: string;
 }
 
+export interface PerguntaResultadoEstruturado {
+  colunas: string[];
+  linhas: Record<string, unknown>[];
+  totalLinhas: number;
+}
+
 export interface PerguntaResposta {
   resposta: string;
   tipo_resposta: PerguntaPipe;
   dados_usados: PerguntaMemoUsado[];
   limitacoes: string[];
   confianca_estimada: number;
+  dados_estruturados?: PerguntaResultadoEstruturado | null;
 }
 
 export interface PerguntaFiltros {
@@ -983,12 +1006,29 @@ export interface PerguntaRequest {
   filtros?: PerguntaFiltros;
   contextoSessao?: PerguntaCardHistorico[];
   forcePipe?: PerguntaPipe;
+  /** Sobrescreve o limiar inicial (0-1) apenas para esta requisição — usado pela busca ampliada manual. */
+  thresholdOverride?: number;
+  /** Categorias a usar quando forcePipe está definido, para preservar o boost de categoria da busca original. */
+  forceCategories?: string[];
 }
 
 export interface PerguntaCardHistorico {
   pergunta: string;
   resposta: string;
   pipe: PerguntaPipe;
+}
+
+export interface PerguntaLlmTraceMessage {
+  role: "system" | "user" | "assistant";
+  content: string;
+}
+
+export interface PerguntaLlmTraceEntry {
+  createdAt: string;
+  provider: "openai" | "forge";
+  model: string;
+  source: string;
+  messages: PerguntaLlmTraceMessage[];
 }
 
 export interface PerguntaResponse {
@@ -1002,6 +1042,10 @@ export interface PerguntaResponse {
   limiarUsado?: number;
   /** Limiar mínimo configurado (0-1) — menor valor possível antes de retornar vazio. */
   limiarMinimo?: number;
+  /** Quantidade de memos que passaram o filtro de limiar (incluindo os não citados pelo LLM). */
+  memosEncontrados?: number;
+  /** Trace de todas as chamadas LLM que geraram esta resposta (volátil, apenas na última pergunta). */
+  llmTrace?: PerguntaLlmTraceEntry[];
 }
 
 export interface AdminSystemConfigItem {

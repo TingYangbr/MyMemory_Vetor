@@ -33,6 +33,15 @@ export async function showApiCostInUi(): Promise<boolean> {
   return true;
 }
 
+/** Exibir botão de trace LLM na página Pergunte ao myMemory (`showLlmTrace`: 1 = sim, 0 = não). Padrão: oculto. */
+export async function showLlmTraceInUi(): Promise<boolean> {
+  const raw = await getConfigValueRaw("showLlmTrace");
+  if (raw == null || raw === "") return false;
+  const s = raw.toLowerCase();
+  if (s === "1" || s === "true" || s === "yes" || s === "on") return true;
+  return false;
+}
+
 /** Limiares de similaridade semântica para o Pipe 1. */
 export async function getSemanticSearchThresholds(): Promise<{ initial: number; min: number }> {
   const [rawInitial, rawMin] = await Promise.all([

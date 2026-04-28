@@ -44,6 +44,8 @@ export type MemoResultListRowProps = {
   deletingId: number | null;
   onOpenPreview: (m: MemoRecentCard) => void;
   onRequestDelete: (m: MemoRecentCard) => void;
+  noNavigate?: boolean;
+  onEdit?: (m: MemoRecentCard) => void;
 };
 
 export function MemoResultListRow({
@@ -53,6 +55,8 @@ export function MemoResultListRow({
   deletingId,
   onOpenPreview,
   onRequestDelete,
+  noNavigate,
+  onEdit,
 }: MemoResultListRowProps) {
   const isOwner = currentUserId != null && m.userId > 0 && m.userId === currentUserId;
   const bodyText = m.mediaText ?? "";
@@ -75,21 +79,39 @@ export function MemoResultListRow({
           <MemoCardTypeGlyph m={m} />
         </button>
         <div className={styles.listRow1Rest}>
-          <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} className={styles.listRow1Link} title="Abrir memo">
-            <span className={styles.listFilename}>{label}</span>
-            {m.iaUseLevel === "semIA" && (
-              <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
-            )}
-            {m.iaUseLevel === "basico" && (
-              <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
-            )}
-            {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
-              <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
-            )}
-            <time className={styles.listDate} dateTime={m.createdAt}>
-              {dateStr}
-            </time>
-          </Link>
+          {noNavigate ? (
+            <a href={`/memo/${m.id}/editar?returnTo=${encodeURIComponent(returnTo)}`} target="_blank" rel="noopener noreferrer" className={styles.listRow1Link} title="Abrir memo em nova aba">
+              <span className={styles.listFilename}>{label}</span>
+              {m.iaUseLevel === "semIA" && (
+                <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
+              )}
+              {m.iaUseLevel === "basico" && (
+                <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
+              )}
+              {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
+                <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
+              )}
+              <time className={styles.listDate} dateTime={m.createdAt}>
+                {dateStr}
+              </time>
+            </a>
+          ) : (
+            <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} className={styles.listRow1Link} title="Abrir memo">
+              <span className={styles.listFilename}>{label}</span>
+              {m.iaUseLevel === "semIA" && (
+                <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
+              )}
+              {m.iaUseLevel === "basico" && (
+                <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
+              )}
+              {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
+                <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
+              )}
+              <time className={styles.listDate} dateTime={m.createdAt}>
+                {dateStr}
+              </time>
+            </Link>
+          )}
         </div>
         <div className={styles.listRow2}>
           <div className={styles.listMetrics}>
@@ -110,15 +132,38 @@ export function MemoResultListRow({
       </div>
       {isOwner ? (
         <div className={styles.listIconActions}>
-          <Link
-            to={`/memo/${m.id}/editar`}
-            state={{ returnTo }}
-            className={styles.listIconBtn}
-            title="Editar"
-            aria-label={`Editar memo ${m.id}`}
-          >
-            <IconPencil className={styles.listIconSvg} />
-          </Link>
+          {noNavigate && onEdit ? (
+            <button
+              type="button"
+              className={styles.listIconBtn}
+              title="Editar"
+              aria-label={`Editar memo ${m.id}`}
+              onClick={() => onEdit(m)}
+            >
+              <IconPencil className={styles.listIconSvg} />
+            </button>
+          ) : noNavigate ? (
+            <a
+              href={`/memo/${m.id}/editar?returnTo=${encodeURIComponent(returnTo)}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={styles.listIconBtn}
+              title="Editar em nova aba"
+              aria-label={`Editar memo ${m.id} em nova aba`}
+            >
+              <IconPencil className={styles.listIconSvg} />
+            </a>
+          ) : (
+            <Link
+              to={`/memo/${m.id}/editar`}
+              state={{ returnTo }}
+              className={styles.listIconBtn}
+              title="Editar"
+              aria-label={`Editar memo ${m.id}`}
+            >
+              <IconPencil className={styles.listIconSvg} />
+            </Link>
+          )}
           <button
             type="button"
             className={`${styles.listIconBtn} ${styles.listIconBtnDanger}`}

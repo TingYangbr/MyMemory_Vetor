@@ -192,6 +192,7 @@ export default function MemoAudioReviewPage() {
         dadosEspecificosJson: dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
         dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: state.matchedCategoryId ?? null,
+        category: state.category ?? null,
         mediaAudioUrl: state.mediaAudioUrl,
         tamMediaUrl: state.tamMediaUrl,
         originalFilename: state.originalFilename,

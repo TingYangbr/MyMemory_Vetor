@@ -9,6 +9,7 @@ const ALLOWED_KEYS = new Set([
   "showApiCost",
   "semanticSearchInitialThreshold",
   "semanticSearchMinThreshold",
+  "showLlmTrace",
 ]);
 
 const plugin: FastifyPluginAsync = async (app) => {

@@ -443,6 +443,7 @@ export async function createMemoTextReviewed(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -464,8 +465,8 @@ export async function createMemoTextReviewed(input: {
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
-    ) VALUES (?, ?, 'text', NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'text', NULL, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -477,6 +478,7 @@ export async function createMemoTextReviewed(input: {
     cost,
     usedCred,
     tam,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -518,6 +520,7 @@ export async function createMemoUrlReviewed(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -542,8 +545,8 @@ export async function createMemoUrlReviewed(input: {
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
-    ) VALUES (?, ?, 'url', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'url', NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -557,6 +560,7 @@ export async function createMemoUrlReviewed(input: {
     cost,
     usedCred,
     tam,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -596,6 +600,7 @@ export async function createMemoImageReviewed(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -623,8 +628,8 @@ export async function createMemoImageReviewed(input: {
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
-    ) VALUES (?, ?, 'image', NULL, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'image', NULL, ?, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -637,6 +642,7 @@ export async function createMemoImageReviewed(input: {
     cost,
     usedCred,
     tam,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -676,6 +682,7 @@ export async function createMemoAudioReviewed(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -703,8 +710,8 @@ export async function createMemoAudioReviewed(input: {
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
-    ) VALUES (?, ?, 'audio', ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1)
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'audio', ?, NULL, NULL, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -717,6 +724,7 @@ export async function createMemoAudioReviewed(input: {
     cost,
     usedCred,
     tam,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -779,8 +787,8 @@ export async function createMemoVideoReviewed(input: {
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive
-    ) VALUES (?, ?, 'video', NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 1)
+      mediaText, keywords, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'video', NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 1, NULL)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -1116,6 +1124,7 @@ export async function finalizeDocumentMemoReview(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -1160,9 +1169,14 @@ export async function finalizeDocumentMemoReview(input: {
     Number.isFinite(meta.reviewSuggestedMatchedCategoryId)
       ? Math.floor(meta.reviewSuggestedMatchedCategoryId)
       : null;
+  const suggestedCategoryFromProcess =
+    typeof meta.reviewSuggestedCategory === "string" && meta.reviewSuggestedCategory.trim()
+      ? String(meta.reviewSuggestedCategory).trim()
+      : null;
   delete meta.reviewSuggestedDadosEspecificosJson;
   delete meta.reviewSuggestedDadosEspecificosOriginaisJson;
   delete meta.reviewSuggestedMatchedCategoryId;
+  delete meta.reviewSuggestedCategory;
   meta.reviewFlow = "document_v1";
   meta.documentPipeline = input.pipelineUsed;
   meta.originalExtractedText = truncateOriginalTextForMeta(input.originalText);
@@ -1182,10 +1196,14 @@ export async function finalizeDocumentMemoReview(input: {
       : suggestedDadosOriginaisFromProcess;
   const matchedCategoryId =
     input.matchedCategoryId !== undefined ? input.matchedCategoryId : suggestedMatchedCategoryIdFromProcess;
+  const category =
+    input.category !== undefined
+      ? (input.category?.trim() || null)
+      : suggestedCategoryFromProcess;
   const text = input.mediaText.trim();
   await pool.query(
-    `UPDATE memos SET mediaText = ?, keywords = ?, dadosEspecificosJson = ?, mediaMetadata = ?, apiCost = ?, usedApiCred = ? WHERE id = ? AND userId = ?`,
-    [text, kw, dadosJson, JSON.stringify(meta), cost, usedCred, input.memoId, input.userId]
+    `UPDATE memos SET mediaText = ?, keywords = ?, dadosEspecificosJson = ?, mediaMetadata = ?, apiCost = ?, usedApiCred = ?, category = ? WHERE id = ? AND userId = ?`,
+    [text, kw, dadosJson, JSON.stringify(meta), cost, usedCred, category, input.memoId, input.userId]
   );
   await trySyncMemoDadosEspecificosRows({
     memoId: input.memoId,

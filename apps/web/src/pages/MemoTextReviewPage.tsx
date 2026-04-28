@@ -124,6 +124,7 @@ export default function MemoTextReviewPage() {
             dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
           dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
           matchedCategoryId: state.matchedCategoryId ?? null,
+          category: state.category ?? null,
         });
       } else {
         await apiPostJson<MemoCreatedResponse>("/api/memos/text/confirm", {
@@ -139,6 +140,7 @@ export default function MemoTextReviewPage() {
               : null,
           dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
           matchedCategoryId: state.matchedCategoryId ?? null,
+          category: state.category ?? null,
         });
       }
       navigate("/", { replace: true, state: { memoSavedAt: Date.now() } });
