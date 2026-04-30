@@ -15,6 +15,9 @@ import { PgvectorMemoChunks1700000000100 } from "./migrations/1700000000100-Pgve
 import { Unaccent1700000000101 } from "./migrations/1700000000101-Unaccent.js";
 import { BackfillIndividualSubscriptions1700000000102 } from "./migrations/1700000000102-BackfillIndividualSubscriptions.js";
 import { ResyncSequences1700000000103 } from "./migrations/1700000000103-ResyncSequences.js";
+import { MemoCategoryColumn1700000000104 } from "./migrations/1700000000104-MemoCategoryColumn.js";
+import { QueriesCategoria1700000000027 } from "./migrations/1700000000027-QueriesCategoria.js";
+import { LlmPromptConfigs1700000000105 } from "./migrations/1700000000105-LlmPromptConfigs.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -25,6 +28,7 @@ import adminSubscriptionPlansRoutes from "./routes/adminSubscriptionPlans.js";
 import adminLlmPromptRoutes from "./routes/adminLlmPrompt.js";
 import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
 import adminSystemConfigRoutes from "./routes/adminSystemConfig.js";
+import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -46,6 +50,9 @@ assertMediaStorageEnv();
       Unaccent1700000000101,
       BackfillIndividualSubscriptions1700000000102,
       ResyncSequences1700000000103,
+      MemoCategoryColumn1700000000104,
+      QueriesCategoria1700000000027,
+      LlmPromptConfigs1700000000105,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -106,6 +113,7 @@ await app.register(adminCostReportRoutes);
 await app.register(adminLlmPromptRoutes);
 await app.register(adminCadPipelineRoutes);
 await app.register(adminSystemConfigRoutes);
+await app.register(adminPromptConfigsRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

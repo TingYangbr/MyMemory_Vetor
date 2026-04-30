@@ -4,12 +4,14 @@ import { z } from "zod";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
 import {
+  assertMemoContextReadScope,
   createCampo,
   createCategory,
   createQueryCategoria,
   createQueryCategoriaParam,
   createSubcategory,
   getMemoContextEditorMeta,
+  listarMemosPorCategoria,
   listGroupsForMemoContext,
   loadMemoContextStructure,
   loadStructureForGroup,
@@ -435,6 +437,64 @@ const plugin: FastifyPluginAsync = async (app) => {
     try {
       await softDeleteQueryCategoriaParam(userId, paramId.data);
       return { ok: true };
+    } catch (e) {
+      return mapErr(reply, e);
+    }
+  });
+
+  // ── Lista de Memos por Categoria ─────────────────────────────────────────
+  app.post("/api/memo-context/memos-lista", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const admin = await isAdminUser(userId);
+
+    const body = req.body as {
+      categoryName?: string;
+      workspaceGroupId?: number | null;
+      dataInicio?: string | null;
+      dataFim?: string | null;
+      campoFiltros?: Record<string, string>;
+      sortKey?: string;
+      sortDir?: string;
+      limit?: number;
+      offset?: number;
+    };
+
+    const categoryName = (body.categoryName ?? "").trim();
+    if (!categoryName) return reply.code(400).send({ error: "categoryName obrigatório" });
+
+    const workspaceGroupId =
+      typeof body.workspaceGroupId === "number" ? body.workspaceGroupId : null;
+
+    try {
+      // Valida acesso ao escopo
+      await assertMemoContextReadScope(userId, workspaceGroupId, admin);
+
+      // Carrega estrutura para obter campos ativos da categoria
+      const structure = await loadMemoContextStructure(userId, workspaceGroupId, null);
+      const category = structure.categories.find(
+        (c) => c.name === categoryName && c.isActive === 1
+      );
+      if (!category) return reply.code(404).send({ error: "Categoria não encontrada" });
+
+      const camposAtivos = category.campos
+        .filter((c) => c.isActive === 1)
+        .map((c) => c.name);
+
+      const result = await listarMemosPorCategoria({
+        categoryName,
+        userId,
+        groupId: workspaceGroupId,
+        camposAtivos,
+        dataInicio: body.dataInicio ?? null,
+        dataFim: body.dataFim ?? null,
+        campoFiltros: (body.campoFiltros as Record<string, string>) ?? {},
+        sortKey: body.sortKey ?? "data_registro",
+        sortDir: body.sortDir === "asc" ? "asc" : "desc",
+        limit: Math.min(Math.max(1, Number(body.limit) || 50), 200),
+        offset: Math.max(0, Number(body.offset) || 0),
+      });
+
+      return result;
     } catch (e) {
       return mapErr(reply, e);
     }

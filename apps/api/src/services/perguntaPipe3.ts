@@ -1,12 +1,13 @@
 import type {
   PerguntaCardHistorico,
+  PerguntaClassificacao,
   PerguntaFiltros,
   PerguntaMemoUsado,
   PerguntaResposta,
 } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
-import { executarPipe2, type Pipe2Input } from "./perguntaPipe2.js";
+import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -16,9 +17,12 @@ export interface Pipe3Input {
   groupId: number | null;
   filtros: PerguntaFiltros;
   historico: PerguntaCardHistorico[];
+  classificacao: PerguntaClassificacao;
+  queriesDisponiveis: QueryDisponivel[];
   categoriaNames: string[];
   thresholdInitial: number;
   thresholdMin: number;
+  escopoMemoIds?: number[];
 }
 
 export interface Pipe3Result {
@@ -133,6 +137,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     categoriaNames: input.categoriaNames,
     thresholdInitial: input.thresholdInitial,
     thresholdMin: input.thresholdMin,
+    escopoMemoIds: input.escopoMemoIds,
   };
 
   const pipe2Input: Pipe2Input = {
@@ -141,6 +146,8 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     groupId: input.groupId,
     filtros: input.filtros,
     historico: input.historico,
+    classificacao: input.classificacao,
+    queriesDisponiveis: input.queriesDisponiveis,
   };
 
   // Pipe 1 e Pipe 2 correm em paralelo — cada um é independente

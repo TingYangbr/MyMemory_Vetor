@@ -718,8 +718,8 @@
 .traceBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0;
+  gap: 0.3rem;
+  padding: 0.2rem 0.35rem;
   border: none;
   background: none;
   font: inherit;
@@ -866,6 +866,11 @@
   letter-spacing: 0.04em;
   background: rgba(99, 102, 241, 0.18);
   color: #818cf8;
+}
+
+.traceEntryProviderSql {
+  background: rgba(16, 185, 129, 0.18);
+  color: #34d399;
 }
 
 .traceMessages {

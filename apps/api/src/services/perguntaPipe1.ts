@@ -18,6 +18,8 @@ export interface Pipe1Input {
   categoriaNames: string[];
   thresholdInitial: number;
   thresholdMin: number;
+  /** Quando definido, restringe a busca a estes memo_ids (escopo "contexto_sessao"). */
+  escopoMemoIds?: number[];
 }
 
 export interface Pipe1Result {
@@ -84,16 +86,25 @@ async function fetchHitsWithMeta(input: {
   groupId: number | null;
   filtros: PerguntaFiltros;
   topN: number;
+  escopoMemoIds?: number[];
 }): Promise<RawHit[]> {
   const hits = await searchMemosByEmbedding({
     query: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
     limit: input.topN,
+    dataInicio: input.filtros.dataInicio ?? undefined,
+    dataFim: input.filtros.dataFim ?? undefined,
   });
   if (!hits.length) return [];
 
-  const ids = hits.map((h) => h.memoId);
+  // Escopo "contexto_sessao": restringe aos memo_ids do histórico da sessão
+  const filteredHits = input.escopoMemoIds?.length
+    ? hits.filter((h) => input.escopoMemoIds!.includes(h.memoId))
+    : hits;
+  if (!filteredHits.length) return [];
+
+  const ids = filteredHits.map((h) => h.memoId);
   const ph = ids.map(() => "?").join(",");
 
   const extraWhere: string[] = [];
@@ -101,14 +112,6 @@ async function fetchHitsWithMeta(input: {
   if (input.filtros.autorId != null) {
     extraWhere.push("m.userid = ?");
     extraVals.push(input.filtros.autorId);
-  }
-  if (input.filtros.dataInicio) {
-    extraWhere.push("m.createdat >= ?");
-    extraVals.push(input.filtros.dataInicio);
-  }
-  if (input.filtros.dataFim) {
-    extraWhere.push("m.createdat <= ?");
-    extraVals.push(input.filtros.dataFim + " 23:59:59");
   }
   const whereExtra = extraWhere.length ? " AND " + extraWhere.join(" AND ") : "";
 
@@ -239,6 +242,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     groupId: input.groupId,
     filtros: input.filtros,
     topN: 50,
+    escopoMemoIds: input.escopoMemoIds,
   });
 
   const memos = rankAndFilter(rawHits, {

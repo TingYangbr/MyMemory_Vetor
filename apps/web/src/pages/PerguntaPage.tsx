@@ -28,10 +28,22 @@ const MEDIA_TYPE_LABELS: Record<string, string> = {
 
 function stripMarkdown(text: string): string {
   return text
-    .replace(/\*\*(.*?)\*\*/gs, "$1")
-    .replace(/\*(.*?)\*/gs, "$1")
-    .replace(/^#{1,6}\s+/gm, "")
-    .replace(/`([^`]+)`/g, "$1");
+    .replace(/\*\*(.+?)\*\*/gs, "$1")          // **negrito**
+    .replace(/\*(.+?)\*/gs, "$1")               // *itálico*
+    .replace(/`+([^`]+)`+/g, "$1")             // `código`
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")   // [link](url)
+    .replace(/^#{1,6}\s+/gm, "")               // # Títulos
+    .replace(/^[-*]\s+/gm, "")                 // - listas
+    .replace(/^\d+\.\s+/gm, "");               // 1. listas numeradas
+}
+
+function IconTrace({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <polyline points="16 18 22 12 16 6"/>
+      <polyline points="8 6 2 12 8 18"/>
+    </svg>
+  );
 }
 
 function IconSpeaker({ className }: { className?: string }) {
@@ -122,7 +134,9 @@ function LlmTraceModal({
                 <span className={styles.traceEntryIndex}>#{idx + 1}</span>
                 <span className={styles.traceEntrySource}>{entry.source}</span>
                 <span className={styles.traceEntryModel}>{entry.model}</span>
-                <span className={styles.traceEntryProvider}>{entry.provider}</span>
+                <span className={`${styles.traceEntryProvider} ${entry.provider === "sql" ? styles.traceEntryProviderSql : ""}`}>
+                  {entry.provider}
+                </span>
               </div>
               <div className={styles.traceMessages}>
                 {entry.messages.map((msg, mi) => (
@@ -193,7 +207,9 @@ export default function PerguntaPage() {
   const [traceModal, setTraceModal] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
   const ttsBusyRef = useRef<string | null>(null);
+  const ttsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevRespostasLenRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Filtros
   const [filterDateFrom, setFilterDateFrom] = useState("");
@@ -332,6 +348,19 @@ export default function PerguntaPage() {
     }
   }, [stopListening]);
 
+  function cancelarPergunta() {
+    abortControllerRef.current?.abort();
+    abortControllerRef.current = null;
+  }
+
+  function novasSessao() {
+    cancelarPergunta();
+    setHistorico([]);
+    setRespostas([]);
+    setError(null);
+    setPendingQuestion(null);
+  }
+
   async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -339,6 +368,8 @@ export default function PerguntaPage() {
     setBusy(true);
     setRefazerIdx(null);
     setPendingQuestion(q);
+    const ac = new AbortController();
+    abortControllerRef.current = ac;
     try {
       const body: Record<string, unknown> = {
         pergunta: q,
@@ -353,19 +384,26 @@ export default function PerguntaPage() {
       if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
       if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
-      const res = await apiPostJson<PerguntaResponse>("/api/perguntas", body);
+      const res = await apiPostJson<PerguntaResponse>("/api/perguntas", body, { signal: ac.signal });
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
       setHistorico((prev) => [
         ...prev,
-        { pergunta: q, resposta: res.resposta.resposta, pipe: res.classificacao.pipe },
+        {
+          pergunta: q,
+          resposta: res.resposta.resposta,
+          pipe: res.classificacao.pipe,
+          dados_usados: res.resposta.dados_usados.length > 0 ? res.resposta.dados_usados : undefined,
+        },
       ].slice(-5));
       setPergunta("");
     } catch (e) {
+      if (e instanceof DOMException && e.name === "AbortError") return;
       const raw = e instanceof Error ? e.message : String(e);
       try { const j = JSON.parse(raw) as { message?: string }; setError(j.message ?? raw); }
       catch { setError(raw || "Não foi possível obter a resposta."); }
     } finally {
+      abortControllerRef.current = null;
       setBusy(false);
       setPendingQuestion(null);
     }
@@ -387,18 +425,24 @@ export default function PerguntaPage() {
   function speakText(key: string, text: string) {
     if (typeof window.speechSynthesis === "undefined") return;
     window.speechSynthesis.cancel();
+    if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
     ttsBusyRef.current = key;
     setTtsBusyPergunta(key);
-    const u = new SpeechSynthesisUtterance(text);
+    const ttsText = stripMarkdown(text).replace(/\n+/g, " ");
+    const u = new SpeechSynthesisUtterance(ttsText);
     u.lang = "pt-BR";
     u.onend = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
     u.onerror = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
-    window.speechSynthesis.speak(u);
+    ttsTimeoutRef.current = setTimeout(() => {
+      ttsTimeoutRef.current = null;
+      if (ttsBusyRef.current === key) window.speechSynthesis.speak(u);
+    }, 2000);
   }
 
   function toggleSpeakResposta(key: string, text: string) {
     if (typeof window.speechSynthesis === "undefined") return;
     if (ttsBusyRef.current === key) {
+      if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
       window.speechSynthesis.cancel();
       ttsBusyRef.current = null;
       setTtsBusyPergunta(null);
@@ -589,14 +633,34 @@ export default function PerguntaPage() {
             >
               {micState === "listening" ? "⏹ Parar" : "🎤 Falar"}
             </button>
-            <button
-              type="button"
-              className="mm-btn mm-btn--primary"
-              onClick={() => void enviar()}
-              disabled={busy || !pergunta.trim()}
-            >
-              {busy ? "Processando…" : "Perguntar"}
-            </button>
+            {busy ? (
+              <button
+                type="button"
+                className="mm-btn mm-btn--ghost"
+                onClick={cancelarPergunta}
+              >
+                ✕ Cancelar
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                onClick={() => void enviar()}
+                disabled={!pergunta.trim()}
+              >
+                Perguntar
+              </button>
+            )}
+            {respostas.length > 0 && !busy ? (
+              <button
+                type="button"
+                className="mm-btn mm-btn--ghost"
+                onClick={novasSessao}
+                title="Limpar histórico e começar nova sessão"
+              >
+                ↺ Nova sessão
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -769,9 +833,9 @@ export default function PerguntaPage() {
                       type="button"
                       className={styles.traceBtn}
                       onClick={() => setTraceModal({ trace: r.llmTrace!, pergunta: r.perguntaTexto })}
-                      title={`Ver ${r.llmTrace.length} chamada(s) LLM desta resposta`}
+                      title={`Ver trace de ${r.llmTrace.length} chamada(s) desta resposta`}
                     >
-                      &#123;&#125; {r.llmTrace.length} LLM call{r.llmTrace.length !== 1 ? "s" : ""}
+                      <IconTrace /> {r.llmTrace.length}
                     </button>
                   ) : null}
                 </div>

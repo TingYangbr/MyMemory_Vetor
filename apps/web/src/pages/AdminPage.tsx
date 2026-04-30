@@ -4,7 +4,13 @@ import type {
   AdminCostReportMediaFilter,
   AdminCostReportResponse,
   HardDeleteSoftDeletedMonthResponse,
+  LlmPromptConfig,
+  LlmPromptConfigListResponse,
   MeResponse,
+  MemoContextCategory,
+  MemoContextGroupOption,
+  MemoContextStructureResponse,
+  MemosListaResponse,
   SoftDeletedMemosMonthlyRow,
   SoftDeletedMemosMonthlySummaryResponse,
   SubscriptionPlanAdmin,
@@ -14,7 +20,7 @@ import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson } from
 import Header from "../components/Header";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos";
+type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts";
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -63,6 +69,16 @@ function fmtCell(n: number | null | undefined): string {
 
 function fmtYesNo(v: number): string {
   return v === 1 ? "Sim" : "Não";
+}
+
+function fmtConsultaCell(key: string, value: unknown): string {
+  if (value == null) return "—";
+  const s = String(value);
+  if (key === "data_registro") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  return s || "—";
 }
 
 function deleteBlockTitle(p: SubscriptionPlanAdmin): string {
@@ -455,6 +471,32 @@ export default function AdminPage() {
   const [openCostPlans, setOpenCostPlans] = useState<Set<string>>(() => new Set());
   const costFirstLoadRef = useRef(false);
 
+  // ── Aba Consulta ─────────────────────────────────────────────────────────
+  const [consultaGroups, setConsultaGroups] = useState<MemoContextGroupOption[]>([]);
+  const [consultaGroupId, setConsultaGroupId] = useState<number | null>(null);
+  const [consultaGroupsLoaded, setConsultaGroupsLoaded] = useState(false);
+  const [consultaCategorias, setConsultaCategorias] = useState<MemoContextCategory[]>([]);
+  const [consultaCatNome, setConsultaCatNome] = useState<string>("");
+  const [consultaDataInicio, setConsultaDataInicio] = useState<string>("");
+  const [consultaDataFim, setConsultaDataFim] = useState<string>("");
+  const [pendingCampoFiltros, setPendingCampoFiltros] = useState<Record<string, string>>({});
+  const [consultaSortKey, setConsultaSortKey] = useState<string>("data_registro");
+  const [consultaSortDir, setConsultaSortDir] = useState<"asc" | "desc">("desc");
+  const [consultaOffset, setConsultaOffset] = useState<number>(0);
+  const [consultaResult, setConsultaResult] = useState<MemosListaResponse | null>(null);
+  const [consultaLoading, setConsultaLoading] = useState<boolean>(false);
+  const [consultaErr, setConsultaErr] = useState<string | null>(null);
+
+  // ── Aba Prompts ──────────────────────────────────────────────────────────
+  const [promptConfigs, setPromptConfigs] = useState<LlmPromptConfig[]>([]);
+  const [promptsLoaded, setPromptsLoaded] = useState(false);
+  const [promptsErr, setPromptsErr] = useState<string | null>(null);
+  const [expandedGroups, setExpandedGroups] = useState<Set<string>>(new Set());
+  // draft edits: chave → {texto_padrao, texto_atual}
+  const [promptDrafts, setPromptDrafts] = useState<Record<string, { texto_padrao: string; texto_atual: string }>>({});
+  const [promptSaving, setPromptSaving] = useState<Set<string>>(new Set());
+  const [promptSaveOk, setPromptSaveOk] = useState<Set<string>>(new Set());
+
   const loadCostReport = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
     setCostErr(null);
@@ -555,6 +597,146 @@ export default function AdminPage() {
     costFirstLoadRef.current = true;
     void loadCostReport();
   }, [me?.role, tab, loadCostReport]);
+
+  const loadConsultaGroups = useCallback(() => {
+    if (me?.role !== "admin") return Promise.resolve();
+    return apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
+      .then((r) => {
+        setConsultaGroups(r.groups);
+        setConsultaGroupsLoaded(true);
+      })
+      .catch(() => { /* silently fail */ });
+  }, [me?.role]);
+
+  useEffect(() => {
+    if (me?.role === "admin" && tab === "consulta" && !consultaGroupsLoaded) {
+      void loadConsultaGroups();
+    }
+  }, [me?.role, tab, consultaGroupsLoaded, loadConsultaGroups]);
+
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "consulta") return;
+    const qs = consultaGroupId != null ? `?groupId=${consultaGroupId}` : "";
+    apiGet<MemoContextStructureResponse>(`/api/memo-context/structure${qs}`)
+      .then((s) => {
+        setConsultaCategorias(s.categories.filter((c) => c.isActive === 1));
+        setConsultaCatNome("");
+        setConsultaResult(null);
+        setPendingCampoFiltros({});
+      })
+      .catch(() => setConsultaCategorias([]));
+  }, [me?.role, tab, consultaGroupId]);
+
+  const handleConsultar = useCallback((opts?: { offset?: number; sortKey?: string; sortDir?: "asc" | "desc" }) => {
+    if (!consultaCatNome || me?.role !== "admin") return;
+    const newOffset = opts?.offset ?? 0;
+    const newSortKey = opts?.sortKey ?? consultaSortKey;
+    const newSortDir = opts?.sortDir ?? consultaSortDir;
+    setConsultaLoading(true);
+    setConsultaErr(null);
+    return apiPostJson<MemosListaResponse>("/api/memo-context/memos-lista", {
+      categoryName: consultaCatNome,
+      workspaceGroupId: consultaGroupId,
+      dataInicio: consultaDataInicio || null,
+      dataFim: consultaDataFim || null,
+      campoFiltros: pendingCampoFiltros,
+      sortKey: newSortKey,
+      sortDir: newSortDir,
+      limit: 50,
+      offset: newOffset,
+    })
+      .then((r) => {
+        setConsultaResult(r);
+        setConsultaOffset(newOffset);
+        setConsultaSortKey(newSortKey);
+        setConsultaSortDir(newSortDir);
+      })
+      .catch((e) => {
+        const raw = e instanceof Error ? e.message : String(e);
+        try {
+          const j = JSON.parse(raw) as { message?: string };
+          setConsultaErr(j.message ?? raw);
+        } catch {
+          setConsultaErr(raw || "Erro ao consultar.");
+        }
+      })
+      .finally(() => setConsultaLoading(false));
+  }, [me?.role, consultaCatNome, consultaGroupId, consultaDataInicio, consultaDataFim, pendingCampoFiltros, consultaSortKey, consultaSortDir]);
+
+  const loadPromptConfigs = useCallback(() => {
+    if (me?.role !== "admin") return Promise.resolve();
+    setPromptsErr(null);
+    return apiGet<LlmPromptConfigListResponse>("/api/admin/prompt-configs")
+      .then((r) => {
+        setPromptConfigs(r.configs);
+        setPromptsLoaded(true);
+        // seed drafts with current values
+        setPromptDrafts((prev) => {
+          const next = { ...prev };
+          for (const c of r.configs) {
+            if (!next[c.chave]) {
+              next[c.chave] = { texto_padrao: c.texto_padrao ?? "", texto_atual: c.texto_atual ?? "" };
+            }
+          }
+          return next;
+        });
+        // open first group by default
+        if (r.configs.length > 0) {
+          setExpandedGroups((prev) => {
+            if (prev.size > 0) return prev;
+            return new Set([r.configs[0]!.grupo]);
+          });
+        }
+      })
+      .catch((e) => setPromptsErr(e instanceof Error ? e.message : "Erro ao carregar prompts."));
+  }, [me?.role]);
+
+  useEffect(() => {
+    if (me?.role === "admin" && tab === "prompts" && !promptsLoaded) {
+      void loadPromptConfigs();
+    }
+  }, [me?.role, tab, promptsLoaded, loadPromptConfigs]);
+
+  function togglePromptGroup(grupo: string) {
+    setExpandedGroups((prev) => {
+      const n = new Set(prev);
+      if (n.has(grupo)) n.delete(grupo);
+      else n.add(grupo);
+      return n;
+    });
+  }
+
+  function setPromptDraft(chave: string, field: "texto_padrao" | "texto_atual", value: string) {
+    setPromptDrafts((prev) => ({ ...prev, [chave]: { ...prev[chave]!, [field]: value } }));
+    setPromptSaveOk((prev) => { const n = new Set(prev); n.delete(chave); return n; });
+  }
+
+  async function savePrompt(chave: string) {
+    const draft = promptDrafts[chave];
+    if (!draft) return;
+    setPromptSaving((prev) => new Set([...prev, chave]));
+    setPromptsErr(null);
+    try {
+      await apiPatchJson(`/api/admin/prompt-configs/${encodeURIComponent(chave)}`, {
+        texto_padrao: draft.texto_padrao || null,
+        texto_atual: draft.texto_atual || null,
+      });
+      setPromptSaveOk((prev) => new Set([...prev, chave]));
+      await loadPromptConfigs();
+    } catch (e) {
+      const raw = e instanceof Error ? e.message : String(e);
+      try { setPromptsErr((JSON.parse(raw) as { message?: string }).message ?? raw); } catch { setPromptsErr(raw); }
+    } finally {
+      setPromptSaving((prev) => { const n = new Set(prev); n.delete(chave); return n; });
+    }
+  }
+
+  function cancelPrompt(chave: string) {
+    const orig = promptConfigs.find((c) => c.chave === chave);
+    if (!orig) return;
+    setPromptDrafts((prev) => ({ ...prev, [chave]: { texto_padrao: orig.texto_padrao ?? "", texto_atual: orig.texto_atual ?? "" } }));
+    setPromptSaveOk((prev) => { const n = new Set(prev); n.delete(chave); return n; });
+  }
 
   function toggleCostPlan(planName: string) {
     setOpenCostPlans((prev) => {
@@ -686,7 +868,7 @@ export default function AdminPage() {
     <div className={styles.shell}>
       <Header />
       <main
-        className={`${styles.main} ${tab === "planos" || tab === "eliminacao" || tab === "custos" ? styles.mainWide : ""}`}
+        className={`${styles.main} ${tab === "planos" || tab === "eliminacao" || tab === "custos" || tab === "consulta" ? styles.mainWide : ""}`}
       >
         <h1 className={styles.title}>Painel administrativo</h1>
         <p className={styles.lead}>Gestão de conteúdos e configurações da plataforma.</p>
@@ -727,6 +909,24 @@ export default function AdminPage() {
             onClick={() => setTab("eliminacao")}
           >
             Eliminação definitiva
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "consulta"}
+            className={`${styles.tab} ${tab === "consulta" ? styles.tabActive : ""}`}
+            onClick={() => setTab("consulta")}
+          >
+            Consulta de memos
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "prompts"}
+            className={`${styles.tab} ${tab === "prompts" ? styles.tabActive : ""}`}
+            onClick={() => setTab("prompts")}
+          >
+            Prompts LLM
           </button>
         </div>
 
@@ -1047,6 +1247,140 @@ export default function AdminPage() {
           </div>
         ) : null}
 
+        {tab === "prompts" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.tableToolbarLabel} style={{ marginBottom: "0.25rem" }}>
+              Configuração de prompts LLM
+            </h2>
+            <p className={styles.costMeta} style={{ marginBottom: "1rem" }}>
+              Cada entrada tem um <strong>texto padrão</strong> (base de referência) e um{" "}
+              <strong>texto atual</strong> (override ativo). Se o texto atual estiver vazio, o padrão é utilizado.
+            </p>
+
+            {promptsErr ? <p className="mm-error">{promptsErr}</p> : null}
+            {!promptsLoaded ? (
+              <p className="mm-muted">A carregar…</p>
+            ) : promptConfigs.length === 0 ? (
+              <p className="mm-muted">Nenhuma configuração encontrada.</p>
+            ) : (
+              <div className={styles.promptAccordion}>
+                {Array.from(new Set(promptConfigs.map((c) => c.grupo))).map((grupo) => {
+                  const items = promptConfigs.filter((c) => c.grupo === grupo);
+                  const open = expandedGroups.has(grupo);
+                  const GRUPO_LABELS: Record<string, string> = { perguntas: "Responder a Perguntas" };
+                  const grupoLabel = GRUPO_LABELS[grupo] ?? grupo;
+                  return (
+                    <div key={grupo} className={styles.promptGroup}>
+                      <button
+                        type="button"
+                        className={styles.promptGroupHeader}
+                        onClick={() => togglePromptGroup(grupo)}
+                        aria-expanded={open}
+                      >
+                        <span className={styles.promptGroupChevron}>{open ? "▼" : "▶"}</span>
+                        <span className={styles.promptGroupTitle}>{grupoLabel}</span>
+                        <span className={styles.promptGroupCount}>{items.length} config.</span>
+                      </button>
+
+                      {open ? (
+                        <div className={styles.promptGroupBody}>
+                          {items.map((cfg) => {
+                            const draft = promptDrafts[cfg.chave] ?? {
+                              texto_padrao: cfg.texto_padrao ?? "",
+                              texto_atual: cfg.texto_atual ?? "",
+                            };
+                            const saving = promptSaving.has(cfg.chave);
+                            const saved = promptSaveOk.has(cfg.chave);
+                            const isDirty =
+                              draft.texto_padrao !== (cfg.texto_padrao ?? "") ||
+                              draft.texto_atual !== (cfg.texto_atual ?? "");
+
+                            return (
+                              <div key={cfg.chave} className={styles.promptCard}>
+                                <div className={styles.promptCardHead}>
+                                  <span className={styles.promptCardTitle}>{cfg.titulo}</span>
+                                  <code className={styles.promptCardChave}>{cfg.chave}</code>
+                                </div>
+
+                                <div className={styles.promptFieldsRow}>
+                                  <div className={styles.promptFieldGroup}>
+                                    <div className={styles.promptFieldLabel}>
+                                      <span>Texto padrão</span>
+                                      <button
+                                        type="button"
+                                        className={styles.promptCopyBtn}
+                                        onClick={() => void navigator.clipboard.writeText(draft.texto_padrao)}
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      className={styles.promptTextarea}
+                                      value={draft.texto_padrao}
+                                      rows={10}
+                                      onChange={(e) => setPromptDraft(cfg.chave, "texto_padrao", e.target.value)}
+                                      placeholder="Texto padrão (base de referência)"
+                                    />
+                                  </div>
+
+                                  <div className={styles.promptFieldGroup}>
+                                    <div className={styles.promptFieldLabel}>
+                                      <span>
+                                        Texto atual{" "}
+                                        <em className={styles.promptFieldHint}>(override — vazio usa o padrão)</em>
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className={styles.promptCopyBtn}
+                                        onClick={() => void navigator.clipboard.writeText(draft.texto_atual)}
+                                      >
+                                        Copiar
+                                      </button>
+                                    </div>
+                                    <textarea
+                                      className={`${styles.promptTextarea} ${styles.promptTextareaAtual}`}
+                                      value={draft.texto_atual}
+                                      rows={10}
+                                      onChange={(e) => setPromptDraft(cfg.chave, "texto_atual", e.target.value)}
+                                      placeholder="Deixe vazio para usar o texto padrão"
+                                    />
+                                  </div>
+                                </div>
+
+                                <div className={styles.promptCardActions}>
+                                  {saved && !isDirty ? (
+                                    <span className={styles.promptSaveOk}>Salvo.</span>
+                                  ) : null}
+                                  <button
+                                    type="button"
+                                    className="mm-btn mm-btn--ghost"
+                                    disabled={saving || !isDirty}
+                                    onClick={() => cancelPrompt(cfg.chave)}
+                                  >
+                                    Cancelar
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="mm-btn mm-btn--primary"
+                                    disabled={saving || !isDirty}
+                                    onClick={() => void savePrompt(cfg.chave)}
+                                  >
+                                    {saving ? "Salvando…" : "Salvar"}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {tab === "planos" ? (
           <div className={styles.panel}>
             <div className={styles.toolbar}>
@@ -1148,6 +1482,184 @@ export default function AdminPage() {
               <p className="mm-muted" style={{ marginTop: "0.75rem" }}>
                 Nenhum plano. Clique em «Novo plano» ou execute o seed SQL.
               </p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {tab === "consulta" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.tableToolbarLabel} style={{ marginBottom: "0.75rem" }}>
+              Lista de memos por categoria
+            </h2>
+
+            <div className={styles.consultaFilters}>
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-group">Grupo</label>
+                <select
+                  id="consulta-group"
+                  value={consultaGroupId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setConsultaGroupId(v === "" ? null : Number(v));
+                    setConsultaResult(null);
+                    setConsultaOffset(0);
+                  }}
+                >
+                  <option value="">Global (sem grupo)</option>
+                  {consultaGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-cat">Categoria *</label>
+                <select
+                  id="consulta-cat"
+                  value={consultaCatNome}
+                  onChange={(e) => {
+                    setConsultaCatNome(e.target.value);
+                    setConsultaResult(null);
+                    setConsultaOffset(0);
+                    setPendingCampoFiltros({});
+                  }}
+                >
+                  <option value="">— selecione —</option>
+                  {consultaCategorias.map((c) => (
+                    <option key={c.name} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-inicio">Data início</label>
+                <input
+                  id="consulta-inicio"
+                  type="date"
+                  value={consultaDataInicio}
+                  onChange={(e) => setConsultaDataInicio(e.target.value)}
+                />
+              </div>
+
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-fim">Data fim</label>
+                <input
+                  id="consulta-fim"
+                  type="date"
+                  value={consultaDataFim}
+                  onChange={(e) => setConsultaDataFim(e.target.value)}
+                />
+              </div>
+
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                disabled={!consultaCatNome || consultaLoading}
+                onClick={() => void handleConsultar()}
+              >
+                {consultaLoading ? "A consultar…" : "Consultar"}
+              </button>
+            </div>
+
+            {consultaErr ? <p className="mm-error">{consultaErr}</p> : null}
+
+            {consultaResult ? (
+              <>
+                <p className={styles.costMeta}>
+                  {consultaResult.totalLinhas} registro(s).
+                  {consultaResult.totalLinhas > 50
+                    ? ` Exibindo ${consultaOffset + 1}–${Math.min(consultaOffset + 50, consultaResult.totalLinhas)}.`
+                    : ""}
+                </p>
+                <div className={styles.tableWrap}>
+                  <table className={styles.table}>
+                    <thead>
+                      <tr>
+                        {consultaResult.colunas.map((col) => (
+                          <th
+                            key={col.key}
+                            className={styles.consultaThSort}
+                            onClick={() => {
+                              const newDir =
+                                consultaSortKey === col.key && consultaSortDir === "asc" ? "desc" : "asc";
+                              void handleConsultar({ sortKey: col.key, sortDir: newDir, offset: 0 });
+                            }}
+                          >
+                            {col.label}{" "}
+                            {consultaSortKey === col.key ? (
+                              <span className={styles.sortArrow}>{consultaSortDir === "asc" ? "▲" : "▼"}</span>
+                            ) : (
+                              <span className={styles.sortArrowInactive}>⇅</span>
+                            )}
+                          </th>
+                        ))}
+                      </tr>
+                      <tr className={styles.consultaFilterRow}>
+                        {consultaResult.colunas.map((col) => (
+                          <th key={col.key}>
+                            <input
+                              className={styles.consultaColFilter}
+                              value={pendingCampoFiltros[col.key] ?? ""}
+                              onChange={(e) =>
+                                setPendingCampoFiltros((prev) => ({ ...prev, [col.key]: e.target.value }))
+                              }
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") void handleConsultar({ offset: 0 });
+                              }}
+                              placeholder="filtrar…"
+                            />
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {consultaResult.linhas.length === 0 ? (
+                        <tr>
+                          <td colSpan={consultaResult.colunas.length} className={styles.consultaEmpty}>
+                            Nenhum resultado.
+                          </td>
+                        </tr>
+                      ) : (
+                        consultaResult.linhas.map((row, i) => (
+                          <tr key={i} className={i % 2 === 0 ? styles.consultaRowEven : styles.consultaRowOdd}>
+                            {consultaResult.colunas.map((col) => (
+                              <td key={col.key} className={styles.consultaTd}>
+                                {fmtConsultaCell(col.key, row[col.key])}
+                              </td>
+                            ))}
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                {consultaResult.totalLinhas > 50 ? (
+                  <div className={styles.consultaPaginacao}>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--ghost"
+                      disabled={consultaOffset === 0 || consultaLoading}
+                      onClick={() => void handleConsultar({ offset: Math.max(0, consultaOffset - 50) })}
+                    >
+                      ← Anterior
+                    </button>
+                    <span className={styles.costMeta}>
+                      {consultaOffset + 1}–{Math.min(consultaOffset + 50, consultaResult.totalLinhas)} de{" "}
+                      {consultaResult.totalLinhas}
+                    </span>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--ghost"
+                      disabled={consultaOffset + 50 >= consultaResult.totalLinhas || consultaLoading}
+                      onClick={() => void handleConsultar({ offset: consultaOffset + 50 })}
+                    >
+                      Próximo →
+                    </button>
+                  </div>
+                ) : null}
+              </>
+            ) : consultaLoading ? (
+              <p className="mm-muted">A consultar…</p>
             ) : null}
           </div>
         ) : null}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type {
   MeResponse,
@@ -119,6 +119,18 @@ export default function MemoContextPage() {
   const [modalParamNormalizar, setModalParamNormalizar] = useState(0);
   const [modalParamOrdem, setModalParamOrdem] = useState(0);
 
+  const [modalSaveError, setModalSaveError] = useState<string | null>(null);
+  const [modalSaveBusy, setModalSaveBusy] = useState(false);
+
+  const [pendingAutoParams, setPendingAutoParams] = useState<{
+    campo: string;
+    tipo: QueryCategoriaParamTipo;
+    obrigatorio: number;
+    operadorSql: string;
+    normalizar: number;
+    ordem: number;
+  }[]>([]);
+
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<number>>(() => new Set());
 
   const sortedCategories = useMemo(() => sortStructureForDisplay(categories), [categories]);
@@ -213,6 +225,9 @@ export default function MemoContextPage() {
     setModalCampoId(null);
     setModalQueryId(null);
     setModalParamId(null);
+    setPendingAutoParams([]);
+    setModalSaveError(null);
+    setModalSaveBusy(false);
   }
 
   const openNewCategory = () => {
@@ -284,6 +299,88 @@ export default function MemoContextPage() {
     setModal("queryEdit");
   };
 
+  function toParamName(name: string): string {
+    return name
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, "_")
+      .replace(/[^a-z0-9_]/g, "")
+      .replace(/_+/g, "_")
+      .replace(/^_|_$/g, "");
+  }
+
+  function gerarQueryPadrao() {
+    if (modalCategoryId == null) return;
+    const cat = categories.find((c) => c.id === modalCategoryId);
+    if (!cat) return;
+
+    const activeCampos = cat.campos.filter((c) => c.isActive === 1);
+    const catNameSafe = cat.name.replace(/'/g, "''");
+
+    const whereParts: string[] = [
+      "  m.isactive = 1",
+      `  AND m.category = '${catNameSafe}'`,
+      "  AND (",
+      "    (:groupId IS NOT NULL AND m.groupid = :groupId)",
+      "    OR (:groupId IS NULL AND m.groupid IS NULL AND m.userid = :userId)",
+      "  )",
+    ];
+
+    for (const campo of activeCampos) {
+      const p = toParamName(campo.name);
+      if (!p) continue;
+      whereParts.push(
+        `  AND (:${p} IS NULL OR m.dadosespecificosjson::jsonb->>'${campo.name}' ILIKE :${p})`
+      );
+    }
+
+    const campoSelects = activeCampos
+      .map((campo) => {
+        const alias = toParamName(campo.name) || `campo_${campo.id}`;
+        return `  m.dadosespecificosjson::jsonb->>'${campo.name}' AS ${alias},`;
+      })
+      .join("\n");
+
+    const sql = [
+      "SELECT",
+      "  m.id,",
+      "  m.mediatype,",
+      "  m.mediatext,",
+      "  m.keywords,",
+      "  m.category,",
+      ...(campoSelects ? [campoSelects] : []),
+      "  m.createdat",
+      "FROM memos m",
+      "WHERE",
+      ...whereParts,
+      "ORDER BY m.createdat DESC",
+      "LIMIT 50",
+    ].join("\n");
+
+    const params: typeof pendingAutoParams = [
+      { campo: "groupId", tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 0 },
+      { campo: "userId",  tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 1 },
+    ];
+    activeCampos.forEach((campo, i) => {
+      const p = toParamName(campo.name);
+      if (!p) return;
+      params.push({
+        campo: p,
+        tipo: "string",
+        obrigatorio: 0,
+        operadorSql: "LIKE",
+        normalizar: campo.normalizedTerms ? 1 : 0,
+        ordem: i + 2,
+      });
+    });
+
+    setModalQueryNome(`Query padrão — ${cat.name}`);
+    setModalQueryDescricao(`Query padrão para categoria "${cat.name}". Adapte os filtros conforme necessário.`);
+    setModalQuerySentencaSql(sql);
+    setPendingAutoParams(params);
+  }
+
   const openNewQueryParam = (qid: number) => {
     resetModalState();
     setModalQueryId(qid);
@@ -313,13 +410,16 @@ export default function MemoContextPage() {
     modal === "query" || modal === "queryEdit" || modal === "queryParam" || modal === "queryParamEdit";
 
   const submitModal = async () => {
+    setModalSaveError(null);
     if (!isQueryParamModal) {
-      if (!modalName.trim()) return;
+      if (!modalName.trim()) { setModalSaveError("O campo Nome é obrigatório."); return; }
     } else if (modal === "query" || modal === "queryEdit") {
-      if (!modalQueryNome.trim()) return;
+      if (!modalQueryNome.trim()) { setModalSaveError("O campo Nome da query é obrigatório."); return; }
+      if (!modalQuerySentencaSql.trim()) { setModalSaveError("A sentença SQL é obrigatória."); return; }
     } else {
-      if (!modalParamCampo.trim()) return;
+      if (!modalParamCampo.trim()) { setModalSaveError("O campo nome do parâmetro é obrigatório."); return; }
     }
+    setModalSaveBusy(true);
     try {
       const name = modalName.trim();
       if (modal === "category") {
@@ -353,11 +453,17 @@ export default function MemoContextPage() {
           normalizedTerms: modalNormalizedTerms.trim() || null,
         });
       } else if (modal === "query" && modalCategoryId != null) {
-        await apiPostJson(`/api/memo-context/categories/${modalCategoryId}/queries`, {
-          nome: modalQueryNome.trim(),
-          descricao: modalQueryDescricao.trim() || null,
-          sentencaSql: modalQuerySentencaSql.trim(),
-        });
+        const { id: newQueryId } = await apiPostJson<{ id: number }>(
+          `/api/memo-context/categories/${modalCategoryId}/queries`,
+          {
+            nome: modalQueryNome.trim(),
+            descricao: modalQueryDescricao.trim() || null,
+            sentencaSql: modalQuerySentencaSql.trim(),
+          }
+        );
+        for (const p of pendingAutoParams) {
+          await apiPostJson(`/api/memo-context/queries/${newQueryId}/params`, p);
+        }
       } else if (modal === "queryEdit" && modalQueryId != null) {
         await apiPatchJson(`/api/memo-context/queries/${modalQueryId}`, {
           nome: modalQueryNome.trim(),
@@ -387,7 +493,9 @@ export default function MemoContextPage() {
       resetModalState();
       await loadStructure();
     } catch (e) {
-      setLoadErr(e instanceof Error ? e.message : "Falha ao salvar.");
+      setModalSaveError(e instanceof Error ? e.message : "Falha ao salvar.");
+    } finally {
+      setModalSaveBusy(false);
     }
   };
 
@@ -818,6 +926,7 @@ export default function MemoContextPage() {
             );
           })}
         </div>
+
       </main>
 
       {modal !== "none" ? (
@@ -831,7 +940,12 @@ export default function MemoContextPage() {
             }
           }}
         >
-          <div className="mm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+          <div
+            className={`mm-modal${(modal === "query" || modal === "queryEdit") ? ` ${styles.sqlModal}` : ""}`}
+            role="dialog"
+            aria-modal="true"
+            onClick={(e) => e.stopPropagation()}
+          >
             <h3 className={styles.cardTitle}>
               {modal === "category" && "Nova categoria"}
               {modal === "categoryEdit" && "Editar categoria"}
@@ -920,13 +1034,30 @@ export default function MemoContextPage() {
                 </div>
                 <div className={styles.modalField}>
                   <label htmlFor="mod-q-sql">Sentença SQL</label>
+                  {modal === "query" ? (
+                    <div className={styles.gerarQueryRow}>
+                      <button
+                        type="button"
+                        className="mm-btn mm-btn--ghost"
+                        onClick={gerarQueryPadrao}
+                        title="Gera SELECT padrão com filtros de groupId, userId, category e campos da categoria"
+                      >
+                        ✦ Gerar Query padrão
+                      </button>
+                      {pendingAutoParams.length > 0 ? (
+                        <span className={styles.gerarQueryHint}>
+                          {pendingAutoParams.length} parâm. criados ao salvar
+                        </span>
+                      ) : null}
+                    </div>
+                  ) : null}
                   <textarea
                     id="mod-q-sql"
                     className="mm-field"
-                    rows={6}
-                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem" }}
+                    rows={12}
+                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem", resize: "vertical", minHeight: "10rem" }}
                     value={modalQuerySentencaSql}
-                    onChange={(e) => setModalQuerySentencaSql(e.target.value)}
+                    onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); }}
                     placeholder="SELECT * FROM tabela WHERE campo = :campo"
                   />
                   <p className={styles.fieldHelpSmall}>
@@ -1010,10 +1141,14 @@ export default function MemoContextPage() {
               </>
             ) : null}
 
+            {modalSaveError ? (
+              <p className={styles.modalSaveError}>{modalSaveError}</p>
+            ) : null}
             <div className={styles.rowActions}>
               <button
                 type="button"
                 className="mm-btn mm-btn--ghost"
+                disabled={modalSaveBusy}
                 onClick={() => {
                   setModal("none");
                   resetModalState();
@@ -1021,8 +1156,13 @@ export default function MemoContextPage() {
               >
                 Cancelar
               </button>
-              <button type="button" className="mm-btn mm-btn--primary" onClick={() => void submitModal()}>
-                Salvar
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                disabled={modalSaveBusy}
+                onClick={() => void submitModal()}
+              >
+                {modalSaveBusy ? "Salvando…" : "Salvar"}
               </button>
             </div>
           </div>

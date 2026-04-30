@@ -944,7 +944,7 @@ export interface AdminLlmLastPromptResponse {
   ok: true;
   trace: {
     createdAt: string;
-    provider: "openai" | "forge";
+    provider: "openai" | "forge" | "sql";
     model: string;
     source: string;
     messages: AdminLlmPromptMessage[];
@@ -1016,6 +1016,8 @@ export interface PerguntaCardHistorico {
   pergunta: string;
   resposta: string;
   pipe: PerguntaPipe;
+  /** memo_ids citados na resposta — usados para restringir busca em escopo "contexto_sessao". */
+  dados_usados?: PerguntaMemoUsado[];
 }
 
 export interface PerguntaLlmTraceMessage {
@@ -1025,7 +1027,7 @@ export interface PerguntaLlmTraceMessage {
 
 export interface PerguntaLlmTraceEntry {
   createdAt: string;
-  provider: "openai" | "forge";
+  provider: "openai" | "forge" | "sql";
   model: string;
   source: string;
   messages: PerguntaLlmTraceMessage[];
@@ -1048,6 +1050,33 @@ export interface PerguntaResponse {
   llmTrace?: PerguntaLlmTraceEntry[];
 }
 
+// ── Lista de Memos por Categoria ────────────────────────────────────────────
+
+export interface MemosListaColuna {
+  key: string;
+  label: string;
+}
+
+export interface MemosListaRequest {
+  categoryName: string;
+  workspaceGroupId?: number | null;
+  dataInicio?: string | null;
+  dataFim?: string | null;
+  /** Filtros por campo JSON: { "NomeCampo": "valor a buscar" } */
+  campoFiltros?: Record<string, string>;
+  /** Chave da coluna para ordenação: "id", "data_registro" ou nome do campo. */
+  sortKey?: string;
+  sortDir?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
+}
+
+export interface MemosListaResponse {
+  colunas: MemosListaColuna[];
+  linhas: Record<string, unknown>[];
+  totalLinhas: number;
+}
+
 export interface AdminSystemConfigItem {
   configkey: string;
   configvalue: string;
@@ -1057,4 +1086,18 @@ export interface AdminSystemConfigItem {
 
 export interface AdminSystemConfigResponse {
   items: AdminSystemConfigItem[];
+}
+
+export interface LlmPromptConfig {
+  id: number;
+  chave: string;
+  grupo: string;
+  titulo: string;
+  texto_padrao: string | null;
+  texto_atual: string | null;
+  updatedat: string;
+}
+
+export interface LlmPromptConfigListResponse {
+  configs: LlmPromptConfig[];
 }

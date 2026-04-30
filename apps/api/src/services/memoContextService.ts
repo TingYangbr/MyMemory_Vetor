@@ -741,3 +741,106 @@ export async function updateQueryCategoriaParam(
 export async function softDeleteQueryCategoriaParam(userId: number, paramId: number): Promise<void> {
   await updateQueryCategoriaParam(userId, paramId, { isActive: 0 });
 }
+
+// ── Lista de Memos por Categoria ────────────────────────────────────────────
+
+/**
+ * Retorna linhas de memos da categoria informada com colunas dinâmicas extraídas
+ * de dadosEspecificosJson e filtros opcionais por campo, data e workspace.
+ * Valores null no JSON são incluídos na listagem (null é válido).
+ */
+export async function listarMemosPorCategoria(input: {
+  categoryName: string;
+  userId: number;
+  groupId: number | null;
+  camposAtivos: string[];
+  dataInicio?: string | null;
+  dataFim?: string | null;
+  campoFiltros: Record<string, string>;
+  sortKey: string;
+  sortDir: "asc" | "desc";
+  limit: number;
+  offset: number;
+}): Promise<{
+  colunas: { key: string; label: string }[];
+  linhas: Record<string, unknown>[];
+  totalLinhas: number;
+}> {
+  // ── SELECT ─────────────────────────────────────────────────────────────────
+  const selectParts: string[] = ["m.id AS id", "m.createdat AS data_registro"];
+  for (const name of input.camposAtivos) {
+    const escKey = name.replace(/'/g, "''");
+    const escAlias = name.replace(/"/g, '""');
+    selectParts.push(`(NULLIF(m.dadosespecificosjson, '')::jsonb)->>'${escKey}' AS "${escAlias}"`);
+  }
+
+  // ── WHERE ──────────────────────────────────────────────────────────────────
+  const where: string[] = ["m.isactive = 1"];
+  const vals: unknown[] = [];
+
+  if (input.groupId != null) {
+    where.push("m.groupid = ?");
+    vals.push(input.groupId);
+  } else {
+    where.push("m.userid = ? AND m.groupid IS NULL");
+    vals.push(input.userId);
+  }
+
+  where.push("m.category = ?");
+  vals.push(input.categoryName);
+
+  if (input.dataInicio) {
+    where.push("m.createdat::date >= ?::date");
+    vals.push(input.dataInicio);
+  }
+  if (input.dataFim) {
+    where.push("m.createdat::date <= ?::date");
+    vals.push(input.dataFim);
+  }
+
+  // Filtros por campo: só aplica quando valor fornecido e campo pertence à categoria
+  const validCampos = new Set(input.camposAtivos);
+  for (const [name, val] of Object.entries(input.campoFiltros)) {
+    if (!validCampos.has(name) || !val?.trim()) continue;
+    const escKey = name.replace(/'/g, "''");
+    where.push(`(NULLIF(m.dadosespecificosjson, '')::jsonb)->>'${escKey}' ILIKE ?`);
+    vals.push(`%${val.trim()}%`);
+  }
+
+  // ── ORDER BY ───────────────────────────────────────────────────────────────
+  const sortExprs: Record<string, string> = {
+    id: "m.id",
+    data_registro: "m.createdat",
+  };
+  for (const name of input.camposAtivos) {
+    const escKey = name.replace(/'/g, "''");
+    sortExprs[name] = `(NULLIF(m.dadosespecificosjson, '')::jsonb)->>'${escKey}'`;
+  }
+  const sortExpr = sortExprs[input.sortKey] ?? "m.createdat";
+  const dir = input.sortDir === "asc" ? "ASC" : "DESC";
+  const limit = Math.min(Math.max(1, input.limit), 200);
+  const offset = Math.max(0, input.offset);
+
+  // ── QUERIES ────────────────────────────────────────────────────────────────
+  const wstr = where.join(" AND ");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ${selectParts.join(", ")} FROM memos m WHERE ${wstr} ORDER BY ${sortExpr} ${dir} NULLS LAST LIMIT ? OFFSET ?`,
+    [...vals, limit, offset]
+  );
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    `SELECT COUNT(*)::int AS total FROM memos m WHERE ${wstr}`,
+    vals
+  );
+
+  const colunas: { key: string; label: string }[] = [
+    { key: "id", label: "ID" },
+    { key: "data_registro", label: "Data" },
+    ...input.camposAtivos.map((n) => ({ key: n, label: n })),
+  ];
+
+  return {
+    colunas,
+    linhas: rows as Record<string, unknown>[],
+    totalLinhas: Number(countRows[0]?.total ?? 0),
+  };
+}

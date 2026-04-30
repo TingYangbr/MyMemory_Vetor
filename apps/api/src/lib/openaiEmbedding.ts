@@ -98,6 +98,8 @@ export async function searchMemosByEmbedding(input: {
   userId: number;
   groupId: number | null;
   limit?: number;
+  dataInicio?: string | null;
+  dataFim?: string | null;
 }): Promise<Array<{ memoId: number; similarity: number }>> {
   if (!config.openai.apiKey) return [];
 
@@ -113,15 +115,21 @@ export async function searchMemosByEmbedding(input: {
       : `m.userid = ? AND m.groupid IS NULL AND m.isactive = 1`;
   const baseVal = input.groupId != null ? input.groupId : input.userId;
 
+  const dateConditions: string[] = [];
+  const dateVals: unknown[] = [];
+  if (input.dataInicio) { dateConditions.push("m.createdat::date >= ?::date"); dateVals.push(input.dataInicio); }
+  if (input.dataFim)    { dateConditions.push("m.createdat::date <= ?::date"); dateVals.push(input.dataFim); }
+  const dateWhere = dateConditions.length ? " AND " + dateConditions.join(" AND ") : "";
+
   const [rows] = await pool.query<{ memoId: number; similarity: number }[]>(
     `SELECT m.id AS memoid, 1 - MIN(c.embedding <=> ?::vector) AS similarity
      FROM memo_chunks c
      JOIN memos m ON m.id = c.memo_id
-     WHERE ${baseWhere}
+     WHERE ${baseWhere}${dateWhere}
      GROUP BY m.id
      ORDER BY similarity DESC
      LIMIT ?`,
-    [vectorStr, baseVal, limit]
+    [vectorStr, baseVal, ...dateVals, limit]
   );
 
   return rows

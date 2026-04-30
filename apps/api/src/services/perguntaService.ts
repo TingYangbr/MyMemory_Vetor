@@ -7,43 +7,9 @@ import type {
 } from "@mymemory/shared";
 import { invokeLLM, resetLlmPromptTraces } from "../lib/invokeLlm.js";
 import { executarPipe1 } from "./perguntaPipe1.js";
-import { executarPipe2 } from "./perguntaPipe2.js";
+import { executarPipe2, type QueryDisponivel } from "./perguntaPipe2.js";
 import { executarPipe3 } from "./perguntaPipe3.js";
-
-// ── Prompt de classificação ───────────────────────────────────────────────────
-
-const SYSTEM_CLASSIFICACAO = `Você é um classificador de perguntas para o sistema MyMemory.
-
-Sua função é decidir a melhor rota de processamento para uma pergunta do usuário.
-
-Você deve analisar:
-- a pergunta do usuário;
-- o contexto da sessão;
-- as categorias disponíveis;
-- a capacidade estruturada genérica disponível.
-
-Você NÃO deve responder à pergunta do usuário.
-Você NÃO deve inventar capacidades.
-Você deve retornar somente JSON válido.
-
-Definições:
-- semantica: quando a resposta depende de interpretar textos/memos.
-- estruturada: quando a resposta depende de contagem, soma, percentual, listagem, agrupamento ou consulta estruturada.
-- hibrida: quando precisa combinar dados estruturados com interpretação textual.
-
-Regras de roteamento:
-- Se a pergunta pedir número, total, quantidade, percentual, soma, média, agrupamento ou comparação quantitativa, prefira estruturada.
-- Se a pergunta pedir resumo, explicação, interpretação, relato ou conteúdo textual, prefira semantica.
-- Se a pergunta pedir número e também interpretação textual na mesma frase, use hibrida.
-- Se a pergunta se refere a "desses", "destes", "anterior", "acima", "os mesmos", trate como continuidade ou refinamento.
-- Se houver dúvida entre estruturada e semantica, prefira semantica.
-
-Regras de categoria_principal (campo para tuning do catálogo):
-- Identifique a categoria principal do conteúdo da pergunta.
-- Procure a correspondência em categorias_disponiveis: considere equivalentes plural/singular (ex.: "Prontuário" ≡ "Prontuários"), variações de acento e grafias muito próximas.
-- Se houver correspondência (mesmo aproximada), preencha "categorias" com o nome EXATO da lista e deixe categoria_principal null.
-- Só preencha categoria_principal quando não houver nenhuma correspondência razoável na lista — é um campo exclusivo para tuning do catálogo.
-- Nunca duplique: se preencheu categoria_principal, não coloque o mesmo valor em "categorias".`;
+import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -51,6 +17,47 @@ function buildCategoriasPayload(categories: MemoContextCategory[]): string[] {
   return categories
     .filter((c) => c.isActive === 1)
     .map((c) => c.name);
+}
+
+function normCat(s: string): string {
+  return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+}
+
+/**
+ * Procura a categoria ativa mais próxima do alvo por similaridade textual.
+ * Retorna o nome EXATO da categoria no catálogo, ou null se não encontrar nenhuma.
+ * Níveis: (1) normalizado exato, (2) uma contém a outra, (3) sobreposição de palavras ≥ 3 chars.
+ */
+function encontrarCategoriaProxima(
+  alvo: string,
+  categories: MemoContextCategory[]
+): string | null {
+  const normAlvo = normCat(alvo);
+  const ativas = categories.filter((c) => c.isActive === 1);
+
+  const exato = ativas.find((c) => normCat(c.name) === normAlvo);
+  if (exato) return exato.name;
+
+  const contem = ativas.find((c) => {
+    const n = normCat(c.name);
+    return n.includes(normAlvo) || normAlvo.includes(n);
+  });
+  if (contem) return contem.name;
+
+  const palavrasAlvo = normAlvo.split(/\s+/).filter((w) => w.length >= 3);
+  if (palavrasAlvo.length > 0) {
+    let melhor: { name: string; score: number } | null = null;
+    for (const c of ativas) {
+      const palavrasCat = normCat(c.name).split(/\s+/).filter((w) => w.length >= 3);
+      const overlap = palavrasAlvo.filter((w) => palavrasCat.includes(w)).length;
+      if (overlap > 0 && (!melhor || overlap > melhor.score)) {
+        melhor = { name: c.name, score: overlap };
+      }
+    }
+    if (melhor) return melhor.name;
+  }
+
+  return null;
 }
 
 function buildContextoSessao(historico: PerguntaCardHistorico[]): object {
@@ -62,6 +69,69 @@ function buildContextoSessao(historico: PerguntaCardHistorico[]): object {
       pipe: h.pipe,
     })),
   };
+}
+
+function toParamName(name: string): string {
+  return name
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/\s+/g, "_")
+    .replace(/[^a-z0-9_]/g, "")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "");
+}
+
+function buildQueriesDisponiveis(
+  categories: MemoContextCategory[],
+  categoriaNames: string[]
+): QueryDisponivel[] {
+  return categories
+    .filter((c) => c.isActive === 1 && categoriaNames.includes(c.name))
+    .flatMap((c) => {
+      // Índice campo normalizado → MemoContextCampo para cross-reference
+      const campoByParamName = new Map(
+        (c.campos ?? [])
+          .filter((f) => f.isActive === 1)
+          .map((f) => [toParamName(f.name), f])
+      );
+
+      return (c.queries ?? [])
+        .filter((q) => q.isActive === 1)
+        .map((q) => ({
+          query_id: String(q.id),
+          nome: q.nome,
+          descricao: q.descricao,
+          sentencaSql: q.sentencaSql,
+          params: (q.params ?? [])
+            .filter((p) => p.isActive === 1)
+            .sort((a, b) => a.ordem - b.ordem)
+            .map((p) => {
+              const campo = campoByParamName.get(p.campo.toLowerCase());
+              const exemplos = campo?.normalizedTerms
+                ? campo.normalizedTerms.split(",").map((t) => t.trim()).filter(Boolean)
+                : [];
+              return {
+                nome: p.campo,
+                tipo: p.tipo,
+                obrigatorio: p.obrigatorio === 1,
+                operadorSql: p.operadorSql,
+                normalizar: p.normalizar === 1,
+                descricao_campo: campo?.description ?? null,
+                ...(exemplos.length ? { exemplos_valores: exemplos } : {}),
+              };
+            }),
+        }));
+    });
+}
+
+/** Coleta todos os memo_ids citados nas respostas do histórico da sessão. */
+function escopoMemoIdsDoHistorico(historico: PerguntaCardHistorico[]): number[] {
+  const ids = new Set<number>();
+  for (const h of historico) {
+    for (const d of h.dados_usados ?? []) ids.add(d.memo_id);
+  }
+  return [...ids];
 }
 
 function safeParseJson<T>(raw: string, fallback: T): T {
@@ -98,7 +168,8 @@ export async function classificarPergunta(input: {
 
   const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":""}`;
 
-  const { text, costUsd } = await invokeLLM({ system: SYSTEM_CLASSIFICACAO, user, jsonObject: true, source: "classificacao" });
+  const systemClassificacao = await getActiveSystemPrompt("perguntas_pipe1_classificacao_system");
+  const { text, costUsd } = await invokeLLM({ system: systemClassificacao, user, jsonObject: true, source: "classificacao" });
 
   const fallback: PerguntaClassificacao = {
     pipe: "semantica",
@@ -177,11 +248,25 @@ export async function perguntarMemory(input: {
     totalCost += r.costUsd;
   }
 
+  // Fallback de categoria: se o LLM não mapeou nenhuma categoria mas identificou um tema
+  // (categoria_principal preenchida), tenta localizar a categoria mais próxima no catálogo.
+  if (
+    classificacao.categorias.length === 0 &&
+    classificacao.categoria_principal &&
+    (classificacao.pipe === "estruturada" || classificacao.pipe === "hibrida")
+  ) {
+    const match = encontrarCategoriaProxima(classificacao.categoria_principal, input.categories);
+    if (match) classificacao.categorias = [match];
+  }
+
   const thInitial = input.thresholdInitial ?? 0.7;
   const thMin = input.thresholdMin ?? 0.3;
 
   // ── Pipe 1 — Semântica ────────────────────────────────────────────────────
   if (classificacao.pipe === "semantica") {
+    const escopoIds = classificacao.escopo_sugerido === "contexto_sessao"
+      ? escopoMemoIdsDoHistorico(input.historico)
+      : undefined;
     const result = await executarPipe1({
       pergunta: input.pergunta,
       userId: input.userId,
@@ -190,6 +275,7 @@ export async function perguntarMemory(input: {
       categoriaNames: classificacao.categorias,
       thresholdInitial: thInitial,
       thresholdMin: thMin,
+      escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
     });
     return {
       resposta: result.resposta,
@@ -204,12 +290,15 @@ export async function perguntarMemory(input: {
 
   // ── Pipe 2 — Estruturada ──────────────────────────────────────────────────
   if (classificacao.pipe === "estruturada") {
+    const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
     const result = await executarPipe2({
       pergunta: input.pergunta,
       userId: input.userId,
       groupId: input.groupId,
       filtros: input.filtros,
       historico: input.historico,
+      classificacao,
+      queriesDisponiveis,
     });
     return {
       resposta: result.resposta,
@@ -219,15 +308,22 @@ export async function perguntarMemory(input: {
   }
 
   // ── Pipe 3 — Híbrida ──────────────────────────────────────────────────────
+  const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
+  const escopoIds3 = classificacao.escopo_sugerido === "contexto_sessao"
+    ? escopoMemoIdsDoHistorico(input.historico)
+    : undefined;
   const result = await executarPipe3({
     pergunta: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
     filtros: input.filtros,
     historico: input.historico,
+    classificacao,
+    queriesDisponiveis,
     categoriaNames: classificacao.categorias,
     thresholdInitial: thInitial,
     thresholdMin: thMin,
+    escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
   });
   return {
     resposta: result.resposta,
