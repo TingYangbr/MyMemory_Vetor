@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { ImageMemoReviewNavState, MeResponse, MemoCreatedResponse } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGetOptional, apiPostJson } from "../api";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import {
   ReviewHero,
@@ -91,6 +92,8 @@ export default function MemoImageReviewPage() {
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
   const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
@@ -109,6 +112,14 @@ export default function MemoImageReviewPage() {
     });
   }, []);
 
+  const categoryOptions = useCategoryOptions(state?.groupId ?? null);
+
+  useEffect(() => {
+    if (!selectedCategoryName || selectedCategoryId !== null || categoryOptions.length === 0) return;
+    const match = categoryOptions.find((c) => c.name === selectedCategoryName);
+    if (match) setSelectedCategoryId(match.id);
+  }, [categoryOptions, selectedCategoryName, selectedCategoryId]);
+
   useEffect(() => {
     if (!state) return;
     setMediaText(state.suggestedMediaText);
@@ -116,6 +127,8 @@ export default function MemoImageReviewPage() {
     setDadosEspecificosJson(
       typeof state.dadosEspecificosJson === "string" ? state.dadosEspecificosJson.trim() : ""
     );
+    setSelectedCategoryId(state.matchedCategoryId ?? null);
+    setSelectedCategoryName(state.category ?? null);
   }, [state]);
 
   const overLimit = state != null && mediaText.length > state.maxSummaryChars;
@@ -138,8 +151,8 @@ export default function MemoImageReviewPage() {
         originalText: state.originalText,
         iaLevel: state.iaLevel,
         dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
-        matchedCategoryId: state.matchedCategoryId ?? null,
-        category: state.category ?? null,
+        matchedCategoryId: selectedCategoryId,
+        category: selectedCategoryName,
         mediaImageUrl: state.mediaImageUrl,
         tamMediaUrl: state.tamMediaUrl,
         originalFilename: state.originalFilename,
@@ -151,7 +164,7 @@ export default function MemoImageReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [state, overLimit, mediaText, keywords, dadosEspecificosJson, navigate]);
+  }, [state, overLimit, mediaText, keywords, dadosEspecificosJson, selectedCategoryId, selectedCategoryName, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -254,6 +267,34 @@ export default function MemoImageReviewPage() {
             <div className={styles.originalBox}>{state.originalText}</div>
           </section>
         ) : null}
+
+      <div className={styles.reviewCategoryRow}>
+        <label className={styles.reviewCategoryLabel} htmlFor="memo-image-review-category">
+          Categoria:
+        </label>
+        <select
+          id="memo-image-review-category"
+          className={styles.reviewCategorySelect}
+          value={selectedCategoryId ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) {
+              setSelectedCategoryId(null);
+              setSelectedCategoryName(null);
+            } else {
+              const id = Number(val);
+              const cat = categoryOptions.find((c) => c.id === id);
+              setSelectedCategoryId(id);
+              setSelectedCategoryName(cat?.name ?? null);
+            }
+          }}
+        >
+          <option value="">Sem categoria</option>
+          {categoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
 
       <div className={styles.grid}>
         <label className={styles.fieldLabel} htmlFor="memo-image-review-body">

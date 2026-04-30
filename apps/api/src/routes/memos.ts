@@ -72,10 +72,16 @@ const patchMemoBody = z
     dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
     dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
     matchedCategoryId: z.number().int().positive().nullable().optional(),
+    category: z.string().max(255).nullable().optional(),
   })
-  .refine((o) => o.mediaText !== undefined || o.keywords !== undefined || o.dadosEspecificosJson !== undefined, {
-    message: "Informe mediaText e/ou keywords e/ou dadosEspecificosJson.",
-  });
+  .refine(
+    (o) =>
+      o.mediaText !== undefined ||
+      o.keywords !== undefined ||
+      o.dadosEspecificosJson !== undefined ||
+      o.category !== undefined,
+    { message: "Informe ao menos um campo: mediaText, keywords, dadosEspecificosJson ou category." }
+  );
 
 const userIaTextoEnum = z.enum(["semIA", "basico", "completo"]);
 
@@ -208,6 +214,10 @@ const audioConfirmBody = z.object({
 const videoConfirmBody = z.object({
   mediaText: z.string().max(65_000),
   keywords: z.string().max(8000).optional().default(""),
+  dadosEspecificosJson: z.union([z.string().max(32_000), z.null()]).optional(),
+  dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
+  matchedCategoryId: z.number().int().positive().nullable().optional(),
+  category: z.string().max(255).nullable().optional(),
   groupId: z.number().int().positive().nullable().optional(),
   apiCost: z.number().min(0).max(1e6).optional().default(0),
   originalText: z.string(),
@@ -752,6 +762,10 @@ const plugin: FastifyPluginAsync = async (app) => {
         mediaVideoUrl: parsed.data.mediaVideoUrl,
         mediaText: finalText,
         keywords: parsed.data.keywords.trim() || null,
+        dadosEspecificosJson: parsed.data.dadosEspecificosJson ?? undefined,
+        dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson ?? undefined,
+        matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category ?? null,
         apiCost: parsed.data.apiCost,
         iaLevel,
         originalText: parsed.data.originalText,
@@ -1335,6 +1349,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosJson: parsed.data.dadosEspecificosJson,
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
+        category: parsed.data.category,
       });
       const body: PatchMemoResponse = { ok: true, memo };
       return body;

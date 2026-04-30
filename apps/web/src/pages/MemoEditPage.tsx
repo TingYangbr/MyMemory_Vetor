@@ -4,6 +4,7 @@ import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { MeResponse, MemoAuthorEditResponse, PatchMemoResponse } from "@mymemory/shared";
 import { dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson } from "../api";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import { MemoDadosJsonField } from "../memo/MemoDadosJsonField";
 import styles from "./MemoEditPage.module.css";
@@ -73,6 +74,8 @@ export default function MemoEditPage() {
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
   const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -91,6 +94,8 @@ export default function MemoEditPage() {
         setMediaText(m.mediaText ?? "");
         setKeywords(dedupeMemoKeywordsCommaSeparated(m.keywords ?? ""));
         setDadosEspecificosJson(m.dadosEspecificosJson ?? "");
+        setSelectedCategoryName(m.category ?? null);
+        setSelectedCategoryId(null);
       })
       .catch((e) => {
         const t = e instanceof Error ? e.message : "";
@@ -108,6 +113,14 @@ export default function MemoEditPage() {
   useEffect(() => {
     loadMemo();
   }, [loadMemo]);
+
+  const categoryOptions = useCategoryOptions(memo?.groupId ?? null);
+
+  useEffect(() => {
+    if (!selectedCategoryName || selectedCategoryId !== null || categoryOptions.length === 0) return;
+    const match = categoryOptions.find((c) => c.name === selectedCategoryName);
+    if (match) setSelectedCategoryId(match.id);
+  }, [categoryOptions, selectedCategoryName, selectedCategoryId]);
 
   useEffect(() => {
     void apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -130,6 +143,7 @@ export default function MemoEditPage() {
         mediaText: mediaText.trim(),
         keywords: keywords.trim() || null,
         dadosEspecificosJson: dadosEspecificosJson.trim() || null,
+        category: selectedCategoryName,
       });
       leaveMemoEdit(navigate, cancelTo, true);
     } catch (e) {
@@ -235,6 +249,33 @@ export default function MemoEditPage() {
             placeholder="ex.: reunião, projeto"
             autoComplete="off"
           />
+        </label>
+
+        <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-category">
+          Categoria
+          <span className={styles.hint}>Categoria do memo (opcional).</span>
+          <select
+            id="memo-edit-category"
+            className={styles.categorySelect}
+            value={selectedCategoryId ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) {
+                setSelectedCategoryId(null);
+                setSelectedCategoryName(null);
+              } else {
+                const id = Number(val);
+                const cat = categoryOptions.find((c) => c.id === id);
+                setSelectedCategoryId(id);
+                setSelectedCategoryName(cat?.name ?? null);
+              }
+            }}
+          >
+            <option value="">Sem categoria</option>
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
         </label>
 
         <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-dados">

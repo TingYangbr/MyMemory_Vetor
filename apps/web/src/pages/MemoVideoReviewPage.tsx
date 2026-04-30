@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { MemoCreatedResponse, MeResponse, VideoMemoReviewNavState } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGetOptional, apiPostJson } from "../api";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import { ReviewHero, formatReviewBytes, reviewFileKindExtension } from "../components/MemoReviewChrome";
 import { useMemoReviewVoiceAssistant } from "../hooks/useMemoReviewVoiceAssistant";
@@ -26,6 +27,37 @@ const SOURCES = new Set<string>([
   "video_vision_basic",
   "video_vision_full",
 ]);
+
+function formatDadosEspecificosPreview(raw: string | null | undefined): string {
+  const t = raw?.trim();
+  if (!t) return "";
+  try {
+    const j = JSON.parse(t) as unknown;
+    return JSON.stringify(j, null, 2);
+  } catch {
+    return t;
+  }
+}
+
+function parseDadosEntries(raw: string | null | undefined): Array<{ key: string; value: string }> {
+  const t = raw?.trim();
+  if (!t) return [];
+  try {
+    const j = JSON.parse(t) as unknown;
+    if (!j || typeof j !== "object" || Array.isArray(j)) return [];
+    const out: Array<{ key: string; value: string }> = [];
+    for (const [k, v] of Object.entries(j as Record<string, unknown>)) {
+      const key = k.trim();
+      if (!key) continue;
+      const value =
+        v == null ? "" : typeof v === "string" ? v.trim() : typeof v === "number" || typeof v === "boolean" ? String(v) : "";
+      out.push({ key, value: value || "—" });
+    }
+    return out;
+  } catch {
+    return [];
+  }
+}
 
 function readStr(o: Record<string, unknown>, k: string, fallback = ""): string {
   const v = o[k];
@@ -82,6 +114,23 @@ function parseVideoReviewLocationState(raw: unknown): VideoMemoReviewNavState | 
 
   const textImagemMin = readFiniteNumber(o, "textImagemMin");
 
+  let dadosEspecificosJson: string | null | undefined;
+  if ("dadosEspecificosJson" in o) {
+    const d = o.dadosEspecificosJson;
+    if (d === null) dadosEspecificosJson = null;
+    else if (typeof d === "string") dadosEspecificosJson = d.trim();
+  }
+  let dadosEspecificosOriginaisJson: string | null | undefined;
+  if ("dadosEspecificosOriginaisJson" in o) {
+    const d = o.dadosEspecificosOriginaisJson;
+    if (d === null) dadosEspecificosOriginaisJson = null;
+    else if (typeof d === "string") dadosEspecificosOriginaisJson = d.trim();
+  }
+  const matchedCategoryId = readFiniteNumber(o, "matchedCategoryId");
+  const categoryRaw = o.category;
+  const category =
+    typeof categoryRaw === "string" && categoryRaw.trim() ? categoryRaw.trim() : categoryRaw === null ? null : undefined;
+
   return {
     originalText: readStr(o, "originalText"),
     suggestedMediaText: readStr(o, "suggestedMediaText"),
@@ -90,6 +139,10 @@ function parseVideoReviewLocationState(raw: unknown): VideoMemoReviewNavState | 
     apiCost,
     iaLevel: iaLevel as VideoMemoReviewNavState["iaLevel"],
     processingWarning,
+    dadosEspecificosJson,
+    dadosEspecificosOriginaisJson,
+    ...(matchedCategoryId != null ? { matchedCategoryId } : {}),
+    ...(category !== undefined ? { category } : {}),
     mediaVideoUrl,
     originalFilename: readStr(o, "originalFilename"),
     tamMediaUrl,
@@ -106,6 +159,9 @@ export default function MemoVideoReviewPage() {
 
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
+  const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
@@ -124,10 +180,23 @@ export default function MemoVideoReviewPage() {
     });
   }, []);
 
+  const categoryOptions = useCategoryOptions(state?.groupId ?? null);
+
+  useEffect(() => {
+    if (!selectedCategoryName || selectedCategoryId !== null || categoryOptions.length === 0) return;
+    const match = categoryOptions.find((c) => c.name === selectedCategoryName);
+    if (match) setSelectedCategoryId(match.id);
+  }, [categoryOptions, selectedCategoryName, selectedCategoryId]);
+
   useEffect(() => {
     if (!state) return;
     setMediaText(state.suggestedMediaText);
     setKeywords(dedupeMemoKeywordsCommaSeparated(state.suggestedKeywords));
+    setDadosEspecificosJson(
+      typeof state.dadosEspecificosJson === "string" ? state.dadosEspecificosJson.trim() : ""
+    );
+    setSelectedCategoryId(state.matchedCategoryId ?? null);
+    setSelectedCategoryName(state.category ?? null);
   }, [state]);
 
   const overLimit = state != null && mediaText.length > state.maxSummaryChars;
@@ -148,6 +217,10 @@ export default function MemoVideoReviewPage() {
         apiCost: state.apiCost,
         originalText: state.originalText,
         iaLevel: state.iaLevel,
+        dadosEspecificosJson: dadosEspecificosJson.trim() || null,
+        dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
+        matchedCategoryId: selectedCategoryId,
+        category: selectedCategoryName,
         mediaVideoUrl: state.mediaVideoUrl,
         tamMediaUrl: state.tamMediaUrl,
         originalFilename: state.originalFilename,
@@ -159,7 +232,7 @@ export default function MemoVideoReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [state, overLimit, mediaText, keywords, navigate]);
+  }, [state, overLimit, mediaText, keywords, dadosEspecificosJson, selectedCategoryId, selectedCategoryName, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -189,6 +262,8 @@ export default function MemoVideoReviewPage() {
   const showTranscriptBlock = state.originalText.trim().length > 0;
 
   const kindExt = reviewFileKindExtension(state.originalFilename);
+  const dadosPreview = formatDadosEspecificosPreview(dadosEspecificosJson);
+  const dadosEntries = parseDadosEntries(dadosEspecificosJson);
 
   const processFooterSegments: string[] = [];
   if (state.processingWarning?.trim()) processFooterSegments.push(state.processingWarning.trim());
@@ -233,6 +308,34 @@ export default function MemoVideoReviewPage() {
           </section>
         ) : null}
 
+        <div className={styles.reviewCategoryRow}>
+          <label className={styles.reviewCategoryLabel} htmlFor="memo-video-review-category">
+            Categoria:
+          </label>
+          <select
+            id="memo-video-review-category"
+            className={styles.reviewCategorySelect}
+            value={selectedCategoryId ?? ""}
+            onChange={(e) => {
+              const val = e.target.value;
+              if (!val) {
+                setSelectedCategoryId(null);
+                setSelectedCategoryName(null);
+              } else {
+                const id = Number(val);
+                const cat = categoryOptions.find((c) => c.id === id);
+                setSelectedCategoryId(id);
+                setSelectedCategoryName(cat?.name ?? null);
+              }
+            }}
+          >
+            <option value="">Sem categoria</option>
+            {categoryOptions.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
         <div className={styles.grid}>
           <label className={styles.fieldLabel} htmlFor="memo-video-review-body">
             Texto ou Resumo:
@@ -264,6 +367,23 @@ export default function MemoVideoReviewPage() {
               placeholder="ex.: reunião, decisão, cliente"
               autoComplete="off"
             />
+            <div className={styles.dadosInlineBox}>
+              <div className={styles.dadosInlineTitle}>Dados específicos</div>
+              {dadosEntries.length > 0 ? (
+                <div id="memo-video-review-dados" className={styles.dadosList}>
+                  {dadosEntries.map((it) => (
+                    <div key={it.key} className={styles.dadosRow}>
+                      <span className={styles.dadosKey}>{it.key}:</span>
+                      <span className={styles.dadosVal}>{it.value}</span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div id="memo-video-review-dados" className={styles.dadosList}>
+                  <span className={styles.dadosEmpty}>{dadosPreview || "(vazio)"}</span>
+                </div>
+              )}
+            </div>
           </label>
         </div>
 

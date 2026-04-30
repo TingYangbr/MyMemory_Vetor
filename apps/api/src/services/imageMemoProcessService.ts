@@ -314,6 +314,7 @@ export async function processImageMemoForReview(input: {
         dadosEspecificosJson: textOut.dadosEspecificosJson ?? null,
         dadosEspecificosOriginaisJson: textOut.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: textOut.matchedCategoryId ?? null,
+        category: textOut.category ?? null,
         maxSummaryChars: textOut.maxSummaryChars,
         apiCost: Math.round(totalCost * 1e8) / 1e8,
         iaLevel: textOut.iaLevel,
@@ -385,9 +386,13 @@ Regras:
         resumoRaw || "(Sem resumo automático.)",
         maxSummaryChars
       );
+      const vbCatList = str(j.categoria_lista) || null;
+      const vbCatFree = str(j.categoria_livre) || null;
+      const vbCatId = matchCategoryId(cats, vbCatList) ?? matchCategoryId(cats, vbCatFree);
+      const vbCatMatch = cats.find((c) => c.id === vbCatId);
       const kw = uniqueKeywordParts([
-        str(j.categoria_lista),
-        str(j.categoria_livre),
+        vbCatList,
+        vbCatFree,
         strArr(j.subcategorias).join(", "),
         strArr(j.palavras_chave).join(", "),
       ]);
@@ -403,6 +408,8 @@ Regras:
         originalText: originalTextOut,
         suggestedMediaText,
         suggestedKeywords: kw,
+        matchedCategoryId: vbCatMatch?.id ?? null,
+        category: vbCatMatch?.name ?? vbCatFree ?? vbCatList ?? null,
         maxSummaryChars,
         apiCost: Math.round(totalCost * 1e8) / 1e8,
         iaLevel,
@@ -531,6 +538,7 @@ ${forSecond}`;
       dadosEspecificosJson,
       dadosEspecificosOriginaisJson,
       matchedCategoryId: cat?.id ?? null,
+      category: cat?.name ?? catFree ?? catList ?? null,
       maxSummaryChars,
       apiCost: Math.round(totalCost * 1e8) / 1e8,
       iaLevel,

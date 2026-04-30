@@ -217,6 +217,7 @@ export async function processAudioMemoForReview(input: {
     dadosEspecificosJson: textOut.dadosEspecificosJson ?? null,
     dadosEspecificosOriginaisJson: textOut.dadosEspecificosOriginaisJson ?? null,
     matchedCategoryId: textOut.matchedCategoryId ?? null,
+    category: textOut.category ?? null,
     maxSummaryChars: textOut.maxSummaryChars,
     apiCost: Math.round(totalCost * 1e8) / 1e8,
     iaLevel: textOut.iaLevel,

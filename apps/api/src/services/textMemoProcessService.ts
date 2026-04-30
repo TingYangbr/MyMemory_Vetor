@@ -483,8 +483,8 @@ export async function processTextMemoForReview(input: {
 {
   "idioma_detectado": string,
   "resumo_pt_br": string (resumo fiel em português do Brasil),
-  "categoria": string | null (classifique com base no significado do texto),
-  "categoria_livre": string | null (categoria livre se nenhuma da lista servir),
+  "categoria": string | null (nome EXATO de uma categoria da lista fechada fornecida abaixo; null somente se nenhuma servir),
+  "categoria_livre": string | null (categoria livre SE E SOMENTE SE nenhuma da lista fechada servir — não repita aqui uma categoria que já está na lista),
   "subcategorias": string[],
   "subcategoria_livre": string[],
   "palavras_chave": string[],
@@ -494,6 +494,7 @@ export async function processTextMemoForReview(input: {
 }
 "dados_especificos" deve ser um objeto JSON contendo:
 - campos simples (chave: valor)
+IMPORTANTE: use o campo "categoria" para retornar o nome EXATO de uma categoria da lista. Inclua também a categoria como primeira entrada em "palavras_chave" para garantir busca determinística.
 Regras: ${summaryRule}`;
       const user = buildTextMemoBasicoUserPrompt(cats, forLlm);
       const { content, costUsd } = await openaiChatJson({
@@ -721,7 +722,7 @@ export async function processVideoTranscriptBasicoForReview(input: {
   maxSummaryChars: number;
 }): Promise<Pick<
   TextMemoProcessResponse,
-  "suggestedMediaText" | "suggestedKeywords" | "apiCost" | "processingWarning"
+  "suggestedMediaText" | "suggestedKeywords" | "apiCost" | "processingWarning" | "matchedCategoryId" | "category"
 >> {
   const originalText = input.transcript.trim();
   const maxSummaryChars =
@@ -736,6 +737,8 @@ export async function processVideoTranscriptBasicoForReview(input: {
       apiCost: 0,
       processingWarning:
         "OPENAI_API_KEY não configurada — memo tratado sem IA. Defina a chave em apps/api/.env.",
+      matchedCategoryId: null,
+      category: null,
     };
   }
 
@@ -819,9 +822,13 @@ Responda apenas o JSON.`;
     const j = parseJsonLoose(content);
     const resumo = str(j.resumo_pt_br) || originalText;
     const suggestedMediaText = clampTextToMax(resumo, maxSummaryChars);
+    const vcCatList = str(j.categoria_lista) || null;
+    const vcCatFree = str(j.categoria_livre) || null;
+    const vcCatId = matchCategoryId(cats, vcCatList) ?? matchCategoryId(cats, vcCatFree);
+    const vcCatMatch = cats.find((c) => c.id === vcCatId);
     const kw = uniqueKeywordParts([
-      str(j.categoria_lista),
-      str(j.categoria_livre),
+      vcCatList,
+      vcCatFree,
       strArr(j.subcategorias).join(", "),
       strArr(j.palavras_chave).join(", "),
     ]);
@@ -836,6 +843,8 @@ Responda apenas o JSON.`;
       suggestedKeywords: kw,
       apiCost: Math.round(totalCost * 1e8) / 1e8,
       processingWarning,
+      matchedCategoryId: vcCatMatch?.id ?? null,
+      category: vcCatMatch?.name ?? vcCatFree ?? vcCatList ?? null,
     };
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
@@ -844,6 +853,8 @@ Responda apenas o JSON.`;
       suggestedKeywords: "",
       apiCost: Math.round(totalCost * 1e8) / 1e8,
       processingWarning: `Falha na IA (${msg}). Texto exibido sem enriquecimento automático.`,
+      matchedCategoryId: null,
+      category: null,
     };
   }
 }

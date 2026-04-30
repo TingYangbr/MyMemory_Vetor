@@ -200,6 +200,50 @@
   margin-bottom: 1rem;
 }
 
+.reviewCategoryRow {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.reviewCategoryLabel {
+  font-weight: 600;
+  color: var(--mm-text-secondary, #64748b);
+  white-space: nowrap;
+}
+
+.reviewCategoryBadge {
+  background: var(--mm-primary-soft, #eff6ff);
+  color: var(--mm-primary-hover, #1d4ed8);
+  border: 1px solid var(--mm-accent, #3b82f6);
+  padding: 0.15em 0.65em;
+  border-radius: 999px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  letter-spacing: 0.01em;
+}
+
+.reviewCategorySelect {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  padding: 0.3rem 0.6rem;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 6px;
+  background: var(--mm-surface, #fff);
+  color: var(--mm-text, #1e293b);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+
+.reviewCategorySelect:focus {
+  outline: none;
+  border-color: var(--mm-accent, #3b82f6);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.18);
+}
+
 .grid {
   display: grid;
   gap: 1.25rem;

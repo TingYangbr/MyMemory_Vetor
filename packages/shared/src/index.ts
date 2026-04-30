@@ -375,6 +375,8 @@ export interface MemoAuthorEditResponse {
   mediaWebUrl: string | null;
   hasFile: boolean;
   mediaFileUrl: string | null;
+  /** Categoria gravada na coluna memos.category. */
+  category?: string | null;
 }
 
 export interface PatchMemoResponse {

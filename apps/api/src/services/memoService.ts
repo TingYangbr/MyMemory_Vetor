@@ -761,6 +761,10 @@ export async function createMemoVideoReviewed(input: {
   mediaVideoUrl: string;
   mediaText: string;
   keywords: string | null;
+  dadosEspecificosJson?: string | null;
+  dadosEspecificosOriginaisJson?: string | null;
+  matchedCategoryId?: number | null;
+  category?: string | null;
   apiCost: number;
   iaLevel: UserIaUseLevel;
   originalText: string;
@@ -781,14 +785,15 @@ export async function createMemoVideoReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
+  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
   const text = input.mediaText.trim();
   const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
   const sql = `
     INSERT INTO memos (
       userId, groupId, mediaType,
       mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
-      mediaText, keywords, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
-    ) VALUES (?, ?, 'video', NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, 1, NULL)
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata, apiCost, usedApiCred, tamMediaUrl, isActive, category
+    ) VALUES (?, ?, 'video', NULL, NULL, ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?)
   `;
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
@@ -796,12 +801,22 @@ export async function createMemoVideoReviewed(input: {
     input.mediaVideoUrl.trim(),
     text,
     kw,
+    dadosJson,
     meta,
     cost,
     usedCred,
     tam,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
+  await trySyncMemoDadosEspecificosRows({
+    memoId,
+    groupId: input.groupId,
+    mediaType: "video",
+    explicitCategoryId: input.matchedCategoryId ?? null,
+    dadosEspecificosJson: dadosJson,
+    dadosEspecificosOriginaisJson: normalizeDadosEspecificosJson(input.dadosEspecificosOriginaisJson),
+  });
   if (cost > 0) {
     try {
       await pool.query(
@@ -814,7 +829,7 @@ export async function createMemoVideoReviewed(input: {
     }
   }
   if (input.iaLevel === "completo") {
-    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: null }).catch(() => {});
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
   }
   const row = await getMemoById(memoId, input.userId);
   if (!row) throw new Error("insert_failed");
@@ -881,6 +896,7 @@ interface MemoRow extends RowDataPacket {
   apiCost?: unknown;
   usedApiCred?: unknown;
   hasChunks?: unknown;
+  category?: string | null;
 }
 
 function primaryMediaFileUrl(
@@ -923,7 +939,7 @@ async function assertMemoAuthorCanModify(
   const [rows] = await pool.query<MemoRow[]>(
     `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
             mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
-            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred
+            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category
      FROM memos WHERE id = ? AND isActive = 1`,
     [memoId]
   );
@@ -956,6 +972,7 @@ export async function getMemoForAuthorEdit(input: {
     mediaWebUrl: m.mediaWebUrl,
     hasFile: Boolean(m.mediaAudioUrl || m.mediaImageUrl || m.mediaVideoUrl || m.mediaDocumentUrl),
     mediaFileUrl: primaryMediaFileUrl(m),
+    category: typeof m.category === "string" ? m.category.trim() || null : null,
   };
 }
 
@@ -968,6 +985,7 @@ export async function updateMemoForUser(input: {
   dadosEspecificosJson?: string | null;
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
+  category?: string | null;
 }): Promise<MemoCreatedResponse> {
   const current = await assertMemoAuthorCanModify(input.memoId, input.userId, input.isAdmin);
   const sets: string[] = [];
@@ -983,6 +1001,10 @@ export async function updateMemoForUser(input: {
   if (input.dadosEspecificosJson !== undefined) {
     sets.push("dadosEspecificosJson = ?");
     vals.push(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  }
+  if (input.category !== undefined) {
+    sets.push("category = ?");
+    vals.push(input.category?.trim() || null);
   }
   if (!sets.length) {
     const row = await getMemoById(input.memoId, input.userId);

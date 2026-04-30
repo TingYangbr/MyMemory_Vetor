@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import type {
   DocumentMemoProcessResponse,
   DocumentMemoReviewLocationState,
@@ -7,7 +7,8 @@ import type {
   MemoCreatedResponse,
 } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
-import { apiGetOptional, apiPostJson } from "../api";
+import { apiDeleteJson, apiGetOptional, apiPostJson } from "../api";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import MemoProcessOverlay, {
   DOCUMENT_MEMO_PROCESS_STEPS,
@@ -75,6 +76,8 @@ export default function MemoDocumentReviewPage() {
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
   const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
+  const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
@@ -120,6 +123,8 @@ export default function MemoDocumentReviewPage() {
         setDadosEspecificosJson(
           typeof out.dadosEspecificosJson === "string" ? out.dadosEspecificosJson.trim() : ""
         );
+        setSelectedCategoryId(out.matchedCategoryId ?? null);
+        setSelectedCategoryName(out.category ?? null);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -151,8 +156,27 @@ export default function MemoDocumentReviewPage() {
     return () => window.clearInterval(id);
   }, [locState, loading]);
 
+  const categoryOptions = useCategoryOptions(locState?.groupId ?? null);
+
+  useEffect(() => {
+    if (!selectedCategoryName || selectedCategoryId !== null || categoryOptions.length === 0) return;
+    const match = categoryOptions.find((c) => c.name === selectedCategoryName);
+    if (match) setSelectedCategoryId(match.id);
+  }, [categoryOptions, selectedCategoryName, selectedCategoryId]);
+
   const overLimit =
     processResult != null && mediaText.length > processResult.maxSummaryChars;
+
+  const handleDiscard = useCallback(async () => {
+    if (locState?.memoId) {
+      try {
+        await apiDeleteJson(`/api/memos/${locState.memoId}`);
+      } catch {
+        // navega mesmo assim
+      }
+    }
+    navigate("/", { replace: true });
+  }, [locState, navigate]);
 
   const onSave = useCallback(async () => {
     if (!processResult || !locState) return;
@@ -174,8 +198,8 @@ export default function MemoDocumentReviewPage() {
         keywords: keywords.trim(),
         dadosEspecificosJson: dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
         dadosEspecificosOriginaisJson: st.dadosEspecificosOriginaisJson ?? null,
-        matchedCategoryId: st.matchedCategoryId ?? null,
-        category: st.category ?? null,
+        matchedCategoryId: selectedCategoryId,
+        category: selectedCategoryName,
         groupId: locState.groupId,
         apiCost: st.apiCost,
         originalText: st.originalText,
@@ -192,7 +216,7 @@ export default function MemoDocumentReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [overLimit, mediaText, keywords, dadosEspecificosJson, locState, processResult, navigate]);
+  }, [overLimit, mediaText, keywords, dadosEspecificosJson, selectedCategoryId, selectedCategoryName, locState, processResult, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -229,7 +253,7 @@ export default function MemoDocumentReviewPage() {
         activeStepIndex={docProcessPhaseIdx}
         onDiscard={() => {
           docProcessAbortRef.current?.abort();
-          navigate("/", { replace: true });
+          void handleDiscard();
         }}
       />
     );
@@ -297,6 +321,34 @@ export default function MemoDocumentReviewPage() {
           </section>
         )}
 
+      <div className={styles.reviewCategoryRow}>
+        <label className={styles.reviewCategoryLabel} htmlFor="memo-doc-review-category">
+          Categoria:
+        </label>
+        <select
+          id="memo-doc-review-category"
+          className={styles.reviewCategorySelect}
+          value={selectedCategoryId ?? ""}
+          onChange={(e) => {
+            const val = e.target.value;
+            if (!val) {
+              setSelectedCategoryId(null);
+              setSelectedCategoryName(null);
+            } else {
+              const id = Number(val);
+              const cat = categoryOptions.find((c) => c.id === id);
+              setSelectedCategoryId(id);
+              setSelectedCategoryName(cat?.name ?? null);
+            }
+          }}
+        >
+          <option value="">Sem categoria</option>
+          {categoryOptions.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </div>
+
       <div className={styles.grid}>
         <label className={styles.fieldLabel} htmlFor="memo-doc-review-body">
           Texto ou Resumo:
@@ -356,9 +408,9 @@ export default function MemoDocumentReviewPage() {
         <button type="button" className="mm-btn mm-btn--primary" disabled={busy || overLimit} onClick={() => void onSave()}>
           {busy ? "Salvando…" : "Salvar memo"}
         </button>
-        <Link to="/" className="mm-btn mm-btn--ghost">
+        <button type="button" className="mm-btn mm-btn--ghost" onClick={() => void handleDiscard()}>
           Descartar
-        </Link>
+        </button>
       </div>
       </div>
     </>

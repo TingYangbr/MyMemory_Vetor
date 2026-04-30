@@ -110,6 +110,22 @@
   box-sizing: border-box;
 }
 
+.categorySelect {
+  width: 100%;
+  padding: 0.5rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--mm-border, #d8dee6);
+  font: inherit;
+  font-size: 0.9rem;
+  background: #fff;
+  cursor: pointer;
+}
+
+.categorySelect:focus {
+  outline: 2px solid var(--mm-primary, #4f46e5);
+  outline-offset: 1px;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
