@@ -660,7 +660,11 @@ export default function PerguntaPage() {
             <button
               type="button"
               className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
-              onClick={() => micState === "listening" ? stopListening("done") : startListening()}
+              onClick={() => {
+                if (micState === "listening") { stopListening("done"); return; }
+                setPergunta("");
+                startListening();
+              }}
               title={micState === "listening" ? "Clique para parar" : "Clique para falar"}
               disabled={busy}
             >
@@ -670,7 +674,7 @@ export default function PerguntaPage() {
               <button
                 type="button"
                 className="mm-btn mm-btn--ghost"
-                onClick={cancelarPergunta}
+                onClick={() => { cancelarPergunta(); setPergunta(""); }}
               >
                 ✕ Cancelar
               </button>
