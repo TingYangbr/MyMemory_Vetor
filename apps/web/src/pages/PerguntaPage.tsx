@@ -353,11 +353,17 @@ export default function PerguntaPage() {
 
     rec.onend = () => {
       if (voiceSessionRef.current !== sessionId) return;
-      // continuous=true: onend só dispara por erro ou stop explícito — apenas limpa estado.
-      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-      recognitionRef.current = null;
-      voiceSessionRef.current = 0;
-      setMicState("done");
+      // Se a sessão ainda está ativa o browser parou por silêncio interno.
+      // Reiniciamos na mesma instância — o results list é resetado pelo browser,
+      // então ev.resultIndex volta a 0 e não há re-leitura de resultados antigos.
+      try {
+        rec.start();
+      } catch {
+        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+        recognitionRef.current = null;
+        voiceSessionRef.current = 0;
+        setMicState("done");
+      }
     };
 
     recognitionRef.current = rec;
