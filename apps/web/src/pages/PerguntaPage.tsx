@@ -37,6 +37,29 @@ function stripMarkdown(text: string): string {
     .replace(/^\d+\.\s+/gm, "");               // 1. listas numeradas
 }
 
+function normalizeTtsText(text: string): string {
+  return text
+    // km² antes de m² para evitar match parcial
+    .replace(/\bkm²/g,  "quilômetros quadrados")
+    .replace(/\bkm2\b/gi, "quilômetros quadrados")
+    .replace(/\bcm²/g,  "centímetros quadrados")
+    .replace(/\bcm2\b/gi, "centímetros quadrados")
+    .replace(/\bm²/g,   "metros quadrados")
+    .replace(/\bm2\b/gi, "metros quadrados")
+    // cúbicos
+    .replace(/\bkm³/g,  "quilômetros cúbicos")
+    .replace(/\bkm3\b/gi, "quilômetros cúbicos")
+    .replace(/\bcm³/g,  "centímetros cúbicos")
+    .replace(/\bcm3\b/gi, "centímetros cúbicos")
+    .replace(/\bm³/g,   "metros cúbicos")
+    .replace(/\bm3\b/gi, "metros cúbicos")
+    // temperatura
+    .replace(/(\d)\s*°C/g, "$1 graus Celsius")
+    .replace(/(\d)\s*°F/g, "$1 graus Fahrenheit")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 function IconTrace({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -459,7 +482,7 @@ export default function PerguntaPage() {
     if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
     ttsBusyRef.current = key;
     setTtsBusyPergunta(key);
-    const ttsText = stripMarkdown(text).replace(/\n+/g, " ");
+    const ttsText = normalizeTtsText(stripMarkdown(text).replace(/\n+/g, " "));
     const u = new SpeechSynthesisUtterance(ttsText);
     u.lang = "pt-BR";
     u.onend = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
