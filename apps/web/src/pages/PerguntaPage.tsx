@@ -143,14 +143,24 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
 
   if (dados_usados.length === 0) return null;
 
-  // Agrupa por assinatura de chaves de dadosEspecificos (= mesma categoria); sem campos → sig ""
-  const grupos = new Map<string, typeof dados_usados>();
-  for (const d of dados_usados) {
-    const sig = d.dadosEspecificos && Object.keys(d.dadosEspecificos).length > 0
-      ? Object.keys(d.dadosEspecificos).sort().join(",")
-      : "";
-    if (!grupos.has(sig)) grupos.set(sig, []);
-    grupos.get(sig)!.push(d);
+  // Coleta todas as chaves de dadosEspecificos em ordem alfabética (união de todas as categorias)
+  const extraKeys = Array.from(
+    new Set(dados_usados.flatMap((d) => d.dadosEspecificos ? Object.keys(d.dadosEspecificos) : []))
+  ).sort();
+
+  const LABELS: Record<string, string> = { memo_id: "Memo", mediaType: "Tipo", mediatext: "Conteúdo" };
+
+  function renderCell(val: string) {
+    const isLong = val.length > 80;
+    return (
+      <td
+        className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+        onClick={isLong ? () => setExpandedCell(val) : undefined}
+        title={isLong ? "Clique para ver texto completo" : undefined}
+      >
+        {isLong ? val.slice(0, 80) + "…" : val}
+      </td>
+    );
   }
 
   return (
@@ -162,58 +172,27 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
           </div>
         </div>
       ) : null}
-      {Array.from(grupos.entries()).map(([sig, memos]) => {
-        const cols = sig ? sig.split(",") : [];
-        return (
-          <div key={sig} className={styles.semanticaGrupo}>
-            <div className={styles.tabelaWrap}>
-              <table className={styles.tabela}>
-                <thead>
-                  <tr>
-                    <th className={styles.tabelaTh}>Memo</th>
-                    <th className={styles.tabelaTh}>Tipo</th>
-                    <th className={styles.tabelaTh}>Conteúdo</th>
-                    {cols.map((c) => <th key={c} className={styles.tabelaTh}>{c}</th>)}
-                  </tr>
-                </thead>
-                <tbody>
-                  {memos.map((d, i) => {
-                    const mt = d.mediatext ?? "";
-                    const mtLong = mt.length > 80;
-                    return (
-                      <tr key={i} className={styles.tabelaTr}>
-                        <td className={styles.tabelaTd}>#{d.memo_id}</td>
-                        <td className={styles.tabelaTd}>{d.mediaType ?? "—"}</td>
-                        <td
-                          className={`${styles.tabelaTd}${mtLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                          onClick={mtLong ? () => setExpandedCell(mt) : undefined}
-                          title={mtLong ? "Clique para ver texto completo" : undefined}
-                        >
-                          {mt ? (mtLong ? mt.slice(0, 80) + "…" : mt) : "—"}
-                        </td>
-                        {cols.map((c) => {
-                          const val = d.dadosEspecificos?.[c] != null ? String(d.dadosEspecificos![c]) : "—";
-                          const isLong = val.length > 80;
-                          return (
-                            <td
-                              key={c}
-                              className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                              onClick={isLong ? () => setExpandedCell(val) : undefined}
-                              title={isLong ? "Clique para ver texto completo" : undefined}
-                            >
-                              {isLong ? val.slice(0, 80) + "…" : val}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        );
-      })}
+      <div className={styles.tabelaWrap}>
+        <table className={styles.tabela}>
+          <thead>
+            <tr>
+              {["memo_id", "mediaType", "mediatext", ...extraKeys].map((c) => (
+                <th key={c} className={styles.tabelaTh}>{LABELS[c] ?? c}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dados_usados.map((d, i) => (
+              <tr key={i} className={styles.tabelaTr}>
+                {renderCell(`#${d.memo_id}`)}
+                {renderCell(d.mediaType ?? "—")}
+                {renderCell(d.mediatext ?? "—")}
+                {extraKeys.map((k) => renderCell(d.dadosEspecificos?.[k] != null ? String(d.dadosEspecificos![k]) : "—"))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </>
   );
 }
@@ -451,16 +430,15 @@ export default function PerguntaPage() {
     }
 
     rec.lang = "pt-BR";
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      let thisSession = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        thisSession += ev.results[i]![0]!.transcript;
-      }
-      const display = stripPunctuation(thisSession.trim());
+      // Android re-entrega o texto acumulado em cada novo slot com continuous=true
+      // → usar apenas o último slot evita duplicação e mantém o texto completo
+      const transcript = ev.results[ev.results.length - 1]![0]!.transcript;
+      const display = stripPunctuation(transcript.trim());
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
