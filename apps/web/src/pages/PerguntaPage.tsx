@@ -435,10 +435,13 @@ export default function PerguntaPage() {
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      // Android re-entrega o texto acumulado em cada novo slot com continuous=true
-      // → usar apenas o último slot evita duplicação e mantém o texto completo
-      const transcript = ev.results[ev.results.length - 1]![0]!.transcript;
-      const display = stripPunctuation(transcript.trim());
+      // Soma todos os slots com espaço — cada slot tem apenas a nova frase (sem re-entrega)
+      const parts: string[] = [];
+      for (let i = 0; i < ev.results.length; i++) {
+        const t = ev.results[i]![0]!.transcript.trim();
+        if (t) parts.push(t);
+      }
+      const display = stripPunctuation(parts.join(" "));
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
