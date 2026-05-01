@@ -352,7 +352,7 @@ export default function PerguntaPage() {
     }
 
     rec.lang = "pt-BR";
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
