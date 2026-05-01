@@ -449,6 +449,9 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const body = req.body as {
       categoryName?: string;
+      /** Grupo do contexto de categorias (popula campos/estrutura). */
+      contextGroupId?: number | null;
+      /** Grupo de filtro dos memos (null = todos os grupos). */
       workspaceGroupId?: number | null;
       dataInicio?: string | null;
       dataFim?: string | null;
@@ -462,15 +465,19 @@ const plugin: FastifyPluginAsync = async (app) => {
     const categoryName = (body.categoryName ?? "").trim();
     if (!categoryName) return reply.code(400).send({ error: "categoryName obrigatório" });
 
+    const contextGroupId =
+      typeof body.contextGroupId === "number" ? body.contextGroupId : null;
     const workspaceGroupId =
       typeof body.workspaceGroupId === "number" ? body.workspaceGroupId : null;
+    // Grupo usado para carregar a estrutura de categorias (campos)
+    const structureGroupId = contextGroupId ?? workspaceGroupId;
 
     try {
-      // Valida acesso ao escopo
-      await assertMemoContextReadScope(userId, workspaceGroupId, admin);
+      // Valida acesso ao escopo de categorias
+      await assertMemoContextReadScope(userId, structureGroupId, admin);
 
       // Carrega estrutura para obter campos ativos da categoria
-      const structure = await loadMemoContextStructure(userId, workspaceGroupId, null);
+      const structure = await loadMemoContextStructure(userId, structureGroupId, null);
       const category = structure.categories.find(
         (c) => c.name === categoryName && c.isActive === 1
       );

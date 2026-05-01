@@ -473,7 +473,10 @@ export default function AdminPage() {
 
   // ── Aba Consulta ─────────────────────────────────────────────────────────
   const [consultaGroups, setConsultaGroups] = useState<MemoContextGroupOption[]>([]);
-  const [consultaGroupId, setConsultaGroupId] = useState<number | null>(null);
+  /** Grupo 1 — contexto de categorias: popula o select de categorias. */
+  const [consultaCatGroupId, setConsultaCatGroupId] = useState<number | null>(null);
+  /** Grupo 2 — filtro de memos: restringe quais memos aparecem no resultado (null = todos). */
+  const [consultaFiltroGroupId, setConsultaFiltroGroupId] = useState<number | null>(null);
   const [consultaGroupsLoaded, setConsultaGroupsLoaded] = useState(false);
   const [consultaCategorias, setConsultaCategorias] = useState<MemoContextCategory[]>([]);
   const [consultaCatNome, setConsultaCatNome] = useState<string>("");
@@ -616,7 +619,7 @@ export default function AdminPage() {
 
   useEffect(() => {
     if (me?.role !== "admin" || tab !== "consulta") return;
-    const qs = consultaGroupId != null ? `?groupId=${consultaGroupId}` : "";
+    const qs = consultaCatGroupId != null ? `?groupId=${consultaCatGroupId}` : "";
     apiGet<MemoContextStructureResponse>(`/api/memo-context/structure${qs}`)
       .then((s) => {
         setConsultaCategorias(s.categories.filter((c) => c.isActive === 1));
@@ -625,7 +628,7 @@ export default function AdminPage() {
         setPendingCampoFiltros({});
       })
       .catch(() => setConsultaCategorias([]));
-  }, [me?.role, tab, consultaGroupId]);
+  }, [me?.role, tab, consultaCatGroupId]);
 
   const handleConsultar = useCallback((opts?: { offset?: number; sortKey?: string; sortDir?: "asc" | "desc" }) => {
     if (!consultaCatNome || me?.role !== "admin") return;
@@ -636,7 +639,8 @@ export default function AdminPage() {
     setConsultaErr(null);
     return apiPostJson<MemosListaResponse>("/api/memo-context/memos-lista", {
       categoryName: consultaCatNome,
-      workspaceGroupId: consultaGroupId,
+      contextGroupId: consultaCatGroupId,
+      workspaceGroupId: consultaFiltroGroupId,
       dataInicio: consultaDataInicio || null,
       dataFim: consultaDataFim || null,
       campoFiltros: pendingCampoFiltros,
@@ -661,7 +665,7 @@ export default function AdminPage() {
         }
       })
       .finally(() => setConsultaLoading(false));
-  }, [me?.role, consultaCatNome, consultaGroupId, consultaDataInicio, consultaDataFim, pendingCampoFiltros, consultaSortKey, consultaSortDir]);
+  }, [me?.role, consultaCatNome, consultaCatGroupId, consultaFiltroGroupId, consultaDataInicio, consultaDataFim, pendingCampoFiltros, consultaSortKey, consultaSortDir]);
 
   const loadPromptConfigs = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
@@ -1494,18 +1498,37 @@ export default function AdminPage() {
 
             <div className={styles.consultaFilters}>
               <div className={styles.consultaField}>
-                <label htmlFor="consulta-group">Grupo</label>
+                <label htmlFor="consulta-cat-group">Grupo de categorias</label>
                 <select
-                  id="consulta-group"
-                  value={consultaGroupId ?? ""}
+                  id="consulta-cat-group"
+                  value={consultaCatGroupId ?? ""}
                   onChange={(e) => {
                     const v = e.target.value;
-                    setConsultaGroupId(v === "" ? null : Number(v));
+                    setConsultaCatGroupId(v === "" ? null : Number(v));
                     setConsultaResult(null);
                     setConsultaOffset(0);
                   }}
                 >
                   <option value="">Global (sem grupo)</option>
+                  {consultaGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-filtro-group">Grupo de memos</label>
+                <select
+                  id="consulta-filtro-group"
+                  value={consultaFiltroGroupId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setConsultaFiltroGroupId(v === "" ? null : Number(v));
+                    setConsultaResult(null);
+                    setConsultaOffset(0);
+                  }}
+                >
+                  <option value="">Todos os grupos</option>
                   {consultaGroups.map((g) => (
                     <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
