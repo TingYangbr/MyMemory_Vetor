@@ -62,9 +62,10 @@
 }
 
 .filterBtnActive {
-  border-color: var(--mm-accent, #0d9488);
+  border: 1.5px solid var(--mm-accent, #0d9488);
   background: rgba(13, 148, 136, 0.08);
   color: var(--mm-accent, #0d9488);
+  font-weight: 600;
 }
 
 .filterClear {
@@ -756,6 +757,31 @@
   font-size: 0.88rem;
   font-weight: 600;
   color: var(--mm-text-muted, #64748b);
+}
+
+/* ── Tabela semântica: mediatext + tabela por grupo ── */
+.semanticaGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+.semanticaMediatext {
+  margin: 0;
+  font-size: 0.83rem;
+  color: var(--mm-text-muted, #475569);
+  line-height: 1.55;
+  padding: 0.4rem 0.6rem;
+  background: var(--mm-surface-alt, #f8fafc);
+  border-left: 2px solid var(--mm-border, #e2e8f0);
+  border-radius: 0 4px 4px 0;
+}
+
+.semanticaMemoId {
+  font-weight: 700;
+  color: var(--mm-accent, #0d9488);
+  margin-right: 0.25rem;
 }
 
 /* ── Tabela estruturada (Pipe 2 / Pipe 3) ── */

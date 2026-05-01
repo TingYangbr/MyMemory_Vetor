@@ -225,7 +225,7 @@ async function gerarRespostaSemantica(input: {
     if (memo?.dadosespecificosjson) {
       try { dadosEspecificos = JSON.parse(memo.dadosespecificosjson) as Record<string, unknown>; } catch { /* */ }
     }
-    return { ...d, dadosEspecificos: dadosEspecificos ?? undefined };
+    return { ...d, dadosEspecificos: dadosEspecificos ?? undefined, mediatext: memo?.mediatext ?? undefined };
   });
 
   const usedIds = new Set(dadosUsados.map((d) => d.memo_id));

@@ -138,27 +138,34 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
       {Array.from(grupos.entries()).map(([sig, memos]) => {
         const cols = sig.split(",");
         return (
-          <div key={sig} className={styles.tabelaWrap}>
-            <table className={styles.tabela}>
-              <thead>
-                <tr>
-                  <th className={styles.tabelaTh}>Memo</th>
-                  {cols.map((c) => <th key={c} className={styles.tabelaTh}>{c}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {memos.map((d, i) => (
-                  <tr key={i} className={styles.tabelaTr}>
-                    <td className={styles.tabelaTd}>#{d.memo_id}</td>
-                    {cols.map((c) => (
-                      <td key={c} className={styles.tabelaTd}>
-                        {d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—"}
-                      </td>
-                    ))}
+          <div key={sig} className={styles.semanticaGrupo}>
+            {memos.map((d) => d.mediatext ? (
+              <p key={d.memo_id} className={styles.semanticaMediatext}>
+                <span className={styles.semanticaMemoId}>#{d.memo_id}</span>{" "}{d.mediatext.slice(0, 300)}{d.mediatext.length > 300 ? "…" : ""}
+              </p>
+            ) : null)}
+            <div className={styles.tabelaWrap}>
+              <table className={styles.tabela}>
+                <thead>
+                  <tr>
+                    <th className={styles.tabelaTh}>Memo</th>
+                    {cols.map((c) => <th key={c} className={styles.tabelaTh}>{c}</th>)}
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {memos.map((d, i) => (
+                    <tr key={i} className={styles.tabelaTr}>
+                      <td className={styles.tabelaTd}>#{d.memo_id}</td>
+                      {cols.map((c) => (
+                        <td key={c} className={styles.tabelaTd}>
+                          {d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—"}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         );
       })}
