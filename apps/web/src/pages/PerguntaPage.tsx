@@ -295,20 +295,17 @@ export default function PerguntaPage() {
       return;
     }
 
+    // continuous=false + interimResults=false: cada utterance gera exatamente
+    // um resultado final sem texto acumulado — corrige concatenação no mobile Chrome.
+    // onend faz auto-restart para manter o microfone ativo entre pausas naturais.
     rec.lang = "pt-BR";
-    rec.continuous = true;
-    rec.interimResults = true;
+    rec.continuous = false;
+    rec.interimResults = false;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-
-      for (let i = ev.resultIndex; i < ev.results.length; i++) {
-        const line = ev.results[i]!;
-        if (!line.isFinal) continue;
-        if (i <= lastFinalIdxRef.current) continue;
-        lastFinalIdxRef.current = i;
-        const chunk = stripPunctuation(line[0]!.transcript);
-        if (!chunk) continue;
+      const chunk = stripPunctuation(ev.results[0]![0]!.transcript);
+      if (chunk) {
         setPergunta((prev) => {
           const base = prev.trim();
           const next = !base ? chunk : `${base} ${chunk}`;
@@ -317,7 +314,6 @@ export default function PerguntaPage() {
           return next;
         });
       }
-
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
@@ -344,10 +340,16 @@ export default function PerguntaPage() {
 
     rec.onend = () => {
       if (voiceSessionRef.current !== sessionId) return;
-      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-      recognitionRef.current = null;
-      voiceSessionRef.current = 0;
-      setMicState("done");
+      // Auto-restart: com continuous=false o browser para após cada utterance;
+      // reiniciamos para manter o microfone ativo até o silêncio detectado.
+      try {
+        rec.start();
+      } catch {
+        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+        recognitionRef.current = null;
+        voiceSessionRef.current = 0;
+        setMicState("done");
+      }
     };
 
     recognitionRef.current = rec;
