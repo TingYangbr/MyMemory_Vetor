@@ -99,6 +99,8 @@ Você receberá as queries disponíveis para a categoria identificada. Cada quer
 Use descricao_campo e exemplos_valores para associar com precisão os termos do usuário ao parâmetro correto.
 Por exemplo: se o usuário menciona "diabete" e há um parâmetro com descricao_campo="Diagnóstico médico do paciente" e exemplos_valores=["diabetes","hipertensão"], associe "diabete" a esse parâmetro.
 
+Extração de valores numéricos: quando o usuário menciona uma quantidade com descritor de unidade (ex: "1 vaga", "2 dormitórios", "3 banheiros", "1 suite"), extraia SOMENTE o número como valor do parâmetro — nunca inclua o descritor. Exemplos: "1 vaga" → valor "1"; "2 dormitórios" → valor "2"; "3 banheiros" → valor "3". Se os exemplos_valores do parâmetro forem numéricos (["1","2","3"]), sempre retorne o número puro.
+
 Parâmetros de sistema (NUNCA peça ao usuário, são injetados automaticamente pelo backend):
 - userid, groupid — identificação do contexto do usuário; sempre disponíveis.
 

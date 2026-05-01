@@ -391,11 +391,18 @@ export default function PerguntaPage() {
 
     rec.onend = () => {
       if (voiceSessionRef.current !== sessionId) return;
-      // Não reinicia — sem toggle sound repetido. Usuário toca "Falar" para continuar.
+      // Não reinicia. Se houve fala, agenda auto-envio após 3 s (usuário pode cancelar).
       if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current = null;
       voiceSessionRef.current = 0;
       setMicState("done");
+      const transcript = voiceTranscriptRef.current.trim();
+      if (transcript) {
+        silenceTimerRef.current = setTimeout(() => {
+          silenceTimerRef.current = null;
+          setVoiceAutoSubmitText(transcript);
+        }, 3000);
+      }
     };
 
     recognitionRef.current = rec;
