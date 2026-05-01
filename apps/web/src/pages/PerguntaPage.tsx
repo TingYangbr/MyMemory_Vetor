@@ -445,14 +445,21 @@ export default function PerguntaPage() {
 
       rec.onend = () => {
         if (voiceSessionRef.current !== sessionId) return;
-        // Android re-entrega o buffer completo na nova instância — NÃO atualiza
-        // accumulatedRef aqui. Ele só muda em startListening (resume manual).
-        // Browser parou por silêncio interno — cria nova instância e reinicia.
         recognitionRef.current = null;
-        if (!createAndStart()) {
+        if (IS_MOBILE) {
+          // Mobile: Android toca o toggle sound do sistema a cada rec.start(). Para evitar
+          // o som repetido durante a fala, NÃO reiniciamos automaticamente — o SR para,
+          // o texto capturado fica visível e o usuário toca "Falar" para continuar/submeter.
           if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
           voiceSessionRef.current = 0;
           setMicState("done");
+        } else {
+          // Desktop: reinicia para manter captura contínua sem ruído.
+          if (!createAndStart()) {
+            if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+            voiceSessionRef.current = 0;
+            setMicState("done");
+          }
         }
       };
 
