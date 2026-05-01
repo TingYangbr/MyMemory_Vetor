@@ -229,6 +229,7 @@ export default function PerguntaPage() {
   const voiceSessionRef = useRef(0);
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
+  const lastFinalIdxRef = useRef(-1);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isComposingRef = useRef(false);
 
@@ -284,6 +285,7 @@ export default function PerguntaPage() {
     stopListening();
     voiceHadResultRef.current = false;
     voiceTranscriptRef.current = "";
+    lastFinalIdxRef.current = -1;
     const sessionId = ++voiceSessionRef.current;
 
     let rec: SpeechRecInstance;
@@ -299,14 +301,23 @@ export default function PerguntaPage() {
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      let display = "";
-      for (let i = 0; i < ev.results.length; i++) display += ev.results[i]![0]!.transcript;
-      const t = stripPunctuation(display);
-      if (t) {
-        voiceTranscriptRef.current = t;
-        voiceHadResultRef.current = true;
-        setPergunta(t);
+
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const line = ev.results[i]!;
+        if (!line.isFinal) continue;
+        if (i <= lastFinalIdxRef.current) continue;
+        lastFinalIdxRef.current = i;
+        const chunk = stripPunctuation(line[0]!.transcript);
+        if (!chunk) continue;
+        setPergunta((prev) => {
+          const base = prev.trim();
+          const next = !base ? chunk : `${base} ${chunk}`;
+          voiceTranscriptRef.current = next;
+          voiceHadResultRef.current = true;
+          return next;
+        });
       }
+
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
       silenceTimerRef.current = setTimeout(() => {
         silenceTimerRef.current = null;
