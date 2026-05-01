@@ -839,8 +839,8 @@ export async function listarMemosPorCategoria(input: {
 
   const colunas: { key: string; label: string }[] = [
     { key: "id", label: "ID" },
-    { key: "mediatype", label: "Tipo" },
-    { key: "mediatext", label: "Texto" },
+    { key: "mediaType", label: "Tipo" },
+    { key: "mediaText", label: "Texto" },
     { key: "data_registro", label: "Data" },
     ...input.camposAtivos.map((n) => ({ key: n, label: n })),
   ];

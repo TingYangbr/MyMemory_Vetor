@@ -83,8 +83,8 @@ function fmtConsultaCell(key: string, value: unknown): string {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
     if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   }
-  if (key === "mediatype") return MEDIA_TYPE_PT[s] ?? s;
-  if (key === "mediatext") return s.length > 150 ? `${s.slice(0, 150)}…` : s;
+  if (key === "mediaType") return MEDIA_TYPE_PT[s] ?? s;
+  if (key === "mediaText") return s.length > 150 ? `${s.slice(0, 150)}…` : s;
   return s || "—";
 }
 
