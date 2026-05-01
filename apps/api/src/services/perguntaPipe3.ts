@@ -8,6 +8,7 @@ import type {
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
 import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
+import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -115,10 +116,10 @@ async function gerarRespostaHibrida(input: {
       : pipe1.resposta.confianca_estimada;
 
   const resposta: PerguntaResposta = {
-    resposta: String(parsed.resposta ?? "Não foi possível gerar uma resposta."),
+    resposta: parseRespostaStr(parsed.resposta),
     tipo_resposta: "hibrida",
     dados_usados: dadosUsados,
-    limitacoes: Array.isArray(parsed.limitacoes) ? (parsed.limitacoes as string[]) : [],
+    limitacoes: parseStringArray(parsed.limitacoes),
     confianca_estimada: confianca,
     dados_estruturados: pipe2.dadosEstruturados,
   };

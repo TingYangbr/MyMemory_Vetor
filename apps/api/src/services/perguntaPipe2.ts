@@ -10,6 +10,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { setLastLlmPromptTrace } from "./llmPromptTraceStore.js";
+import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -461,7 +462,7 @@ async function planejarConsultaEstruturada(input: {
     dados_insuficientes: Boolean(parsed.dados_insuficientes ?? false),
     pergunta_para_usuario:
       typeof parsed.pergunta_para_usuario === "string" ? parsed.pergunta_para_usuario : null,
-    observacoes: Array.isArray(parsed.observacoes) ? (parsed.observacoes as string[]) : [],
+    observacoes: parseStringArray(parsed.observacoes),
   };
 
   return { plano, costUsd };
@@ -609,10 +610,10 @@ async function gerarRespostaEstruturada(input: {
   const parsed = safeParseJson<RawResp>(text, {});
 
   const resposta: PerguntaResposta = {
-    resposta: String(parsed.resposta ?? "Não foi possível gerar uma resposta."),
+    resposta: parseRespostaStr(parsed.resposta),
     tipo_resposta: "estruturada",
     dados_usados: [] as PerguntaMemoUsado[],
-    limitacoes: Array.isArray(parsed.limitacoes) ? (parsed.limitacoes as string[]) : [],
+    limitacoes: parseStringArray(parsed.limitacoes),
     confianca_estimada: typeof parsed.confianca_estimada === "number"
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
