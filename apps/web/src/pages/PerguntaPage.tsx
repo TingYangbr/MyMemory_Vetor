@@ -908,28 +908,36 @@ export default function PerguntaPage() {
                         ))}
                         <button type="button" className={styles.refazerClose} onClick={() => setRefazerIdx(null)} title="Cancelar">×</button>
                       </div>
-                    ) : (
+                    ) : isSemResposta(r) ? (
                       <div className={styles.ampliarWrap}>
-                        {isSemResposta(r) ? (
-                          <button
-                            type="button"
-                            className={`${styles.ajudaBtn} ${helpHintOpenIdx === i ? styles.ajudaBtnActive : ""}`}
-                            onClick={() => setHelpHintOpenIdx(helpHintOpenIdx === i ? null : i)}
-                            title="Dica: como obter respostas"
-                          >
-                            ?
-                          </button>
-                        ) : null}
+                        <button
+                          type="button"
+                          className={`${styles.ajudaBtn} ${helpHintOpenIdx === i ? styles.ajudaBtnActive : ""}`}
+                          onClick={() => setHelpHintOpenIdx(helpHintOpenIdx === i ? null : i)}
+                          title="Dica: como obter respostas"
+                        >
+                          ?
+                        </button>
                         <button
                           type="button"
                           className={styles.refazerBtn}
                           disabled={busy}
-                          onClick={() => setRefazerIdx(i)}
-                          title="Refazer com outro pipe"
+                          onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias })}
+                          title="Refazer com busca semântica"
                         >
-                          ↺ Refazer
+                          → Semântico
                         </button>
                       </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className={styles.refazerBtn}
+                        disabled={busy}
+                        onClick={() => setRefazerIdx(i)}
+                        title="Refazer com outro pipe"
+                      >
+                        ↺ Refazer
+                      </button>
                     )}
                   </div>
                 </div>
@@ -986,16 +994,6 @@ export default function PerguntaPage() {
                       </button>
                     ) : null}
                   </div>
-                  {helpHintOpenIdx === i && isSemResposta(r) ? (() => {
-                    const campos = getCamposForCategories(r.classificacao.categorias);
-                    return (
-                      <p className={styles.ajudaHint}>
-                        Para trazer respostas semânticas clique em <strong>Ampliar busca</strong>
-                        {campos.length > 0 ? <>{" "}e para trazer respostas com dados estruturados use os termos: <strong>{campos.join(", ")}</strong></> : null}
-                        .
-                      </p>
-                    );
-                  })() : null}
                   {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
                       Limiar mínimo de {Math.round(r.limiarMinimo * 100)}% atingido sem memos relevantes encontrados.
@@ -1146,6 +1144,22 @@ export default function PerguntaPage() {
           onClose={() => setTraceModal(null)}
         />
       ) : null}
+
+      {helpHintOpenIdx !== null && respostas[helpHintOpenIdx] ? (() => {
+        const rHelp = respostas[helpHintOpenIdx]!;
+        const campos = getCamposForCategories(rHelp.classificacao.categorias);
+        return (
+          <div className={styles.ajudaModalOverlay} onClick={() => setHelpHintOpenIdx(null)}>
+            <div className={styles.ajudaModalBox}>
+              <p className={styles.ajudaModalText}>
+                Para trazer respostas semânticas clique em <strong>Ampliar busca</strong>
+                {campos.length > 0 ? <> e para trazer respostas com dados estruturados use os termos: <strong>{campos.join(", ")}</strong></> : null}
+                .
+              </p>
+            </div>
+          </div>
+        );
+      })() : null}
     </div>
   );
 }
