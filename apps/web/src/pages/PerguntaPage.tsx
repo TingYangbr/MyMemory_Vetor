@@ -1156,17 +1156,27 @@ export default function PerguntaPage() {
 
       {helpHintOpenIdx !== null && respostas[helpHintOpenIdx] ? (() => {
         const rHelp = respostas[helpHintOpenIdx]!;
-        const campos = getCamposForCategories(rHelp.classificacao.categorias);
-        const termos = campos.length > 0 ? campos.join(", ") : rHelp.classificacao.categorias.join(", ");
         const botaoSemantico = rHelp.classificacao.pipe === "semantica"
           ? <strong>Ampliar busca</strong>
           : <strong>→ Semântico</strong>;
+        const categoriaDetectada = rHelp.classificacao.categorias.length > 0;
+        let mensagem: React.ReactNode;
+        if (categoriaDetectada) {
+          const campos = getCamposForCategories(rHelp.classificacao.categorias);
+          const termos = campos.length > 0 ? campos.join(", ") : rHelp.classificacao.categorias.join(", ");
+          mensagem = <>
+            Para trazer respostas semânticas clique no {botaoSemantico} e para trazer respostas com dados estruturados re-formule sua pergunta e use os termos como: <strong>{termos}</strong>.
+          </>;
+        } else {
+          const todasCategorias = contextCategories.filter((c) => c.isActive).map((c) => c.name).join(", ");
+          mensagem = <>
+            Para eu responder com semântica clique no {botaoSemantico} e para responder com dados estruturados mencione uma das categorias previstas no sistema: <strong>{todasCategorias || "nenhuma categoria cadastrada"}</strong>.
+          </>;
+        }
         return (
           <div className={styles.ajudaModalOverlay} onClick={() => setHelpHintOpenIdx(null)}>
             <div className={styles.ajudaModalBox}>
-              <p className={styles.ajudaModalText}>
-                Para trazer respostas semânticas clique no {botaoSemantico} e para trazer respostas com dados estruturados re-formule sua pergunta e use os termos como: <strong>{termos}</strong>.
-              </p>
+              <p className={styles.ajudaModalText}>{mensagem}</p>
             </div>
           </div>
         );
