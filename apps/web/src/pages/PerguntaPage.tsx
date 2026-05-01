@@ -230,6 +230,7 @@ export default function PerguntaPage() {
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isComposingRef = useRef(false);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
@@ -618,7 +619,14 @@ export default function PerguntaPage() {
             className={styles.perguntaInput}
             placeholder="Digite sua pergunta ou fale clicando no microfone abaixo…"
             value={pergunta}
-            onChange={(e) => setPergunta(e.target.value)}
+            onCompositionStart={() => { isComposingRef.current = true; }}
+            onCompositionEnd={(e) => {
+              isComposingRef.current = false;
+              setPergunta(e.currentTarget.value);
+            }}
+            onChange={(e) => {
+              if (!isComposingRef.current) setPergunta(e.target.value);
+            }}
             onKeyDown={handleKeyDown}
             rows={3}
             disabled={busy}
