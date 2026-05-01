@@ -188,10 +188,6 @@ function LlmTraceModal({
 
 const SILENCE_MS = 3000;
 
-// Mobile usa estratégia diferente no onresult — ver bloco em createAndStart.
-const IS_MOBILE = typeof navigator !== "undefined"
-  && /Android|webOS|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
 interface SpeechRecInstance extends EventTarget {
@@ -260,9 +256,7 @@ export default function PerguntaPage() {
   const voiceSessionRef = useRef(0);
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
-  const lastFinalIdxRef = useRef(-1);
-  // Mobile: texto de instâncias SR ANTERIORES (após onend → restart). A instância
-  // atual contribui via ev.results; display = accumulated + thisInstance.
+  // Texto da sessão anterior (resume: Parar → Falar). Nunca atualizado no onend.
   const accumulatedRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isComposingRef = useRef(false);
@@ -333,7 +327,6 @@ export default function PerguntaPage() {
       (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
     if (!SR) { setError("Voz não disponível neste navegador. Use Chrome ou Edge."); return; }
-    const SRClass = SR; // captura não-nulável para closures internas
 
     // iOS Safari exige getUserMedia antes de iniciar SpeechRecognition
     if (navigator.mediaDevices?.getUserMedia) {
@@ -349,125 +342,77 @@ export default function PerguntaPage() {
     setError(null);
     stopListening();
     voiceHadResultRef.current = false;
-    // Se for resume (Parar → Falar), preserva o accumulator para continuar de onde parou.
     if (!opts?.resume) {
       voiceTranscriptRef.current = "";
       accumulatedRef.current = "";
-    } else if (IS_MOBILE) {
-      // Mobile + resume: o que está em voiceTranscriptRef é texto "antigo" — vira accumulated
-      // para a nova instância, que começará com ev.results vazio.
+    } else {
       accumulatedRef.current = voiceTranscriptRef.current;
     }
-    lastFinalIdxRef.current = -1;
     const sessionId = ++voiceSessionRef.current;
 
-    // Cria sempre uma NOVA instância SR — Android Chrome não zera o results list
-    // ao chamar start() na mesma instância após onend, causando re-leitura dos
-    // resultados anteriores e concatenação. Nova instância = results list sempre vazio.
-    function createAndStart(): boolean {
-      let rec: SpeechRecInstance;
-      try { rec = new SRClass(); } catch { return false; }
-
-      rec.lang = "pt-BR";
-      rec.continuous = true;
-      rec.interimResults = true;
-
-      rec.onresult = (ev) => {
-        if (voiceSessionRef.current !== sessionId) return;
-
-        let display: string;
-        if (IS_MOBILE) {
-          // Mobile: Android re-entrega o buffer completo da sessão a cada nova instância SR.
-          // Por isso accumulatedRef NÃO é atualizado no onend (apenas em startListening para
-          // resume manual). Cada instância já contém TODA a fala da sessão em ev.results.
-          const parts: string[] = [];
-          for (let i = 0; i < ev.results.length; i++) {
-            const t = stripPunctuation(ev.results[i]![0]!.transcript);
-            if (t) parts.push(t);
-          }
-          const thisInstance = parts.join(" ").trim();
-          const acc = accumulatedRef.current.trim();
-          display = acc
-            ? (thisInstance ? `${acc} ${thisInstance}` : acc)
-            : thisInstance;
-          voiceTranscriptRef.current = display;
-          voiceHadResultRef.current = display.length > 0;
-        } else {
-          // Desktop: estratégia atual com prefix-strip (estável no Chrome/Edge desktop).
-          const speechResult = ev.results[ev.resultIndex]!;
-          const chunk = stripPunctuation(speechResult[0]!.transcript);
-          const base = voiceTranscriptRef.current.trim();
-          let newPart = chunk;
-          if (base && chunk) {
-            const baseLower = base.toLowerCase();
-            const chunkLower = chunk.toLowerCase();
-            if (chunkLower === baseLower) {
-              newPart = "";
-            } else if (chunkLower.startsWith(baseLower + " ")) {
-              newPart = chunk.slice(base.length + 1);
-            } else if (chunkLower.startsWith(baseLower)) {
-              newPart = chunk.slice(base.length).trimStart();
-            }
-          }
-          display = newPart
-            ? (!base ? newPart : `${base} ${newPart.trim()}`)
-            : base;
-          if (speechResult.isFinal) {
-            voiceTranscriptRef.current = display;
-            voiceHadResultRef.current = true;
-          }
-        }
-
-        setPergunta(display);
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          silenceTimerRef.current = null;
-          if (voiceSessionRef.current !== sessionId) return;
-          const transcript = voiceTranscriptRef.current;
-          stopListening("idle");
-          if (transcript) setVoiceAutoSubmitText(transcript);
-        }, SILENCE_MS);
-      };
-
-      rec.onerror = (ev: Event) => {
-        const code = (ev as Event & { error?: string }).error ?? "";
-        if (voiceSessionRef.current !== sessionId) return;
-        const map: Record<string, string> = {
-          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-          "no-speech": "Não foi detectada fala. Tente de novo.",
-          network: "Erro de rede no reconhecimento de voz.",
-        };
-        const msg = map[code];
-        if (msg) setError(msg);
-        else if (code && code !== "aborted") setError(`Voz: ${code}`);
-        stopListening();
-      };
-
-      rec.onend = () => {
-        if (voiceSessionRef.current !== sessionId) return;
-        recognitionRef.current = null;
-        if (IS_MOBILE) {
-          // Mobile: Android toca o toggle sound do sistema a cada rec.start(). Para evitar
-          // o som repetido durante a fala, NÃO reiniciamos automaticamente — o SR para,
-          // o texto capturado fica visível e o usuário toca "Falar" para continuar/submeter.
-          if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-          voiceSessionRef.current = 0;
-          setMicState("done");
-        } else {
-          // Desktop: reinicia para manter captura contínua sem ruído.
-          if (!createAndStart()) {
-            if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-            voiceSessionRef.current = 0;
-            setMicState("done");
-          }
-        }
-      };
-
-      recognitionRef.current = rec;
-      try { rec.start(); return true; } catch { return false; }
+    let rec: SpeechRecInstance;
+    try { rec = new SR(); } catch {
+      voiceSessionRef.current = 0;
+      setMicState("idle");
+      setError("Não foi possível iniciar o microfone.");
+      return;
     }
 
-    if (!createAndStart()) {
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    rec.onresult = (ev) => {
+      if (voiceSessionRef.current !== sessionId) return;
+      // Mesmo padrão do MemoSearchPage: lê todos os ev.results da sessão atual,
+      // sem acumulação cross-session nem prefix-strip. Funciona igual em mobile e desktop.
+      let thisSession = "";
+      for (let i = 0; i < ev.results.length; i++) {
+        thisSession += ev.results[i]![0]!.transcript;
+      }
+      const t = stripPunctuation(thisSession.trim());
+      const acc = accumulatedRef.current.trim();
+      const display = acc ? (t ? `${acc} ${t}` : acc) : t;
+      voiceTranscriptRef.current = display;
+      voiceHadResultRef.current = display.length > 0;
+      setPergunta(display);
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        if (voiceSessionRef.current !== sessionId) return;
+        const transcript = voiceTranscriptRef.current;
+        stopListening("idle");
+        if (transcript) setVoiceAutoSubmitText(transcript);
+      }, SILENCE_MS);
+    };
+
+    rec.onerror = (ev: Event) => {
+      const code = (ev as Event & { error?: string }).error ?? "";
+      if (voiceSessionRef.current !== sessionId) return;
+      const map: Record<string, string> = {
+        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+        "no-speech": "Não foi detectada fala. Tente de novo.",
+        network: "Erro de rede no reconhecimento de voz.",
+      };
+      const msg = map[code];
+      if (msg) setError(msg);
+      else if (code && code !== "aborted") setError(`Voz: ${code}`);
+      stopListening();
+    };
+
+    rec.onend = () => {
+      if (voiceSessionRef.current !== sessionId) return;
+      // Não reinicia — sem toggle sound repetido. Usuário toca "Falar" para continuar.
+      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+      recognitionRef.current = null;
+      voiceSessionRef.current = 0;
+      setMicState("done");
+    };
+
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+    } catch {
       voiceSessionRef.current = 0;
       recognitionRef.current = null;
       setMicState("idle");
