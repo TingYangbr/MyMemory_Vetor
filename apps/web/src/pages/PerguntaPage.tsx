@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
   MeResponse,
+  MemoContextCategory,
+  MemoContextStructureResponse,
   MemoRecentCard,
   PerguntaCardHistorico,
   PerguntaLlmTraceEntry,
@@ -232,6 +234,8 @@ export default function PerguntaPage() {
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [traceModal, setTraceModal] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
+  const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
+  const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
   const ttsBusyRef = useRef<string | null>(null);
   const ttsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -287,6 +291,16 @@ export default function PerguntaPage() {
       .then((r) => { if (r.ok) setAuthorOptions(r.data.authors); })
       .catch(() => {});
   }, [isGroup, workspaceGroupId]);
+
+  useEffect(() => {
+    if (!me) return;
+    const gid = me.lastWorkspaceGroupId;
+    const url = gid ? `/api/memo-context/structure?groupId=${gid}` : "/api/memo-context/structure";
+    apiGetOptional<MemoContextStructureResponse>(url)
+      .then((r) => { if (r.ok) setContextCategories(r.data.categories); })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me?.id, me?.lastWorkspaceGroupId]);
 
   // Auto-submit após timeout de silêncio: usa estado para evitar closure stale
   useEffect(() => {
@@ -480,6 +494,7 @@ export default function PerguntaPage() {
     setError(null);
     setBusy(true);
     setRefazerIdx(null);
+    setHelpHintOpenIdx(null);
     setPendingQuestion(q);
     const ac = new AbortController();
     abortControllerRef.current = ac;
@@ -648,6 +663,12 @@ export default function PerguntaPage() {
 
   const hasQuando = !!(filterDateFrom || filterDateTo);
   const hasQuem = filterAuthorId != null;
+
+  function getCamposForCategories(categorias: string[]): string[] {
+    return contextCategories
+      .filter((cat) => categorias.includes(cat.name))
+      .flatMap((cat) => cat.campos.filter((c) => c.isActive).map((c) => c.name));
+  }
 
   function renderPipeLabel(pipe: string) {
     if (pipe === "semantica") return "Semântico";
@@ -839,16 +860,29 @@ export default function PerguntaPage() {
                           r.limiarMinimo ?? 0,
                         );
                         const noMinimo = r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001;
+                        const semResposta = r.resposta.dados_usados.length === 0;
                         return (
-                          <button
-                            type="button"
-                            className={styles.ampliarBtn}
-                            disabled={busy || noMinimo}
-                            title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
-                            onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
-                          >
-                            ↓ Ampliar busca
-                          </button>
+                          <div className={styles.ampliarWrap}>
+                            {semResposta ? (
+                              <button
+                                type="button"
+                                className={`${styles.ajudaBtn} ${helpHintOpenIdx === i ? styles.ajudaBtnActive : ""}`}
+                                onClick={() => setHelpHintOpenIdx(helpHintOpenIdx === i ? null : i)}
+                                title="Dica: como obter respostas"
+                              >
+                                ?
+                              </button>
+                            ) : null}
+                            <button
+                              type="button"
+                              className={styles.ampliarBtn}
+                              disabled={busy || noMinimo}
+                              title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
+                              onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
+                            >
+                              ↓ Ampliar busca
+                            </button>
+                          </div>
                         );
                       })()
                     ) : refazerIdx === i ? (
@@ -932,6 +966,16 @@ export default function PerguntaPage() {
                       </button>
                     ) : null}
                   </div>
+                  {helpHintOpenIdx === i && r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 ? (() => {
+                    const campos = getCamposForCategories(r.classificacao.categorias);
+                    return (
+                      <p className={styles.ajudaHint}>
+                        Para trazer respostas semânticas clique em <strong>Ampliar busca</strong>
+                        {campos.length > 0 ? <>{" "}e para trazer respostas com dados estruturados use os termos: <strong>{campos.join(", ")}</strong></> : null}
+                        .
+                      </p>
+                    );
+                  })() : null}
                   {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
                       Limiar mínimo de {Math.round(r.limiarMinimo * 100)}% atingido sem memos relevantes encontrados.
