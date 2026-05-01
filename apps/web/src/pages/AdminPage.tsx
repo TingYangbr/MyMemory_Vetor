@@ -1517,25 +1517,6 @@ export default function AdminPage() {
               </div>
 
               <div className={styles.consultaField}>
-                <label htmlFor="consulta-filtro-group">Grupo de memos</label>
-                <select
-                  id="consulta-filtro-group"
-                  value={consultaFiltroGroupId ?? ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    setConsultaFiltroGroupId(v === "" ? null : Number(v));
-                    setConsultaResult(null);
-                    setConsultaOffset(0);
-                  }}
-                >
-                  <option value="">Todos os grupos</option>
-                  {consultaGroups.map((g) => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className={styles.consultaField}>
                 <label htmlFor="consulta-cat">Categoria *</label>
                 <select
                   id="consulta-cat"
@@ -1550,6 +1531,25 @@ export default function AdminPage() {
                   <option value="">— selecione —</option>
                   {consultaCategorias.map((c) => (
                     <option key={c.name} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className={styles.consultaField}>
+                <label htmlFor="consulta-filtro-group">Grupo de memos</label>
+                <select
+                  id="consulta-filtro-group"
+                  value={consultaFiltroGroupId ?? ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    setConsultaFiltroGroupId(v === "" ? null : Number(v));
+                    setConsultaResult(null);
+                    setConsultaOffset(0);
+                  }}
+                >
+                  <option value="">Todos os grupos</option>
+                  {consultaGroups.map((g) => (
+                    <option key={g.id} value={g.id}>{g.name}</option>
                   ))}
                 </select>
               </div>
