@@ -377,29 +377,16 @@ export default function PerguntaPage() {
 
         let display: string;
         if (IS_MOBILE) {
-          // Mobile: reconstrói o texto da instância atual lendo TODOS os ev.results.
-          // accumulatedRef guarda o texto de instâncias anteriores (cross-restart).
-          // PROBLEMA Android: ao criar nova instância SR, o buffer de áudio recente
-          // é re-entregue — ex: acc="procuro", nova instância dá "procuro um" →
-          // somaria "procuro procuro um". Fix: prefix-strip do acc dentro de thisInstance.
+          // Mobile: Android re-entrega o buffer completo da sessão a cada nova instância SR.
+          // Por isso accumulatedRef NÃO é atualizado no onend (apenas em startListening para
+          // resume manual). Cada instância já contém TODA a fala da sessão em ev.results.
           const parts: string[] = [];
           for (let i = 0; i < ev.results.length; i++) {
             const t = stripPunctuation(ev.results[i]![0]!.transcript);
             if (t) parts.push(t);
           }
-          let thisInstance = parts.join(" ").trim();
+          const thisInstance = parts.join(" ").trim();
           const acc = accumulatedRef.current.trim();
-          if (acc && thisInstance) {
-            const al = acc.toLowerCase();
-            const tl = thisInstance.toLowerCase();
-            if (tl === al) {
-              thisInstance = "";
-            } else if (tl.startsWith(al + " ")) {
-              thisInstance = thisInstance.slice(acc.length + 1).trimStart();
-            } else if (tl.startsWith(al)) {
-              thisInstance = thisInstance.slice(acc.length).trimStart();
-            }
-          }
           display = acc
             ? (thisInstance ? `${acc} ${thisInstance}` : acc)
             : thisInstance;
@@ -458,11 +445,8 @@ export default function PerguntaPage() {
 
       rec.onend = () => {
         if (voiceSessionRef.current !== sessionId) return;
-        // Mobile: o que foi exibido vira accumulated para a próxima instância;
-        // a nova instância começa com ev.results vazio e contribui só com fala nova.
-        if (IS_MOBILE) {
-          accumulatedRef.current = voiceTranscriptRef.current.trim();
-        }
+        // Android re-entrega o buffer completo na nova instância — NÃO atualiza
+        // accumulatedRef aqui. Ele só muda em startListening (resume manual).
         // Browser parou por silêncio interno — cria nova instância e reinicia.
         recognitionRef.current = null;
         if (!createAndStart()) {
