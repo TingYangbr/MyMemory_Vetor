@@ -82,40 +82,59 @@ function IconSpeaker({ className }: { className?: string }) {
 }
 
 function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
+  const [expandedCell, setExpandedCell] = useState<string | null>(null);
+
   if (!dados.totalLinhas) return null;
   return (
-    <div className={styles.tabelaWrap}>
-      <table className={styles.tabela}>
-        <thead>
-          <tr>
-            {dados.colunas.map((col) => (
-              <th key={col} className={styles.tabelaTh}>{COLUNA_LABELS[col] ?? col}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {dados.linhas.map((linha, i) => (
-            <tr key={i} className={styles.tabelaTr}>
-              {dados.colunas.map((col) => {
-                const val = linha[col];
-                const display =
-                  col === "mediaType" && typeof val === "string"
-                    ? (MEDIA_TYPE_LABELS[val] ?? val)
-                    : val == null ? "—" : String(val);
-                return (
-                  <td key={col} className={styles.tabelaTd}>{display}</td>
-                );
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {dados.totalLinhas > dados.linhas.length ? (
-        <p className={styles.tabelaRodape}>
-          Mostrando {dados.linhas.length} de {dados.totalLinhas} registros.
-        </p>
+    <>
+      {expandedCell ? (
+        <div className={styles.cellModalOverlay} onClick={() => setExpandedCell(null)}>
+          <div className={styles.cellModal} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.cellModalText}>{expandedCell}</p>
+          </div>
+        </div>
       ) : null}
-    </div>
+      <div className={styles.tabelaWrap}>
+        <table className={styles.tabela}>
+          <thead>
+            <tr>
+              {dados.colunas.map((col) => (
+                <th key={col} className={styles.tabelaTh}>{COLUNA_LABELS[col] ?? col}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {dados.linhas.map((linha, i) => (
+              <tr key={i} className={styles.tabelaTr}>
+                {dados.colunas.map((col) => {
+                  const val = linha[col];
+                  const display =
+                    col === "mediaType" && typeof val === "string"
+                      ? (MEDIA_TYPE_LABELS[val] ?? val)
+                      : val == null ? "—" : String(val);
+                  const isLong = display.length > 80;
+                  return (
+                    <td
+                      key={col}
+                      className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                      onClick={isLong ? () => setExpandedCell(display) : undefined}
+                      title={isLong ? "Clique para ver texto completo" : undefined}
+                    >
+                      {isLong ? display.slice(0, 80) + "…" : display}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {dados.totalLinhas > dados.linhas.length ? (
+          <p className={styles.tabelaRodape}>
+            Mostrando {dados.linhas.length} de {dados.totalLinhas} registros.
+          </p>
+        ) : null}
+      </div>
+    </>
   );
 }
 
