@@ -306,17 +306,17 @@ export default function PerguntaPage() {
       return;
     }
 
-    // continuous=false corrige concatenação no mobile Chrome (cada restart = utterance limpa).
-    // interimResults=true mantém feedback visual para frases longas.
-    // Só acumulamos no voiceTranscriptRef quando isFinal=true; interim é só display.
-    // onend faz auto-restart para manter o microfone ativo entre pausas naturais.
+    // continuous=true: microfone não para entre pausas naturais (evita corte no meio da fala).
+    // A concatenação do Chrome mobile era causada por ev.results[0] hardcoded — correto é
+    // ev.results[ev.resultIndex], que aponta só para o resultado ATUAL, ignorando os anteriores.
+    // isFinal=true acumula no voiceTranscriptRef; interim só atualiza o display.
     rec.lang = "pt-BR";
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      const speechResult = ev.results[0]!;
+      const speechResult = ev.results[ev.resultIndex]!;
       const chunk = stripPunctuation(speechResult[0]!.transcript);
       const base = voiceTranscriptRef.current.trim();
       const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
@@ -324,17 +324,17 @@ export default function PerguntaPage() {
         voiceTranscriptRef.current = display;
         voiceHadResultRef.current = true;
         setPergunta(display);
-        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-        silenceTimerRef.current = setTimeout(() => {
-          silenceTimerRef.current = null;
-          if (voiceSessionRef.current !== sessionId) return;
-          const transcript = voiceTranscriptRef.current;
-          stopListening("idle");
-          if (transcript) setVoiceAutoSubmitText(transcript);
-        }, SILENCE_MS);
       } else {
         setPergunta(display);
       }
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+      silenceTimerRef.current = setTimeout(() => {
+        silenceTimerRef.current = null;
+        if (voiceSessionRef.current !== sessionId) return;
+        const transcript = voiceTranscriptRef.current;
+        stopListening("idle");
+        if (transcript) setVoiceAutoSubmitText(transcript);
+      }, SILENCE_MS);
     };
 
     rec.onerror = (ev: Event) => {
@@ -353,16 +353,11 @@ export default function PerguntaPage() {
 
     rec.onend = () => {
       if (voiceSessionRef.current !== sessionId) return;
-      // Auto-restart: com continuous=false o browser para após cada utterance;
-      // reiniciamos para manter o microfone ativo até o silêncio detectado.
-      try {
-        rec.start();
-      } catch {
-        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-        recognitionRef.current = null;
-        voiceSessionRef.current = 0;
-        setMicState("done");
-      }
+      // continuous=true: onend só dispara por erro ou stop explícito — apenas limpa estado.
+      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+      recognitionRef.current = null;
+      voiceSessionRef.current = 0;
+      setMicState("done");
     };
 
     recognitionRef.current = rec;
