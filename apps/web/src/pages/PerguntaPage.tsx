@@ -306,33 +306,35 @@ export default function PerguntaPage() {
       return;
     }
 
-    // continuous=false + interimResults=false: cada utterance gera exatamente
-    // um resultado final sem texto acumulado — corrige concatenação no mobile Chrome.
+    // continuous=false corrige concatenação no mobile Chrome (cada restart = utterance limpa).
+    // interimResults=true mantém feedback visual para frases longas.
+    // Só acumulamos no voiceTranscriptRef quando isFinal=true; interim é só display.
     // onend faz auto-restart para manter o microfone ativo entre pausas naturais.
     rec.lang = "pt-BR";
     rec.continuous = false;
-    rec.interimResults = false;
+    rec.interimResults = true;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      const chunk = stripPunctuation(ev.results[0]![0]!.transcript);
-      if (chunk) {
-        setPergunta((prev) => {
-          const base = prev.trim();
-          const next = !base ? chunk : `${base} ${chunk}`;
-          voiceTranscriptRef.current = next;
-          voiceHadResultRef.current = true;
-          return next;
-        });
+      const result = ev.results[0]![0]!;
+      const chunk = stripPunctuation(result.transcript);
+      const base = voiceTranscriptRef.current.trim();
+      const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
+      if (result.isFinal) {
+        voiceTranscriptRef.current = display;
+        voiceHadResultRef.current = true;
+        setPergunta(display);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          silenceTimerRef.current = null;
+          if (voiceSessionRef.current !== sessionId) return;
+          const transcript = voiceTranscriptRef.current;
+          stopListening("idle");
+          if (transcript) setVoiceAutoSubmitText(transcript);
+        }, SILENCE_MS);
+      } else {
+        setPergunta(display);
       }
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        silenceTimerRef.current = null;
-        if (voiceSessionRef.current !== sessionId) return;
-        const transcript = voiceTranscriptRef.current;
-        stopListening("idle");
-        if (transcript) setVoiceAutoSubmitText(transcript);
-      }, SILENCE_MS);
     };
 
     rec.onerror = (ev: Event) => {
