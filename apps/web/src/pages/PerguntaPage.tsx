@@ -316,11 +316,11 @@ export default function PerguntaPage() {
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      const result = ev.results[0]![0]!;
-      const chunk = stripPunctuation(result.transcript);
+      const speechResult = ev.results[0]!;
+      const chunk = stripPunctuation(speechResult[0]!.transcript);
       const base = voiceTranscriptRef.current.trim();
       const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
-      if (result.isFinal) {
+      if (speechResult.isFinal) {
         voiceTranscriptRef.current = display;
         voiceHadResultRef.current = true;
         setPergunta(display);
