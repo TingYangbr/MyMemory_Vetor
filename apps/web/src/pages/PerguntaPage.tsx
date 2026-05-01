@@ -430,18 +430,16 @@ export default function PerguntaPage() {
     }
 
     rec.lang = "pt-BR";
-    rec.continuous = true;
+    rec.continuous = false;
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      // Soma todos os slots com espaço — cada slot tem apenas a nova frase (sem re-entrega)
-      const parts: string[] = [];
+      let thisSession = "";
       for (let i = 0; i < ev.results.length; i++) {
-        const t = ev.results[i]![0]!.transcript.trim();
-        if (t) parts.push(t);
+        thisSession += ev.results[i]![0]!.transcript;
       }
-      const display = stripPunctuation(parts.join(" "));
+      const display = stripPunctuation(thisSession.trim());
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
