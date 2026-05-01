@@ -1158,11 +1158,14 @@ export default function PerguntaPage() {
         const rHelp = respostas[helpHintOpenIdx]!;
         const campos = getCamposForCategories(rHelp.classificacao.categorias);
         const termos = campos.length > 0 ? campos.join(", ") : rHelp.classificacao.categorias.join(", ");
+        const botaoSemantico = rHelp.classificacao.pipe === "semantica"
+          ? <strong>Ampliar busca</strong>
+          : <strong>→ Semântico</strong>;
         return (
           <div className={styles.ajudaModalOverlay} onClick={() => setHelpHintOpenIdx(null)}>
             <div className={styles.ajudaModalBox}>
               <p className={styles.ajudaModalText}>
-                Para trazer respostas semânticas clique no <strong>Ampliar busca</strong> e para trazer respostas com dados estruturados re-formule sua pergunta e use os termos como: <strong>{termos}</strong>.
+                Para trazer respostas semânticas clique no {botaoSemantico} e para trazer respostas com dados estruturados re-formule sua pergunta e use os termos como: <strong>{termos}</strong>.
               </p>
             </div>
           </div>
