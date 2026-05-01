@@ -469,8 +469,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       typeof body.contextGroupId === "number" ? body.contextGroupId : null;
     const workspaceGroupId =
       typeof body.workspaceGroupId === "number" ? body.workspaceGroupId : null;
-    // Grupo usado para carregar a estrutura de categorias (campos)
-    const structureGroupId = contextGroupId ?? workspaceGroupId;
+    // Quando contextGroupId está presente no body (novo frontend), usa-o diretamente —
+    // null significa "global" e não deve ceder para workspaceGroupId via ??.
+    const structureGroupId = "contextGroupId" in body ? contextGroupId : workspaceGroupId;
 
     try {
       // Valida acesso ao escopo de categorias
