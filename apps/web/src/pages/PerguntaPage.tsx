@@ -275,11 +275,22 @@ export default function PerguntaPage() {
     setMicState(toState);
   }, []);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback(async () => {
     const SR =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
     if (!SR) { setError("Voz não disponível neste navegador. Use Chrome ou Edge."); return; }
+
+    // iOS Safari exige getUserMedia antes de iniciar SpeechRecognition
+    if (navigator.mediaDevices?.getUserMedia) {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach((t) => t.stop());
+      } catch {
+        setError("Microfone bloqueado. Permita o acesso nas configurações do navegador.");
+        return;
+      }
+    }
 
     setError(null);
     stopListening();
@@ -665,7 +676,7 @@ export default function PerguntaPage() {
               onClick={() => {
                 if (micState === "listening") { stopListening("done"); return; }
                 setPergunta("");
-                startListening();
+                void startListening();
               }}
               title={micState === "listening" ? "Clique para parar" : "Clique para falar"}
               disabled={busy}

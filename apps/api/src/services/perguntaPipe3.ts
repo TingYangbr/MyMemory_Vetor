@@ -115,8 +115,9 @@ async function gerarRespostaHibrida(input: {
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : pipe1.resposta.confianca_estimada;
 
+  const respostaFallback = pipe2.dadosEstruturados.totalLinhas > 0 ? "Segue a listagem:" : "Não foi possível gerar uma resposta.";
   const resposta: PerguntaResposta = {
-    resposta: parseRespostaStr(parsed.resposta),
+    resposta: parseRespostaStr(parsed.resposta, respostaFallback),
     tipo_resposta: "hibrida",
     dados_usados: dadosUsados,
     limitacoes: parseStringArray(parsed.limitacoes),

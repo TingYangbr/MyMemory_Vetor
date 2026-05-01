@@ -609,8 +609,9 @@ async function gerarRespostaEstruturada(input: {
   };
   const parsed = safeParseJson<RawResp>(text, {});
 
+  const respostaFallback = input.agregado.totalLinhas > 0 ? "Segue a listagem:" : "Não foi possível gerar uma resposta.";
   const resposta: PerguntaResposta = {
-    resposta: parseRespostaStr(parsed.resposta),
+    resposta: parseRespostaStr(parsed.resposta, respostaFallback),
     tipo_resposta: "estruturada",
     dados_usados: [] as PerguntaMemoUsado[],
     limitacoes: parseStringArray(parsed.limitacoes),
