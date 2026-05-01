@@ -1153,7 +1153,7 @@ export default function PerguntaPage() {
           <div className={styles.ajudaModalOverlay} onClick={() => setHelpHintOpenIdx(null)}>
             <div className={styles.ajudaModalBox}>
               <p className={styles.ajudaModalText}>
-                Para trazer respostas semânticas clique no <strong>Ampliar busca</strong> e para trazer respostas com dados estruturados use os termos: <strong>{termos}</strong>.
+                Para trazer respostas semânticas clique no <strong>Ampliar busca</strong> e para trazer respostas com dados estruturados re-formule sua pergunta e use os termos como: <strong>{termos}</strong>.
               </p>
             </div>
           </div>
