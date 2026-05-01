@@ -981,6 +981,7 @@ export interface PerguntaMemoUsado {
   trecho_usado: string;
   dadosEspecificos?: Record<string, unknown> | null;
   mediatext?: string | null;
+  mediaType?: string | null;
 }
 
 export interface PerguntaResultadoEstruturado {

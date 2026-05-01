@@ -109,9 +109,12 @@ async function gerarRespostaHibrida(input: {
   if (dadosUsados.length === 0 && pipe1.resposta.dados_usados.length > 0) {
     dadosUsados = pipe1.resposta.dados_usados;
   } else {
-    // Enriquece com dadosEspecificos do pipe1 pelo memo_id
-    const p1Map = new Map(pipe1.resposta.dados_usados.map((d) => [d.memo_id, d.dadosEspecificos]));
-    dadosUsados = dadosUsados.map((d) => ({ ...d, dadosEspecificos: p1Map.get(d.memo_id) ?? undefined }));
+    // Enriquece com dadosEspecificos, mediatext e mediaType do pipe1 pelo memo_id
+    const p1Map = new Map(pipe1.resposta.dados_usados.map((d) => [d.memo_id, d]));
+    dadosUsados = dadosUsados.map((d) => {
+      const p1 = p1Map.get(d.memo_id);
+      return { ...d, dadosEspecificos: p1?.dadosEspecificos ?? undefined, mediatext: p1?.mediatext ?? undefined, mediaType: p1?.mediaType ?? undefined };
+    });
   }
 
   const confianca =

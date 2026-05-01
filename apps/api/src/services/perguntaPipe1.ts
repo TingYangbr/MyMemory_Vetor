@@ -36,6 +36,7 @@ interface MemoHit {
   memoId: number;
   score: number;
   similarity: number;
+  mediatype: string;
   mediatext: string;
   keywords: string | null;
   dadosespecificosjson: string | null;
@@ -45,6 +46,7 @@ interface MemoHit {
 interface RawHit {
   memoId: number;
   similarity: number;
+  mediatype: string;
   mediatext: string;
   keywords: string | null;
   dadosespecificosjson: string | null;
@@ -117,7 +119,7 @@ async function fetchHitsWithMeta(input: {
   const whereExtra = extraWhere.length ? " AND " + extraWhere.join(" AND ") : "";
 
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT m.id, m.mediatext, m.keywords, m.dadosespecificosjson, m.createdat
+    `SELECT m.id, m.mediatype, m.mediatext, m.keywords, m.dadosespecificosjson, m.createdat
      FROM memos m
      WHERE m.id IN (${ph}) AND m.isactive = 1${whereExtra}`,
     [...ids, ...extraVals]
@@ -130,6 +132,7 @@ async function fetchHitsWithMeta(input: {
     return [{
       memoId: h.memoId,
       similarity: h.similarity,
+      mediatype: String(row.mediaType ?? ""),
       mediatext: String(row.mediaText ?? ""),
       keywords: row.keywords as string | null,
       dadosespecificosjson: row.dadosEspecificosJson as string | null,
@@ -225,7 +228,7 @@ async function gerarRespostaSemantica(input: {
     if (memo?.dadosespecificosjson) {
       try { dadosEspecificos = JSON.parse(memo.dadosespecificosjson) as Record<string, unknown>; } catch { /* */ }
     }
-    return { ...d, dadosEspecificos: dadosEspecificos ?? undefined, mediatext: memo?.mediatext ?? undefined };
+    return { ...d, dadosEspecificos: dadosEspecificos ?? undefined, mediatext: memo?.mediatext ?? undefined, mediaType: memo?.mediatype ?? undefined };
   });
 
   const usedIds = new Set(dadosUsados.map((d) => d.memo_id));

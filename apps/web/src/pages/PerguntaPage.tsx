@@ -153,29 +153,43 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
                 <thead>
                   <tr>
                     <th className={styles.tabelaTh}>Memo</th>
+                    <th className={styles.tabelaTh}>Tipo</th>
+                    <th className={styles.tabelaTh}>Conteúdo</th>
                     {cols.map((c) => <th key={c} className={styles.tabelaTh}>{c}</th>)}
                   </tr>
                 </thead>
                 <tbody>
-                  {memos.map((d, i) => (
-                    <tr key={i} className={styles.tabelaTr}>
-                      <td className={styles.tabelaTd}>#{d.memo_id}</td>
-                      {cols.map((c) => {
-                        const val = d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—";
-                        const isLong = val.length > 80;
-                        return (
-                          <td
-                            key={c}
-                            className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                            onClick={isLong ? () => setExpandedCell(val) : undefined}
-                            title={isLong ? "Clique para ver texto completo" : undefined}
-                          >
-                            {isLong ? val.slice(0, 80) + "…" : val}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
+                  {memos.map((d, i) => {
+                    const mt = d.mediatext ?? "";
+                    const mtLong = mt.length > 80;
+                    return (
+                      <tr key={i} className={styles.tabelaTr}>
+                        <td className={styles.tabelaTd}>#{d.memo_id}</td>
+                        <td className={styles.tabelaTd}>{d.mediaType ?? "—"}</td>
+                        <td
+                          className={`${styles.tabelaTd}${mtLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                          onClick={mtLong ? () => setExpandedCell(mt) : undefined}
+                          title={mtLong ? "Clique para ver texto completo" : undefined}
+                        >
+                          {mt ? (mtLong ? mt.slice(0, 80) + "…" : mt) : "—"}
+                        </td>
+                        {cols.map((c) => {
+                          const val = d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—";
+                          const isLong = val.length > 80;
+                          return (
+                            <td
+                              key={c}
+                              className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                              onClick={isLong ? () => setExpandedCell(val) : undefined}
+                              title={isLong ? "Clique para ver texto completo" : undefined}
+                            >
+                              {isLong ? val.slice(0, 80) + "…" : val}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
