@@ -161,7 +161,7 @@ function LlmTraceModal({
   );
 }
 
-const SILENCE_MS = 3000;
+const SILENCE_MS = 5000;
 
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
@@ -280,6 +280,7 @@ export default function PerguntaPage() {
       (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
     if (!SR) { setError("Voz não disponível neste navegador. Use Chrome ou Edge."); return; }
+    const SRClass = SR; // captura não-nulável para closures internas
 
     // iOS Safari exige getUserMedia antes de iniciar SpeechRecognition
     if (navigator.mediaDevices?.getUserMedia) {
@@ -299,81 +300,75 @@ export default function PerguntaPage() {
     lastFinalIdxRef.current = -1;
     const sessionId = ++voiceSessionRef.current;
 
-    let rec: SpeechRecInstance;
-    try { rec = new SR(); } catch {
-      voiceSessionRef.current = 0;
-      setError("Não foi possível iniciar o reconhecimento de voz.");
-      return;
+    // Cria sempre uma NOVA instância SR — Android Chrome não zera o results list
+    // ao chamar start() na mesma instância após onend, causando re-leitura dos
+    // resultados anteriores e concatenação. Nova instância = results list sempre vazio.
+    function createAndStart(): boolean {
+      let rec: SpeechRecInstance;
+      try { rec = new SRClass(); } catch { return false; }
+
+      rec.lang = "pt-BR";
+      rec.continuous = true;
+      rec.interimResults = true;
+
+      rec.onresult = (ev) => {
+        if (voiceSessionRef.current !== sessionId) return;
+        const speechResult = ev.results[ev.resultIndex]!;
+        const chunk = stripPunctuation(speechResult[0]!.transcript);
+        const base = voiceTranscriptRef.current.trim();
+        const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
+        if (speechResult.isFinal) {
+          voiceTranscriptRef.current = display;
+          voiceHadResultRef.current = true;
+        }
+        setPergunta(display);
+        if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
+        silenceTimerRef.current = setTimeout(() => {
+          silenceTimerRef.current = null;
+          if (voiceSessionRef.current !== sessionId) return;
+          const transcript = voiceTranscriptRef.current;
+          stopListening("idle");
+          if (transcript) setVoiceAutoSubmitText(transcript);
+        }, SILENCE_MS);
+      };
+
+      rec.onerror = (ev: Event) => {
+        const code = (ev as Event & { error?: string }).error ?? "";
+        if (voiceSessionRef.current !== sessionId) return;
+        const map: Record<string, string> = {
+          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+          "no-speech": "Não foi detectada fala. Tente de novo.",
+          network: "Erro de rede no reconhecimento de voz.",
+        };
+        const msg = map[code];
+        if (msg) setError(msg);
+        else if (code && code !== "aborted") setError(`Voz: ${code}`);
+        stopListening();
+      };
+
+      rec.onend = () => {
+        if (voiceSessionRef.current !== sessionId) return;
+        // Browser parou por silêncio interno — cria nova instância e reinicia.
+        recognitionRef.current = null;
+        if (!createAndStart()) {
+          if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+          voiceSessionRef.current = 0;
+          setMicState("done");
+        }
+      };
+
+      recognitionRef.current = rec;
+      try { rec.start(); return true; } catch { return false; }
     }
 
-    // continuous=true: microfone não para entre pausas naturais (evita corte no meio da fala).
-    // A concatenação do Chrome mobile era causada por ev.results[0] hardcoded — correto é
-    // ev.results[ev.resultIndex], que aponta só para o resultado ATUAL, ignorando os anteriores.
-    // isFinal=true acumula no voiceTranscriptRef; interim só atualiza o display.
-    rec.lang = "pt-BR";
-    rec.continuous = true;
-    rec.interimResults = true;
-
-    rec.onresult = (ev) => {
-      if (voiceSessionRef.current !== sessionId) return;
-      const speechResult = ev.results[ev.resultIndex]!;
-      const chunk = stripPunctuation(speechResult[0]!.transcript);
-      const base = voiceTranscriptRef.current.trim();
-      const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
-      if (speechResult.isFinal) {
-        voiceTranscriptRef.current = display;
-        voiceHadResultRef.current = true;
-        setPergunta(display);
-      } else {
-        setPergunta(display);
-      }
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        silenceTimerRef.current = null;
-        if (voiceSessionRef.current !== sessionId) return;
-        const transcript = voiceTranscriptRef.current;
-        stopListening("idle");
-        if (transcript) setVoiceAutoSubmitText(transcript);
-      }, SILENCE_MS);
-    };
-
-    rec.onerror = (ev: Event) => {
-      const code = (ev as Event & { error?: string }).error ?? "";
-      if (voiceSessionRef.current !== sessionId) return;
-      const map: Record<string, string> = {
-        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-        "no-speech": "Não foi detectada fala. Tente de novo.",
-        network: "Erro de rede no reconhecimento de voz.",
-      };
-      const msg = map[code];
-      if (msg) setError(msg);
-      else if (code && code !== "aborted") setError(`Voz: ${code}`);
-      stopListening();
-    };
-
-    rec.onend = () => {
-      if (voiceSessionRef.current !== sessionId) return;
-      // Se a sessão ainda está ativa o browser parou por silêncio interno.
-      // Reiniciamos na mesma instância — o results list é resetado pelo browser,
-      // então ev.resultIndex volta a 0 e não há re-leitura de resultados antigos.
-      try {
-        rec.start();
-      } catch {
-        if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-        recognitionRef.current = null;
-        voiceSessionRef.current = 0;
-        setMicState("done");
-      }
-    };
-
-    recognitionRef.current = rec;
-    setMicState("listening");
-    try { rec.start(); } catch {
+    if (!createAndStart()) {
       voiceSessionRef.current = 0;
       recognitionRef.current = null;
       setMicState("idle");
       setError("Não foi possível iniciar o microfone.");
+      return;
     }
+    setMicState("listening");
   }, [stopListening]);
 
   function cancelarPergunta() {
