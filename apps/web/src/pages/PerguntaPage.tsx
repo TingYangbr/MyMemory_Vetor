@@ -670,6 +670,14 @@ export default function PerguntaPage() {
       .flatMap((cat) => cat.campos.filter((c) => c.isActive).map((c) => c.name));
   }
 
+  function isSemResposta(r: PerguntaResponse & { perguntaTexto: string }): boolean {
+    const noMemos = r.resposta.dados_usados.length === 0;
+    const noRows = (r.resposta.dados_estruturados?.totalLinhas ?? 0) === 0;
+    if (r.classificacao.pipe === "semantica") return noMemos;
+    if (r.classificacao.pipe === "estruturada") return noRows;
+    return noMemos && noRows; // hibrida
+  }
+
   function renderPipeLabel(pipe: string) {
     if (pipe === "semantica") return "Semântico";
     if (pipe === "estruturada") return "Estruturado";
@@ -860,7 +868,7 @@ export default function PerguntaPage() {
                           r.limiarMinimo ?? 0,
                         );
                         const noMinimo = r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001;
-                        const semResposta = r.resposta.dados_usados.length === 0;
+                        const semResposta = isSemResposta(r);
                         return (
                           <div className={styles.ampliarWrap}>
                             {semResposta ? (
@@ -901,15 +909,27 @@ export default function PerguntaPage() {
                         <button type="button" className={styles.refazerClose} onClick={() => setRefazerIdx(null)} title="Cancelar">×</button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.refazerBtn}
-                        disabled={busy}
-                        onClick={() => setRefazerIdx(i)}
-                        title="Refazer com outro pipe"
-                      >
-                        ↺ Refazer
-                      </button>
+                      <div className={styles.ampliarWrap}>
+                        {isSemResposta(r) ? (
+                          <button
+                            type="button"
+                            className={`${styles.ajudaBtn} ${helpHintOpenIdx === i ? styles.ajudaBtnActive : ""}`}
+                            onClick={() => setHelpHintOpenIdx(helpHintOpenIdx === i ? null : i)}
+                            title="Dica: como obter respostas"
+                          >
+                            ?
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          className={styles.refazerBtn}
+                          disabled={busy}
+                          onClick={() => setRefazerIdx(i)}
+                          title="Refazer com outro pipe"
+                        >
+                          ↺ Refazer
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -966,7 +986,7 @@ export default function PerguntaPage() {
                       </button>
                     ) : null}
                   </div>
-                  {helpHintOpenIdx === i && r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 ? (() => {
+                  {helpHintOpenIdx === i && isSemResposta(r) ? (() => {
                     const campos = getCamposForCategories(r.classificacao.categorias);
                     return (
                       <p className={styles.ajudaHint}>
