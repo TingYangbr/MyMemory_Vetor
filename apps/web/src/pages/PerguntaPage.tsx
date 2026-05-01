@@ -367,6 +367,7 @@ export default function PerguntaPage() {
 
   function novasSessao() {
     cancelarPergunta();
+    stopTts();
     setHistorico([]);
     setRespostas([]);
     setError(null);
@@ -434,6 +435,13 @@ export default function PerguntaPage() {
     }
   }
 
+  function stopTts() {
+    if (typeof window.speechSynthesis !== "undefined") window.speechSynthesis.cancel();
+    if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
+    ttsBusyRef.current = null;
+    setTtsBusyPergunta(null);
+  }
+
   function speakText(key: string, text: string) {
     if (typeof window.speechSynthesis === "undefined") return;
     window.speechSynthesis.cancel();
@@ -453,15 +461,21 @@ export default function PerguntaPage() {
 
   function toggleSpeakResposta(key: string, text: string) {
     if (typeof window.speechSynthesis === "undefined") return;
-    if (ttsBusyRef.current === key) {
-      if (ttsTimeoutRef.current) { clearTimeout(ttsTimeoutRef.current); ttsTimeoutRef.current = null; }
-      window.speechSynthesis.cancel();
-      ttsBusyRef.current = null;
-      setTtsBusyPergunta(null);
-      return;
-    }
+    if (ttsBusyRef.current === key) { stopTts(); return; }
     speakText(key, text);
   }
+
+  // Para TTS ao clicar em qualquer ponto fora do botão de narrar
+  useEffect(() => {
+    if (!ttsBusyPergunta) return;
+    function onDocClick(e: MouseEvent) {
+      if ((e.target as Element).closest("[data-tts-btn]")) return;
+      stopTts();
+    }
+    document.addEventListener("click", onDocClick, true);
+    return () => document.removeEventListener("click", onDocClick, true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ttsBusyPergunta]);
 
   // Auto-narrar a resposta mais recente quando soundEnabled
   useEffect(() => {
@@ -800,6 +814,7 @@ export default function PerguntaPage() {
                     {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
                       <button
                         type="button"
+                        data-tts-btn
                         className={`${styles.speakerBtn} ${ttsBusyPergunta === r.perguntaTexto ? styles.speakerBtnActive : ""}`}
                         onClick={() => toggleSpeakResposta(r.perguntaTexto, r.resposta.resposta)}
                         aria-pressed={ttsBusyPergunta === r.perguntaTexto}
