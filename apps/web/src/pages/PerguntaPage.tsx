@@ -256,8 +256,6 @@ export default function PerguntaPage() {
   const voiceSessionRef = useRef(0);
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
-  // Texto da sessão anterior (resume: Parar → Falar). Nunca atualizado no onend.
-  const accumulatedRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isComposingRef = useRef(false);
 
@@ -322,7 +320,7 @@ export default function PerguntaPage() {
     setMicState(toState);
   }, []);
 
-  const startListening = useCallback(async (opts?: { resume?: boolean }) => {
+  const startListening = useCallback(async () => {
     const SR =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
@@ -342,12 +340,7 @@ export default function PerguntaPage() {
     setError(null);
     stopListening();
     voiceHadResultRef.current = false;
-    if (!opts?.resume) {
-      voiceTranscriptRef.current = "";
-      accumulatedRef.current = "";
-    } else {
-      accumulatedRef.current = voiceTranscriptRef.current;
-    }
+    voiceTranscriptRef.current = "";
     const sessionId = ++voiceSessionRef.current;
 
     let rec: SpeechRecInstance;
@@ -364,15 +357,11 @@ export default function PerguntaPage() {
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      // Mesmo padrão do MemoSearchPage: lê todos os ev.results da sessão atual,
-      // sem acumulação cross-session nem prefix-strip. Funciona igual em mobile e desktop.
       let thisSession = "";
       for (let i = 0; i < ev.results.length; i++) {
         thisSession += ev.results[i]![0]!.transcript;
       }
-      const t = stripPunctuation(thisSession.trim());
-      const acc = accumulatedRef.current.trim();
-      const display = acc ? (t ? `${acc} ${t}` : acc) : t;
+      const display = stripPunctuation(thisSession.trim());
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
@@ -429,7 +418,6 @@ export default function PerguntaPage() {
     abortControllerRef.current = null;
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     voiceTranscriptRef.current = "";
-    accumulatedRef.current = "";
     voiceHadResultRef.current = false;
     setVoiceAutoSubmitText(null);
     stopListening("idle");
@@ -749,17 +737,15 @@ export default function PerguntaPage() {
               className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
               onClick={() => {
                 if (micState === "listening") { stopListening("done"); return; }
-                // Resume: micState=="done" preserva o accumulator; idle limpa.
-                const resume = micState === "done" && voiceTranscriptRef.current.length > 0;
-                if (!resume) setPergunta("");
-                void startListening({ resume });
+                setPergunta("");
+                void startListening();
               }}
-              title={micState === "listening" ? "Pausar (mantém o texto)" : (micState === "done" ? "Continuar a partir do texto atual" : "Clique para falar")}
+              title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
               disabled={busy}
             >
               {micState === "listening" ? "⏸ Parar" : "🎤 Falar"}
             </button>
-            {(micState === "listening" || busy) ? (
+            {(micState !== "idle" || busy) ? (
               <button
                 type="button"
                 className="mm-btn mm-btn--ghost"
