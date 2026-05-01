@@ -120,6 +120,8 @@ function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
 }
 
 function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/shared").PerguntaMemoUsado[] }) {
+  const [expandedCell, setExpandedCell] = useState<string | null>(null);
+
   const comDados = dados_usados.filter(
     (d) => d.dadosEspecificos && Object.keys(d.dadosEspecificos).length > 0
   );
@@ -135,15 +137,17 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
 
   return (
     <>
+      {expandedCell ? (
+        <div className={styles.cellModalOverlay} onClick={() => setExpandedCell(null)}>
+          <div className={styles.cellModal} onClick={(e) => e.stopPropagation()}>
+            <p className={styles.cellModalText}>{expandedCell}</p>
+          </div>
+        </div>
+      ) : null}
       {Array.from(grupos.entries()).map(([sig, memos]) => {
         const cols = sig.split(",");
         return (
           <div key={sig} className={styles.semanticaGrupo}>
-            {memos.map((d) => d.mediatext ? (
-              <p key={d.memo_id} className={styles.semanticaMediatext}>
-                <span className={styles.semanticaMemoId}>#{d.memo_id}</span>{" "}{d.mediatext.slice(0, 300)}{d.mediatext.length > 300 ? "…" : ""}
-              </p>
-            ) : null)}
             <div className={styles.tabelaWrap}>
               <table className={styles.tabela}>
                 <thead>
@@ -156,11 +160,20 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
                   {memos.map((d, i) => (
                     <tr key={i} className={styles.tabelaTr}>
                       <td className={styles.tabelaTd}>#{d.memo_id}</td>
-                      {cols.map((c) => (
-                        <td key={c} className={styles.tabelaTd}>
-                          {d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—"}
-                        </td>
-                      ))}
+                      {cols.map((c) => {
+                        const val = d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—";
+                        const isLong = val.length > 80;
+                        return (
+                          <td
+                            key={c}
+                            className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                            onClick={isLong ? () => setExpandedCell(val) : undefined}
+                            title={isLong ? "Clique para ver texto completo" : undefined}
+                          >
+                            {isLong ? val.slice(0, 80) + "…" : val}
+                          </td>
+                        );
+                      })}
                     </tr>
                   ))}
                 </tbody>
@@ -587,11 +600,13 @@ export default function PerguntaPage() {
     speakText(key, text);
   }
 
-  // Para TTS ao clicar em qualquer ponto fora do botão de narrar
+  // Para TTS ao clicar em qualquer ponto fora do card ativo e do botão de narrar
   useEffect(() => {
     if (!ttsBusyPergunta) return;
     function onDocClick(e: MouseEvent) {
-      if ((e.target as Element).closest("[data-tts-btn]")) return;
+      const target = e.target as Element;
+      if (target.closest("[data-tts-btn]")) return;
+      if (target.closest("[data-tts-card-active]")) return;
       stopTts();
     }
     document.addEventListener("click", onDocClick, true);
@@ -865,7 +880,7 @@ export default function PerguntaPage() {
         {respostas.length > 0 ? (
           <div className={styles.cards}>
             {respostas.map((r, i) => (
-              <article key={i} className={styles.card}>
+              <article key={i} className={styles.card} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
                 <div className={styles.cardPergunta}>
                   <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
                   <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>

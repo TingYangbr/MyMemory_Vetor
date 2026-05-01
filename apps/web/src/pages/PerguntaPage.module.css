@@ -784,6 +784,43 @@
   margin-right: 0.25rem;
 }
 
+/* ── Modal de célula expandida ── */
+.cellModalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(0, 0, 0, 0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cellModal {
+  background: var(--mm-surface, #fff);
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+  max-width: min(480px, 90vw);
+  max-height: 70vh;
+  overflow-y: auto;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.cellModalText {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--mm-text, #1e293b);
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.tabelaTdExpandable {
+  cursor: pointer;
+  color: var(--mm-accent, #0d9488);
+  text-decoration: underline dotted;
+}
+
 /* ── Tabela estruturada (Pipe 2 / Pipe 3) ── */
 .tabelaWrap {
   overflow-x: auto;
