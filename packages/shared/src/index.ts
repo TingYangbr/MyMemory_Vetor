@@ -979,6 +979,7 @@ export interface PerguntaClassificacao {
 export interface PerguntaMemoUsado {
   memo_id: number;
   trecho_usado: string;
+  dadosEspecificos?: Record<string, unknown> | null;
 }
 
 export interface PerguntaResultadoEstruturado {

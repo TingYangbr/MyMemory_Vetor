@@ -119,6 +119,53 @@ function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
   );
 }
 
+function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/shared").PerguntaMemoUsado[] }) {
+  const comDados = dados_usados.filter(
+    (d) => d.dadosEspecificos && Object.keys(d.dadosEspecificos).length > 0
+  );
+  if (comDados.length === 0) return null;
+
+  // Agrupa por assinatura de chaves (= mesma categoria)
+  const grupos = new Map<string, typeof comDados>();
+  for (const d of comDados) {
+    const sig = Object.keys(d.dadosEspecificos!).sort().join(",");
+    if (!grupos.has(sig)) grupos.set(sig, []);
+    grupos.get(sig)!.push(d);
+  }
+
+  return (
+    <>
+      {Array.from(grupos.entries()).map(([sig, memos]) => {
+        const cols = sig.split(",");
+        return (
+          <div key={sig} className={styles.tabelaWrap}>
+            <table className={styles.tabela}>
+              <thead>
+                <tr>
+                  <th className={styles.tabelaTh}>Memo</th>
+                  {cols.map((c) => <th key={c} className={styles.tabelaTh}>{c}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {memos.map((d, i) => (
+                  <tr key={i} className={styles.tabelaTr}>
+                    <td className={styles.tabelaTd}>#{d.memo_id}</td>
+                    {cols.map((c) => (
+                      <td key={c} className={styles.tabelaTd}>
+                        {d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—"}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
 function tryPrettifyJson(text: string): string {
   const t = text.trim();
   const i = t.indexOf("{");
@@ -694,7 +741,7 @@ export default function PerguntaPage() {
       <main className={styles.main}>
         <div className={styles.topBar}>
           <h1 className={styles.pageTitle}>Pergunte ao myMemory</h1>
-          <div className={styles.filters}>
+          <div className={styles.topBarFilters}>
             {isGroup ? (
               <button
                 type="button"
@@ -739,49 +786,53 @@ export default function PerguntaPage() {
             disabled={busy}
           />
           <div className={styles.inputActions}>
-            <button
-              type="button"
-              className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
-              onClick={() => {
-                if (micState === "listening") { stopListening("done"); return; }
-                setPergunta("");
-                void startListening();
-              }}
-              title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
-              disabled={busy}
-            >
-              {micState === "listening" ? "⏸ Parar" : "🎤 Falar"}
-            </button>
-            {(micState !== "idle" || busy) ? (
+            <div className={styles.inputActionsLeft}>
               <button
                 type="button"
-                className="mm-btn mm-btn--ghost"
-                onClick={cancelar}
-                title="Limpar e começar de novo"
+                className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
+                onClick={() => {
+                  if (micState === "listening") { stopListening("done"); return; }
+                  setPergunta("");
+                  void startListening();
+                }}
+                title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
+                disabled={busy}
               >
-                ✕ Cancelar
+                {micState === "listening" ? "⏸ Parar" : "🎤 Falar"}
               </button>
-            ) : null}
-            {!busy ? (
-              <button
-                type="button"
-                className="mm-btn mm-btn--primary"
-                onClick={() => void enviar()}
-                disabled={!pergunta.trim()}
-              >
-                Perguntar
-              </button>
-            ) : null}
-            {respostas.length > 0 && !busy ? (
-              <button
-                type="button"
-                className="mm-btn mm-btn--ghost"
-                onClick={novasSessao}
-                title="Limpar histórico e começar nova sessão"
-              >
-                ↺ Nova sessão
-              </button>
-            ) : null}
+              {(micState !== "idle" || busy) ? (
+                <button
+                  type="button"
+                  className={styles.cancelarBtn}
+                  onClick={cancelar}
+                  title="Limpar e começar de novo"
+                >
+                  ✕ Cancelar
+                </button>
+              ) : null}
+            </div>
+            <div className={styles.inputActionsRight}>
+              {respostas.length > 0 && !busy ? (
+                <button
+                  type="button"
+                  className={styles.novaSessaoBtn}
+                  onClick={novasSessao}
+                  title="Limpar histórico e começar nova sessão"
+                >
+                  ↺ Nova sessão
+                </button>
+              ) : null}
+              {!busy ? (
+                <button
+                  type="button"
+                  className={styles.perguntarBtn}
+                  onClick={() => void enviar()}
+                  disabled={!pergunta.trim()}
+                >
+                  Perguntar →
+                </button>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -954,6 +1005,9 @@ export default function PerguntaPage() {
                   <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
                   {r.resposta.dados_estruturados ? (
                     <TabelaEstruturada dados={r.resposta.dados_estruturados} />
+                  ) : null}
+                  {(r.classificacao.pipe === "semantica" || r.classificacao.pipe === "hibrida") ? (
+                    <TabelaSemantica dados_usados={r.resposta.dados_usados} />
                   ) : null}
                   {r.resposta.limitacoes.length > 0 ? (
                     <ul className={styles.limitacoes}>

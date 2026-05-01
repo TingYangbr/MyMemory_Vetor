@@ -217,6 +217,17 @@ async function gerarRespostaSemantica(input: {
     dadosUsados = input.memos.map((m) => ({ memo_id: m.memoId, trecho_usado: "" }));
   }
 
+  // Enriquece cada entrada com dadosEspecificosJson do memo correspondente
+  const memoById = new Map(input.memos.map((m) => [m.memoId, m]));
+  dadosUsados = dadosUsados.map((d) => {
+    const memo = memoById.get(d.memo_id);
+    let dadosEspecificos: Record<string, unknown> | null = null;
+    if (memo?.dadosespecificosjson) {
+      try { dadosEspecificos = JSON.parse(memo.dadosespecificosjson) as Record<string, unknown>; } catch { /* */ }
+    }
+    return { ...d, dadosEspecificos: dadosEspecificos ?? undefined };
+  });
+
   const usedIds = new Set(dadosUsados.map((d) => d.memo_id));
   const citados = input.memos.filter((m) => usedIds.has(m.memoId));
   const confiancaEstimada = citados.length > 0

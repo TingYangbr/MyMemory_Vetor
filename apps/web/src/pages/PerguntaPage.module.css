@@ -19,9 +19,8 @@
 /* ── Top bar ── */
 .topBar {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
   flex-wrap: wrap;
 }
 
@@ -30,26 +29,29 @@
   font-weight: 700;
   color: var(--mm-text, #1e293b);
   margin: 0;
+  flex: 1 1 auto;
 }
 
-.filters {
+/* Quem + Quando: agrupados, menos destaque, ficam na mesma linha quando cabe */
+.topBarFilters {
   display: flex;
-  gap: 0.5rem;
+  gap: 0.35rem;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .filterBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  padding: 0.38rem 0.75rem;
+  gap: 0.25rem;
+  padding: 0.25rem 0.6rem;
   border-radius: 20px;
-  border: 1.5px solid var(--mm-border, #e2e8f0);
-  background: #fff;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-surface-alt, #f1f5f9);
   font: inherit;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: var(--mm-text-muted, #64748b);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--mm-text-muted, #94a3b8);
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
 }
@@ -106,9 +108,67 @@
 .inputActions {
   display: flex;
   align-items: center;
-  gap: 0.6rem;
-  justify-content: flex-end;
+  gap: 0.5rem;
 }
+
+.inputActionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+}
+
+.inputActionsRight {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+/* Cancelar — texto simples, sem borda */
+.cancelarBtn {
+  padding: 0.3rem 0.5rem;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: 0.82rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.cancelarBtn:hover { color: #ef4444; }
+
+/* Nova sessão — ghost pequeno */
+.novaSessaoBtn {
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  border: 1.5px solid var(--mm-border, #e2e8f0);
+  background: #fff;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.novaSessaoBtn:hover { border-color: #94a3b8; color: #475569; }
+
+/* Perguntar — destaque primário */
+.perguntarBtn {
+  padding: 0.45rem 1.1rem;
+  border-radius: 20px;
+  border: none;
+  background: var(--mm-accent, #0d9488);
+  color: #fff;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, opacity 0.15s;
+}
+.perguntarBtn:hover:not(:disabled) { background: #0f766e; }
+.perguntarBtn:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Mic button ── */
 .micBtn {
