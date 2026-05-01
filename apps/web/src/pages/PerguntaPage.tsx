@@ -186,6 +186,10 @@ function LlmTraceModal({
 
 const SILENCE_MS = 3000;
 
+// Mobile usa estratégia diferente no onresult — ver bloco em createAndStart.
+const IS_MOBILE = typeof navigator !== "undefined"
+  && /Android|webOS|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
 interface SpeechRecInstance extends EventTarget {
@@ -253,6 +257,9 @@ export default function PerguntaPage() {
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
   const lastFinalIdxRef = useRef(-1);
+  // Mobile: texto de instâncias SR ANTERIORES (após onend → restart). A instância
+  // atual contribui via ev.results; display = accumulated + thisInstance.
+  const accumulatedRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const isComposingRef = useRef(false);
 
@@ -322,6 +329,11 @@ export default function PerguntaPage() {
     // Se for resume (Parar → Falar), preserva o accumulator para continuar de onde parou.
     if (!opts?.resume) {
       voiceTranscriptRef.current = "";
+      accumulatedRef.current = "";
+    } else if (IS_MOBILE) {
+      // Mobile + resume: o que está em voiceTranscriptRef é texto "antigo" — vira accumulated
+      // para a nova instância, que começará com ev.results vazio.
+      accumulatedRef.current = voiceTranscriptRef.current;
     }
     lastFinalIdxRef.current = -1;
     const sessionId = ++voiceSessionRef.current;
@@ -339,35 +351,50 @@ export default function PerguntaPage() {
 
       rec.onresult = (ev) => {
         if (voiceSessionRef.current !== sessionId) return;
-        const speechResult = ev.results[ev.resultIndex]!;
-        const chunk = stripPunctuation(speechResult[0]!.transcript);
-        const base = voiceTranscriptRef.current.trim();
 
-        // Android Chrome: o transcript pode crescer com toda a fala desde o início,
-        // mesmo após uma utterance ter sido finalizada. Se o chunk já começa com
-        // o que está em voiceTranscriptRef, removemos esse prefixo antes de juntar
-        // — caso contrário haveria duplicação tipo "olá tudo bem olá tudo bem como vai".
-        let newPart = chunk;
-        if (base && chunk) {
-          const baseLower = base.toLowerCase();
-          const chunkLower = chunk.toLowerCase();
-          if (chunkLower === baseLower) {
-            newPart = "";
-          } else if (chunkLower.startsWith(baseLower + " ")) {
-            newPart = chunk.slice(base.length + 1);
-          } else if (chunkLower.startsWith(baseLower)) {
-            newPart = chunk.slice(base.length).trimStart();
+        let display: string;
+        if (IS_MOBILE) {
+          // Mobile: reconstrói o texto da instância atual lendo TODOS os ev.results.
+          // Independe de o Android crescer ev.results[0] ou criar [1], [2]…
+          // accumulatedRef segura o texto de instâncias anteriores (cross-restart).
+          const parts: string[] = [];
+          for (let i = 0; i < ev.results.length; i++) {
+            const t = stripPunctuation(ev.results[i]![0]!.transcript);
+            if (t) parts.push(t);
+          }
+          const thisInstance = parts.join(" ").trim();
+          const acc = accumulatedRef.current.trim();
+          display = acc
+            ? (thisInstance ? `${acc} ${thisInstance}` : acc)
+            : thisInstance;
+          voiceTranscriptRef.current = display;
+          voiceHadResultRef.current = display.length > 0;
+        } else {
+          // Desktop: estratégia atual com prefix-strip (estável no Chrome/Edge desktop).
+          const speechResult = ev.results[ev.resultIndex]!;
+          const chunk = stripPunctuation(speechResult[0]!.transcript);
+          const base = voiceTranscriptRef.current.trim();
+          let newPart = chunk;
+          if (base && chunk) {
+            const baseLower = base.toLowerCase();
+            const chunkLower = chunk.toLowerCase();
+            if (chunkLower === baseLower) {
+              newPart = "";
+            } else if (chunkLower.startsWith(baseLower + " ")) {
+              newPart = chunk.slice(base.length + 1);
+            } else if (chunkLower.startsWith(baseLower)) {
+              newPart = chunk.slice(base.length).trimStart();
+            }
+          }
+          display = newPart
+            ? (!base ? newPart : `${base} ${newPart.trim()}`)
+            : base;
+          if (speechResult.isFinal) {
+            voiceTranscriptRef.current = display;
+            voiceHadResultRef.current = true;
           }
         }
 
-        const display = newPart
-          ? (!base ? newPart : `${base} ${newPart.trim()}`)
-          : base;
-
-        if (speechResult.isFinal) {
-          voiceTranscriptRef.current = display;
-          voiceHadResultRef.current = true;
-        }
         setPergunta(display);
         if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
         silenceTimerRef.current = setTimeout(() => {
@@ -395,6 +422,11 @@ export default function PerguntaPage() {
 
       rec.onend = () => {
         if (voiceSessionRef.current !== sessionId) return;
+        // Mobile: o que foi exibido vira accumulated para a próxima instância;
+        // a nova instância começa com ev.results vazio e contribui só com fala nova.
+        if (IS_MOBILE) {
+          accumulatedRef.current = voiceTranscriptRef.current.trim();
+        }
         // Browser parou por silêncio interno — cria nova instância e reinicia.
         recognitionRef.current = null;
         if (!createAndStart()) {
@@ -425,6 +457,7 @@ export default function PerguntaPage() {
     abortControllerRef.current = null;
     if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
     voiceTranscriptRef.current = "";
+    accumulatedRef.current = "";
     voiceHadResultRef.current = false;
     setVoiceAutoSubmitText(null);
     stopListening("idle");
