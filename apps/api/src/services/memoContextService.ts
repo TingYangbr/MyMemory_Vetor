@@ -767,7 +767,12 @@ export async function listarMemosPorCategoria(input: {
   totalLinhas: number;
 }> {
   // ── SELECT ─────────────────────────────────────────────────────────────────
-  const selectParts: string[] = ["m.id AS id", "m.createdat AS data_registro"];
+  const selectParts: string[] = [
+    "m.id AS id",
+    "m.mediatype AS mediatype",
+    "LEFT(m.mediatext, 300) AS mediatext",
+    "m.createdat AS data_registro",
+  ];
   for (const name of input.camposAtivos) {
     const escKey = name.replace(/'/g, "''");
     const escAlias = name.replace(/"/g, '""');
@@ -834,6 +839,8 @@ export async function listarMemosPorCategoria(input: {
 
   const colunas: { key: string; label: string }[] = [
     { key: "id", label: "ID" },
+    { key: "mediatype", label: "Tipo" },
+    { key: "mediatext", label: "Texto" },
     { key: "data_registro", label: "Data" },
     ...input.camposAtivos.map((n) => ({ key: n, label: n })),
   ];

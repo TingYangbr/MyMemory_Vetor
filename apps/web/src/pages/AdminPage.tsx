@@ -71,6 +71,11 @@ function fmtYesNo(v: number): string {
   return v === 1 ? "Sim" : "Não";
 }
 
+const MEDIA_TYPE_PT: Record<string, string> = {
+  text: "Texto", audio: "Áudio", image: "Imagem",
+  video: "Vídeo", document: "Doc.", url: "URL",
+};
+
 function fmtConsultaCell(key: string, value: unknown): string {
   if (value == null) return "—";
   const s = String(value);
@@ -78,6 +83,8 @@ function fmtConsultaCell(key: string, value: unknown): string {
     const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
     if (m) return `${m[3]}/${m[2]}/${m[1]}`;
   }
+  if (key === "mediatype") return MEDIA_TYPE_PT[s] ?? s;
+  if (key === "mediatext") return s.length > 150 ? `${s.slice(0, 150)}…` : s;
   return s || "—";
 }
 

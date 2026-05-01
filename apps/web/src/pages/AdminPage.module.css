@@ -509,6 +509,8 @@
 .consultaThSort {
   cursor: pointer;
   user-select: none;
+  font-size: 0.76rem;
+  padding: 0.35rem 0.5rem;
 }
 
 .consultaThSort:hover {
@@ -528,19 +530,18 @@
 
 .consultaFilterRow th {
   background: var(--mm-card);
-  padding: 0.3rem 0.4rem;
+  padding: 0.2rem 0.3rem;
   border-bottom: 2px solid var(--mm-border);
   font-weight: normal;
 }
 
 .consultaColFilter {
   width: 100%;
-  min-width: 80px;
-  padding: 0.28rem 0.4rem;
+  min-width: 60px;
+  padding: 0.2rem 0.35rem;
   border: 1px solid var(--mm-border);
   border-radius: 4px;
-  font-size: 0.8rem;
-  font: inherit;
+  font-size: 0.72rem;
   background: var(--mm-bg, #f8fafc);
   color: var(--mm-text);
 }
@@ -552,11 +553,12 @@
 }
 
 .consultaTd {
-  padding: 0.45rem 0.65rem;
-  max-width: 300px;
+  padding: 0.3rem 0.5rem;
+  max-width: 280px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 0.76rem;
 }
 
 .consultaRowEven td {
