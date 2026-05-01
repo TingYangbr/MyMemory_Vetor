@@ -122,15 +122,14 @@ function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
 function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/shared").PerguntaMemoUsado[] }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
 
-  const comDados = dados_usados.filter(
-    (d) => d.dadosEspecificos && Object.keys(d.dadosEspecificos).length > 0
-  );
-  if (comDados.length === 0) return null;
+  if (dados_usados.length === 0) return null;
 
-  // Agrupa por assinatura de chaves (= mesma categoria)
-  const grupos = new Map<string, typeof comDados>();
-  for (const d of comDados) {
-    const sig = Object.keys(d.dadosEspecificos!).sort().join(",");
+  // Agrupa por assinatura de chaves de dadosEspecificos (= mesma categoria); sem campos → sig ""
+  const grupos = new Map<string, typeof dados_usados>();
+  for (const d of dados_usados) {
+    const sig = d.dadosEspecificos && Object.keys(d.dadosEspecificos).length > 0
+      ? Object.keys(d.dadosEspecificos).sort().join(",")
+      : "";
     if (!grupos.has(sig)) grupos.set(sig, []);
     grupos.get(sig)!.push(d);
   }
@@ -145,7 +144,7 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
         </div>
       ) : null}
       {Array.from(grupos.entries()).map(([sig, memos]) => {
-        const cols = sig.split(",");
+        const cols = sig ? sig.split(",") : [];
         return (
           <div key={sig} className={styles.semanticaGrupo}>
             <div className={styles.tabelaWrap}>
@@ -174,7 +173,7 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
                           {mt ? (mtLong ? mt.slice(0, 80) + "…" : mt) : "—"}
                         </td>
                         {cols.map((c) => {
-                          const val = d.dadosEspecificos![c] != null ? String(d.dadosEspecificos![c]) : "—";
+                          const val = d.dadosEspecificos?.[c] != null ? String(d.dadosEspecificos![c]) : "—";
                           const isLong = val.length > 80;
                           return (
                             <td
