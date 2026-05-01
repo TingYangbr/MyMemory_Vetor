@@ -1148,13 +1148,12 @@ export default function PerguntaPage() {
       {helpHintOpenIdx !== null && respostas[helpHintOpenIdx] ? (() => {
         const rHelp = respostas[helpHintOpenIdx]!;
         const campos = getCamposForCategories(rHelp.classificacao.categorias);
+        const termos = campos.length > 0 ? campos.join(", ") : rHelp.classificacao.categorias.join(", ");
         return (
           <div className={styles.ajudaModalOverlay} onClick={() => setHelpHintOpenIdx(null)}>
             <div className={styles.ajudaModalBox}>
               <p className={styles.ajudaModalText}>
-                Para trazer respostas semânticas clique em <strong>Ampliar busca</strong>
-                {campos.length > 0 ? <> e para trazer respostas com dados estruturados use os termos: <strong>{campos.join(", ")}</strong></> : null}
-                .
+                Para trazer respostas semânticas clique no <strong>Ampliar busca</strong> e para trazer respostas com dados estruturados use os termos: <strong>{termos}</strong>.
               </p>
             </div>
           </div>
