@@ -184,7 +184,7 @@ function LlmTraceModal({
   );
 }
 
-const SILENCE_MS = 5000;
+const SILENCE_MS = 3000;
 
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
@@ -298,7 +298,7 @@ export default function PerguntaPage() {
     setMicState(toState);
   }, []);
 
-  const startListening = useCallback(async () => {
+  const startListening = useCallback(async (opts?: { resume?: boolean }) => {
     const SR =
       (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
@@ -319,7 +319,10 @@ export default function PerguntaPage() {
     setError(null);
     stopListening();
     voiceHadResultRef.current = false;
-    voiceTranscriptRef.current = "";
+    // Se for resume (Parar → Falar), preserva o accumulator para continuar de onde parou.
+    if (!opts?.resume) {
+      voiceTranscriptRef.current = "";
+    }
     lastFinalIdxRef.current = -1;
     const sessionId = ++voiceSessionRef.current;
 
@@ -339,7 +342,28 @@ export default function PerguntaPage() {
         const speechResult = ev.results[ev.resultIndex]!;
         const chunk = stripPunctuation(speechResult[0]!.transcript);
         const base = voiceTranscriptRef.current.trim();
-        const display = chunk ? (!base ? chunk : `${base} ${chunk}`) : base;
+
+        // Android Chrome: o transcript pode crescer com toda a fala desde o início,
+        // mesmo após uma utterance ter sido finalizada. Se o chunk já começa com
+        // o que está em voiceTranscriptRef, removemos esse prefixo antes de juntar
+        // — caso contrário haveria duplicação tipo "olá tudo bem olá tudo bem como vai".
+        let newPart = chunk;
+        if (base && chunk) {
+          const baseLower = base.toLowerCase();
+          const chunkLower = chunk.toLowerCase();
+          if (chunkLower === baseLower) {
+            newPart = "";
+          } else if (chunkLower.startsWith(baseLower + " ")) {
+            newPart = chunk.slice(base.length + 1);
+          } else if (chunkLower.startsWith(baseLower)) {
+            newPart = chunk.slice(base.length).trimStart();
+          }
+        }
+
+        const display = newPart
+          ? (!base ? newPart : `${base} ${newPart.trim()}`)
+          : base;
+
         if (speechResult.isFinal) {
           voiceTranscriptRef.current = display;
           voiceHadResultRef.current = true;
@@ -394,13 +418,22 @@ export default function PerguntaPage() {
     setMicState("listening");
   }, [stopListening]);
 
-  function cancelarPergunta() {
+  function cancelar() {
+    // Aborta processamento em curso (se houver), zera mic e accumulator,
+    // limpa o campo de pergunta e reseta o estado para aguardar novo Falar.
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+    voiceTranscriptRef.current = "";
+    voiceHadResultRef.current = false;
+    setVoiceAutoSubmitText(null);
+    stopListening("idle");
+    setPergunta("");
+    setPendingQuestion(null);
   }
 
   function novasSessao() {
-    cancelarPergunta();
+    cancelar();
     stopTts();
     setHistorico([]);
     setRespostas([]);
@@ -696,23 +729,27 @@ export default function PerguntaPage() {
               className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
               onClick={() => {
                 if (micState === "listening") { stopListening("done"); return; }
-                setPergunta("");
-                void startListening();
+                // Resume: micState=="done" preserva o accumulator; idle limpa.
+                const resume = micState === "done" && voiceTranscriptRef.current.length > 0;
+                if (!resume) setPergunta("");
+                void startListening({ resume });
               }}
-              title={micState === "listening" ? "Clique para parar" : "Clique para falar"}
+              title={micState === "listening" ? "Pausar (mantém o texto)" : (micState === "done" ? "Continuar a partir do texto atual" : "Clique para falar")}
               disabled={busy}
             >
-              {micState === "listening" ? "⏹ Parar" : "🎤 Falar"}
+              {micState === "listening" ? "⏸ Parar" : "🎤 Falar"}
             </button>
-            {busy ? (
+            {(micState === "listening" || busy) ? (
               <button
                 type="button"
                 className="mm-btn mm-btn--ghost"
-                onClick={() => { cancelarPergunta(); setPergunta(""); }}
+                onClick={cancelar}
+                title="Limpar e começar de novo"
               >
                 ✕ Cancelar
               </button>
-            ) : (
+            ) : null}
+            {!busy ? (
               <button
                 type="button"
                 className="mm-btn mm-btn--primary"
@@ -721,7 +758,7 @@ export default function PerguntaPage() {
               >
                 Perguntar
               </button>
-            )}
+            ) : null}
             {respostas.length > 0 && !busy ? (
               <button
                 type="button"
