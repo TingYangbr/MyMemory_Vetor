@@ -378,15 +378,28 @@ export default function PerguntaPage() {
         let display: string;
         if (IS_MOBILE) {
           // Mobile: reconstrói o texto da instância atual lendo TODOS os ev.results.
-          // Independe de o Android crescer ev.results[0] ou criar [1], [2]…
-          // accumulatedRef segura o texto de instâncias anteriores (cross-restart).
+          // accumulatedRef guarda o texto de instâncias anteriores (cross-restart).
+          // PROBLEMA Android: ao criar nova instância SR, o buffer de áudio recente
+          // é re-entregue — ex: acc="procuro", nova instância dá "procuro um" →
+          // somaria "procuro procuro um". Fix: prefix-strip do acc dentro de thisInstance.
           const parts: string[] = [];
           for (let i = 0; i < ev.results.length; i++) {
             const t = stripPunctuation(ev.results[i]![0]!.transcript);
             if (t) parts.push(t);
           }
-          const thisInstance = parts.join(" ").trim();
+          let thisInstance = parts.join(" ").trim();
           const acc = accumulatedRef.current.trim();
+          if (acc && thisInstance) {
+            const al = acc.toLowerCase();
+            const tl = thisInstance.toLowerCase();
+            if (tl === al) {
+              thisInstance = "";
+            } else if (tl.startsWith(al + " ")) {
+              thisInstance = thisInstance.slice(acc.length + 1).trimStart();
+            } else if (tl.startsWith(al)) {
+              thisInstance = thisInstance.slice(acc.length).trimStart();
+            }
+          }
           display = acc
             ? (thisInstance ? `${acc} ${thisInstance}` : acc)
             : thisInstance;
