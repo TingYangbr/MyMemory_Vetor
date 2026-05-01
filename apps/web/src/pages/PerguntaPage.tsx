@@ -297,8 +297,15 @@ export default function PerguntaPage() {
     const gid = me.lastWorkspaceGroupId;
     const url = gid ? `/api/memo-context/structure?groupId=${gid}` : "/api/memo-context/structure";
     apiGetOptional<MemoContextStructureResponse>(url)
-      .then((r) => { if (r.ok) setContextCategories(r.data.categories); })
-      .catch(() => {});
+      .then((r) => {
+        if (r.ok) {
+          console.log("[ajuda] structure ok — categorias:", r.data.categories.map((c) => ({ name: c.name, campos: c.campos.map((f) => f.name) })));
+          setContextCategories(r.data.categories);
+        } else {
+          console.warn("[ajuda] structure fetch falhou status:", r.status);
+        }
+      })
+      .catch((e) => console.warn("[ajuda] structure fetch erro:", e));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id, me?.lastWorkspaceGroupId]);
 
@@ -665,9 +672,12 @@ export default function PerguntaPage() {
   const hasQuem = filterAuthorId != null;
 
   function getCamposForCategories(categorias: string[]): string[] {
-    return contextCategories
+    console.log("[ajuda] getCampos — categorias classificadas:", categorias, "| contextCategories count:", contextCategories.length);
+    const result = contextCategories
       .filter((cat) => categorias.includes(cat.name))
       .flatMap((cat) => cat.campos.filter((c) => c.isActive).map((c) => c.name));
+    console.log("[ajuda] campos encontrados:", result);
+    return result;
   }
 
   function isSemResposta(r: PerguntaResponse & { perguntaTexto: string }): boolean {
