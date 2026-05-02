@@ -20,6 +20,15 @@ const THRESHOLD_KEYS = [
   },
 ] as const;
 
+const BUSCA_THRESHOLD_KEYS = [
+  {
+    key: "semanticBuscaMinSimilarity",
+    label: "Similaridade mínima — Busca Semântica de Memos",
+    hint: "Resultados com similaridade abaixo deste valor são descartados. Valores entre 0 e 1. Padrão: 0.50 (50%).",
+    defaultValue: "0.50",
+  },
+] as const;
+
 const BOOL_KEYS = [
   {
     key: "showApiCost",
@@ -56,6 +65,10 @@ export default function AdminSystemConfigPage() {
             const found = cfg.items.find((i) => i.configkey === k.key);
             init[k.key] = found ? found.configvalue : k.defaultValue;
           }
+          for (const k of BUSCA_THRESHOLD_KEYS) {
+            const found = cfg.items.find((i) => i.configkey === k.key);
+            init[k.key] = found ? found.configvalue : k.defaultValue;
+          }
           for (const k of BOOL_KEYS) {
             const found = cfg.items.find((i) => i.configkey === k.key);
             init[k.key] = found ? found.configvalue : k.defaultValue;
@@ -71,9 +84,10 @@ export default function AdminSystemConfigPage() {
 
   async function saveThreshold(key: string) {
     const value = drafts[key]?.trim();
-    if (!value) return;
+    if (value == null || value === "") return;
     const n = Number.parseFloat(value.replace(",", "."));
-    if (!Number.isFinite(n) || n <= 0 || n > 1) {
+    const minAllowed = key === "semanticBuscaMinSimilarity" ? 0 : 0.01;
+    if (!Number.isFinite(n) || n < minAllowed || n > 1) {
       setSaveStatus((s) => ({ ...s, [key]: "err" }));
       return;
     }
@@ -159,6 +173,45 @@ export default function AdminSystemConfigPage() {
                 </button>
                 {saveStatus[k.key] === "ok" && <span style={{ color: "var(--mm-accent, #0d9488)", fontSize: "0.85rem" }}>✓ Salvo</span>}
                 {saveStatus[k.key] === "err" && <span style={{ color: "#ef4444", fontSize: "0.85rem" }}>Valor inválido (0.01–1.00)</span>}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        <section className={adminStyles.panel} style={{ marginTop: "1.5rem" }}>
+          <h2 className={adminStyles.tableToolbarLabel} style={{ marginBottom: "1rem" }}>
+            Busca Semântica de Memos
+          </h2>
+          <p className="mm-muted" style={{ marginBottom: "1.25rem", fontSize: "0.88rem" }}>
+            Limiar aplicado à busca semântica da tela de memos (top-40 resultados acima do mínimo).
+          </p>
+          {BUSCA_THRESHOLD_KEYS.map((k) => (
+            <div key={k.key} style={{ marginBottom: "1.25rem" }}>
+              <label style={{ display: "block", fontWeight: 700, fontSize: "0.9rem", marginBottom: "0.3rem" }}>
+                {k.label}
+              </label>
+              <p style={{ margin: "0 0 0.45rem", fontSize: "0.8rem", color: "var(--mm-text-muted, #64748b)" }}>{k.hint}</p>
+              <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <input
+                  type="number"
+                  className="mm-field"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  style={{ width: 110 }}
+                  value={drafts[k.key] ?? k.defaultValue}
+                  onChange={(e) => setDrafts((d) => ({ ...d, [k.key]: e.target.value }))}
+                />
+                <button
+                  type="button"
+                  className="mm-btn mm-btn--primary"
+                  disabled={saving === k.key}
+                  onClick={() => void saveThreshold(k.key)}
+                >
+                  {saving === k.key ? "Salvando…" : "Salvar"}
+                </button>
+                {saveStatus[k.key] === "ok" && <span style={{ color: "var(--mm-accent, #0d9488)", fontSize: "0.85rem" }}>✓ Salvo</span>}
+                {saveStatus[k.key] === "err" && <span style={{ color: "#ef4444", fontSize: "0.85rem" }}>Valor inválido (0–1.00)</span>}
               </div>
             </div>
           ))}
