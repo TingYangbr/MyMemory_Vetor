@@ -25,6 +25,7 @@ export async function generateEmbeddings(inputs: string[]): Promise<number[][]> 
 
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(15_000),
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",

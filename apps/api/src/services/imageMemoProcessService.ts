@@ -161,13 +161,11 @@ export async function processImageMemoForReview(input: {
     originalName: input.originalName,
   });
 
-  const maxSummaryChars = await resolveMaxSummaryCharsForImage(
-    input.userId,
-    input.groupId,
-    input.isAdmin
-  );
-  const textImagemMin = await resolveTextImagemMinForPlan(input.userId, input.groupId, input.isAdmin);
-  const dbLevel = await getUserIaUseImagem(input.userId);
+  const [maxSummaryChars, textImagemMin, dbLevel] = await Promise.all([
+    resolveMaxSummaryCharsForImage(input.userId, input.groupId, input.isAdmin),
+    resolveTextImagemMinForPlan(input.userId, input.groupId, input.isAdmin),
+    getUserIaUseImagem(input.userId),
+  ]);
   const iaLevel = input.iaUseImagem ?? dbLevel;
   const tamMediaUrl = input.buffer.length;
   const originalFilename = input.originalName || storedName;
@@ -191,10 +189,13 @@ export async function processImageMemoForReview(input: {
     });
   }
 
-  const ocrBundle = await recognizeImageWithTesseract(input.buffer);
+  // OCR e query de configuração correm em paralelo
+  const [ocrBundle, imageOcrVisionMinConfidence] = await Promise.all([
+    recognizeImageWithTesseract(input.buffer),
+    getImageOcrVisionMinConfidence(input.userId),
+  ]);
   let ocrLocal = ocrBundle.text;
   const ocrConfidence = ocrBundle.confidence;
-  const imageOcrVisionMinConfidence = await getImageOcrVisionMinConfidence(input.userId);
 
   if (!config.openai.apiKey) {
     const suggested = clampTextToMax(ocrLocal || "(Sem texto OCR.)", maxSummaryChars);
