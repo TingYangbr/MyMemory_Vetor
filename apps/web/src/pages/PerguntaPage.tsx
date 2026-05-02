@@ -20,7 +20,20 @@ const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/
 
 const COLUNA_LABELS: Record<string, string> = {
   id: "ID", resumo: "Resumo", keywords: "Keywords",
-  mediaType: "Tipo", data: "Data", total: "Total", mes: "Mês",
+  mediaType: "Tipo", mediaText: "Conteúdo", mediatext: "Conteúdo",
+  data: "Data", createdAt: "Data criação", total: "Total", mes: "Mês",
+  category: "Categoria",
+  // campos estruturados de domínio — mantidos em português para unificar com dadosEspecificos
+  andar: "Andar",
+  area_m2: "Área m2",
+  area_terreno: "Área Terreno",
+  quantos_comodos: "Quantos Cômodos",
+  idade_anos: "Idade (anos)",
+  interessado_nome: "Interessado nome",
+  interessado_telefone: "Interessado telefone",
+  regiao: "Região",
+  vagas_garagem: "Vagas garagem",
+  intencao: "Intenção",
 };
 
 const MEDIA_TYPE_LABELS: Record<string, string> = {
