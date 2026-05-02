@@ -19,9 +19,10 @@
 /* ── Top bar ── */
 .topBar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 0.5rem 1rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  justify-content: space-between;
 }
 
 .pageTitle {
@@ -30,13 +31,15 @@
   color: var(--mm-text, #1e293b);
   margin: 0;
   flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* Quem + Quando: agrupados, menos destaque, ficam na mesma linha quando cabe */
+/* Quem + Quando: empilhados verticalmente à direita no mobile */
 .topBarFilters {
   display: flex;
-  gap: 0.35rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.25rem;
+  align-items: flex-end;
   flex-shrink: 0;
 }
 
@@ -106,46 +109,47 @@
 
 .perguntaInput::placeholder { color: var(--mm-text-muted, #94a3b8); }
 
+/* ── Input row: textarea + mic quadrado à direita ── */
+.inputRow {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-start;
+}
+
+/* ── Botões de ação abaixo do texto — homogêneos ── */
 .inputActions {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.inputActionsLeft {
-  display: flex;
-  align-items: center;
   gap: 0.4rem;
-  flex: 1;
+  justify-content: flex-end;
 }
 
-.inputActionsRight {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-/* Cancelar — texto simples, sem borda */
 .cancelarBtn {
-  padding: 0.3rem 0.5rem;
-  border: none;
-  background: none;
-  font: inherit;
-  font-size: 0.82rem;
-  color: var(--mm-text-muted, #94a3b8);
-  cursor: pointer;
-  transition: color 0.15s;
-}
-.cancelarBtn:hover { color: #ef4444; }
-
-/* Nova sessão — ghost pequeno */
-.novaSessaoBtn {
-  padding: 0.35rem 0.75rem;
-  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.75rem;
+  border-radius: 8px;
   border: 1.5px solid var(--mm-border, #e2e8f0);
   background: #fff;
   font: inherit;
-  font-size: 0.8rem;
+  font-size: 0.83rem;
+  font-weight: 500;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s;
+}
+.cancelarBtn:hover { border-color: #ef4444; color: #ef4444; }
+
+.novaSessaoBtn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.75rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--mm-border, #e2e8f0);
+  background: #fff;
+  font: inherit;
+  font-size: 0.83rem;
   font-weight: 500;
   color: var(--mm-text-muted, #94a3b8);
   cursor: pointer;
@@ -154,38 +158,42 @@
 }
 .novaSessaoBtn:hover { border-color: #94a3b8; color: #475569; }
 
-/* Perguntar — destaque primário */
 .perguntarBtn {
-  padding: 0.45rem 1.1rem;
-  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 1rem;
+  border-radius: 8px;
   border: none;
   background: var(--mm-accent, #0d9488);
   color: #fff;
   font: inherit;
-  font-size: 0.88rem;
+  font-size: 0.83rem;
   font-weight: 700;
   cursor: pointer;
   white-space: nowrap;
   transition: background 0.15s, opacity 0.15s;
+  margin-left: auto;
 }
 .perguntarBtn:hover:not(:disabled) { background: #0f766e; }
 .perguntarBtn:disabled { opacity: 0.4; cursor: default; }
 
-/* ── Mic button ── */
+/* ── Mic — quadrado, alinhado com a linha do textarea ── */
 .micBtn {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.45rem 0.9rem;
-  border-radius: 20px;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: 8px;
   border: 1.5px solid var(--mm-border, #e2e8f0);
   background: #fff;
   font: inherit;
-  font-size: 0.87rem;
-  font-weight: 600;
+  font-size: 1.25rem;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s;
   color: var(--mm-text-muted, #64748b);
+  padding: 0;
 }
 
 .micBtn:hover { border-color: var(--mm-accent, #0d9488); color: var(--mm-accent, #0d9488); }
@@ -402,7 +410,20 @@
 
 .refazerClose:hover { opacity: 1; }
 
-.cardPerguntaIcon { font-size: 1.1rem; line-height: 1.4; flex-shrink: 0; }
+.cardPerguntaIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1.5px solid var(--mm-border, #cbd5e1);
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--mm-text-muted, #94a3b8);
+  flex-shrink: 0;
+  line-height: 1;
+}
 
 .cardPerguntaText {
   margin: 0;

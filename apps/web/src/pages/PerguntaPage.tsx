@@ -859,71 +859,69 @@ export default function PerguntaPage() {
         </div>
 
         <div className={styles.inputArea}>
-          <textarea
-            ref={textareaRef}
-            className={styles.perguntaInput}
-            placeholder="Digite sua pergunta ou fale clicando no microfone abaixo…"
-            value={pergunta}
-            onCompositionStart={() => { isComposingRef.current = true; }}
-            onCompositionEnd={(e) => {
-              isComposingRef.current = false;
-              setPergunta(e.currentTarget.value);
-            }}
-            onChange={(e) => {
-              if (!isComposingRef.current) setPergunta(e.target.value);
-            }}
-            onKeyDown={handleKeyDown}
-            rows={3}
-            disabled={busy}
-          />
+          <div className={styles.inputRow}>
+            <textarea
+              ref={textareaRef}
+              className={styles.perguntaInput}
+              placeholder="Digite sua pergunta ou fale clicando no microfone…"
+              value={pergunta}
+              onCompositionStart={() => { isComposingRef.current = true; }}
+              onCompositionEnd={(e) => {
+                isComposingRef.current = false;
+                setPergunta(e.currentTarget.value);
+              }}
+              onChange={(e) => {
+                if (!isComposingRef.current) setPergunta(e.target.value);
+              }}
+              onKeyDown={handleKeyDown}
+              rows={3}
+              disabled={busy}
+            />
+            <button
+              type="button"
+              className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
+              onClick={() => {
+                if (micState === "listening") { stopListening("done"); return; }
+                setPergunta("");
+                void startListening();
+              }}
+              title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
+              disabled={busy}
+            >
+              {micState === "listening" ? "⏸" : "🎤"}
+            </button>
+          </div>
           <div className={styles.inputActions}>
-            <div className={styles.inputActionsLeft}>
+            {(micState !== "idle" || busy) ? (
               <button
                 type="button"
-                className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
-                onClick={() => {
-                  if (micState === "listening") { stopListening("done"); return; }
-                  setPergunta("");
-                  void startListening();
-                }}
-                title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
-                disabled={busy}
+                className={styles.cancelarBtn}
+                onClick={cancelar}
+                title="Limpar e começar de novo"
               >
-                {micState === "listening" ? "⏸ Parar" : "🎤 Falar"}
+                ✕ Cancelar
               </button>
-              {(micState !== "idle" || busy) ? (
-                <button
-                  type="button"
-                  className={styles.cancelarBtn}
-                  onClick={cancelar}
-                  title="Limpar e começar de novo"
-                >
-                  ✕ Cancelar
-                </button>
-              ) : null}
-            </div>
-            <div className={styles.inputActionsRight}>
-              {respostas.length > 0 && !busy ? (
-                <button
-                  type="button"
-                  className={styles.novaSessaoBtn}
-                  onClick={novasSessao}
-                  title="Limpar histórico e começar nova sessão"
-                >
-                  ↺ Nova sessão
-                </button>
-              ) : null}
-              {!busy ? (
-                <button
-                  type="button"
-                  className={styles.perguntarBtn}
-                  onClick={() => void enviar()}
-                  disabled={!pergunta.trim()}
-                >
-                  Perguntar →
-                </button>
-              ) : null}
-            </div>
+            ) : null}
+            {respostas.length > 0 && !busy ? (
+              <button
+                type="button"
+                className={styles.novaSessaoBtn}
+                onClick={novasSessao}
+                title="Limpar histórico e começar nova sessão"
+              >
+                ↺ Nova sessão
+              </button>
+            ) : null}
+            {!busy ? (
+              <button
+                type="button"
+                className={styles.perguntarBtn}
+                onClick={() => void enviar()}
+                disabled={!pergunta.trim()}
+              >
+                Perguntar →
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -933,7 +931,7 @@ export default function PerguntaPage() {
           <div className={styles.cards}>
             <article className={`${styles.card} ${styles.cardPending}`}>
               <div className={styles.cardPergunta}>
-                <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
+                <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
                 <p className={styles.cardPerguntaText}>{pendingQuestion}</p>
               </div>
               <div className={styles.cardResposta}>
@@ -951,7 +949,7 @@ export default function PerguntaPage() {
             {respostas.map((r, i) => (
               <article key={i} className={styles.card} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
                 <div className={styles.cardPergunta}>
-                  <span className={styles.cardPerguntaIcon} aria-hidden>❓</span>
+                  <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
                   <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
                   <div className={styles.refazerArea}>
                     {r.classificacao.pipe === "semantica" ? (
