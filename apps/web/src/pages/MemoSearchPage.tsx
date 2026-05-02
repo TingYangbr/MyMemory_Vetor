@@ -106,6 +106,7 @@ type BuscarSnapshot = {
   /** Query já expandida; usada para liberar botão em pesquisas novas. */
   expandedQueryKey?: string | null;
   noResultsFor: string | null;
+  semanticThresholdUsed?: number | null;
 };
 
 function persistBuscarSnapshot(s: BuscarSnapshot): void {
@@ -531,6 +532,8 @@ export default function MemoSearchPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   /** Texto da última pesquisa com 0 resultados (para mensagem amigável). */
   const [noResultsFor, setNoResultsFor] = useState<string | null>(null);
+  /** Limiar de similaridade efetivamente usado na última busca semântica. null = nenhuma busca ainda. */
+  const [semanticThresholdUsed, setSemanticThresholdUsed] = useState<number | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState("");
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterAuthorUserId, setFilterAuthorUserId] = useState<number | null>(null);
@@ -561,7 +564,7 @@ export default function MemoSearchPage() {
   const voiceTranscriptRef = useRef("");
   const voiceHadResultRef = useRef(false);
   const runSearchRef = useRef<
-    (q?: string, snap?: SearchFilterSnap, forcedSearchMode?: MemoSearchMode) => Promise<void>
+    (q?: string, snap?: SearchFilterSnap, forcedSearchMode?: MemoSearchMode, minSimilarityOverride?: number) => Promise<void>
   >(async () => {});
 
   activeTabRef.current = activeTab;
@@ -774,6 +777,8 @@ export default function MemoSearchPage() {
       snap.noResultsFor === null || typeof snap.noResultsFor === "string" ? snap.noResultsFor : null
     );
     setSearchMode(coalesceSearchMode((snap as { searchMode?: unknown }).searchMode));
+    const snapThreshold = (snap as { semanticThresholdUsed?: unknown }).semanticThresholdUsed;
+    setSemanticThresholdUsed(typeof snapThreshold === "number" ? snapThreshold : null);
     setError(null);
   }, [location.pathname]);
 
@@ -976,7 +981,7 @@ export default function MemoSearchPage() {
   }, []);
 
   const runSearch = useCallback(
-    async (queryOverride?: string, snap?: SearchFilterSnap, forcedSearchMode?: MemoSearchMode) => {
+    async (queryOverride?: string, snap?: SearchFilterSnap, forcedSearchMode?: MemoSearchMode, minSimilarityOverride?: number) => {
       const raw = (queryOverride !== undefined ? queryOverride : query).trim();
       if (!raw) return;
       if (queryOverride !== undefined) setQuery(raw);
@@ -993,6 +998,7 @@ export default function MemoSearchPage() {
       setError(null);
       setNoResultsFor(null);
       setExpandedQueryKey(null);
+      if (minSimilarityOverride === undefined) setSemanticThresholdUsed(null);
       if (ttsBusy) {
         window.speechSynthesis?.cancel();
         setTtsBusy(false);
@@ -1000,10 +1006,11 @@ export default function MemoSearchPage() {
       try {
         let body: MemoSearchResponse;
         if (modeForRequest === "semantic") {
-          const sem = await apiPostJson<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string }>(
+          const sem = await apiPostJson<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string; minSimilarityUsed: number }>(
             "/api/memos/search/semantic",
-            { query: raw, groupId: workspaceGroupId }
+            { query: raw, groupId: workspaceGroupId, ...(minSimilarityOverride !== undefined ? { minSimilarity: minSimilarityOverride } : {}) }
           );
+          setSemanticThresholdUsed(typeof sem.minSimilarityUsed === "number" ? sem.minSimilarityUsed : null);
           body = { items: sem.items, totalCount: sem.totalCount, displayLabel: sem.displayLabel, highlightTerms: [] };
         } else {
           body = await apiPostJson<MemoSearchResponse>("/api/memos/search", {
@@ -1039,7 +1046,8 @@ export default function MemoSearchPage() {
           synonymsExpanded: false,
           expandedQueryKey: null,
           noResultsFor: nr,
-        });
+          semanticThresholdUsed: modeForRequest === "semantic" ? (minSimilarityOverride !== undefined ? minSimilarityOverride : null) : null,
+        } as BuscarSnapshot);
       } catch (e) {
         let msg = e instanceof Error ? e.message : "Falha na busca.";
         if (msg.length > 260) msg = `${msg.slice(0, 257)}…`;
@@ -1381,7 +1389,7 @@ export default function MemoSearchPage() {
                 role="tab"
                 aria-selected={activeTab === "textual"}
                 className={`${styles.modeSwitcherBtn} ${activeTab === "textual" ? styles.modeSwitcherTextualOn : ""}`}
-                onClick={() => { setActiveTab("textual"); setMicState("idle"); setShowTimeoutPopup(false); }}
+                onClick={() => { setActiveTab("textual"); setMicState("idle"); setShowTimeoutPopup(false); setSemanticThresholdUsed(null); }}
               >
                 <span className={styles.modeSwitcherIcon} aria-hidden>🔤</span>
                 Busca por Texto
@@ -1604,6 +1612,20 @@ export default function MemoSearchPage() {
                 >
                   <IconExpandSearch className={styles.secondarySvg} />
                   {expandBusy ? "A expandir…" : "Busca expandida"}
+                </button>
+              ) : activeTab === "semantic" && semanticThresholdUsed !== null && semanticThresholdUsed > 0 ? (
+                <button
+                  type="button"
+                  className={`${styles.secondaryBtn} ${styles.btnAmpliarBusca}`}
+                  disabled={searchBusy}
+                  title={`Ampliar busca: reduz o limiar de ${Math.round(semanticThresholdUsed * 100)}% para ${Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 100))}%`}
+                  onClick={() => {
+                    const newThreshold = Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 10) / 10);
+                    void runSearch(undefined, undefined, "semantic", newThreshold);
+                  }}
+                >
+                  <IconExpandSearch className={styles.secondarySvg} />
+                  {searchBusy ? "Buscando…" : `Ampliar Busca (${Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 100))}%)`}
                 </button>
               ) : <div className={styles.secondaryPlaceholder} aria-hidden />}
             </div>

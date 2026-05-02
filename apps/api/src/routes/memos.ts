@@ -1220,6 +1220,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         query: z.string().min(1).max(4000),
         groupId: z.number().int().positive().nullable().optional(),
         limit: z.number().int().min(1).max(100).optional(),
+        minSimilarity: z.number().min(0).max(1).optional(),
       })
       .safeParse(req.body);
     if (!parsed.success) {
@@ -1233,6 +1234,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         groupId: parsed.data.groupId ?? null,
         query: parsed.data.query,
         limit: parsed.data.limit,
+        minSimilarity: parsed.data.minSimilarity,
       });
       return out;
     } catch (e) {

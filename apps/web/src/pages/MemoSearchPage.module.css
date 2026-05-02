@@ -909,6 +909,27 @@
   cursor: not-allowed;
 }
 
+.btnAmpliarBusca {
+  border: 2px solid #7F77DD;
+  color: #5b54c4;
+  box-shadow: 0 1px 2px rgba(127, 119, 221, 0.15);
+}
+
+.btnAmpliarBusca:hover:not(:disabled) {
+  background: #f5f4ff;
+  border-color: #9b95e8;
+  color: #7F77DD;
+}
+
+.btnAmpliarBusca:focus-visible {
+  box-shadow: 0 0 0 3px rgba(127, 119, 221, 0.35);
+}
+
+.btnAmpliarBusca:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
 .filterModalFields {
   display: flex;
   flex-wrap: wrap;

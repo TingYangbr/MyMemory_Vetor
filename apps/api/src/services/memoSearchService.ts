@@ -394,15 +394,20 @@ export async function searchMemosSemantic(input: {
   groupId: number | null;
   query: string;
   limit?: number;
-}): Promise<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string }> {
+  minSimilarity?: number;
+}): Promise<{ items: MemoRecentCard[]; totalCount: number; displayLabel: string; minSimilarityUsed: number }> {
   const q = input.query.trim();
-  if (!q) return { items: [], totalCount: 0, displayLabel: "" };
+  if (!q) return { items: [], totalCount: 0, displayLabel: "", minSimilarityUsed: 0 };
 
   if (input.groupId != null) {
     await assertUserWorkspaceGroupAccess(input.userId, input.groupId, input.isAdmin);
   }
 
-  const minSimilarity = await getSemanticBuscaMinSimilarity();
+  const configMin = await getSemanticBuscaMinSimilarity();
+  const minSimilarity = input.minSimilarity !== undefined
+    ? Math.max(0, Math.min(1, input.minSimilarity))
+    : configMin;
+
   const hits = await searchMemosByEmbedding({
     query: q,
     userId: input.userId,
@@ -412,7 +417,7 @@ export async function searchMemosSemantic(input: {
   });
 
   if (!hits.length) {
-    return { items: [], totalCount: 0, displayLabel: q.length > 140 ? `${q.slice(0, 137)}…` : q };
+    return { items: [], totalCount: 0, displayLabel: q.length > 140 ? `${q.slice(0, 137)}…` : q, minSimilarityUsed: minSimilarity };
   }
 
   const simMap = new Map(hits.map((h) => [h.memoId, h.similarity]));
@@ -436,5 +441,5 @@ export async function searchMemosSemantic(input: {
   });
 
   const displayLabel = q.length > 140 ? `${q.slice(0, 137)}…` : q;
-  return { items, totalCount: items.length, displayLabel };
+  return { items, totalCount: items.length, displayLabel, minSimilarityUsed: minSimilarity };
 }
