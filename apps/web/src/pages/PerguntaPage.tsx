@@ -340,6 +340,15 @@ export default function PerguntaPage() {
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
 
+  // Para a narração ao sair da página
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
   useEffect(() => {
     apiGetOptional<MeResponse>("/api/me").then((r) => {
       if (r.ok) {
@@ -1039,7 +1048,7 @@ export default function PerguntaPage() {
                   {r.resposta.dados_estruturados ? (
                     <TabelaEstruturada dados={r.resposta.dados_estruturados} />
                   ) : null}
-                  {(r.classificacao.pipe === "semantica" || r.classificacao.pipe === "hibrida") ? (
+                  {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} />
                   ) : null}
                   {r.resposta.limitacoes.length > 0 ? (
