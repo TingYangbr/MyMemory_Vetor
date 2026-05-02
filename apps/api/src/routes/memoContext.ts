@@ -463,7 +463,6 @@ const plugin: FastifyPluginAsync = async (app) => {
     };
 
     const categoryName = (body.categoryName ?? "").trim();
-    if (!categoryName) return reply.code(400).send({ error: "categoryName obrigatório" });
 
     const contextGroupId =
       typeof body.contextGroupId === "number" ? body.contextGroupId : null;
@@ -477,19 +476,21 @@ const plugin: FastifyPluginAsync = async (app) => {
       // Valida acesso ao escopo de categorias
       await assertMemoContextReadScope(userId, structureGroupId, admin);
 
-      // Carrega estrutura para obter campos ativos da categoria
-      const structure = await loadMemoContextStructure(userId, structureGroupId, null);
-      const category = structure.categories.find(
-        (c) => c.name === categoryName && c.isActive === 1
-      );
-      if (!category) return reply.code(404).send({ error: "Categoria não encontrada" });
-
-      const camposAtivos = category.campos
-        .filter((c) => c.isActive === 1)
-        .map((c) => c.name);
+      // Carrega estrutura para obter campos ativos; sem categoria = sem campos dinâmicos
+      let camposAtivos: string[] = [];
+      if (categoryName) {
+        const structure = await loadMemoContextStructure(userId, structureGroupId, null);
+        const category = structure.categories.find(
+          (c) => c.name === categoryName && c.isActive === 1
+        );
+        if (!category) return reply.code(404).send({ error: "Categoria não encontrada" });
+        camposAtivos = category.campos
+          .filter((c) => c.isActive === 1)
+          .map((c) => c.name);
+      }
 
       const result = await listarMemosPorCategoria({
-        categoryName,
+        categoryName: categoryName || null,
         userId,
         groupId: workspaceGroupId,
         camposAtivos,

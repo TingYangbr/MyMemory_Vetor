@@ -1,8 +1,16 @@
 .shell {
   min-height: 100vh;
   padding: 0.7rem 1.35rem 3rem;
-  max-width: 800px;
+  max-width: 1100px;
   margin: 0 auto;
+}
+
+.pageTitle {
+  margin: 0 0 1rem;
+  font-size: 1.45rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--mm-text, #1a2332);
 }
 
 .tabs {
@@ -264,4 +272,142 @@
 .loading {
   color: var(--mm-muted);
   font-size: 0.95rem;
+}
+
+/* ── Aba Consulta de Memos ───────────────────────────────────────────────── */
+
+.consultaFilters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  align-items: flex-end;
+  margin-bottom: 1rem;
+}
+
+.consultaField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.consultaField label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--mm-muted, #5a6578);
+}
+
+.consultaField input,
+.consultaField select {
+  font: inherit;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  background: #fff;
+  color: var(--mm-text, #1a2332);
+  min-width: 9.5rem;
+}
+
+.consultaMeta {
+  margin: 0 0 0.5rem;
+  font-size: 0.82rem;
+  color: var(--mm-muted, #5a6578);
+}
+
+.consultaTableWrap {
+  overflow-x: auto;
+  margin-bottom: 0.25rem;
+}
+
+.consultaTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.consultaTable th,
+.consultaTable td {
+  text-align: left;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+}
+
+.consultaThSort {
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--mm-muted, #5a6578);
+  padding: 0.35rem 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.consultaThSort:hover {
+  background: rgba(13, 148, 136, 0.06);
+}
+
+.sortArrow {
+  color: var(--mm-accent, #0d9488);
+  font-size: 0.75rem;
+}
+
+.sortArrowInactive {
+  color: var(--mm-muted, #5a6578);
+  font-size: 0.75rem;
+  opacity: 0.4;
+}
+
+.consultaFilterRow th {
+  background: rgba(248, 250, 252, 0.9);
+  padding: 0.2rem 0.3rem;
+  border-bottom: 2px solid rgba(226, 232, 240, 0.9);
+  font-weight: normal;
+}
+
+.consultaColFilter {
+  width: 100%;
+  min-width: 60px;
+  padding: 0.2rem 0.35rem;
+  border: 1px solid rgba(203, 213, 225, 0.95);
+  border-radius: 4px;
+  font-size: 0.72rem;
+  background: #fff;
+  color: var(--mm-text, #1a2332);
+}
+
+.consultaColFilter:focus {
+  outline: 2px solid var(--mm-accent, #0d9488);
+  outline-offset: -1px;
+  border-color: var(--mm-accent, #0d9488);
+}
+
+.consultaTd {
+  padding: 0.3rem 0.5rem;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  color: var(--mm-text, #1a2332);
+}
+
+.consultaRowEven td {
+  background: #fff;
+}
+
+.consultaRowOdd td {
+  background: rgba(13, 148, 136, 0.04);
+}
+
+.consultaEmpty {
+  text-align: center;
+  padding: 2rem;
+  color: var(--mm-muted, #5a6578);
+}
+
+.consultaPaginacao {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
 }

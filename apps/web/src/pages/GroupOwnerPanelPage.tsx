@@ -1,15 +1,19 @@
-import { FormEvent, useEffect, useId, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type {
   CreateGroupInviteResponse,
   GroupOwnerPanelResponse,
+  MemoContextCategory,
+  MemoContextGroupOption,
+  MemoContextStructureResponse,
+  MemosListaResponse,
   PatchGroupOwnerSettingsResponse,
 } from "@mymemory/shared";
 import { apiGet, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
 import styles from "./GroupOwnerPanelPage.module.css";
 
-type OwnerTab = "settings" | "invites" | "context";
+type OwnerTab = "settings" | "invites" | "context" | "consulta";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "pendente",
@@ -23,6 +27,23 @@ const ROLE_LABELS: Record<string, string> = {
   viewer: "viewer",
   owner: "Owner",
 };
+
+const MEDIA_TYPE_PT: Record<string, string> = {
+  text: "Texto", audio: "Áudio", image: "Imagem",
+  video: "Vídeo", document: "Doc.", url: "URL",
+};
+
+function fmtConsultaCell(key: string, value: unknown): string {
+  if (value == null) return "—";
+  const s = String(value);
+  if (key === "data_registro") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+    if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  }
+  if (key === "mediaType") return MEDIA_TYPE_PT[s] ?? s;
+  if (key === "mediaText") return s.length > 150 ? `${s.slice(0, 150)}…` : s;
+  return s || "—";
+}
 
 export default function GroupOwnerPanelPage() {
   const { groupId: groupIdStr } = useParams<{ groupId: string }>();
@@ -43,6 +64,23 @@ export default function GroupOwnerPanelPage() {
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsOk, setSettingsOk] = useState<string | null>(null);
+
+  // ── Aba Consulta ─────────────────────────────────────────────────────────
+  const [consultaGroups, setConsultaGroups] = useState<MemoContextGroupOption[]>([]);
+  const [consultaGroupsLoaded, setConsultaGroupsLoaded] = useState(false);
+  const [consultaCatGroupId, setConsultaCatGroupId] = useState<number | null>(null);
+  const [consultaFiltroGroupId, setConsultaFiltroGroupId] = useState<number | null>(null);
+  const [consultaCategorias, setConsultaCategorias] = useState<MemoContextCategory[]>([]);
+  const [consultaCatNome, setConsultaCatNome] = useState<string>("");
+  const [consultaDataInicio, setConsultaDataInicio] = useState<string>("");
+  const [consultaDataFim, setConsultaDataFim] = useState<string>("");
+  const [pendingCampoFiltros, setPendingCampoFiltros] = useState<Record<string, string>>({});
+  const [consultaSortKey, setConsultaSortKey] = useState<string>("data_registro");
+  const [consultaSortDir, setConsultaSortDir] = useState<"asc" | "desc">("desc");
+  const [consultaOffset, setConsultaOffset] = useState<number>(0);
+  const [consultaResult, setConsultaResult] = useState<MemosListaResponse | null>(null);
+  const [consultaLoading, setConsultaLoading] = useState<boolean>(false);
+  const [consultaErr, setConsultaErr] = useState<string | null>(null);
 
   useEffect(() => {
     if (groupId == null) {
@@ -73,6 +111,71 @@ export default function GroupOwnerPanelPage() {
       cancelled = true;
     };
   }, [groupId]);
+
+  const loadConsultaGroups = useCallback(() => {
+    return apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
+      .then((r) => {
+        setConsultaGroups(r.groups);
+        setConsultaGroupsLoaded(true);
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (activeTab === "consulta" && !consultaGroupsLoaded) {
+      void loadConsultaGroups();
+    }
+  }, [activeTab, consultaGroupsLoaded, loadConsultaGroups]);
+
+  useEffect(() => {
+    if (activeTab !== "consulta") return;
+    const qs = consultaCatGroupId != null ? `?groupId=${consultaCatGroupId}` : "";
+    apiGet<MemoContextStructureResponse>(`/api/memo-context/structure${qs}`)
+      .then((s) => {
+        setConsultaCategorias(s.categories.filter((c) => c.isActive === 1));
+        setConsultaCatNome("");
+        setConsultaResult(null);
+        setPendingCampoFiltros({});
+      })
+      .catch(() => setConsultaCategorias([]));
+  }, [activeTab, consultaCatGroupId]);
+
+  const handleConsultar = useCallback((opts?: { offset?: number; sortKey?: string; sortDir?: "asc" | "desc" }) => {
+    if (consultaFiltroGroupId == null) return;
+    const newOffset = opts?.offset ?? 0;
+    const newSortKey = opts?.sortKey ?? consultaSortKey;
+    const newSortDir = opts?.sortDir ?? consultaSortDir;
+    setConsultaLoading(true);
+    setConsultaErr(null);
+    return apiPostJson<MemosListaResponse>("/api/memo-context/memos-lista", {
+      categoryName: consultaCatNome,
+      contextGroupId: consultaCatGroupId,
+      workspaceGroupId: consultaFiltroGroupId,
+      dataInicio: consultaDataInicio || null,
+      dataFim: consultaDataFim || null,
+      campoFiltros: pendingCampoFiltros,
+      sortKey: newSortKey,
+      sortDir: newSortDir,
+      limit: 50,
+      offset: newOffset,
+    })
+      .then((r) => {
+        setConsultaResult(r);
+        setConsultaOffset(newOffset);
+        setConsultaSortKey(newSortKey);
+        setConsultaSortDir(newSortDir);
+      })
+      .catch((e) => {
+        const raw = e instanceof Error ? e.message : String(e);
+        try {
+          const j = JSON.parse(raw) as { message?: string };
+          setConsultaErr(j.message ?? raw);
+        } catch {
+          setConsultaErr(raw || "Erro ao consultar.");
+        }
+      })
+      .finally(() => setConsultaLoading(false));
+  }, [consultaCatNome, consultaCatGroupId, consultaFiltroGroupId, consultaDataInicio, consultaDataFim, pendingCampoFiltros, consultaSortKey, consultaSortDir]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -165,28 +268,9 @@ export default function GroupOwnerPanelPage() {
           ← Início
         </Link>
 
-        <header className={styles.panelHeader}>
-          <p className={styles.panelKicker}>Painel do owner</p>
-          {panel ? (
-            <>
-              <h1 className={styles.panelTitle}>{panel.group.name}</h1>
-              {panel.group.description ? (
-                <p className={styles.panelDesc}>{panel.group.description}</p>
-              ) : null}
-              <p className={styles.panelMeta}>
-                Ref. <code>#{panel.group.id}</code> — convites e demais ações deste painel valem para{" "}
-                <strong>este</strong> grupo (útil quando você gerencia vários grupos).
-              </p>
-            </>
-          ) : (
-            <>
-              <h1 className={styles.panelTitle}>Grupo #{groupId}</h1>
-              <p className={styles.panelMeta}>
-                {!loadError ? "Carregando dados do grupo…" : "Não foi possível carregar os dados deste grupo."}
-              </p>
-            </>
-          )}
-        </header>
+        <h1 className={styles.pageTitle}>
+          {panel ? panel.group.name : (loadError ? `Grupo #${groupId}` : "Carregando…")}
+        </h1>
 
         {loadError ? (
           <p className={styles.error} role="alert">
@@ -196,10 +280,6 @@ export default function GroupOwnerPanelPage() {
 
         {panel ? (
           <>
-            <p className={styles.sub}>
-              Você está a gerir o grupo <strong>{panel.group.name}</strong>. Use a barra de opções para convites,
-              configurações avulsas e estrutura do contexto deste grupo.
-            </p>
             <div className={styles.tabs} role="tablist" aria-label="Seções do painel" id={tabListId}>
               <button
                 type="button"
@@ -233,6 +313,17 @@ export default function GroupOwnerPanelPage() {
                 onClick={() => setActiveTab("context")}
               >
                 Estrutura do contexto
+              </button>
+              <button
+                type="button"
+                role="tab"
+                id={`${tabListId}-tab-consulta`}
+                aria-selected={activeTab === "consulta"}
+                aria-controls={`${tabListId}-panel-consulta`}
+                className={`${styles.tab} ${activeTab === "consulta" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("consulta")}
+              >
+                Consulta de Memos
               </button>
             </div>
 
@@ -304,12 +395,6 @@ export default function GroupOwnerPanelPage() {
                 aria-labelledby={`${tabListId}-tab-invites`}
                 className={styles.tabPanel}
               >
-                <p className={styles.sub}>
-                  Os convites abaixo são para o grupo <strong>{panel.group.name}</strong>. Quem já tem conta entra e
-                  aceita o convite; quem é novo cria conta, escolhe plano individual e, após confirmar o e-mail,
-                  entra no grupo.
-                </p>
-
                 <section className={styles.card} aria-labelledby="invite-form-title">
                   <h2 id="invite-form-title" className={styles.cardTitle}>
                     Enviar convite
@@ -426,6 +511,204 @@ export default function GroupOwnerPanelPage() {
                     Abrir estrutura do contexto
                   </Link>
                 </div>
+              </section>
+            ) : null}
+
+            {activeTab === "consulta" ? (
+              <section
+                role="tabpanel"
+                id={`${tabListId}-panel-consulta`}
+                aria-labelledby={`${tabListId}-tab-consulta`}
+                className={styles.tabPanel}
+              >
+                <div className={styles.consultaFilters}>
+                  <div className={styles.consultaField}>
+                    <label htmlFor="consulta-cat-group">Grupo de categorias</label>
+                    <select
+                      id="consulta-cat-group"
+                      value={consultaCatGroupId ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setConsultaCatGroupId(v === "" ? null : Number(v));
+                        setConsultaResult(null);
+                        setConsultaOffset(0);
+                      }}
+                    >
+                      <option value="">Global (sem grupo)</option>
+                      {consultaGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.consultaField}>
+                    <label htmlFor="consulta-cat">Categoria *</label>
+                    <select
+                      id="consulta-cat"
+                      value={consultaCatNome}
+                      onChange={(e) => {
+                        setConsultaCatNome(e.target.value);
+                        setConsultaResult(null);
+                        setConsultaOffset(0);
+                        setPendingCampoFiltros({});
+                      }}
+                    >
+                      <option value="">— selecione —</option>
+                      {consultaCategorias.map((c) => (
+                        <option key={c.name} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.consultaField}>
+                    <label htmlFor="consulta-filtro-group">Grupo de memos *</label>
+                    <select
+                      id="consulta-filtro-group"
+                      value={consultaFiltroGroupId ?? ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setConsultaFiltroGroupId(v === "" ? null : Number(v));
+                        setConsultaResult(null);
+                        setConsultaOffset(0);
+                      }}
+                    >
+                      <option value="">— selecione —</option>
+                      {consultaGroups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className={styles.consultaField}>
+                    <label htmlFor="consulta-inicio">Data início</label>
+                    <input
+                      id="consulta-inicio"
+                      type="date"
+                      value={consultaDataInicio}
+                      onChange={(e) => setConsultaDataInicio(e.target.value)}
+                    />
+                  </div>
+
+                  <div className={styles.consultaField}>
+                    <label htmlFor="consulta-fim">Data fim</label>
+                    <input
+                      id="consulta-fim"
+                      type="date"
+                      value={consultaDataFim}
+                      onChange={(e) => setConsultaDataFim(e.target.value)}
+                    />
+                  </div>
+
+                  <button
+                    type="button"
+                    className="mm-btn mm-btn--primary"
+                    disabled={consultaFiltroGroupId == null || consultaLoading}
+                    onClick={() => void handleConsultar()}
+                  >
+                    {consultaLoading ? "A consultar…" : "Consultar"}
+                  </button>
+                </div>
+
+                {consultaErr ? <p className={styles.error}>{consultaErr}</p> : null}
+
+                {consultaResult ? (
+                  <>
+                    <p className={styles.consultaMeta}>
+                      {consultaResult.totalLinhas} registro(s).
+                      {consultaResult.totalLinhas > 50
+                        ? ` Exibindo ${consultaOffset + 1}–${Math.min(consultaOffset + 50, consultaResult.totalLinhas)}.`
+                        : ""}
+                    </p>
+                    <div className={styles.consultaTableWrap}>
+                      <table className={styles.consultaTable}>
+                        <thead>
+                          <tr>
+                            {consultaResult.colunas.map((col) => (
+                              <th
+                                key={col.key}
+                                className={styles.consultaThSort}
+                                onClick={() => {
+                                  const newDir =
+                                    consultaSortKey === col.key && consultaSortDir === "asc" ? "desc" : "asc";
+                                  void handleConsultar({ sortKey: col.key, sortDir: newDir, offset: 0 });
+                                }}
+                              >
+                                {col.label}{" "}
+                                {consultaSortKey === col.key ? (
+                                  <span className={styles.sortArrow}>{consultaSortDir === "asc" ? "▲" : "▼"}</span>
+                                ) : (
+                                  <span className={styles.sortArrowInactive}>⇅</span>
+                                )}
+                              </th>
+                            ))}
+                          </tr>
+                          <tr className={styles.consultaFilterRow}>
+                            {consultaResult.colunas.map((col) => (
+                              <th key={col.key}>
+                                <input
+                                  className={styles.consultaColFilter}
+                                  value={pendingCampoFiltros[col.key] ?? ""}
+                                  onChange={(e) =>
+                                    setPendingCampoFiltros((prev) => ({ ...prev, [col.key]: e.target.value }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") void handleConsultar({ offset: 0 });
+                                  }}
+                                  placeholder="filtrar…"
+                                />
+                              </th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {consultaResult.linhas.length === 0 ? (
+                            <tr>
+                              <td colSpan={consultaResult.colunas.length} className={styles.consultaEmpty}>
+                                Nenhum resultado.
+                              </td>
+                            </tr>
+                          ) : (
+                            consultaResult.linhas.map((row, i) => (
+                              <tr key={i} className={i % 2 === 0 ? styles.consultaRowEven : styles.consultaRowOdd}>
+                                {consultaResult.colunas.map((col) => (
+                                  <td key={col.key} className={styles.consultaTd}>
+                                    {fmtConsultaCell(col.key, row[col.key])}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                    {consultaResult.totalLinhas > 50 ? (
+                      <div className={styles.consultaPaginacao}>
+                        <button
+                          type="button"
+                          className="mm-btn mm-btn--ghost"
+                          disabled={consultaOffset === 0 || consultaLoading}
+                          onClick={() => void handleConsultar({ offset: Math.max(0, consultaOffset - 50) })}
+                        >
+                          ← Anterior
+                        </button>
+                        <span className={styles.consultaMeta}>
+                          {consultaOffset + 1}–{Math.min(consultaOffset + 50, consultaResult.totalLinhas)} de{" "}
+                          {consultaResult.totalLinhas}
+                        </span>
+                        <button
+                          type="button"
+                          className="mm-btn mm-btn--ghost"
+                          disabled={consultaOffset + 50 >= consultaResult.totalLinhas || consultaLoading}
+                          onClick={() => void handleConsultar({ offset: consultaOffset + 50 })}
+                        >
+                          Próximo →
+                        </button>
+                      </div>
+                    ) : null}
+                  </>
+                ) : consultaLoading ? (
+                  <p className={styles.loading}>A consultar…</p>
+                ) : null}
               </section>
             ) : null}
           </>

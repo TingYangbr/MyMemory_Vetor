@@ -750,7 +750,7 @@ export async function softDeleteQueryCategoriaParam(userId: number, paramId: num
  * Valores null no JSON são incluídos na listagem (null é válido).
  */
 export async function listarMemosPorCategoria(input: {
-  categoryName: string;
+  categoryName: string | null;
   userId: number;
   groupId: number | null;
   camposAtivos: string[];
@@ -767,17 +767,19 @@ export async function listarMemosPorCategoria(input: {
   totalLinhas: number;
 }> {
   // ── SELECT ─────────────────────────────────────────────────────────────────
+  const NOME_ARQ_EXPR = `COALESCE((NULLIF(m.mediametadata,'')::jsonb)->>'originalName',(NULLIF(m.mediametadata,'')::jsonb)->>'originalFilename')`;
   const selectParts: string[] = [
     "m.id AS id",
     "m.mediatype AS mediatype",
     "LEFT(m.mediatext, 300) AS mediatext",
-    "m.createdat AS data_registro",
   ];
   for (const name of input.camposAtivos) {
     const escKey = name.replace(/'/g, "''");
     const escAlias = name.replace(/"/g, '""');
     selectParts.push(`(NULLIF(m.dadosespecificosjson, '')::jsonb)->>'${escKey}' AS "${escAlias}"`);
   }
+  selectParts.push(`${NOME_ARQ_EXPR} AS nome_arquivo`);
+  selectParts.push("m.createdat AS data_registro");
 
   // ── WHERE ──────────────────────────────────────────────────────────────────
   const where: string[] = ["m.isactive = 1"];
@@ -791,8 +793,10 @@ export async function listarMemosPorCategoria(input: {
     vals.push(input.userId);
   }
 
-  where.push("m.category = ?");
-  vals.push(input.categoryName);
+  if (input.categoryName) {
+    where.push("m.category = ?");
+    vals.push(input.categoryName);
+  }
 
   if (input.dataInicio) {
     where.push("m.createdat::date >= ?::date");
@@ -816,6 +820,9 @@ export async function listarMemosPorCategoria(input: {
   const sortExprs: Record<string, string> = {
     id: "m.id",
     data_registro: "m.createdat",
+    mediaType: "m.mediatype",
+    mediaText: "m.mediatext",
+    nome_arquivo: NOME_ARQ_EXPR,
   };
   for (const name of input.camposAtivos) {
     const escKey = name.replace(/'/g, "''");
@@ -841,8 +848,9 @@ export async function listarMemosPorCategoria(input: {
     { key: "id", label: "ID" },
     { key: "mediaType", label: "Tipo" },
     { key: "mediaText", label: "Texto" },
-    { key: "data_registro", label: "Data" },
     ...input.camposAtivos.map((n) => ({ key: n, label: n })),
+    { key: "nome_arquivo", label: "Arquivo" },
+    { key: "data_registro", label: "Data criação" },
   ];
 
   return {
