@@ -772,6 +772,7 @@ export async function listarMemosPorCategoria(input: {
     "m.id AS id",
     "m.mediatype AS mediatype",
     "LEFT(m.mediatext, 300) AS mediatext",
+    "m.createdat AS data_registro",
   ];
   for (const name of input.camposAtivos) {
     const escKey = name.replace(/'/g, "''");
@@ -779,7 +780,6 @@ export async function listarMemosPorCategoria(input: {
     selectParts.push(`(NULLIF(m.dadosespecificosjson, '')::jsonb)->>'${escKey}' AS "${escAlias}"`);
   }
   selectParts.push(`${NOME_ARQ_EXPR} AS nome_arquivo`);
-  selectParts.push("m.createdat AS data_registro");
 
   // ── WHERE ──────────────────────────────────────────────────────────────────
   const where: string[] = ["m.isactive = 1"];
@@ -848,9 +848,9 @@ export async function listarMemosPorCategoria(input: {
     { key: "id", label: "ID" },
     { key: "mediaType", label: "Tipo" },
     { key: "mediaText", label: "Texto" },
+    { key: "data_registro", label: "Data" },
     ...input.camposAtivos.map((n) => ({ key: n, label: n })),
     { key: "nome_arquivo", label: "Arquivo" },
-    { key: "data_registro", label: "Data criação" },
   ];
 
   return {

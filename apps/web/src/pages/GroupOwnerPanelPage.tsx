@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
+import { Fragment, FormEvent, useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type {
   CreateGroupInviteResponse,
@@ -7,6 +7,7 @@ import type {
   MemoContextGroupOption,
   MemoContextStructureResponse,
   MemosListaResponse,
+  MeResponse,
   PatchGroupOwnerSettingsResponse,
 } from "@mymemory/shared";
 import { apiGet, apiPatchJson, apiPostJson } from "../api";
@@ -56,6 +57,11 @@ export default function GroupOwnerPanelPage() {
   const [activeTab, setActiveTab] = useState<OwnerTab>("settings");
   const [panel, setPanel] = useState<GroupOwnerPanelResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+
+  // breadcrumb
+  const [me, setMe] = useState<MeResponse | null>(null);
+  const [ownedGroups, setOwnedGroups] = useState<MemoContextGroupOption[]>([]);
+
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"editor" | "viewer">("viewer");
   const [formError, setFormError] = useState<string | null>(null);
@@ -66,8 +72,6 @@ export default function GroupOwnerPanelPage() {
   const [settingsOk, setSettingsOk] = useState<string | null>(null);
 
   // ── Aba Consulta ─────────────────────────────────────────────────────────
-  const [consultaGroups, setConsultaGroups] = useState<MemoContextGroupOption[]>([]);
-  const [consultaGroupsLoaded, setConsultaGroupsLoaded] = useState(false);
   const [consultaCatGroupId, setConsultaCatGroupId] = useState<number | null>(null);
   const [consultaFiltroGroupId, setConsultaFiltroGroupId] = useState<number | null>(null);
   const [consultaCategorias, setConsultaCategorias] = useState<MemoContextCategory[]>([]);
@@ -82,6 +86,7 @@ export default function GroupOwnerPanelPage() {
   const [consultaLoading, setConsultaLoading] = useState<boolean>(false);
   const [consultaErr, setConsultaErr] = useState<string | null>(null);
 
+  // ── Load panel + me + owned groups on mount ───────────────────────────────
   useEffect(() => {
     if (groupId == null) {
       setLoadError("Grupo inválido.");
@@ -107,26 +112,19 @@ export default function GroupOwnerPanelPage() {
         }
       }
     })();
-    return () => {
-      cancelled = true;
-    };
+
+    // user info and owned groups (non-blocking)
+    apiGet<MeResponse>("/api/me")
+      .then((r) => { if (!cancelled) setMe(r); })
+      .catch(() => {});
+    apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
+      .then((r) => { if (!cancelled) setOwnedGroups(r.groups); })
+      .catch(() => {});
+
+    return () => { cancelled = true; };
   }, [groupId]);
 
-  const loadConsultaGroups = useCallback(() => {
-    return apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
-      .then((r) => {
-        setConsultaGroups(r.groups);
-        setConsultaGroupsLoaded(true);
-      })
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (activeTab === "consulta" && !consultaGroupsLoaded) {
-      void loadConsultaGroups();
-    }
-  }, [activeTab, consultaGroupsLoaded, loadConsultaGroups]);
-
+  // ── Load categories when consulta tab or cat-group changes ────────────────
   useEffect(() => {
     if (activeTab !== "consulta") return;
     const qs = consultaCatGroupId != null ? `?groupId=${consultaCatGroupId}` : "";
@@ -148,7 +146,7 @@ export default function GroupOwnerPanelPage() {
     setConsultaLoading(true);
     setConsultaErr(null);
     return apiPostJson<MemosListaResponse>("/api/memo-context/memos-lista", {
-      categoryName: consultaCatNome,
+      categoryName: consultaCatNome || "",
       contextGroupId: consultaCatGroupId,
       workspaceGroupId: consultaFiltroGroupId,
       dataInicio: consultaDataInicio || null,
@@ -222,14 +220,7 @@ export default function GroupOwnerPanelPage() {
             panel.group.allowFreeSpecificFieldsWithoutCategoryMatch,
         }
       );
-      setPanel((cur) =>
-        cur
-          ? {
-              ...cur,
-              group: res.group,
-            }
-          : cur
-      );
+      setPanel((cur) => cur ? { ...cur, group: res.group } : cur);
       setSettingsOk("Configurações do grupo guardadas.");
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
@@ -244,6 +235,8 @@ export default function GroupOwnerPanelPage() {
     }
   }
 
+  const ownerLabel = me?.name ?? me?.email ?? null;
+
   if (groupId == null) {
     return (
       <>
@@ -252,9 +245,7 @@ export default function GroupOwnerPanelPage() {
           <p className={styles.error} role="alert">
             {loadError ?? "Grupo inválido."}
           </p>
-          <Link to="/" className={styles.back}>
-            ← Início
-          </Link>
+          <Link to="/" className={styles.back}>← Início</Link>
         </div>
       </>
     );
@@ -264,26 +255,41 @@ export default function GroupOwnerPanelPage() {
     <>
       <Header />
       <div className={styles.shell}>
-        <Link to="/" className={styles.back}>
-          ← Início
-        </Link>
+
+        {/* ── Top navigation bar ── */}
+        <div className={styles.topBar}>
+          <Link to="/" className={styles.back}>← Início</Link>
+          {ownedGroups.length > 0 && (
+            <span className={styles.groupsNav}>
+              {ownerLabel ? `Grupos de ${ownerLabel}: ` : "Meus grupos: "}
+              {ownedGroups.map((g, i) => (
+                <Fragment key={g.id}>
+                  {i > 0 && <span className={styles.groupsSep}> · </span>}
+                  <Link
+                    to={`/groups/${g.id}/owner-panel`}
+                    className={g.id === groupId ? styles.groupNavActive : styles.groupNavLink}
+                  >
+                    {g.name}
+                  </Link>
+                </Fragment>
+              ))}
+            </span>
+          )}
+        </div>
 
         <h1 className={styles.pageTitle}>
           {panel ? panel.group.name : (loadError ? `Grupo #${groupId}` : "Carregando…")}
         </h1>
 
         {loadError ? (
-          <p className={styles.error} role="alert">
-            {loadError}
-          </p>
+          <p className={styles.error} role="alert">{loadError}</p>
         ) : null}
 
         {panel ? (
           <>
             <div className={styles.tabs} role="tablist" aria-label="Seções do painel" id={tabListId}>
               <button
-                type="button"
-                role="tab"
+                type="button" role="tab"
                 id={`${tabListId}-tab-settings`}
                 aria-selected={activeTab === "settings"}
                 aria-controls={`${tabListId}-panel-settings`}
@@ -293,8 +299,7 @@ export default function GroupOwnerPanelPage() {
                 Configurações avulsas
               </button>
               <button
-                type="button"
-                role="tab"
+                type="button" role="tab"
                 id={`${tabListId}-tab-invites`}
                 aria-selected={activeTab === "invites"}
                 aria-controls={`${tabListId}-panel-invites`}
@@ -304,8 +309,7 @@ export default function GroupOwnerPanelPage() {
                 Convites
               </button>
               <button
-                type="button"
-                role="tab"
+                type="button" role="tab"
                 id={`${tabListId}-tab-context`}
                 aria-selected={activeTab === "context"}
                 aria-controls={`${tabListId}-panel-context`}
@@ -315,8 +319,7 @@ export default function GroupOwnerPanelPage() {
                 Estrutura do contexto
               </button>
               <button
-                type="button"
-                role="tab"
+                type="button" role="tab"
                 id={`${tabListId}-tab-consulta`}
                 aria-selected={activeTab === "consulta"}
                 aria-controls={`${tabListId}-panel-consulta`}
@@ -327,6 +330,7 @@ export default function GroupOwnerPanelPage() {
               </button>
             </div>
 
+            {/* ── Settings ── */}
             {activeTab === "settings" ? (
               <section
                 role="tabpanel"
@@ -336,16 +340,8 @@ export default function GroupOwnerPanelPage() {
               >
                 <div className={styles.card}>
                   <h2 className={styles.cardTitle}>Configurações avulsas do grupo</h2>
-                  {settingsError ? (
-                    <p className={styles.error} role="alert">
-                      {settingsError}
-                    </p>
-                  ) : null}
-                  {settingsOk ? (
-                    <p className={styles.success} role="status">
-                      {settingsOk}
-                    </p>
-                  ) : null}
+                  {settingsError ? <p className={styles.error} role="alert">{settingsError}</p> : null}
+                  {settingsOk ? <p className={styles.success} role="status">{settingsOk}</p> : null}
                   <label className={styles.toggleRow}>
                     <input
                       type="checkbox"
@@ -354,13 +350,7 @@ export default function GroupOwnerPanelPage() {
                       onChange={(e) =>
                         setPanel((cur) =>
                           cur
-                            ? {
-                                ...cur,
-                                group: {
-                                  ...cur.group,
-                                  allowFreeSpecificFieldsWithoutCategoryMatch: e.target.checked,
-                                },
-                              }
+                            ? { ...cur, group: { ...cur.group, allowFreeSpecificFieldsWithoutCategoryMatch: e.target.checked } }
                             : cur
                         )
                       }
@@ -388,6 +378,7 @@ export default function GroupOwnerPanelPage() {
               </section>
             ) : null}
 
+            {/* ── Invites ── */}
             {activeTab === "invites" ? (
               <div
                 role="tabpanel"
@@ -396,24 +387,12 @@ export default function GroupOwnerPanelPage() {
                 className={styles.tabPanel}
               >
                 <section className={styles.card} aria-labelledby="invite-form-title">
-                  <h2 id="invite-form-title" className={styles.cardTitle}>
-                    Enviar convite
-                  </h2>
-                  {formError ? (
-                    <p className={styles.error} role="alert">
-                      {formError}
-                    </p>
-                  ) : null}
-                  {formOk ? (
-                    <p className={styles.success} role="status">
-                      {formOk}
-                    </p>
-                  ) : null}
+                  <h2 id="invite-form-title" className={styles.cardTitle}>Enviar convite</h2>
+                  {formError ? <p className={styles.error} role="alert">{formError}</p> : null}
+                  {formOk ? <p className={styles.success} role="status">{formOk}</p> : null}
                   <form onSubmit={(e) => void onSubmit(e)}>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor="invite-email">
-                        E-mail do convidado
-                      </label>
+                      <label className={styles.label} htmlFor="invite-email">E-mail do convidado</label>
                       <input
                         id="invite-email"
                         className={styles.input}
@@ -426,9 +405,7 @@ export default function GroupOwnerPanelPage() {
                       <p className={styles.hint}>Pode ser alguém com ou sem conta MyMemory.</p>
                     </div>
                     <div className={styles.field}>
-                      <label className={styles.label} htmlFor="invite-role">
-                        Perfil no grupo
-                      </label>
+                      <label className={styles.label} htmlFor="invite-role">Perfil no grupo</label>
                       <select
                         id="invite-role"
                         className={styles.select}
@@ -491,6 +468,7 @@ export default function GroupOwnerPanelPage() {
               </div>
             ) : null}
 
+            {/* ── Context structure ── */}
             {activeTab === "context" ? (
               <section
                 role="tabpanel"
@@ -504,16 +482,14 @@ export default function GroupOwnerPanelPage() {
                     Esta opção abre o editor de estrutura contextual com o grupo fixo em <strong>{panel.group.name}</strong>.
                     Nesse modo você só edita este grupo — sem grupo vazio e sem grupos de outros owners.
                   </p>
-                  <Link
-                    to={`/estrutura-memo?ownerGroupId=${panel.group.id}`}
-                    className="mm-btn mm-btn--primary"
-                  >
+                  <Link to={`/estrutura-memo?ownerGroupId=${panel.group.id}`} className="mm-btn mm-btn--primary">
                     Abrir estrutura do contexto
                   </Link>
                 </div>
               </section>
             ) : null}
 
+            {/* ── Consulta de Memos ── */}
             {activeTab === "consulta" ? (
               <section
                 role="tabpanel"
@@ -535,14 +511,14 @@ export default function GroupOwnerPanelPage() {
                       }}
                     >
                       <option value="">Global (sem grupo)</option>
-                      {consultaGroups.map((g) => (
+                      {ownedGroups.map((g) => (
                         <option key={g.id} value={g.id}>{g.name}</option>
                       ))}
                     </select>
                   </div>
 
                   <div className={styles.consultaField}>
-                    <label htmlFor="consulta-cat">Categoria *</label>
+                    <label htmlFor="consulta-cat">Categoria</label>
                     <select
                       id="consulta-cat"
                       value={consultaCatNome}
@@ -553,7 +529,7 @@ export default function GroupOwnerPanelPage() {
                         setPendingCampoFiltros({});
                       }}
                     >
-                      <option value="">— selecione —</option>
+                      <option value="">— todas —</option>
                       {consultaCategorias.map((c) => (
                         <option key={c.name} value={c.name}>{c.name}</option>
                       ))}
@@ -573,7 +549,7 @@ export default function GroupOwnerPanelPage() {
                       }}
                     >
                       <option value="">— selecione —</option>
-                      {consultaGroups.map((g) => (
+                      {ownedGroups.map((g) => (
                         <option key={g.id} value={g.id}>{g.name}</option>
                       ))}
                     </select>

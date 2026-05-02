@@ -59,17 +59,50 @@
   margin-top: 0.25rem;
 }
 
+.topBar {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1.15rem;
+}
+
 .back {
-  display: inline-block;
-  margin-bottom: 1.25rem;
   font-size: 0.9rem;
   font-weight: 600;
   color: var(--mm-accent, #0d9488);
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .back:hover {
   text-decoration: underline;
+}
+
+.groupsNav {
+  font-size: 0.82rem;
+  color: var(--mm-muted, #5a6578);
+  flex: 1 1 0;
+}
+
+.groupNavLink {
+  color: var(--mm-accent, #0d9488);
+  text-decoration: none;
+}
+
+.groupNavLink:hover {
+  text-decoration: underline;
+}
+
+.groupNavActive {
+  color: var(--mm-text, #1a2332);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.groupsSep {
+  color: var(--mm-muted, #5a6578);
+  user-select: none;
 }
 
 .title {
