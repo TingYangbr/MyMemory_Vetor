@@ -912,7 +912,7 @@ export default function AdminPage() {
             className={`${styles.tab} ${tab === "outros" ? styles.tabActive : ""}`}
             onClick={() => setTab("outros")}
           >
-            Outros
+            Configurações
           </button>
           <button
             type="button"
@@ -1028,21 +1028,13 @@ export default function AdminPage() {
             <p className="mm-muted" style={{ margin: "0 0 0.75rem" }}>
               Atalhos para áreas que não são a tabela de planos.
             </p>
-            <Link to="/admin/midia" className="mm-btn mm-btn--primary">
-              Mídia por plano (media_settings)
-            </Link>
-            <Link to="/admin/documento-ia" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
-              Documento IA (ai_config)
-            </Link>
-            <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
-              Último prompt LLM
-            </Link>
-            <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
-              CAD/BIM pipeline
-            </Link>
-            <Link to="/admin/system-config" className="mm-btn mm-btn--primary" style={{ marginLeft: "0.5rem" }}>
-              Configurações do sistema
-            </Link>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
+              <Link to="/admin/midia" className="mm-btn mm-btn--primary">Mídia por plano (media_settings)</Link>
+              <Link to="/admin/documento-ia" className="mm-btn mm-btn--primary">Documento IA (ai_config)</Link>
+              <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary">Último prompt LLM</Link>
+              <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary">CAD/BIM pipeline</Link>
+              <Link to="/admin/system-config" className="mm-btn mm-btn--primary">Configurações do sistema</Link>
+            </div>
           </div>
         ) : null}
 

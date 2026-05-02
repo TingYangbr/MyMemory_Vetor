@@ -41,6 +41,7 @@
 
 .tabs {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.35rem;
   margin-bottom: 1.25rem;
   border-bottom: 1px solid var(--mm-border);
