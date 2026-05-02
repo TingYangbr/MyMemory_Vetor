@@ -94,7 +94,11 @@ function IconSpeaker({ className }: { className?: string }) {
   );
 }
 
-function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
+function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
+  dados: PerguntaResultadoEstruturado;
+  onOpenMemo?: (id: number) => void;
+  loadingCardId?: number | null;
+}) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
 
   if (!dados.totalLinhas) return null;
@@ -126,6 +130,22 @@ function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
                       ? (MEDIA_TYPE_LABELS[val] ?? val)
                       : val == null ? "—" : String(val);
                   const isLong = display.length > 80;
+                  if (col === "id" && onOpenMemo && val != null) {
+                    const id = Number(val);
+                    return (
+                      <td key={col} className={styles.tabelaTd}>
+                        <button
+                          type="button"
+                          className={styles.memoIdBtn}
+                          onClick={() => onOpenMemo(id)}
+                          disabled={loadingCardId === id}
+                          title="Abrir memo"
+                        >
+                          {loadingCardId === id ? "…" : `#${id}`}
+                        </button>
+                      </td>
+                    );
+                  }
                   return (
                     <td
                       key={col}
@@ -151,7 +171,11 @@ function TabelaEstruturada({ dados }: { dados: PerguntaResultadoEstruturado }) {
   );
 }
 
-function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/shared").PerguntaMemoUsado[] }) {
+function TabelaSemantica({ dados_usados, onOpenMemo, loadingCardId }: {
+  dados_usados: import("@mymemory/shared").PerguntaMemoUsado[];
+  onOpenMemo?: (id: number) => void;
+  loadingCardId?: number | null;
+}) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
 
   if (dados_usados.length === 0) return null;
@@ -161,7 +185,7 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
     new Set(dados_usados.flatMap((d) => d.dadosEspecificos ? Object.keys(d.dadosEspecificos) : []))
   ).sort();
 
-  const LABELS: Record<string, string> = { memo_id: "Memo", mediaType: "Tipo", mediatext: "Conteúdo" };
+  const LABELS: Record<string, string> = { memo_id: "ID", mediaType: "Tipo", mediatext: "Conteúdo" };
 
   function renderCell(val: string) {
     const isLong = val.length > 80;
@@ -197,7 +221,19 @@ function TabelaSemantica({ dados_usados }: { dados_usados: import("@mymemory/sha
           <tbody>
             {dados_usados.map((d, i) => (
               <tr key={i} className={styles.tabelaTr}>
-                {renderCell(`#${d.memo_id}`)}
+                <td className={styles.tabelaTd}>
+                  {onOpenMemo ? (
+                    <button
+                      type="button"
+                      className={styles.memoIdBtn}
+                      onClick={() => onOpenMemo(d.memo_id)}
+                      disabled={loadingCardId === d.memo_id}
+                      title="Abrir memo"
+                    >
+                      {loadingCardId === d.memo_id ? "…" : `#${d.memo_id}`}
+                    </button>
+                  ) : `#${d.memo_id}`}
+                </td>
                 {renderCell(d.mediaType ?? "—")}
                 {renderCell(d.mediatext ?? "—")}
                 {extraKeys.map((k) => renderCell(d.dadosEspecificos?.[k] != null ? String(d.dadosEspecificos![k]) : "—"))}
@@ -1059,10 +1095,10 @@ export default function PerguntaPage() {
                   ) : null}
                   <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
                   {r.resposta.dados_estruturados ? (
-                    <TabelaEstruturada dados={r.resposta.dados_estruturados} />
+                    <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
-                    <TabelaSemantica dados_usados={r.resposta.dados_usados} />
+                    <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
                   ) : null}
                   {r.resposta.limitacoes.length > 0 ? (
                     <ul className={styles.limitacoes}>
