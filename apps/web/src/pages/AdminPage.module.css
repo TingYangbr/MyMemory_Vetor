@@ -763,3 +763,48 @@
   color: #065f46;
   margin-right: auto;
 }
+
+/* ── Botão impressora ────────────────────────────────────────────────────── */
+
+.printBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  padding: 0;
+  background: transparent;
+  border: 1.5px solid var(--mm-accent, #0d9488);
+  border-radius: 8px;
+  color: var(--mm-accent, #0d9488);
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.printBtn:hover {
+  background: rgba(13, 148, 136, 0.1);
+}
+
+.printBtn:focus-visible {
+  outline: 2px solid var(--mm-accent, #0d9488);
+  outline-offset: 2px;
+}
+
+/* ── @media print ────────────────────────────────────────────────────────── */
+
+@media print {
+  header { display: none !important; }
+  .title, .lead, .tabs, .consultaFilters, .consultaPaginacao, .printBtn { display: none !important; }
+  .shell { padding: 0 !important; }
+  .main { padding: 0 0.25rem !important; max-width: none !important; }
+  .tableWrap { overflow: visible !important; }
+  .consultaTd {
+    max-width: none !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+  .consultaTable { font-size: 0.72rem; }
+}
