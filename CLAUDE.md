@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 **MyMemory** — a personal/group memory capture SaaS. Users upload text, images, audio, video, documents, and URLs; the API processes them with AI (OpenAI) to extract summaries, keywords, categories, and structured fields. Content is organized into groups with sharing, subscriptions, and cost tracking.
 
-Stack: React 18 + Vite (frontend) · Fastify 5 + Node.js 20 (backend) · MySQL 8.4 via TypeORM · OpenAI API (GPT-4o-mini, Whisper, Vision) · Tesseract.js OCR · FFmpeg.
+Stack: React 18 + Vite (frontend) · Fastify 5 + Node.js 20 (backend) · Postgresql · OpenAI API (GPT-4o-mini, Whisper, Vision) · Tesseract.js OCR · FFmpeg.
 
 ## Development Commands
 
