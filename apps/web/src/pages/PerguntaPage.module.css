@@ -116,12 +116,14 @@
   align-items: flex-start;
 }
 
-/* ── Botões de ação abaixo do texto — homogêneos ── */
+/* ── Botões de ação abaixo do texto — homogêneos, sempre na mesma linha ── */
 .inputActions {
   display: flex;
   align-items: center;
   gap: 0.4rem;
   justify-content: flex-end;
+  flex-wrap: nowrap;
+  overflow: hidden;
 }
 
 .cancelarBtn {
@@ -365,9 +367,9 @@
 
 .refazerPipes {
   display: flex;
-  align-items: center;
-  gap: 0.3rem;
-  flex-wrap: nowrap;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
 }
 
 .refazerPipeBtn {
@@ -416,11 +418,11 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border: 1.5px solid var(--mm-border, #cbd5e1);
+  border: 1.5px solid var(--mm-accent, #0d9488);
   border-radius: 6px;
   font-size: 0.85rem;
   font-weight: 700;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-accent, #0d9488);
   flex-shrink: 0;
   line-height: 1;
 }
@@ -1125,4 +1127,13 @@
   text-align: center;
   color: #475569;
   font-size: 0.85rem;
+}
+
+/* ── Mobile: botões de ação mais compactos para caber na mesma linha ── */
+@media (max-width: 480px) {
+  .cancelarBtn, .novaSessaoBtn, .perguntarBtn {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.78rem;
+  }
+  .inputActions { gap: 0.3rem; }
 }
