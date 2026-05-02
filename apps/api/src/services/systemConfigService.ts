@@ -42,6 +42,14 @@ export async function showLlmTraceInUi(): Promise<boolean> {
   return false;
 }
 
+/** Limiar mínimo de similaridade para a Busca Semântica de Memos. Padrão: 0.5 */
+export async function getSemanticBuscaMinSimilarity(): Promise<number> {
+  const raw = await getConfigValueRaw("semanticBuscaMinSimilarity");
+  if (!raw) return 0.5;
+  const n = Number.parseFloat(raw.replace(",", "."));
+  return Number.isFinite(n) && n >= 0 && n <= 1 ? n : 0.5;
+}
+
 /** Limiares de similaridade semântica para o Pipe 1. */
 export async function getSemanticSearchThresholds(): Promise<{ initial: number; min: number }> {
   const [rawInitial, rawMin] = await Promise.all([

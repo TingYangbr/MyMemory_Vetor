@@ -8,6 +8,7 @@ import { getSingularPluralSearchVariants } from "../lib/ptSearchExpand.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
 import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
+import { getSemanticBuscaMinSimilarity } from "./systemConfigService.js";
 
 const MAX_SEGMENTS = 24;
 const MAX_OR_BRANCHES_TOTAL = 48;
@@ -401,11 +402,13 @@ export async function searchMemosSemantic(input: {
     await assertUserWorkspaceGroupAccess(input.userId, input.groupId, input.isAdmin);
   }
 
+  const minSimilarity = await getSemanticBuscaMinSimilarity();
   const hits = await searchMemosByEmbedding({
     query: q,
     userId: input.userId,
     groupId: input.groupId,
     limit: input.limit ?? 40,
+    minSimilarity,
   });
 
   if (!hits.length) {

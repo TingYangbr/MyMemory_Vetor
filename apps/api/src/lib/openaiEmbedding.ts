@@ -99,6 +99,7 @@ export async function searchMemosByEmbedding(input: {
   userId: number;
   groupId: number | null;
   limit?: number;
+  minSimilarity?: number;
   dataInicio?: string | null;
   dataFim?: string | null;
 }): Promise<Array<{ memoId: number; similarity: number }>> {
@@ -109,6 +110,7 @@ export async function searchMemosByEmbedding(input: {
 
   const vectorStr = serializeVector(queryVector);
   const limit = input.limit ?? 20;
+  const minSim = input.minSimilarity ?? 0;
 
   const baseWhere =
     input.groupId != null
@@ -123,14 +125,17 @@ export async function searchMemosByEmbedding(input: {
   const dateWhere = dateConditions.length ? " AND " + dateConditions.join(" AND ") : "";
 
   const [rows] = await pool.query<{ memoId: number; similarity: number }[]>(
-    `SELECT m.id AS memoid, 1 - MIN(c.embedding <=> ?::vector) AS similarity
-     FROM memo_chunks c
-     JOIN memos m ON m.id = c.memo_id
-     WHERE ${baseWhere}${dateWhere}
-     GROUP BY m.id
+    `SELECT memoid, similarity FROM (
+       SELECT m.id AS memoid, 1 - MIN(c.embedding <=> ?::vector) AS similarity
+       FROM memo_chunks c
+       JOIN memos m ON m.id = c.memo_id
+       WHERE ${baseWhere}${dateWhere}
+       GROUP BY m.id
+     ) sub
+     WHERE similarity >= ?
      ORDER BY similarity DESC
      LIMIT ?`,
-    [vectorStr, baseVal, ...dateVals, limit]
+    [vectorStr, baseVal, ...dateVals, minSim, limit]
   );
 
   return rows

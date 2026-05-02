@@ -18,6 +18,7 @@ import { ResyncSequences1700000000103 } from "./migrations/1700000000103-ResyncS
 import { MemoCategoryColumn1700000000104 } from "./migrations/1700000000104-MemoCategoryColumn.js";
 import { QueriesCategoria1700000000027 } from "./migrations/1700000000027-QueriesCategoria.js";
 import { LlmPromptConfigs1700000000105 } from "./migrations/1700000000105-LlmPromptConfigs.js";
+import { SemanticBuscaMinSimilarity1700000000106 } from "./migrations/1700000000106-SemanticBuscaMinSimilarity.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -53,6 +54,7 @@ assertMediaStorageEnv();
       MemoCategoryColumn1700000000104,
       QueriesCategoria1700000000027,
       LlmPromptConfigs1700000000105,
+      SemanticBuscaMinSimilarity1700000000106,
     ],
   });
   const ds = await AppDataSource.initialize();

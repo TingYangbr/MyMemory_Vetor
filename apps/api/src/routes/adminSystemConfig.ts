@@ -9,6 +9,7 @@ const ALLOWED_KEYS = new Set([
   "showApiCost",
   "semanticSearchInitialThreshold",
   "semanticSearchMinThreshold",
+  "semanticBuscaMinSimilarity",
   "showLlmTrace",
 ]);
 
