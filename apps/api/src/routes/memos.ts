@@ -474,18 +474,31 @@ const plugin: FastifyPluginAsync = async (app) => {
           maxBytes,
         });
       }
-      const out = await processImageMemoForReview({
-        userId,
-        groupId,
-        isAdmin,
-        buffer: buf,
-        mime: mimetype,
-        originalName: filename,
-        iaUseImagem,
+      let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutHandle = setTimeout(() => reject(new Error("processing_timeout")), 90_000);
       });
+      const out = await Promise.race([
+        processImageMemoForReview({
+          userId,
+          groupId,
+          isAdmin,
+          buffer: buf,
+          mime: mimetype,
+          originalName: filename,
+          iaUseImagem,
+        }),
+        timeoutPromise,
+      ]).finally(() => clearTimeout(timeoutHandle));
       return out;
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
+      if (msg === "processing_timeout") {
+        return reply.code(504).send({
+          error: "processing_timeout",
+          message: "O processamento da imagem excedeu o tempo limite. Tente novamente ou use o modo Sem IA.",
+        });
+      }
       if (msg === "forbidden_group" || msg === "group_not_found") {
         return reply.code(403).send({ error: "forbidden", message: "Sem acesso a este grupo." });
       }

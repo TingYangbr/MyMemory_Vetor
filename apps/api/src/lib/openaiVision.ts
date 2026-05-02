@@ -18,6 +18,7 @@ export async function openaiChatVisionJson(args: {
   const url = `${config.openai.baseUrl}/chat/completions`;
   const res = await fetch(url, {
     method: "POST",
+    signal: AbortSignal.timeout(40_000),
     headers: {
       Authorization: `Bearer ${key}`,
       "Content-Type": "application/json",

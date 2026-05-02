@@ -33,14 +33,20 @@ function normalizeConfidence(raw: unknown): number | null {
   return n;
 }
 
+const OCR_TIMEOUT_MS = 25_000;
+
 export async function recognizeImageWithTesseract(buffer: Buffer): Promise<TesseractImageOcrResult> {
   const run = async (): Promise<TesseractImageOcrResult> => {
     try {
       const worker = await getWorker();
-      const { data } = await worker.recognize(buffer);
-      const text = (data.text ?? "").trim();
-      const confidence = normalizeConfidence(data.confidence);
-      return { text, confidence };
+      const timeoutResult = new Promise<TesseractImageOcrResult>((resolve) =>
+        setTimeout(() => resolve({ text: "", confidence: null }), OCR_TIMEOUT_MS)
+      );
+      const recognizeResult = worker.recognize(buffer).then(({ data }) => ({
+        text: (data.text ?? "").trim(),
+        confidence: normalizeConfidence(data.confidence),
+      }));
+      return await Promise.race([recognizeResult, timeoutResult]);
     } catch {
       return { text: "", confidence: null };
     }

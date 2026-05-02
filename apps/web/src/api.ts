@@ -130,8 +130,8 @@ export async function apiPostMultipart(
       }
       throw new Error(msg);
     }
-    if (r.status === 422) {
-      let msg = text || "Não foi possível processar o arquivo.";
+    if (r.status === 422 || r.status === 504) {
+      let msg = r.status === 504 ? "O processamento excedeu o tempo limite. Tente novamente ou use o modo Sem IA." : text || "Não foi possível processar o arquivo.";
       try {
         const j = JSON.parse(text) as { message?: string };
         if (typeof j.message === "string" && j.message.trim()) msg = j.message;
