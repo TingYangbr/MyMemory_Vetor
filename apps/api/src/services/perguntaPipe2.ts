@@ -359,6 +359,7 @@ function bindTemplateParams(
   for (const token of tokens) {
     const key = token.name.toLowerCase();
     let val = Object.prototype.hasOwnProperty.call(paramMap, key) ? paramMap[key] : null;
+    if (val === "") val = null; // LLMs às vezes retornam "" para "sem valor" — trata como null
     const def = defByName.get(key);
     const cast = SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text";
 
