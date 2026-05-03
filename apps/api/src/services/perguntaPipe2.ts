@@ -297,16 +297,34 @@ function bindTemplateParams(
 
   // Para parâmetros com ILIKE/LIKE e valor não-nulo, encontra a expressão de coluna
   // imediatamente antes do operador: datas → expansão de formato; texto → unaccent().
+  // extractColBeforeLike varre da direita para a esquerda respeitando aspas simples,
+  // suportando chaves JSONB com espaços, ex: ->>'Data atendimento'.
+  function extractColBeforeLike(before: string): { colExpr: string; colStart: number } | null {
+    const likeMatch = /\s+I?LIKE\s*$/i.exec(before);
+    if (!likeMatch) return null;
+    const exprEnd = likeMatch.index;
+    let inQuote = false;
+    let i = exprEnd - 1;
+    for (; i >= 0; i--) {
+      const c = before[i];
+      if (c === "'") { inQuote = !inQuote; }
+      if (!inQuote && (c === " " || c === "\t" || c === "\n" || c === "," || c === "(" || c === ")")) break;
+    }
+    const colStart = i + 1;
+    const colExpr = before.slice(colStart, exprEnd);
+    return colExpr ? { colExpr, colStart } : null;
+  }
+
   for (const token of tokens) {
     const key = token.name.toLowerCase();
     const def = defByName.get(key);
     const isDate = def?.tipo === "date" || def?.tipo === "data";
     if (!/LIKE/i.test(def?.operadorSql ?? "") || paramMap[key] == null) continue;
     const before = sentencaSql.slice(0, token.start);
-    const likeMatch = /([^\s,()][^,()]*)\s+I?LIKE\s*$/i.exec(before);
-    if (likeMatch) {
-      token.colExpr = likeMatch[1];
-      token.colStart = token.start - likeMatch[0].length;
+    const colInfo = extractColBeforeLike(before);
+    if (colInfo) {
+      token.colExpr = colInfo.colExpr;
+      token.colStart = colInfo.colStart;
       token.isUnaccentLike = !isDate;
     }
   }
