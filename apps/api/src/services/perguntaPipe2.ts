@@ -9,6 +9,7 @@ import type {
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { setLastLlmPromptTrace } from "./llmPromptTraceStore.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 
@@ -40,6 +41,8 @@ export interface Pipe2Input {
   historico: PerguntaCardHistorico[];
   classificacao: PerguntaClassificacao;
   queriesDisponiveis: QueryDisponivel[];
+  /** ID da primeira categoria classificada, para lookup de override de prompt. */
+  categoryId?: number | null;
 }
 
 export interface Pipe2Result {
@@ -352,6 +355,7 @@ async function planejarConsultaEstruturada(input: {
   classificacao: PerguntaClassificacao;
   historico: PerguntaCardHistorico[];
   queriesDisponiveis: QueryDisponivel[];
+  categoryId?: number | null;
 }): Promise<{ plano: PlanoConsulta; costUsd: number }> {
   const dataAtual = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
 
@@ -385,8 +389,9 @@ async function planejarConsultaEstruturada(input: {
 
   const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50}}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
+  const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
-    system: SYSTEM_PLANEJAMENTO_ESTRUTURADO,
+    system: systemPrompt,
     user,
     jsonObject: true,
     source: "planejamento_estruturado",
@@ -549,6 +554,7 @@ async function gerarRespostaEstruturada(input: {
   plano: PlanoConsulta;
   porQuery: QueryExecResultado[];
   agregado: PerguntaResultadoEstruturado;
+  categoryId?: number | null;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const queries_executadas = input.plano.queries.map((q) => ({
     query_id: q.query_id,
@@ -597,8 +603,9 @@ async function gerarRespostaEstruturada(input: {
     })),
   });
 
+  const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_resposta_estruturada_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
-    system: SYSTEM_RESPOSTA_ESTRUTURADA,
+    system: systemPrompt,
     user,
     jsonObject: true,
     source: "resposta_estruturada",
@@ -652,6 +659,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     classificacao: input.classificacao,
     historico: input.historico,
     queriesDisponiveis: input.queriesDisponiveis,
+    categoryId: input.categoryId,
   });
   totalCost += c1;
 
@@ -691,6 +699,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     plano: planoExec,
     porQuery,
     agregado,
+    categoryId: input.categoryId,
   });
   totalCost += c2;
 

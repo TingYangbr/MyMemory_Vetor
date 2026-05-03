@@ -765,6 +765,89 @@
   margin-right: auto;
 }
 
+/* ── Category overrides ──────────────────────────────────────────────────── */
+
+.promptCatOverridesSection {
+  margin-top: 1rem;
+  border-top: 1px solid var(--mm-border);
+  padding-top: 0.85rem;
+}
+
+.promptCatOverridesTitle {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+  margin-bottom: 0.6rem;
+}
+
+.promptCatTable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.83rem;
+  margin-bottom: 0.75rem;
+}
+
+.promptCatTable th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--mm-text-secondary);
+  padding: 0.25rem 0.5rem;
+  border-bottom: 1px solid var(--mm-border);
+}
+
+.promptCatTable td {
+  padding: 0.35rem 0.5rem;
+  vertical-align: top;
+  border-bottom: 1px solid var(--mm-border-light, #f1f5f9);
+}
+
+.promptCatName {
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--mm-text);
+  width: 10rem;
+}
+
+.promptCatTextarea {
+  width: 100%;
+  min-width: 16rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 0.83rem;
+  line-height: 1.55;
+  resize: vertical;
+  background: #fff;
+  color: var(--mm-text);
+  box-sizing: border-box;
+}
+
+.promptCatTextarea:focus {
+  outline: 2px solid var(--mm-accent);
+  outline-offset: -1px;
+  border-color: var(--mm-accent);
+}
+
+.promptCatAddRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.promptCatSelect {
+  padding: 0.4rem 0.55rem;
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-sm);
+  font-size: 0.83rem;
+  background: #fff;
+  color: var(--mm-text);
+  font-family: inherit;
+  min-width: 10rem;
+}
+
 /* ── Botão impressora ────────────────────────────────────────────────────── */
 
 .printBtn {

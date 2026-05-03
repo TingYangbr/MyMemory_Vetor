@@ -6,6 +6,7 @@ import type {
   PerguntaResposta,
 } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
 import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
@@ -24,6 +25,8 @@ export interface Pipe3Input {
   thresholdInitial: number;
   thresholdMin: number;
   escopoMemoIds?: number[];
+  /** ID da primeira categoria classificada, para lookup de override de prompt. */
+  categoryId?: number | null;
 }
 
 export interface Pipe3Result {
@@ -68,6 +71,7 @@ async function gerarRespostaHibrida(input: {
   pergunta: string;
   pipe1: Awaited<ReturnType<typeof executarPipe1>>;
   pipe2: Awaited<ReturnType<typeof executarPipe2>>;
+  categoryId?: number | null;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const { pipe1, pipe2 } = input;
 
@@ -88,7 +92,8 @@ async function gerarRespostaHibrida(input: {
 
   const user = `Elabore a resposta híbrida combinando dados estruturados e semânticos.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON:\n{"resposta":"","dados_usados":[{"memo_id":0,"trecho_usado":""}],"limitacoes":[],"confianca_estimada":0.0}`;
 
-  const { text, costUsd } = await invokeLLM({ system: SYSTEM_RESPOSTA_HIBRIDA, user, jsonObject: true, source: "resposta_hibrida" });
+  const systemPrompt = await getActiveSystemPrompt("perguntas_pipe3_resposta_hibrida_system", input.categoryId);
+  const { text, costUsd } = await invokeLLM({ system: systemPrompt, user, jsonObject: true, source: "resposta_hibrida" });
 
   type RawResp = {
     resposta?: string;
@@ -147,6 +152,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     thresholdInitial: input.thresholdInitial,
     thresholdMin: input.thresholdMin,
     escopoMemoIds: input.escopoMemoIds,
+    categoryId: input.categoryId,
   };
 
   const pipe2Input: Pipe2Input = {
@@ -157,6 +163,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     historico: input.historico,
     classificacao: input.classificacao,
     queriesDisponiveis: input.queriesDisponiveis,
+    categoryId: input.categoryId,
   };
 
   // Pipe 1 e Pipe 2 correm em paralelo — cada um é independente
@@ -169,6 +176,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     pergunta: input.pergunta,
     pipe1,
     pipe2,
+    categoryId: input.categoryId,
   });
 
   return {

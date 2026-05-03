@@ -7,6 +7,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
+import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -21,6 +22,8 @@ export interface Pipe1Input {
   thresholdMin: number;
   /** Quando definido, restringe a busca a estes memo_ids (escopo "contexto_sessao"). */
   escopoMemoIds?: number[];
+  /** ID da primeira categoria classificada, para lookup de override de prompt. */
+  categoryId?: number | null;
 }
 
 export interface Pipe1Result {
@@ -168,6 +171,7 @@ function rankAndFilter(
 async function gerarRespostaSemantica(input: {
   pergunta: string;
   memos: MemoHit[];
+  categoryId?: number | null;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const memosPayload = input.memos.map((m) => {
     let camposEstruturados: Record<string, unknown> | null = null;
@@ -199,7 +203,8 @@ async function gerarRespostaSemantica(input: {
 
   const user = `Elabore a resposta final.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON:\n{"resposta":"","tipo_resposta":"semantica","dados_usados":[{"memo_id":"","trecho_usado":""}],"limitacoes":[],"confianca_estimada":0.0}`;
 
-  const { text, costUsd } = await invokeLLM({ system: SYSTEM_RESPOSTA_SEMANTICA, user, jsonObject: true, source: "resposta_semantica" });
+  const systemPrompt = await getActiveSystemPrompt("perguntas_pipe1_resposta_semantica_system", input.categoryId);
+  const { text, costUsd } = await invokeLLM({ system: systemPrompt, user, jsonObject: true, source: "resposta_semantica" });
 
   type RawResp = {
     resposta?: string;
@@ -269,6 +274,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
   const { resposta, costUsd } = await gerarRespostaSemantica({
     pergunta: input.pergunta,
     memos,
+    categoryId: input.categoryId,
   });
 
   return {

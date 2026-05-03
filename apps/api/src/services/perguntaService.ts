@@ -262,6 +262,12 @@ export async function perguntarMemory(input: {
   const thInitial = input.thresholdInitial ?? 0.7;
   const thMin = input.thresholdMin ?? 0.3;
 
+  // Resolve o ID da primeira categoria para lookup de override de prompt nas chamadas 2-5
+  const firstCategoryName = classificacao.categorias[0] ?? null;
+  const firstCategoryId = firstCategoryName
+    ? (input.categories.find((c) => c.isActive === 1 && c.name === firstCategoryName)?.id ?? null)
+    : null;
+
   // ── Pipe 1 — Semântica ────────────────────────────────────────────────────
   if (classificacao.pipe === "semantica") {
     const escopoIds = classificacao.escopo_sugerido === "contexto_sessao"
@@ -276,6 +282,7 @@ export async function perguntarMemory(input: {
       thresholdInitial: thInitial,
       thresholdMin: thMin,
       escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
+      categoryId: firstCategoryId,
     });
     return {
       resposta: result.resposta,
@@ -299,6 +306,7 @@ export async function perguntarMemory(input: {
       historico: input.historico,
       classificacao,
       queriesDisponiveis,
+      categoryId: firstCategoryId,
     });
     return {
       resposta: result.resposta,
@@ -324,6 +332,7 @@ export async function perguntarMemory(input: {
     thresholdInitial: thInitial,
     thresholdMin: thMin,
     escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
+    categoryId: firstCategoryId,
   });
   return {
     resposta: result.resposta,

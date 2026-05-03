@@ -1106,3 +1106,26 @@ export interface LlmPromptConfig {
 export interface LlmPromptConfigListResponse {
   configs: LlmPromptConfig[];
 }
+
+export interface LlmPromptCategoryOverride {
+  id: number;
+  prompt_chave: string;
+  category_id: number;
+  category_name: string | null;
+  texto: string;
+  updatedat: string;
+}
+
+export interface LlmPromptCategoryOverrideListResponse {
+  overrides: LlmPromptCategoryOverride[];
+}
+
+export interface AdminPromptCategory {
+  id: number;
+  name: string;
+  groupId: number | null;
+}
+
+export interface AdminPromptCategoryListResponse {
+  categories: AdminPromptCategory[];
+}

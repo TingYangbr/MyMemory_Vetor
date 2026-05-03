@@ -3,7 +3,11 @@ import { Link } from "react-router-dom";
 import type {
   AdminCostReportMediaFilter,
   AdminCostReportResponse,
+  AdminPromptCategory,
+  AdminPromptCategoryListResponse,
   HardDeleteSoftDeletedMonthResponse,
+  LlmPromptCategoryOverride,
+  LlmPromptCategoryOverrideListResponse,
   LlmPromptConfig,
   LlmPromptConfigListResponse,
   MeResponse,
@@ -517,6 +521,15 @@ export default function AdminPage() {
   const [promptDrafts, setPromptDrafts] = useState<Record<string, { texto_padrao: string; texto_atual: string }>>({});
   const [promptSaving, setPromptSaving] = useState<Set<string>>(new Set());
   const [promptSaveOk, setPromptSaveOk] = useState<Set<string>>(new Set());
+  // category overrides
+  const [catOverrides, setCatOverrides] = useState<Record<string, LlmPromptCategoryOverride[]>>({});
+  const [catOverridesLoaded, setCatOverridesLoaded] = useState<Set<string>>(new Set());
+  const [catAvailable, setCatAvailable] = useState<AdminPromptCategory[]>([]);
+  // novo override em edição: chave → {categoryId, texto}
+  const [newCatOverride, setNewCatOverride] = useState<Record<string, { categoryId: number | ""; texto: string }>>({});
+  // saving/deleting: "chave:categoryId"
+  const [catOverrideSaving, setCatOverrideSaving] = useState<Set<string>>(new Set());
+  const [catOverrideDeleting, setCatOverrideDeleting] = useState<Set<string>>(new Set());
 
   const loadCostReport = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
@@ -688,10 +701,14 @@ export default function AdminPage() {
   const loadPromptConfigs = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
     setPromptsErr(null);
-    return apiGet<LlmPromptConfigListResponse>("/api/admin/prompt-configs")
-      .then((r) => {
+    return Promise.all([
+      apiGet<LlmPromptConfigListResponse>("/api/admin/prompt-configs"),
+      apiGet<AdminPromptCategoryListResponse>("/api/admin/prompt-configs/categories"),
+    ])
+      .then(([r, cats]) => {
         setPromptConfigs(r.configs);
         setPromptsLoaded(true);
+        setCatAvailable(cats.categories);
         // seed drafts with current values
         setPromptDrafts((prev) => {
           const next = { ...prev };
@@ -712,6 +729,66 @@ export default function AdminPage() {
       })
       .catch((e) => setPromptsErr(e instanceof Error ? e.message : "Erro ao carregar prompts."));
   }, [me?.role]);
+
+  const loadCatOverrides = useCallback(async (chave: string) => {
+    if (me?.role !== "admin") return;
+    try {
+      const r = await apiGet<LlmPromptCategoryOverrideListResponse>(
+        `/api/admin/prompt-configs/${encodeURIComponent(chave)}/category-overrides`
+      );
+      setCatOverrides((prev) => ({ ...prev, [chave]: r.overrides }));
+      setCatOverridesLoaded((prev) => new Set([...prev, chave]));
+    } catch {
+      // ignora erro silencioso; pode tentar novamente
+    }
+  }, [me?.role]);
+
+  async function saveCatOverride(chave: string) {
+    const draft = newCatOverride[chave];
+    if (!draft || draft.categoryId === "") return;
+    const key = `${chave}:${draft.categoryId}`;
+    setCatOverrideSaving((prev) => new Set([...prev, key]));
+    try {
+      await apiGet<void>(`/api/admin/prompt-configs/${encodeURIComponent(chave)}/category-overrides/${draft.categoryId}`)
+        .catch(() => null); // ignora — PUT faz upsert
+      const resp = await fetch(
+        `/api/admin/prompt-configs/${encodeURIComponent(chave)}/category-overrides/${draft.categoryId}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({ texto: draft.texto }),
+        }
+      );
+      if (!resp.ok) {
+        const j = await resp.json().catch(() => ({})) as { message?: string };
+        throw new Error(j.message ?? `HTTP ${resp.status}`);
+      }
+      setNewCatOverride((prev) => ({ ...prev, [chave]: { categoryId: "", texto: "" } }));
+      await loadCatOverrides(chave);
+    } catch (e) {
+      setPromptsErr(e instanceof Error ? e.message : "Erro ao salvar override.");
+    } finally {
+      setCatOverrideSaving((prev) => { const n = new Set(prev); n.delete(key); return n; });
+    }
+  }
+
+  async function deleteCatOverride(chave: string, categoryId: number) {
+    const key = `${chave}:${categoryId}`;
+    setCatOverrideDeleting((prev) => new Set([...prev, key]));
+    try {
+      const resp = await fetch(
+        `/api/admin/prompt-configs/${encodeURIComponent(chave)}/category-overrides/${categoryId}`,
+        { method: "DELETE", credentials: "include" }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      await loadCatOverrides(chave);
+    } catch (e) {
+      setPromptsErr(e instanceof Error ? e.message : "Erro ao remover override.");
+    } finally {
+      setCatOverrideDeleting((prev) => { const n = new Set(prev); n.delete(key); return n; });
+    }
+  }
 
   useEffect(() => {
     if (me?.role === "admin" && tab === "prompts" && !promptsLoaded) {
@@ -1308,6 +1385,14 @@ export default function AdminPage() {
                             const isDirty =
                               draft.texto_padrao !== (cfg.texto_padrao ?? "") ||
                               draft.texto_atual !== (cfg.texto_atual ?? "");
+                            const hasCatOverrides = cfg.chave !== "perguntas_pipe1_classificacao_system";
+                            const overridesForChave = catOverrides[cfg.chave] ?? [];
+                            const catNewDraft = newCatOverride[cfg.chave] ?? { categoryId: "" as const, texto: "" };
+
+                            // Carrega overrides na primeira vez que o card é renderizado
+                            if (hasCatOverrides && !catOverridesLoaded.has(cfg.chave)) {
+                              void loadCatOverrides(cfg.chave);
+                            }
 
                             return (
                               <div key={cfg.chave} className={styles.promptCard}>
@@ -1341,7 +1426,11 @@ export default function AdminPage() {
                                     <div className={styles.promptFieldLabel}>
                                       <span>
                                         Texto atual{" "}
-                                        <em className={styles.promptFieldHint}>(override — vazio usa o padrão)</em>
+                                        <em className={styles.promptFieldHint}>
+                                          {hasCatOverrides
+                                            ? "(override global — menos prioritário que override por categoria)"
+                                            : "(override — vazio usa o padrão)"}
+                                        </em>
                                       </span>
                                       <button
                                         type="button"
@@ -1382,6 +1471,127 @@ export default function AdminPage() {
                                     {saving ? "Salvando…" : "Salvar"}
                                   </button>
                                 </div>
+
+                                {hasCatOverrides ? (
+                                  <div className={styles.promptCatOverridesSection}>
+                                    <div className={styles.promptCatOverridesTitle}>
+                                      Overrides por categoria
+                                      <em className={styles.promptFieldHint}> (maior prioridade que texto atual)</em>
+                                    </div>
+
+                                    {overridesForChave.length > 0 ? (
+                                      <table className={styles.promptCatTable}>
+                                        <thead>
+                                          <tr>
+                                            <th>Categoria</th>
+                                            <th>Texto</th>
+                                            <th></th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {overridesForChave.map((ov) => {
+                                            const delKey = `${cfg.chave}:${ov.category_id}`;
+                                            const isDeleting = catOverrideDeleting.has(delKey);
+                                            return (
+                                              <tr key={ov.id}>
+                                                <td className={styles.promptCatName}>
+                                                  {ov.category_name ?? `#${ov.category_id}`}
+                                                </td>
+                                                <td>
+                                                  <textarea
+                                                    className={styles.promptCatTextarea}
+                                                    defaultValue={ov.texto}
+                                                    rows={4}
+                                                    onBlur={(e) => {
+                                                      const newTexto = e.currentTarget.value.trim();
+                                                      if (newTexto && newTexto !== ov.texto) {
+                                                        const saveKey = `${cfg.chave}:${ov.category_id}`;
+                                                        setCatOverrideSaving((prev) => new Set([...prev, saveKey]));
+                                                        fetch(
+                                                          `/api/admin/prompt-configs/${encodeURIComponent(cfg.chave)}/category-overrides/${ov.category_id}`,
+                                                          {
+                                                            method: "PUT",
+                                                            headers: { "Content-Type": "application/json" },
+                                                            credentials: "include",
+                                                            body: JSON.stringify({ texto: newTexto }),
+                                                          }
+                                                        )
+                                                          .then(() => loadCatOverrides(cfg.chave))
+                                                          .catch((err) => setPromptsErr(err instanceof Error ? err.message : "Erro ao salvar."))
+                                                          .finally(() => setCatOverrideSaving((prev) => { const n = new Set(prev); n.delete(saveKey); return n; }));
+                                                      }
+                                                    }}
+                                                  />
+                                                  {catOverrideSaving.has(`${cfg.chave}:${ov.category_id}`) ? (
+                                                    <span className={styles.promptSaveOk}>Salvando…</span>
+                                                  ) : null}
+                                                </td>
+                                                <td>
+                                                  <button
+                                                    type="button"
+                                                    className="mm-btn mm-btn--ghost"
+                                                    disabled={isDeleting}
+                                                    onClick={() => void deleteCatOverride(cfg.chave, ov.category_id)}
+                                                  >
+                                                    {isDeleting ? "…" : "Remover"}
+                                                  </button>
+                                                </td>
+                                              </tr>
+                                            );
+                                          })}
+                                        </tbody>
+                                      </table>
+                                    ) : (
+                                      <p className="mm-muted" style={{ fontSize: "0.85rem", margin: "0.25rem 0 0.75rem" }}>
+                                        Nenhum override por categoria cadastrado.
+                                      </p>
+                                    )}
+
+                                    <div className={styles.promptCatAddRow}>
+                                      <select
+                                        className={styles.promptCatSelect}
+                                        value={catNewDraft.categoryId}
+                                        onChange={(e) =>
+                                          setNewCatOverride((prev) => ({
+                                            ...prev,
+                                            [cfg.chave]: { ...catNewDraft, categoryId: e.target.value ? Number(e.target.value) : "" },
+                                          }))
+                                        }
+                                      >
+                                        <option value="">— Selecionar categoria —</option>
+                                        {catAvailable
+                                          .filter((cat) => !overridesForChave.some((ov) => ov.category_id === cat.id))
+                                          .map((cat) => (
+                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                          ))}
+                                      </select>
+                                      <textarea
+                                        className={styles.promptCatTextarea}
+                                        rows={3}
+                                        placeholder="Texto do override para esta categoria…"
+                                        value={catNewDraft.texto}
+                                        onChange={(e) =>
+                                          setNewCatOverride((prev) => ({
+                                            ...prev,
+                                            [cfg.chave]: { ...catNewDraft, texto: e.target.value },
+                                          }))
+                                        }
+                                      />
+                                      <button
+                                        type="button"
+                                        className="mm-btn mm-btn--primary"
+                                        disabled={
+                                          catNewDraft.categoryId === "" ||
+                                          !catNewDraft.texto.trim() ||
+                                          catOverrideSaving.has(`${cfg.chave}:${catNewDraft.categoryId}`)
+                                        }
+                                        onClick={() => void saveCatOverride(cfg.chave)}
+                                      >
+                                        Adicionar
+                                      </button>
+                                    </div>
+                                  </div>
+                                ) : null}
                               </div>
                             );
                           })}
