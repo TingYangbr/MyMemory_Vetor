@@ -303,7 +303,7 @@ function bindTemplateParams(
     const isDate = def?.tipo === "date" || def?.tipo === "data";
     if (!/LIKE/i.test(def?.operadorSql ?? "") || paramMap[key] == null) continue;
     const before = sentencaSql.slice(0, token.start);
-    const likeMatch = /([^\s,()]+)\s+I?LIKE\s*$/i.exec(before);
+    const likeMatch = /([^\s,()][^,()]*)\s+I?LIKE\s*$/i.exec(before);
     if (likeMatch) {
       token.colExpr = likeMatch[1];
       token.colStart = token.start - likeMatch[0].length;
