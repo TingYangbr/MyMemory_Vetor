@@ -35,9 +35,27 @@ function truncateOriginalTextForMeta(s: string): string {
   return s.length <= ORIGINAL_TEXT_META_MAX ? s : s.slice(0, ORIGINAL_TEXT_META_MAX);
 }
 
+function stripAccents(s: string): string {
+  return s.normalize("NFD").replace(/\p{Mn}/gu, "");
+}
+
+function stripAccentsFromDadosJson(json: string | null): string | null {
+  if (!json) return json;
+  try {
+    const parsed = JSON.parse(json) as Record<string, string>;
+    const result: Record<string, string> = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      result[k] = typeof v === "string" ? stripAccents(v) : (v as string);
+    }
+    return JSON.stringify(result);
+  } catch {
+    return json;
+  }
+}
+
 function keywordsForStorage(raw: string | null | undefined): string | null {
   if (raw == null) return null;
-  const t = raw.trim();
+  const t = stripAccents(raw.trim());
   if (!t) return null;
   const d = dedupeMemoKeywordsCommaSeparated(t);
   return d.length ? d : null;
@@ -459,8 +477,8 @@ export async function createMemoTextReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
-  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
-  const text = input.mediaText.trim();
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
   const sql = `
     INSERT INTO memos (
       userId, groupId, mediaType,
@@ -478,7 +496,7 @@ export async function createMemoTextReviewed(input: {
     cost,
     usedCred,
     tam,
-    input.category?.trim() || null,
+    stripAccents(input.category?.trim() ?? "") || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -538,8 +556,8 @@ export async function createMemoUrlReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
-  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
-  const text = input.mediaText.trim();
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
   const tam = Buffer.byteLength(input.originalText, "utf8");
   const sql = `
     INSERT INTO memos (
@@ -560,7 +578,7 @@ export async function createMemoUrlReviewed(input: {
     cost,
     usedCred,
     tam,
-    input.category?.trim() || null,
+    stripAccents(input.category?.trim() ?? "") || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -621,8 +639,8 @@ export async function createMemoImageReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
-  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
-  const text = input.mediaText.trim();
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
   const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
   const sql = `
     INSERT INTO memos (
@@ -642,7 +660,7 @@ export async function createMemoImageReviewed(input: {
     cost,
     usedCred,
     tam,
-    input.category?.trim() || null,
+    stripAccents(input.category?.trim() ?? "") || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -703,8 +721,8 @@ export async function createMemoAudioReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
-  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
-  const text = input.mediaText.trim();
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
   const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
   const sql = `
     INSERT INTO memos (
@@ -724,7 +742,7 @@ export async function createMemoAudioReviewed(input: {
     cost,
     usedCred,
     tam,
-    input.category?.trim() || null,
+    stripAccents(input.category?.trim() ?? "") || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -785,8 +803,8 @@ export async function createMemoVideoReviewed(input: {
   const mult = await getUsdToCreditsMultiplier();
   const usedCred = creditsFromUsdCost(cost, mult);
   const kw = keywordsForStorage(input.keywords);
-  const dadosJson = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
-  const text = input.mediaText.trim();
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
   const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
   const sql = `
     INSERT INTO memos (
@@ -806,7 +824,7 @@ export async function createMemoVideoReviewed(input: {
     cost,
     usedCred,
     tam,
-    input.category?.trim() || null,
+    stripAccents(input.category?.trim() ?? "") || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -992,7 +1010,7 @@ export async function updateMemoForUser(input: {
   const vals: unknown[] = [];
   if (input.mediaText !== undefined) {
     sets.push("mediaText = ?");
-    vals.push(input.mediaText.trim());
+    vals.push(stripAccents(input.mediaText.trim()));
   }
   if (input.keywords !== undefined) {
     sets.push("keywords = ?");
@@ -1000,11 +1018,11 @@ export async function updateMemoForUser(input: {
   }
   if (input.dadosEspecificosJson !== undefined) {
     sets.push("dadosEspecificosJson = ?");
-    vals.push(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+    vals.push(stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson)));
   }
   if (input.category !== undefined) {
     sets.push("category = ?");
-    vals.push(input.category?.trim() || null);
+    vals.push(stripAccents(input.category?.trim() ?? "") || null);
   }
   if (!sets.length) {
     const row = await getMemoById(input.memoId, input.userId);
@@ -1014,7 +1032,7 @@ export async function updateMemoForUser(input: {
   vals.push(input.memoId, input.userId);
   await pool.query(`UPDATE memos SET ${sets.join(", ")} WHERE id = ? AND userId = ?`, vals);
   if (input.dadosEspecificosJson !== undefined) {
-    const dadosNormalized = normalizeDadosEspecificosJson(input.dadosEspecificosJson);
+    const dadosNormalized = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
     await trySyncMemoDadosEspecificosRows({
       memoId: input.memoId,
       groupId: current.groupId,
@@ -1193,7 +1211,7 @@ export async function finalizeDocumentMemoReview(input: {
       : null;
   const suggestedCategoryFromProcess =
     typeof meta.reviewSuggestedCategory === "string" && meta.reviewSuggestedCategory.trim()
-      ? String(meta.reviewSuggestedCategory).trim()
+      ? stripAccents(String(meta.reviewSuggestedCategory).trim())
       : null;
   delete meta.reviewSuggestedDadosEspecificosJson;
   delete meta.reviewSuggestedDadosEspecificosOriginaisJson;
@@ -1211,7 +1229,7 @@ export async function finalizeDocumentMemoReview(input: {
   const kw = keywordsForStorage(input.keywords);
   const dadosRaw =
     input.dadosEspecificosJson !== undefined ? input.dadosEspecificosJson : suggestedDadosFromProcess;
-  const dadosJson = normalizeDadosEspecificosJson(dadosRaw);
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(dadosRaw));
   const dadosOriginaisRaw =
     input.dadosEspecificosOriginaisJson !== undefined
       ? input.dadosEspecificosOriginaisJson
@@ -1220,9 +1238,9 @@ export async function finalizeDocumentMemoReview(input: {
     input.matchedCategoryId !== undefined ? input.matchedCategoryId : suggestedMatchedCategoryIdFromProcess;
   const category =
     input.category !== undefined
-      ? (input.category?.trim() || null)
+      ? (stripAccents(input.category?.trim() ?? "") || null)
       : suggestedCategoryFromProcess;
-  const text = input.mediaText.trim();
+  const text = stripAccents(input.mediaText.trim());
   await pool.query(
     `UPDATE memos SET mediaText = ?, keywords = ?, dadosEspecificosJson = ?, mediaMetadata = ?, apiCost = ?, usedApiCred = ?, category = ? WHERE id = ? AND userId = ?`,
     [text, kw, dadosJson, JSON.stringify(meta), cost, usedCred, category, input.memoId, input.userId]

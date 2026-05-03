@@ -332,7 +332,8 @@ function bindTemplateParams(
       // Parâmetro comum
       result += sentencaSql.slice(pos, token.start);
       if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
-        val = `%${String(val)}%`;
+        const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
+        val = `%${stripped}%`;
       }
       values.push(val);
       result += `?::${cast}`;
