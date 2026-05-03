@@ -386,7 +386,10 @@ function bindTemplateParams(
         val = `%${stripped}%`;
       }
       values.push(val);
-      result += `?::${cast}`;
+      // Se o template já tem ::tipo imediatamente após o placeholder (ex: :param::numeric),
+      // usa só ? para evitar duplo cast ?::text::numeric. O cast do template resolve.
+      const hasTrailingCast = sentencaSql.slice(token.end, token.end + 2) === "::";
+      result += hasTrailingCast ? "?" : `?::${cast}`;
       pos = token.end;
     }
   }
