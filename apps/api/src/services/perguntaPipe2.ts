@@ -194,34 +194,56 @@ function sanitizeIdentifier(name: string): string {
  * Envolve o SQL base (já com parâmetros bindados) em um CTE e aplica
  * GROUP BY / função de agregação / ORDER BY / LIMIT conforme especificado pelo LLM.
  */
+// Mapeia nomes que o LLM usa no order_by para os aliases reais gerados por applyAgregacao.
+// O LLM tende a usar nomes como "count", "sum", "avg" sem saber o alias exato (ex: "contagem").
+const MEDIDA_ALIAS: Record<string, string> = {
+  count: "contagem", contagem: "contagem",
+  sum: "total", total: "total",
+  avg: "media", media: "media", average: "media",
+  min: "minimo", minimo: "minimo",
+  max: "maximo", maximo: "maximo",
+};
+
 function applyAgregacao(baseSql: string, ag: PlanoAgregacao): string {
   const cleanBase = stripLimitOffset(baseSql);
 
   const groupCols = ag.group_by.map(sanitizeIdentifier);
-  const orderClauses = ag.order_by.map(
-    (o) => `${sanitizeIdentifier(o.campo)} ${o.direcao === "desc" ? "DESC" : "ASC"}`
-  );
+
+  // Normaliza o campo de order_by: se o LLM referenciou o alias da medida pelo nome
+  // genérico (ex: "count"), substitui pelo alias real gerado abaixo (ex: "contagem").
+  const resolveOrderCampo = (campo: string): string =>
+    MEDIDA_ALIAS[campo.toLowerCase()] ?? campo;
+
   const limitClause = ag.limit ? ` LIMIT ${ag.limit}` : "";
 
   // Sem função de medida — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
   if (!ag.medida) {
     const cols = groupCols.length > 0 ? groupCols.join(", ") : "*";
+    const orderClauses = ag.order_by.map(
+      (o) => `${sanitizeIdentifier(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
+    );
     let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${cols} FROM _base`;
     if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
     sql += limitClause;
     return sql;
   }
 
+  let measureAlias: string;
   let measureExpr: string;
   if (ag.medida === "count") {
-    measureExpr = "COUNT(*) AS contagem";
+    measureAlias = "contagem";
+    measureExpr = `COUNT(*) AS ${measureAlias}`;
   } else {
     if (!ag.campo_medida) throw new Error(`campo_medida obrigatório para medida "${ag.medida}"`);
     const col = sanitizeIdentifier(ag.campo_medida);
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
-    const alias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
-    measureExpr = `${fnName}(${col}) AS ${alias}`;
+    measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
+    measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
   }
+
+  const orderClauses = ag.order_by.map(
+    (o) => `${sanitizeIdentifier(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
+  );
 
   const selectList = groupCols.length > 0
     ? `${groupCols.join(", ")}, ${measureExpr}`
