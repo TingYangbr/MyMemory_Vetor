@@ -19,17 +19,6 @@ const SOURCE_LABELS: Record<AudioMemoReviewNavState["source"], string> = {
 const IA_LEVELS = new Set<string>(["semIA", "basico", "completo"]);
 const SOURCES = new Set<string>(["none", "speech_basic", "speech_full", "speech_segmented"]);
 
-function formatDadosEspecificosPreview(raw: string | null | undefined): string {
-  const t = raw?.trim();
-  if (!t) return "";
-  try {
-    const j = JSON.parse(t) as unknown;
-    return JSON.stringify(j, null, 2);
-  } catch {
-    return t;
-  }
-}
-
 function parseDadosEntries(raw: string | null | undefined): Array<{ key: string; value: string }> {
   const t = raw?.trim();
   if (!t) return [];
@@ -42,7 +31,7 @@ function parseDadosEntries(raw: string | null | undefined): Array<{ key: string;
       if (!key) continue;
       const value =
         v == null ? "" : typeof v === "string" ? v.trim() : typeof v === "number" || typeof v === "boolean" ? String(v) : "";
-      out.push({ key, value: value || "—" });
+      out.push({ key, value });
     }
     return out;
   } catch {
@@ -148,7 +137,7 @@ export default function MemoAudioReviewPage() {
 
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
-  const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [dadosEntries, setDadosEntries] = useState<Array<{ key: string; value: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -158,6 +147,11 @@ export default function MemoAudioReviewPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const kwRef = useRef<HTMLTextAreaElement | null>(null);
+  const dadosInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+
+  const updateDadosEntry = useCallback((key: string, value: string) => {
+    setDadosEntries(prev => prev.map(e => e.key === key ? { ...e, value } : e));
+  }, []);
 
   useEffect(() => {
     void apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -181,9 +175,7 @@ export default function MemoAudioReviewPage() {
     if (!state) return;
     setMediaText(state.suggestedMediaText);
     setKeywords(dedupeMemoKeywordsCommaSeparated(state.suggestedKeywords));
-    setDadosEspecificosJson(
-      typeof state.dadosEspecificosJson === "string" ? state.dadosEspecificosJson.trim() : ""
-    );
+    setDadosEntries(parseDadosEntries(state.dadosEspecificosJson));
     setSelectedCategoryId(state.matchedCategoryId ?? null);
     setSelectedCategoryName(state.category ?? null);
   }, [state]);
@@ -206,7 +198,9 @@ export default function MemoAudioReviewPage() {
         apiCost: state.apiCost,
         originalText: state.originalText,
         iaLevel: state.iaLevel,
-        dadosEspecificosJson: dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
+        dadosEspecificosJson: dadosEntries.length > 0
+          ? JSON.stringify(Object.fromEntries(dadosEntries.map(e => [e.key, e.value])))
+          : null,
         dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: selectedCategoryId,
         category: selectedCategoryName,
@@ -221,7 +215,7 @@ export default function MemoAudioReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [state, overLimit, mediaText, keywords, dadosEspecificosJson, selectedCategoryId, selectedCategoryName, navigate]);
+  }, [state, overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -235,6 +229,9 @@ export default function MemoAudioReviewPage() {
     onSave,
     canSave: state != null && !busy && !overLimit,
     setError,
+    dadosEntries,
+    setDadosEntry: updateDadosEntry,
+    dadosInputRefs,
   });
 
   if (!state) {
@@ -251,9 +248,6 @@ export default function MemoAudioReviewPage() {
   const showTranscriptBlock = state.originalText.trim().length > 0;
 
   const kindExt = reviewFileKindExtension(state.originalFilename);
-  const dadosPreview = formatDadosEspecificosPreview(dadosEspecificosJson);
-  const dadosEntries = parseDadosEntries(dadosEspecificosJson);
-
   const processFooterSegments: string[] = [];
   if (state.processingWarning?.trim()) processFooterSegments.push(state.processingWarning.trim());
   if (showApiCost) {
@@ -362,14 +356,24 @@ export default function MemoAudioReviewPage() {
               <div id="memo-audio-review-dados" className={styles.dadosList}>
                 {dadosEntries.map((it) => (
                   <div key={it.key} className={styles.dadosRow}>
-                    <span className={styles.dadosKey}>{it.key}:</span>
-                    <span className={styles.dadosVal}>{it.value}</span>
+                    <label className={styles.dadosKey} htmlFor={`review-dados-${it.key}`}>{it.key}:</label>
+                    <input
+                      id={`review-dados-${it.key}`}
+                      type="text"
+                      className={[styles.dadosValInput, voice.dadosFieldExtraClass(it.key)].filter(Boolean).join(" ")}
+                      value={it.value}
+                      ref={(el) => { dadosInputRefs.current.set(it.key, el); }}
+                      onChange={(e) => updateDadosEntry(it.key, e.target.value)}
+                      placeholder="(vazio)"
+                      autoComplete="off"
+                      {...voice.voiceDadosProps(it.key)}
+                    />
                   </div>
                 ))}
               </div>
             ) : (
               <div id="memo-audio-review-dados" className={styles.dadosList}>
-                <span className={styles.dadosEmpty}>{dadosPreview || "(vazio)"}</span>
+                <span className={styles.dadosEmpty}>(vazio)</span>
               </div>
             )}
           </div>

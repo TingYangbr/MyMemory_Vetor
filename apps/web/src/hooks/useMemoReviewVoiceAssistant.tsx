@@ -70,7 +70,7 @@ function stripWakePhrases(raw: string): string {
     .trim();
 }
 
-type EditTarget = "none" | "text" | "keywords";
+type EditTarget = "none" | "text" | "keywords" | "dados";
 
 export interface UseMemoReviewVoiceAssistantOptions {
   soundEnabled: boolean;
@@ -85,6 +85,10 @@ export interface UseMemoReviewVoiceAssistantOptions {
   onSave: () => void | Promise<void>;
   canSave: boolean;
   setError: Dispatch<SetStateAction<string | null>>;
+  /** Campos específicos editáveis (opcional — páginas sem dados omitem). */
+  dadosEntries?: Array<{ key: string; value: string }>;
+  setDadosEntry?: (key: string, value: string) => void;
+  dadosInputRefs?: RefObject<Map<string, HTMLInputElement | null>>;
 }
 
 export interface UseMemoReviewVoiceAssistantResult {
@@ -97,6 +101,12 @@ export interface UseMemoReviewVoiceAssistantResult {
   voiceTextAreaProps: { onFocus: () => void; onBlur: () => void };
   /** Combinar com onFocus/onBlur do textarea de keywords. */
   voiceKeywordsAreaProps: { onFocus: () => void; onBlur: () => void };
+  /** Combinar com onFocus/onBlur de cada input de campo específico. */
+  voiceDadosProps: (key: string) => { onFocus: () => void; onBlur: () => void };
+  /** Classe CSS extra para o input de um campo específico ativo com voz. */
+  dadosFieldExtraClass: (key: string) => string;
+  /** Chave do campo específico atualmente em edição por voz (null = nenhum). */
+  dadosActiveKey: string | null;
   /** Sugestão sob «Texto ou Resumo» (edição ou narração conforme preferências). */
   memoBodyHint: string;
   /** Sugestão sob «Palavras-chave» (voz vs só teclado). */
@@ -108,10 +118,12 @@ type VoiceBannerChips =
   | { kind: "message"; text: string }
   | { kind: "chips"; commands: string[]; faleMyMemoryPrefix?: boolean }
   | { kind: "editHintText" }
-  | { kind: "editHintKeywords" };
+  | { kind: "editHintKeywords" }
+  | { kind: "editHintDados"; fieldLabel: string };
 
 function buildReviewVoiceChips(
   editTarget: EditTarget,
+  dadosActiveKey: string | null,
   listeningPaused: boolean,
   soundEnabled: boolean,
   localMicOn: boolean
@@ -133,6 +145,9 @@ function buildReviewVoiceChips(
   }
   if (editTarget === "keywords") {
     return { kind: "editHintKeywords" };
+  }
+  if (editTarget === "dados") {
+    return { kind: "editHintDados", fieldLabel: dadosActiveKey ?? "campo" };
   }
   return {
     kind: "chips",
@@ -159,7 +174,7 @@ function VoiceReviewMicIcon({ className }: { className?: string }) {
 }
 
 function insertAtCursor(
-  el: HTMLTextAreaElement | null,
+  el: HTMLTextAreaElement | HTMLInputElement | null,
   value: string,
   chunk: string
 ): { next: string; caret: number } {
@@ -210,6 +225,7 @@ export function useMemoReviewVoiceAssistant(
   optsRef.current = options;
 
   const [editTarget, setEditTarget] = useState<EditTarget>("none");
+  const [dadosActiveKey, setDadosActiveKey] = useState<string | null>(null);
   const [listeningPaused, setListeningPaused] = useState(false);
   const [localMicOn, setLocalMicOn] = useState(true);
   const [srAvailable] = useState(() => Boolean(getSpeechRecognitionCtor()));
@@ -218,6 +234,7 @@ export function useMemoReviewVoiceAssistant(
   const wantListenRef = useRef(false);
   const sessionRef = useRef(0);
   const editTargetRef = useRef<EditTarget>("none");
+  const dadosActiveKeyRef = useRef<string | null>(null);
   const listeningPausedRef = useRef(false);
   const blurClearTimerRef = useRef<number | null>(null);
 
@@ -229,6 +246,9 @@ export function useMemoReviewVoiceAssistant(
   useEffect(() => {
     editTargetRef.current = editTarget;
   }, [editTarget]);
+  useEffect(() => {
+    dadosActiveKeyRef.current = dadosActiveKey;
+  }, [dadosActiveKey]);
   useEffect(() => {
     listeningPausedRef.current = listeningPaused;
   }, [listeningPaused]);
@@ -258,8 +278,11 @@ export function useMemoReviewVoiceAssistant(
       blurClearTimerRef.current = null;
       const a = document.activeElement;
       const o = optsRef.current;
-      if (a !== o.textAreaRef.current && a !== o.keywordsAreaRef.current) {
+      const dadosMap = o.dadosInputRefs?.current;
+      const isInDados = dadosMap ? [...dadosMap.values()].some(el => el !== null && el === a) : false;
+      if (a !== o.textAreaRef.current && a !== o.keywordsAreaRef.current && !isInDados) {
         setEditTarget("none");
+        setDadosActiveKey(null);
       }
     }, 90);
   }, [clearBlurTimer]);
@@ -279,6 +302,16 @@ export function useMemoReviewVoiceAssistant(
   }, [clearBlurTimer]);
 
   const onKeywordsVoiceBlur = useCallback(() => {
+    scheduleBlurClearEditTarget();
+  }, [scheduleBlurClearEditTarget]);
+
+  const onDadosFieldFocus = useCallback((key: string) => {
+    clearBlurTimer();
+    setEditTarget("dados");
+    setDadosActiveKey(key);
+  }, [clearBlurTimer]);
+
+  const onDadosFieldBlur = useCallback(() => {
     scheduleBlurClearEditTarget();
   }, [scheduleBlurClearEditTarget]);
 
@@ -443,6 +476,35 @@ export function useMemoReviewVoiceAssistant(
       return;
     }
 
+    if (et === "dados") {
+      const key = dadosActiveKeyRef.current;
+      if (!key) return;
+      if (wake && (n.includes("sair") || /\bok\b/.test(n))) {
+        setEditTarget("none");
+        setDadosActiveKey(null);
+        return;
+      }
+      if (wake && (n.includes("salvar") || n.includes("encerrar") || n.includes("terminar") || n.includes("finalizar"))) {
+        if (o.canSave) void o.onSave();
+        return;
+      }
+      const toInsert = wake ? stripWakePhrases(chunk) : chunk;
+      if (!toInsert.trim()) return;
+      const entry = o.dadosEntries?.find(e => e.key === key);
+      if (entry === undefined || !o.setDadosEntry) return;
+      const el = o.dadosInputRefs?.current?.get(key) ?? null;
+      const { next, caret } = insertAtCursor(el, entry.value, toInsert);
+      o.setDadosEntry(key, next);
+      queueMicrotask(() => {
+        const inputEl = o.dadosInputRefs?.current?.get(key) ?? null;
+        if (inputEl) {
+          inputEl.focus();
+          try { inputEl.setSelectionRange(caret, caret); } catch { /* */ }
+        }
+      });
+      return;
+    }
+
     /* idle */
     if (!wake) return;
 
@@ -526,6 +588,7 @@ export function useMemoReviewVoiceAssistant(
       const heardIsLive = Boolean(heardInterim);
       const voiceChips = buildReviewVoiceChips(
         editTarget,
+        dadosActiveKey,
         listeningPaused,
         options.soundEnabled,
         localMicOn
@@ -591,6 +654,13 @@ export function useMemoReviewVoiceAssistant(
                 <span className={reviewStyles.voiceReviewChip}>vírgula</span>
                 <span className={reviewStyles.voiceReviewEditHintText}>para separar as palavras</span>
               </div>
+            ) : voiceChips.kind === "editHintDados" ? (
+              <div className={reviewStyles.voiceReviewChipsInline}>
+                <span className={reviewStyles.voiceReviewEditHintMain}>
+                  Narrar valor:{" "}
+                  <strong>{voiceChips.fieldLabel}</strong>
+                </span>
+              </div>
             ) : null}
           </div>
           {voiceChips.kind === "message" ? (
@@ -622,6 +692,15 @@ export function useMemoReviewVoiceAssistant(
         : "",
     voiceTextAreaProps: { onFocus: onTextAreaVoiceFocus, onBlur: onTextAreaVoiceBlur },
     voiceKeywordsAreaProps: { onFocus: onKeywordsVoiceFocus, onBlur: onKeywordsVoiceBlur },
+    voiceDadosProps: (key: string) => ({
+      onFocus: () => onDadosFieldFocus(key),
+      onBlur: onDadosFieldBlur,
+    }),
+    dadosFieldExtraClass: (key: string) =>
+      editTarget === "dados" && dadosActiveKey === key && !listeningPaused && localMicOn && options.soundEnabled
+        ? reviewStyles.voiceReviewFieldPulse
+        : "",
+    dadosActiveKey,
     memoBodyHint: !options.active
       ? ""
       : options.soundEnabled

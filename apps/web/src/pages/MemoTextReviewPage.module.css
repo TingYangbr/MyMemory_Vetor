@@ -364,9 +364,9 @@
 
 .dadosRow {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem 0.45rem;
-  align-items: baseline;
+  flex-wrap: nowrap;
+  gap: 0.3rem 0.5rem;
+  align-items: center;
   font-size: 0.86rem;
   line-height: 1.35;
 }
@@ -374,12 +374,41 @@
 .dadosKey {
   font-weight: 700;
   color: #64748b;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
 }
 
 .dadosVal {
   font-weight: 700;
   color: #0f766e;
   word-break: break-word;
+}
+
+.dadosValInput {
+  flex: 1;
+  min-width: 0;
+  padding: 0.18rem 0.42rem;
+  border-radius: 5px;
+  border: 1px solid var(--mm-border, #d8dee6);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #0f766e;
+  background: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.dadosValInput:focus {
+  outline: none;
+  border-color: #14b8a6;
+  box-shadow: 0 0 0 2px rgba(20, 184, 166, 0.18);
+}
+
+.dadosValInput::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
 }
 
 .dadosEmpty {

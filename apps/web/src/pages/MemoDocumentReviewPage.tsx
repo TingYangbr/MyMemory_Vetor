@@ -31,17 +31,6 @@ function isLocationState(x: unknown): x is DocumentMemoReviewLocationState {
   return o.iaUseDocumento === "semIA" || o.iaUseDocumento === "basico" || o.iaUseDocumento === "completo";
 }
 
-function formatDadosEspecificosPreview(raw: string | null | undefined): string {
-  const t = raw?.trim();
-  if (!t) return "";
-  try {
-    const j = JSON.parse(t) as unknown;
-    return JSON.stringify(j, null, 2);
-  } catch {
-    return t;
-  }
-}
-
 function parseDadosEntries(raw: string | null | undefined): Array<{ key: string; value: string }> {
   const t = raw?.trim();
   if (!t) return [];
@@ -54,7 +43,7 @@ function parseDadosEntries(raw: string | null | undefined): Array<{ key: string;
       if (!key) continue;
       const value =
         v == null ? "" : typeof v === "string" ? v.trim() : typeof v === "number" || typeof v === "boolean" ? String(v) : "";
-      out.push({ key, value: value || "—" });
+      out.push({ key, value });
     }
     return out;
   } catch {
@@ -75,7 +64,7 @@ export default function MemoDocumentReviewPage() {
 
   const [mediaText, setMediaText] = useState("");
   const [keywords, setKeywords] = useState("");
-  const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
+  const [dadosEntries, setDadosEntries] = useState<Array<{ key: string; value: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,6 +74,11 @@ export default function MemoDocumentReviewPage() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const bodyRef = useRef<HTMLTextAreaElement | null>(null);
   const kwRef = useRef<HTMLTextAreaElement | null>(null);
+  const dadosInputRefs = useRef<Map<string, HTMLInputElement | null>>(new Map());
+
+  const updateDadosEntry = useCallback((key: string, value: string) => {
+    setDadosEntries(prev => prev.map(e => e.key === key ? { ...e, value } : e));
+  }, []);
 
   useEffect(() => {
     void apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -120,9 +114,7 @@ export default function MemoDocumentReviewPage() {
         setProcessResult(out);
         setMediaText(out.suggestedMediaText);
         setKeywords(dedupeMemoKeywordsCommaSeparated(out.suggestedKeywords));
-        setDadosEspecificosJson(
-          typeof out.dadosEspecificosJson === "string" ? out.dadosEspecificosJson.trim() : ""
-        );
+        setDadosEntries(parseDadosEntries(out.dadosEspecificosJson));
         setSelectedCategoryId(out.matchedCategoryId ?? null);
         setSelectedCategoryName(out.category ?? null);
       })
@@ -196,7 +188,9 @@ export default function MemoDocumentReviewPage() {
         memoId: st.memoId,
         mediaText: mediaText.trim(),
         keywords: keywords.trim(),
-        dadosEspecificosJson: dadosEspecificosJson.trim() ? dadosEspecificosJson.trim() : null,
+        dadosEspecificosJson: dadosEntries.length > 0
+          ? JSON.stringify(Object.fromEntries(dadosEntries.map(e => [e.key, e.value])))
+          : null,
         dadosEspecificosOriginaisJson: st.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: selectedCategoryId,
         category: selectedCategoryName,
@@ -216,7 +210,7 @@ export default function MemoDocumentReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [overLimit, mediaText, keywords, dadosEspecificosJson, selectedCategoryId, selectedCategoryName, locState, processResult, navigate]);
+  }, [overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, locState, processResult, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -230,6 +224,9 @@ export default function MemoDocumentReviewPage() {
     onSave,
     canSave: Boolean(processResult) && !busy && !overLimit && mediaText.trim().length > 0,
     setError,
+    dadosEntries,
+    setDadosEntry: updateDadosEntry,
+    dadosInputRefs,
   });
 
   if (!locState) {
@@ -273,8 +270,6 @@ export default function MemoDocumentReviewPage() {
   const state = processResult;
   const docHref = resolveMediaPublicHref(state.mediaDocumentUrl);
   const kindExt = reviewFileKindExtension(state.originalFilename);
-  const dadosPreview = formatDadosEspecificosPreview(dadosEspecificosJson);
-  const dadosEntries = parseDadosEntries(dadosEspecificosJson);
 
   const processFooterSegments: string[] = [];
   if (state.processingWarning?.trim()) processFooterSegments.push(state.processingWarning.trim());
@@ -386,14 +381,24 @@ export default function MemoDocumentReviewPage() {
               <div id="memo-doc-review-dados" className={styles.dadosList}>
                 {dadosEntries.map((it) => (
                   <div key={it.key} className={styles.dadosRow}>
-                    <span className={styles.dadosKey}>{it.key}:</span>
-                    <span className={styles.dadosVal}>{it.value}</span>
+                    <label className={styles.dadosKey} htmlFor={`review-dados-${it.key}`}>{it.key}:</label>
+                    <input
+                      id={`review-dados-${it.key}`}
+                      type="text"
+                      className={[styles.dadosValInput, voice.dadosFieldExtraClass(it.key)].filter(Boolean).join(" ")}
+                      value={it.value}
+                      ref={(el) => { dadosInputRefs.current.set(it.key, el); }}
+                      onChange={(e) => updateDadosEntry(it.key, e.target.value)}
+                      placeholder="(vazio)"
+                      autoComplete="off"
+                      {...voice.voiceDadosProps(it.key)}
+                    />
                   </div>
                 ))}
               </div>
             ) : (
               <div id="memo-doc-review-dados" className={styles.dadosList}>
-                <span className={styles.dadosEmpty}>{dadosPreview || "(vazio)"}</span>
+                <span className={styles.dadosEmpty}>(vazio)</span>
               </div>
             )}
           </div>
