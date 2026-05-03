@@ -440,6 +440,24 @@
   box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.3);
 }
 
+.voiceBtnCancelar {
+  background: #fff;
+  color: #b91c1c;
+  border: 2px solid #fca5a5;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06);
+}
+
+.voiceBtnCancelar:hover:not(:disabled) {
+  background: #fff1f2;
+  border-color: #ef4444;
+  color: #dc2626;
+}
+
+.voiceBtnCancelar:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3);
+}
+
 .voiceBtn:disabled {
   opacity: 0.55;
   cursor: not-allowed;

@@ -1488,13 +1488,6 @@ export default function MemoSearchPage() {
               ) : null}
             </div>
 
-            {/* State badge */}
-            <div className={styles.micStateBadge} data-state={micState}>
-              {micState === "idle" && <span>Pronto para ouvir</span>}
-              {micState === "listening" && <span>Ouvindo…</span>}
-              {micState === "paused" && <span>Pausado</span>}
-              {micState === "done" && <span>Pronto para buscar</span>}
-            </div>
 
             <div className={styles.voiceRowBelow}>
               {/* Botão Nova (ambos os modos) */}
@@ -1530,8 +1523,21 @@ export default function MemoSearchPage() {
                 {micState === "idle" || micState === "done" ? "Nova" : micState === "listening" ? "Pausar" : "Retomar"}
               </button>
 
-              {/* + Mais — só textual */}
-              {activeTab === "textual" ? (
+              {/* + Mais / Cancelar — só textual */}
+              {activeTab === "textual" && (micState === "listening" || micState === "paused") ? (
+                <button
+                  type="button"
+                  className={`${styles.voiceBtn} ${styles.voiceBtnCancelar}`}
+                  title="Cancelar gravação e descartar transcrição"
+                  onClick={() => {
+                    voiceTranscriptRef.current = "";
+                    stopListening("idle");
+                    setQuery("");
+                  }}
+                >
+                  Cancelar
+                </button>
+              ) : activeTab === "textual" && items.length > 0 ? (
                 <button
                   type="button"
                   className={`${styles.voiceBtn} ${listeningMode === "mais" ? styles.voiceBtnListening : styles.voiceBtnMais}`}
@@ -1541,17 +1547,7 @@ export default function MemoSearchPage() {
                   <IconMic />
                   + Mais
                 </button>
-              ) : (
-                <button
-                  type="button"
-                  className={`${styles.voiceBtn} ${styles.voiceBtnDisabled}`}
-                  disabled
-                  title="Não disponível no modo semântico"
-                >
-                  <IconMic />
-                  + Mais
-                </button>
-              )}
+              ) : null}
 
               {/* Finalizar narrativa — só semântico, visível em listening/paused */}
               {activeTab === "semantic" && (micState === "listening" || micState === "paused") ? (
@@ -1584,12 +1580,13 @@ export default function MemoSearchPage() {
             </div>
 
             <div className={styles.secondaryRow}>
+              {activeTab === "textual" ? (
               <button
                 type="button"
                 className={`${styles.secondaryBtn} ${styles.btnSugestao}`}
                 aria-label="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
-                disabled={items.length === 0 || searchBusy || activeTab === "semantic"}
-                title={activeTab === "semantic" ? "Não disponível no modo semântico" : "Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."}
+                disabled={items.length === 0 || searchBusy}
+                title="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
                 onClick={() => {
                   setSuggestionSort("relevance");
                   setSuggestionViewMode("all");
@@ -1602,6 +1599,7 @@ export default function MemoSearchPage() {
                 <IconBulb className={styles.secondarySvg} />
                 Sugestão
               </button>
+              ) : <div className={styles.secondaryPlaceholder} aria-hidden />}
               {showBuscaExpandida && activeTab === "textual" ? (
                 <button
                   type="button"
