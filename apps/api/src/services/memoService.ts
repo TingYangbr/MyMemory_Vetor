@@ -496,7 +496,7 @@ export async function createMemoTextReviewed(input: {
     cost,
     usedCred,
     tam,
-    stripAccents(input.category?.trim() ?? "") || null,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -578,7 +578,7 @@ export async function createMemoUrlReviewed(input: {
     cost,
     usedCred,
     tam,
-    stripAccents(input.category?.trim() ?? "") || null,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -660,7 +660,7 @@ export async function createMemoImageReviewed(input: {
     cost,
     usedCred,
     tam,
-    stripAccents(input.category?.trim() ?? "") || null,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -742,7 +742,7 @@ export async function createMemoAudioReviewed(input: {
     cost,
     usedCred,
     tam,
-    stripAccents(input.category?.trim() ?? "") || null,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -824,7 +824,7 @@ export async function createMemoVideoReviewed(input: {
     cost,
     usedCred,
     tam,
-    stripAccents(input.category?.trim() ?? "") || null,
+    input.category?.trim() || null,
   ]);
   const memoId = memoRows[0].id;
   await trySyncMemoDadosEspecificosRows({
@@ -1022,7 +1022,7 @@ export async function updateMemoForUser(input: {
   }
   if (input.category !== undefined) {
     sets.push("category = ?");
-    vals.push(stripAccents(input.category?.trim() ?? "") || null);
+    vals.push(input.category?.trim() || null);
   }
   if (!sets.length) {
     const row = await getMemoById(input.memoId, input.userId);
@@ -1211,7 +1211,7 @@ export async function finalizeDocumentMemoReview(input: {
       : null;
   const suggestedCategoryFromProcess =
     typeof meta.reviewSuggestedCategory === "string" && meta.reviewSuggestedCategory.trim()
-      ? stripAccents(String(meta.reviewSuggestedCategory).trim())
+      ? String(meta.reviewSuggestedCategory).trim()
       : null;
   delete meta.reviewSuggestedDadosEspecificosJson;
   delete meta.reviewSuggestedDadosEspecificosOriginaisJson;
@@ -1238,7 +1238,7 @@ export async function finalizeDocumentMemoReview(input: {
     input.matchedCategoryId !== undefined ? input.matchedCategoryId : suggestedMatchedCategoryIdFromProcess;
   const category =
     input.category !== undefined
-      ? (stripAccents(input.category?.trim() ?? "") || null)
+      ? (input.category?.trim() || null)
       : suggestedCategoryFromProcess;
   const text = stripAccents(input.mediaText.trim());
   await pool.query(
