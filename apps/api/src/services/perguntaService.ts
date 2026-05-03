@@ -107,12 +107,12 @@ function buildQueriesDisponiveis(
             .filter((p) => p.isActive === 1)
             .sort((a, b) => a.ordem - b.ordem)
             .map((p) => {
-              const campo = campoByParamName.get(p.campo.toLowerCase());
+              const campo = campoByParamName.get(toParamName(p.campo));
               const exemplos = campo?.normalizedTerms
                 ? campo.normalizedTerms.split(",").map((t) => t.trim()).filter(Boolean)
                 : [];
               return {
-                nome: p.campo,
+                nome: toParamName(p.campo),
                 tipo: p.tipo,
                 obrigatorio: p.obrigatorio === 1,
                 operadorSql: p.operadorSql,

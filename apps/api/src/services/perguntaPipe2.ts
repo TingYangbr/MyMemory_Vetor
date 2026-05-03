@@ -284,8 +284,9 @@ function bindTemplateParams(
     start: number;
     end: number;
     name: string;
-    colExpr?: string;  // expressão de coluna antes de ILIKE, quando é expansão multi-formato
+    colExpr?: string;  // expressão de coluna antes de ILIKE
     colStart?: number; // posição no SQL onde a expressão de coluna começa
+    isUnaccentLike?: boolean; // true = envolve colExpr em unaccent(); false = expansão de datas
   }
   const tokens: Token[] = [];
   const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)/g;
@@ -294,21 +295,19 @@ function bindTemplateParams(
     tokens.push({ start: m.index, end: m.index + m[0].length, name: m[1] });
   }
 
-  // Para parâmetros date/data com LIKE e valor não-nulo, encontra a expressão de coluna
-  // imediatamente antes do ILIKE/LIKE para poder duplicá-la na expansão OR.
+  // Para parâmetros com ILIKE/LIKE e valor não-nulo, encontra a expressão de coluna
+  // imediatamente antes do operador: datas → expansão de formato; texto → unaccent().
   for (const token of tokens) {
     const key = token.name.toLowerCase();
     const def = defByName.get(key);
-    const isDateLike =
-      (def?.tipo === "date" || def?.tipo === "data") &&
-      /LIKE/i.test(def?.operadorSql ?? "") &&
-      paramMap[key] != null;
-    if (!isDateLike) continue;
+    const isDate = def?.tipo === "date" || def?.tipo === "data";
+    if (!/LIKE/i.test(def?.operadorSql ?? "") || paramMap[key] == null) continue;
     const before = sentencaSql.slice(0, token.start);
     const likeMatch = /([^\s,()]+)\s+I?LIKE\s*$/i.exec(before);
     if (likeMatch) {
       token.colExpr = likeMatch[1];
       token.colStart = token.start - likeMatch[0].length;
+      token.isUnaccentLike = !isDate;
     }
   }
 
@@ -324,15 +323,23 @@ function bindTemplateParams(
     const cast = SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text";
 
     if (token.colExpr !== undefined && token.colStart !== undefined) {
-      // Expansão multi-formato para datas: substitui "col ILIKE :param" por
-      // "(col ILIKE ?::text OR col ILIKE ?::text OR col ILIKE ?::text)"
-      const variants = parseDateVariants(String(val));
-      result += sentencaSql.slice(pos, token.colStart);
-      result += `(${variants.map(() => `${token.colExpr} ILIKE ?::text`).join(" OR ")})`;
-      for (const v of variants) values.push(v);
-      pos = token.end;
+      if (token.isUnaccentLike) {
+        // Texto ILIKE accent-insensitive: substitui "col ILIKE :param" por "unaccent(col) ILIKE ?::text"
+        const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
+        result += sentencaSql.slice(pos, token.colStart);
+        result += `unaccent(${token.colExpr}) ILIKE ?::text`;
+        values.push(`%${stripped}%`);
+        pos = token.end;
+      } else {
+        // Data ILIKE: substitui "col ILIKE :param" por "(col ILIKE ?::text OR col ILIKE ?::text OR ...)"
+        const variants = parseDateVariants(String(val));
+        result += sentencaSql.slice(pos, token.colStart);
+        result += `(${variants.map(() => `${token.colExpr} ILIKE ?::text`).join(" OR ")})`;
+        for (const v of variants) values.push(v);
+        pos = token.end;
+      }
     } else {
-      // Parâmetro comum
+      // Parâmetro comum (inclui ocorrências IS NULL e fallback quando colExpr não detectado)
       result += sentencaSql.slice(pos, token.start);
       if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
         const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
