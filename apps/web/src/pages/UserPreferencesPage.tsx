@@ -156,12 +156,14 @@ export default function UserPreferencesPage() {
     let cancelled = false;
     setModelosLoading(true);
     setModelosErr(null);
-    void apiGet<{ modelos: PerguntaModelo[] }>("/api/pergunta-modelos")
+    const gid = meProfile?.lastWorkspaceGroupId;
+    const qs = gid ? `?workspaceGroupId=${gid}` : "";
+    void apiGet<{ modelos: PerguntaModelo[] }>(`/api/pergunta-modelos${qs}`)
       .then((data) => { if (!cancelled) setModelos(data.modelos); })
       .catch((e) => { if (!cancelled) setModelosErr(e instanceof Error ? e.message : "Falha ao carregar."); })
       .finally(() => { if (!cancelled) setModelosLoading(false); });
     return () => { cancelled = true; };
-  }, [tab, ready]);
+  }, [tab, ready, meProfile?.lastWorkspaceGroupId]);
 
   async function deleteModelo(id: number) {
     await apiDeleteJson(`/api/pergunta-modelos/${id}`);
@@ -477,25 +479,35 @@ export default function UserPreferencesPage() {
                         <div className={styles.modelosEditActions}>
                           <button type="button" className={styles.modelosSaveBtn} onClick={() => void saveEditModelo()}>Salvar</button>
                           <button type="button" className={styles.modelosCancelBtn} onClick={() => setEditingModelo(null)}>Cancelar</button>
+                          <button
+                            type="button"
+                            className={styles.modelosDeleteEditBtn}
+                            onClick={() => { void deleteModelo(m.id); setEditingModelo(null); }}
+                            title="Apagar pergunta"
+                          >
+                            🗑
+                          </button>
                         </div>
                       </div>
                     ) : (
-                      <p
-                        className={styles.modelosText}
-                        onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta })}
-                        title="Clique para editar"
-                      >
-                        {m.pergunta}
-                      </p>
+                      <>
+                        <p
+                          className={styles.modelosText}
+                          onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta })}
+                          title="Clique para editar"
+                        >
+                          {m.pergunta}
+                        </p>
+                        <button
+                          type="button"
+                          className={styles.modelosDeleteBtn}
+                          onClick={() => void deleteModelo(m.id)}
+                          title="Remover"
+                        >
+                          ✕
+                        </button>
+                      </>
                     )}
-                    <button
-                      type="button"
-                      className={styles.modelosDeleteBtn}
-                      onClick={() => void deleteModelo(m.id)}
-                      title="Remover"
-                    >
-                      ✕
-                    </button>
                   </li>
                 ))}
               </ul>

@@ -381,6 +381,7 @@ export default function PerguntaPage() {
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
   const [modelosLoading, setModelosLoading] = useState(false);
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
+  const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
@@ -815,6 +816,7 @@ export default function PerguntaPage() {
     const r = respostas[cardIdx];
     if (!r) return;
     const category = r.classificacao.categorias[0] ?? null;
+    setModeloSaveErr(null);
     try {
       await apiPostJson("/api/pergunta-modelos", {
         pergunta: r.perguntaTexto,
@@ -823,7 +825,9 @@ export default function PerguntaPage() {
       });
       setModeloSavedIdx(cardIdx);
       setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
-    } catch { /* silencia */ }
+    } catch (e) {
+      setModeloSaveErr(e instanceof Error ? e.message : "Erro ao salvar pergunta.");
+    }
   }
 
   if (!ready) {
@@ -969,6 +973,7 @@ export default function PerguntaPage() {
         </div>
 
         {error ? <p className="mm-error" role="alert">{error}</p> : null}
+        {modeloSaveErr ? <p className="mm-error" role="alert">Salvar pergunta: {modeloSaveErr}</p> : null}
 
         {pendingQuestion ? (
           <div className={styles.cards}>

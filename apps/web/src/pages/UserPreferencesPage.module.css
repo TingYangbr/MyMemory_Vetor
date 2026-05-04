@@ -361,7 +361,7 @@
   background: var(--mm-input-bg, #f8fafc);
   color: var(--mm-text, #1e293b);
 }
-.modelosEditActions { display: flex; gap: 0.5rem; }
+.modelosEditActions { display: flex; gap: 0.5rem; align-items: center; }
 .modelosSaveBtn {
   padding: 0.3rem 0.8rem;
   background: var(--mm-primary, #6366f1);
@@ -381,3 +381,15 @@
   cursor: pointer;
   color: var(--mm-text-muted, #94a3b8);
 }
+.modelosDeleteEditBtn {
+  margin-left: auto;
+  padding: 0.25rem 0.4rem;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  color: var(--mm-text-muted, #94a3b8);
+  border-radius: 4px;
+  line-height: 1;
+}
+.modelosDeleteEditBtn:hover { color: #ef4444; background: #fee2e2; }
