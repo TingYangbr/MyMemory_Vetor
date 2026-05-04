@@ -448,7 +448,7 @@ export default function UserPreferencesPage() {
               assinatura individual ou à assinatura de grupo da qual é dono.
             </p>
           </div>
-        )}
+        ) : null}
 
         {tab === "perguntas" ? (
           <div className={styles.modelosWrap}>
