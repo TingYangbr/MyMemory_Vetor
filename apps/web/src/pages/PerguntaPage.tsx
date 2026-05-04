@@ -7,6 +7,7 @@ import type {
   MemoRecentCard,
   PerguntaCardHistorico,
   PerguntaLlmTraceEntry,
+  PerguntaModelo,
   PerguntaResponse,
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
@@ -90,6 +91,25 @@ function IconSpeaker({ className }: { className?: string }) {
       <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
       <path d="M19.07 4.93a10 10 0 0 1 0 14.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconBookmarkSelect({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+      <line x1="9" y1="10" x2="15" y2="10"/>
+    </svg>
+  );
+}
+
+function IconBookmarkSave({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
+      <line x1="12" y1="7" x2="12" y2="13"/>
+      <line x1="9" y1="10" x2="15" y2="10"/>
     </svg>
   );
 }
@@ -357,6 +377,10 @@ export default function PerguntaPage() {
   const [editBusy, setEditBusy] = useState(false);
   const [editError, setEditError] = useState<string | null>(null);
   const [traceModal, setTraceModal] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
+  const [modeloSelectOpen, setModeloSelectOpen] = useState(false);
+  const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
+  const [modelosLoading, setModelosLoading] = useState(false);
+  const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
@@ -775,6 +799,33 @@ export default function PerguntaPage() {
     return pipe;
   }
 
+  async function abrirModeloSelect() {
+    setModeloSelectOpen(true);
+    setModelosLoading(true);
+    try {
+      const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
+      const data = await apiGet<{ modelos: PerguntaModelo[] }>(`/api/pergunta-modelos${gid}`);
+      setModelos(data.modelos);
+    } catch { /* silencia */ } finally {
+      setModelosLoading(false);
+    }
+  }
+
+  async function salvarModelo(cardIdx: number) {
+    const r = respostas[cardIdx];
+    if (!r) return;
+    const category = r.classificacao.categorias[0] ?? null;
+    try {
+      await apiPostJson("/api/pergunta-modelos", {
+        pergunta: r.perguntaTexto,
+        category,
+        workspaceGroupId: workspaceGroupId ?? null,
+      });
+      setModeloSavedIdx(cardIdx);
+      setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
+    } catch { /* silencia */ }
+  }
+
   if (!ready) {
     return (
       <div className={styles.shell}>
@@ -1076,6 +1127,22 @@ export default function PerguntaPage() {
                         <IconSpeaker />
                       </button>
                     ) : null}
+                    <button
+                      type="button"
+                      className={styles.modeloBtn}
+                      onClick={() => void abrirModeloSelect()}
+                      title="Carregar pergunta salva"
+                    >
+                      <IconBookmarkSelect />
+                    </button>
+                    <button
+                      type="button"
+                      className={`${styles.modeloBtn} ${modeloSavedIdx === i ? styles.modeloBtnSaved : ""}`}
+                      onClick={() => void salvarModelo(i)}
+                      title="Salvar esta pergunta"
+                    >
+                      <IconBookmarkSave />
+                    </button>
                   </div>
                   {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
@@ -1229,6 +1296,37 @@ export default function PerguntaPage() {
           pergunta={traceModal.pergunta}
           onClose={() => setTraceModal(null)}
         />
+      ) : null}
+
+      {modeloSelectOpen ? (
+        <div className={styles.modeloModalOverlay} onClick={() => setModeloSelectOpen(false)}>
+          <div className={styles.modeloModal} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modeloModalHeader}>
+              <span className={styles.modeloModalTitle}>Perguntas salvas</span>
+              <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
+            </div>
+            {modelosLoading ? (
+              <p className={styles.modeloModalEmpty}>Carregando…</p>
+            ) : modelos.length === 0 ? (
+              <p className={styles.modeloModalEmpty}>Nenhuma pergunta salva{workspaceGroupId ? " neste grupo" : ""}.</p>
+            ) : (
+              <ul className={styles.modeloList}>
+                {modelos.map((m) => (
+                  <li key={m.id} className={styles.modeloItem}>
+                    <button
+                      type="button"
+                      className={styles.modeloItemBtn}
+                      onClick={() => { setPergunta(m.pergunta); setModeloSelectOpen(false); }}
+                    >
+                      {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
+                      <span className={styles.modeloItemText}>{m.pergunta}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
       ) : null}
 
       {helpHintOpenIdx !== null && respostas[helpHintOpenIdx] ? (() => {

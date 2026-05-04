@@ -1137,3 +1137,105 @@
   }
   .inputActions { gap: 0.3rem; }
 }
+
+/* ── Botões de modelo (perguntas salvas) ── */
+.modeloBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border: none;
+  background: none;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.45;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+.modeloBtn:hover { opacity: 1; color: #64748b; background: var(--mm-hover-bg, #f1f5f9); }
+.modeloBtnSaved { opacity: 1; color: var(--mm-primary, #6366f1); }
+
+/* ── Modal de seleção de pergunta modelo ── */
+.modeloModalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.35);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.modeloModal {
+  background: var(--mm-card-bg, #fff);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+  width: 100%;
+  max-width: 480px;
+  max-height: 70vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modeloModalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1rem 0.75rem;
+  border-bottom: 1px solid var(--mm-border, #e2e8f0);
+}
+.modeloModalTitle {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--mm-text, #1e293b);
+}
+.modeloModalClose {
+  background: none;
+  border: none;
+  font-size: 1.2rem;
+  line-height: 1;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0 0.25rem;
+}
+.modeloModalClose:hover { color: var(--mm-text, #1e293b); }
+.modeloModalEmpty {
+  padding: 1.5rem 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--mm-text-muted, #94a3b8);
+}
+.modeloList {
+  list-style: none;
+  margin: 0;
+  padding: 0.4rem 0;
+  overflow-y: auto;
+}
+.modeloItem { display: flex; }
+.modeloItemBtn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  padding: 0.6rem 1rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+.modeloItemBtn:hover { background: var(--mm-hover-bg, #f1f5f9); }
+.modeloItemCat {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--mm-primary, #6366f1);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.modeloItemText {
+  font-size: 0.85rem;
+  color: var(--mm-text, #1e293b);
+  line-height: 1.4;
+}

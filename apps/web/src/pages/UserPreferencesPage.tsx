@@ -3,13 +3,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import type {
   MeResponse,
   PatchMePreferencesResponse,
+  PerguntaModelo,
   UserIaUseLevel,
   UserMemoPreferences,
   UserUsageDashboardResponse,
   UserUsageMetric,
 } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, USER_IA_USE_LEVELS } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPatchJson } from "../api";
+import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPutJson } from "../api";
 import Header from "../components/Header";
 import styles from "./UserPreferencesPage.module.css";
 
@@ -77,12 +78,13 @@ function UsageMetricRow(input: {
 export default function UserPreferencesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const tab = searchParams.get("tab") === "uso" ? "uso" : "prefs";
+  const rawTab = searchParams.get("tab");
+  const tab = rawTab === "uso" ? "uso" : rawTab === "perguntas" ? "perguntas" : "prefs";
 
   const setTab = useCallback(
-    (t: "prefs" | "uso") => {
+    (t: "prefs" | "uso" | "perguntas") => {
       if (t === "prefs") setSearchParams({}, { replace: true });
-      else setSearchParams({ tab: "uso" }, { replace: true });
+      else setSearchParams({ tab: t }, { replace: true });
     },
     [setSearchParams]
   );
@@ -98,6 +100,11 @@ export default function UserPreferencesPage() {
   const [usage, setUsage] = useState<UserUsageDashboardResponse | null>(null);
   const [usageLoading, setUsageLoading] = useState(false);
   const [usageErr, setUsageErr] = useState<string | null>(null);
+
+  const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
+  const [modelosLoading, setModelosLoading] = useState(false);
+  const [modelosErr, setModelosErr] = useState<string | null>(null);
+  const [editingModelo, setEditingModelo] = useState<{ id: number; pergunta: string } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -143,6 +150,33 @@ export default function UserPreferencesPage() {
       cancelled = true;
     };
   }, [tab, ready]);
+
+  useEffect(() => {
+    if (tab !== "perguntas" || !ready) return;
+    let cancelled = false;
+    setModelosLoading(true);
+    setModelosErr(null);
+    void apiGet<{ modelos: PerguntaModelo[] }>("/api/pergunta-modelos")
+      .then((data) => { if (!cancelled) setModelos(data.modelos); })
+      .catch((e) => { if (!cancelled) setModelosErr(e instanceof Error ? e.message : "Falha ao carregar."); })
+      .finally(() => { if (!cancelled) setModelosLoading(false); });
+    return () => { cancelled = true; };
+  }, [tab, ready]);
+
+  async function deleteModelo(id: number) {
+    await apiDeleteJson(`/api/pergunta-modelos/${id}`);
+    setModelos((m) => m.filter((x) => x.id !== id));
+  }
+
+  async function saveEditModelo() {
+    if (!editingModelo) return;
+    const updated = await apiPutJson<{ modelo: PerguntaModelo }>(
+      `/api/pergunta-modelos/${editingModelo.id}`,
+      { pergunta: editingModelo.pergunta }
+    );
+    setModelos((m) => m.map((x) => (x.id === updated.modelo.id ? updated.modelo : x)));
+    setEditingModelo(null);
+  }
 
   const updatePref = useCallback(<K extends keyof UserMemoPreferences>(key: K, value: UserMemoPreferences[K]) => {
     setPrefs((p) => (p ? { ...p, [key]: value } : p));
@@ -204,6 +238,15 @@ export default function UserPreferencesPage() {
             onClick={() => setTab("uso")}
           >
             Sua utilização
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "perguntas"}
+            className={`${styles.tab} ${tab === "perguntas" ? styles.tabActive : ""}`}
+            onClick={() => setTab("perguntas")}
+          >
+            Perguntas salvas
           </button>
         </div>
 
@@ -404,6 +447,59 @@ export default function UserPreferencesPage() {
             </p>
           </div>
         )}
+
+        {tab === "perguntas" ? (
+          <div className={styles.modelosWrap}>
+            <p className={styles.lead}>Perguntas que você salvou no Pergunte ao MyMemory. Clique para editar o texto.</p>
+            {modelosErr ? <p className="mm-error">{modelosErr}</p> : null}
+            {modelosLoading ? <p className="mm-muted">Carregando…</p> : null}
+            {!modelosLoading && modelos.length === 0 && !modelosErr ? (
+              <p className="mm-muted">Nenhuma pergunta salva ainda. Use o ícone de salvar no card de resposta.</p>
+            ) : null}
+            {modelos.length > 0 ? (
+              <ul className={styles.modelosList}>
+                {modelos.map((m) => (
+                  <li key={m.id} className={styles.modelosItem}>
+                    <div className={styles.modelosItemTop}>
+                      {m.category ? <span className={styles.modelosCat}>{m.category}</span> : null}
+                      {m.groupId ? <span className={styles.modelosGroup}>Grupo</span> : <span className={styles.modelosPessoal}>Pessoal</span>}
+                    </div>
+                    {editingModelo?.id === m.id ? (
+                      <div className={styles.modelosEdit}>
+                        <textarea
+                          className={styles.modelosTextarea}
+                          value={editingModelo.pergunta}
+                          rows={3}
+                          onChange={(e) => setEditingModelo({ id: m.id, pergunta: e.target.value })}
+                        />
+                        <div className={styles.modelosEditActions}>
+                          <button type="button" className={styles.modelosSaveBtn} onClick={() => void saveEditModelo()}>Salvar</button>
+                          <button type="button" className={styles.modelosCancelBtn} onClick={() => setEditingModelo(null)}>Cancelar</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p
+                        className={styles.modelosText}
+                        onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta })}
+                        title="Clique para editar"
+                      >
+                        {m.pergunta}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      className={styles.modelosDeleteBtn}
+                      onClick={() => void deleteModelo(m.id)}
+                      title="Remover"
+                    >
+                      ✕
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
+        ) : null}
       </main>
     </>
   );

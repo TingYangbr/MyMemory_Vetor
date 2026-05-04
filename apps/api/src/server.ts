@@ -20,6 +20,7 @@ import { QueriesCategoria1700000000027 } from "./migrations/1700000000027-Querie
 import { LlmPromptConfigs1700000000105 } from "./migrations/1700000000105-LlmPromptConfigs.js";
 import { SemanticBuscaMinSimilarity1700000000106 } from "./migrations/1700000000106-SemanticBuscaMinSimilarity.js";
 import { LlmPromptCategoryOverrides1700000000107 } from "./migrations/1700000000107-LlmPromptCategoryOverrides.js";
+import { PerguntaModelos1700000000108 } from "./migrations/1700000000108-PerguntaModelos.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -35,6 +36,7 @@ import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
 import perguntasRoutes from "./routes/perguntas.js";
+import perguntaModelosRoutes from "./routes/perguntaModelos.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 
@@ -57,6 +59,7 @@ assertMediaStorageEnv();
       LlmPromptConfigs1700000000105,
       SemanticBuscaMinSimilarity1700000000106,
       LlmPromptCategoryOverrides1700000000107,
+      PerguntaModelos1700000000108,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -109,6 +112,7 @@ await app.register(meRoutes);
 await app.register(memoRoutes);
 await app.register(memoContextRoutes);
 await app.register(perguntasRoutes);
+await app.register(perguntaModelosRoutes);
 await app.register(adminSubscriptionPlansRoutes);
 await app.register(adminMediaSettingsRoutes);
 await app.register(adminDocumentAiRoutes);

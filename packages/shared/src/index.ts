@@ -1055,6 +1055,18 @@ export interface PerguntaResponse {
   llmTrace?: PerguntaLlmTraceEntry[];
 }
 
+// ── Perguntas Modelo (salvas pelo usuário) ───────────────────────────────────
+
+export interface PerguntaModelo {
+  id: number;
+  userId: number;
+  groupId: number | null;
+  category: string | null;
+  pergunta: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 // ── Lista de Memos por Categoria ────────────────────────────────────────────
 
 export interface MemosListaColuna {
