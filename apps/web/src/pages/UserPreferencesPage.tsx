@@ -390,7 +390,9 @@ export default function UserPreferencesPage() {
             {err ? <p className={styles.error}>{err}</p> : null}
             {okMsg ? <p className={styles.ok}>{okMsg}</p> : null}
           </>
-        ) : (
+        ) : null}
+
+        {tab === "uso" ? (
           <div className={styles.usageCard}>
             <div className={styles.usageCardHead}>
               <h2 className={styles.usageCardTitle}>
