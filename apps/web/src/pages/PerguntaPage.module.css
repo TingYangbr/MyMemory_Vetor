@@ -160,6 +160,24 @@
 }
 .novaSessaoBtn:hover { border-color: #94a3b8; color: #475569; }
 
+.carregarModeloBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.38rem 0.8rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--mm-accent, #0d9488);
+  background: #fff;
+  font: inherit;
+  font-size: 0.83rem;
+  font-weight: 600;
+  color: var(--mm-accent, #0d9488);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.carregarModeloBtn:hover { background: #f0fdfb; }
+
 .perguntarBtn {
   display: inline-flex;
   align-items: center;

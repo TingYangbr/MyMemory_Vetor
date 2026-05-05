@@ -95,21 +95,23 @@ function IconSpeaker({ className }: { className?: string }) {
   );
 }
 
-function IconBookmarkSelect({ className }: { className?: string }) {
+function IconLightbulb({ className }: { className?: string }) {
   return (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-      <line x1="9" y1="10" x2="15" y2="10"/>
+    <svg className={className} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M9 18h6"/>
+      <path d="M10 22h4"/>
+      <path d="M12 2a7 7 0 0 1 7 7c0 2.386-1.308 4.482-3 5.773V17H8v-2.227C6.308 13.482 5 11.386 5 9a7 7 0 0 1 7-7z"/>
     </svg>
   );
 }
 
-function IconBookmarkSave({ className }: { className?: string }) {
+function IconRepoIn({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/>
-      <line x1="12" y1="7" x2="12" y2="13"/>
-      <line x1="9" y1="10" x2="15" y2="10"/>
+      <ellipse cx="12" cy="15" rx="8" ry="2.5"/>
+      <path d="M4 15v4c0 1.38 3.58 2.5 8 2.5s8-1.12 8-2.5v-4"/>
+      <line x1="12" y1="3" x2="12" y2="12"/>
+      <polyline points="8 8 12 12 16 8"/>
     </svg>
   );
 }
@@ -960,14 +962,24 @@ export default function PerguntaPage() {
               </button>
             ) : null}
             {!busy ? (
-              <button
-                type="button"
-                className={styles.perguntarBtn}
-                onClick={() => void enviar()}
-                disabled={!pergunta.trim()}
-              >
-                Perguntar →
-              </button>
+              <>
+                <button
+                  type="button"
+                  className={styles.carregarModeloBtn}
+                  onClick={() => void abrirModeloSelect()}
+                  title="Carregar pergunta salva"
+                >
+                  <IconLightbulb /> Perguntas salvas
+                </button>
+                <button
+                  type="button"
+                  className={styles.perguntarBtn}
+                  onClick={() => void enviar()}
+                  disabled={!pergunta.trim()}
+                >
+                  Perguntar →
+                </button>
+              </>
             ) : null}
           </div>
         </div>
@@ -1138,7 +1150,7 @@ export default function PerguntaPage() {
                       onClick={() => void abrirModeloSelect()}
                       title="Carregar pergunta salva"
                     >
-                      <IconBookmarkSelect />
+                      <IconLightbulb />
                     </button>
                     <button
                       type="button"
@@ -1146,7 +1158,7 @@ export default function PerguntaPage() {
                       onClick={() => void salvarModelo(i)}
                       title="Salvar esta pergunta"
                     >
-                      <IconBookmarkSave />
+                      <IconRepoIn />
                     </button>
                   </div>
                   {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
