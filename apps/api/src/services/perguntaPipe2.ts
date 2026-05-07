@@ -8,6 +8,7 @@ import type {
 } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
+import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { setLastLlmPromptTrace } from "./llmPromptTraceStore.js";
@@ -20,6 +21,8 @@ export interface QueryDisponivel {
   nome: string;
   descricao: string | null;
   sentencaSql: string;
+  /** null = executa no PostgreSQL interno; número = ID da db_connections SQL Server */
+  conexaoId: number | null;
   params: {
     nome: string;
     tipo: string;
@@ -547,33 +550,51 @@ async function executarConsultasPlano(input: {
     const template = queriesDisponiveis.find((q) => q.query_id === task.query_id);
     if (!template) continue;
 
-    const { sql: baseSql, values } = bindTemplateParams(
-      template.sentencaSql,
-      task.parametros,
-      template.params,
-      { userid: userId, groupid: groupId }
-    );
+    let linhas: Record<string, unknown>[];
+    let colunasQuery: string[];
 
-    let finalSql = baseSql;
-    if (task.agregacao) {
-      try {
-        finalSql = applyAgregacao(baseSql, task.agregacao);
-      } catch (err) {
-        // Coluna inválida ou campo_medida ausente — executa sem agregação
-        console.warn("[Pipe2] applyAgregacao ignorada:", err instanceof Error ? err.message : err);
+    if (template.conexaoId != null) {
+      // Execução em SQL Server externo via mssql (sem applyAgregacao — T-SQL puro)
+      const paramValues: Record<string, unknown> = {
+        userid: userId,
+        groupid: groupId,
+      };
+      for (const p of task.parametros) {
+        if (p.nome) paramValues[p.nome.toLowerCase()] = p.valor ?? null;
       }
-    }
+      const result = await executeQueryMssql(template.conexaoId, template.sentencaSql, paramValues);
+      linhas = result.linhas;
+      colunasQuery = result.colunas;
+      sqlParts.push(`[mssql:${template.conexaoId}] ${template.sentencaSql}`);
+      allValues.push(paramValues);
+    } else {
+      const { sql: baseSql, values } = bindTemplateParams(
+        template.sentencaSql,
+        task.parametros,
+        template.params,
+        { userid: userId, groupid: groupId }
+      );
 
-    const [rows] = await pool.query<RowDataPacket[]>(finalSql, values);
-    const linhas = rows as Record<string, unknown>[];
-    const colunasQuery = linhas.length > 0 ? Object.keys(linhas[0]) : [];
+      let finalSql = baseSql;
+      if (task.agregacao) {
+        try {
+          finalSql = applyAgregacao(baseSql, task.agregacao);
+        } catch (err) {
+          console.warn("[Pipe2] applyAgregacao ignorada:", err instanceof Error ? err.message : err);
+        }
+      }
+
+      const [rows] = await pool.query<RowDataPacket[]>(finalSql, values);
+      linhas = rows as Record<string, unknown>[];
+      colunasQuery = linhas.length > 0 ? Object.keys(linhas[0]) : [];
+      sqlParts.push(finalSql);
+      allValues.push(...values);
+    }
 
     porQuery.push({ query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length });
 
     if (colunas.length === 0) colunas = colunasQuery;
     allLinhas.push(...linhas);
-    sqlParts.push(finalSql);
-    allValues.push(...values);
   }
 
   setLastLlmPromptTrace({

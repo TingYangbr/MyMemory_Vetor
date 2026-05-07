@@ -334,12 +334,14 @@ const plugin: FastifyPluginAsync = async (app) => {
     nome: z.string().min(1).max(255),
     descricao: z.string().max(16_000).nullable().optional(),
     sentencaSql: z.string().min(1).max(65_000),
+    conexaoId: z.number().int().positive().nullable().optional(),
   });
 
   const patchQueryBody = z.object({
     nome: z.string().min(1).max(255).optional(),
     descricao: z.string().max(16_000).nullable().optional(),
     sentencaSql: z.string().min(1).max(65_000).optional(),
+    conexaoId: z.number().int().positive().nullable().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
   });
 

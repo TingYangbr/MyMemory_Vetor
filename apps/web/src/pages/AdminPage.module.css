@@ -1006,3 +1006,77 @@
   font-weight: 600;
   color: #16a34a;
 }
+
+/* ── Aba Conexões BD ──────────────────────────────────────── */
+
+.dbConnForm {
+  background: var(--mm-surface, #f8f8f8);
+  border: 1px solid var(--mm-border, #e0e0e0);
+  border-radius: 8px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.dbConnFormTitle {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 0 0 1rem;
+}
+
+.dbConnFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.25rem;
+}
+
+.dbConnField {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 200px;
+  font-size: 0.85rem;
+  font-weight: 500;
+}
+
+.dbConnField input.mm-field {
+  margin-top: 0;
+}
+
+.dbConnList {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dbConnRow {
+  border: 1px solid var(--mm-border, #e0e0e0);
+  border-radius: 8px;
+  padding: 1rem 1.25rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.dbConnRowInfo {
+  flex: 1;
+  min-width: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  font-size: 0.9rem;
+}
+
+.dbConnRowActions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.dbConnTestResult {
+  width: 100%;
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding-top: 0.25rem;
+}

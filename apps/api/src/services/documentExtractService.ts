@@ -141,6 +141,22 @@ export async function runDocumentExtractPipeline(
       }
       return { text: truncateExtract(raw), pipelineUsed: pipeline };
     }
+    case "extract_xlsx_text": {
+      const XLSX = require("xlsx") as typeof import("xlsx");
+      const workbook = XLSX.read(buffer, { type: "buffer" });
+      const parts: string[] = [];
+      for (const sheetName of workbook.SheetNames) {
+        const sheet = workbook.Sheets[sheetName];
+        const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+        const trimmed = csv.trim();
+        if (trimmed) {
+          parts.push(`[${sheetName}]\n${trimmed}`);
+        }
+      }
+      const text = parts.join("\n\n").trim();
+      if (!text) throw new Error("document_xlsx_empty");
+      return { text: truncateExtract(text), pipelineUsed: pipeline };
+    }
     case "extract_msg_text": {
       const copy = new Uint8Array(buffer.byteLength);
       copy.set(buffer);

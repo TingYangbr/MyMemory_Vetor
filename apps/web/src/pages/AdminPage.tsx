@@ -8,6 +8,9 @@ import type {
   AiConfigListResponse,
   AiConfigProvider,
   AiConfigRow,
+  DbConnection,
+  DbConnectionListResponse,
+  DbConnectionTestResult,
   HardDeleteSoftDeletedMonthResponse,
   LlmPromptCategoryOverride,
   LlmPromptCategoryOverrideListResponse,
@@ -28,7 +31,7 @@ import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPu
 import Header from "../components/Header";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia";
+type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd";
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -535,6 +538,21 @@ export default function AdminPage() {
   const [catOverrideSaving, setCatOverrideSaving] = useState<Set<string>>(new Set());
   const [catOverrideDeleting, setCatOverrideDeleting] = useState<Set<string>>(new Set());
 
+  // ── Aba Conexões BD ──────────────────────────────────────────────────────
+  const emptyDbConn = (): Partial<DbConnection> & { password: string } => ({
+    nome: "", descricao: null, host: "", port: 1433, database: "",
+    username: "", password: "", encrypt: 0, trustServerCertificate: 1,
+  });
+  const [dbConns, setDbConns] = useState<DbConnection[]>([]);
+  const [dbConnsLoading, setDbConnsLoading] = useState(false);
+  const [dbConnsErr, setDbConnsErr] = useState<string | null>(null);
+  const [dbConnForm, setDbConnForm] = useState<Partial<DbConnection> & { password: string }>(emptyDbConn());
+  const [dbConnEditing, setDbConnEditing] = useState<number | null>(null);
+  const [dbConnSaving, setDbConnSaving] = useState(false);
+  const [dbConnSaveOk, setDbConnSaveOk] = useState(false);
+  const [dbConnTestResults, setDbConnTestResults] = useState<Record<number, DbConnectionTestResult>>({});
+  const [dbConnTesting, setDbConnTesting] = useState<Set<number>>(new Set());
+
   const loadCostReport = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
     setCostErr(null);
@@ -948,6 +966,97 @@ export default function AdminPage() {
     }
   }
 
+  // ── Conexões BD — funções ──────────────────────────────────────────────────
+  const loadDbConns = useCallback(() => {
+    if (me?.role !== "admin") return Promise.resolve();
+    setDbConnsLoading(true);
+    setDbConnsErr(null);
+    return apiGet<DbConnectionListResponse>("/api/admin/db-connections")
+      .then((r) => setDbConns(r.connections))
+      .catch((e) => setDbConnsErr(e instanceof Error ? e.message : "Falha ao carregar conexões."))
+      .finally(() => setDbConnsLoading(false));
+  }, [me?.role]);
+
+  useEffect(() => {
+    if (me?.role === "admin" && tab === "conexoes_bd") void loadDbConns();
+  }, [me?.role, tab, loadDbConns]);
+
+  function startEditDbConn(c: DbConnection) {
+    setDbConnEditing(c.id);
+    setDbConnForm({ ...c, password: "" });
+    setDbConnSaveOk(false);
+  }
+
+  function cancelEditDbConn() {
+    setDbConnEditing(null);
+    setDbConnForm(emptyDbConn());
+    setDbConnSaveOk(false);
+  }
+
+  async function saveDbConn() {
+    setDbConnSaving(true);
+    setDbConnsErr(null);
+    setDbConnSaveOk(false);
+    try {
+      if (dbConnEditing == null) {
+        await apiPostJson<{ id: number }>("/api/admin/db-connections", {
+          nome: dbConnForm.nome ?? "",
+          descricao: dbConnForm.descricao ?? null,
+          host: dbConnForm.host ?? "",
+          port: dbConnForm.port ?? 1433,
+          database: dbConnForm.database ?? "",
+          username: dbConnForm.username ?? "",
+          password: dbConnForm.password,
+          encrypt: dbConnForm.encrypt ?? 0,
+          trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+        });
+      } else {
+        await apiPutJson(`/api/admin/db-connections/${dbConnEditing}`, {
+          nome: dbConnForm.nome,
+          descricao: dbConnForm.descricao ?? null,
+          host: dbConnForm.host,
+          port: dbConnForm.port,
+          database: dbConnForm.database,
+          username: dbConnForm.username,
+          ...(dbConnForm.password ? { password: dbConnForm.password } : {}),
+          encrypt: dbConnForm.encrypt ?? 0,
+          trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+        });
+      }
+      setDbConnSaveOk(true);
+      setDbConnEditing(null);
+      setDbConnForm(emptyDbConn());
+      await loadDbConns();
+    } catch (e) {
+      setDbConnsErr(e instanceof Error ? e.message : "Erro ao salvar.");
+    } finally {
+      setDbConnSaving(false);
+    }
+  }
+
+  async function deleteDbConn(id: number, nome: string) {
+    if (!window.confirm(`Desativar a conexão "${nome}"?`)) return;
+    try {
+      await apiDeleteJson<{ ok: boolean }>(`/api/admin/db-connections/${id}`);
+      await loadDbConns();
+    } catch (e) {
+      setDbConnsErr(e instanceof Error ? e.message : "Erro ao desativar.");
+    }
+  }
+
+  async function testDbConn(id: number) {
+    setDbConnTesting((prev) => new Set([...prev, id]));
+    setDbConnTestResults((prev) => { const n = { ...prev }; delete n[id]; return n; });
+    try {
+      const result = await apiPostJson<DbConnectionTestResult>(`/api/admin/db-connections/${id}/test`, {});
+      setDbConnTestResults((prev) => ({ ...prev, [id]: result }));
+    } catch (e) {
+      setDbConnTestResults((prev) => ({ ...prev, [id]: { ok: false, message: e instanceof Error ? e.message : "Erro" } }));
+    } finally {
+      setDbConnTesting((prev) => { const n = new Set(prev); n.delete(id); return n; });
+    }
+  }
+
   function openCreate() {
     setModalMode("create");
     setEditing(null);
@@ -1102,6 +1211,15 @@ export default function AdminPage() {
             onClick={() => setTab("ia")}
           >
             Provedores IA
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "conexoes_bd"}
+            className={`${styles.tab} ${tab === "conexoes_bd" ? styles.tabActive : ""}`}
+            onClick={() => setTab("conexoes_bd")}
+          >
+            Conexões BD
           </button>
         </div>
 
@@ -2152,6 +2270,116 @@ export default function AdminPage() {
             ) : aiConfigLoading ? (
               <p className="mm-muted">Carregando…</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {tab === "conexoes_bd" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.sectionTitle}>Conexões de Banco de Dados</h2>
+            <p className="mm-muted" style={{ marginBottom: "1.5rem" }}>
+              Conexões SQL Server externas usadas pelos query templates. Deixe o campo Senha vazio ao editar para manter a senha atual.
+            </p>
+
+            {dbConnsErr ? <p className="mm-error" style={{ marginBottom: "1rem" }}>{dbConnsErr}</p> : null}
+            {dbConnSaveOk ? <p style={{ color: "var(--color-success, green)", marginBottom: "1rem" }}>Salvo com sucesso.</p> : null}
+
+            {/* Formulário criar / editar */}
+            <div className={styles.dbConnForm}>
+              <h3 className={styles.dbConnFormTitle}>
+                {dbConnEditing != null ? "Editar conexão" : "Nova conexão"}
+              </h3>
+              <div className={styles.dbConnFields}>
+                <label className={styles.dbConnField}>
+                  <span>Nome *</span>
+                  <input className="mm-field" value={dbConnForm.nome ?? ""} onChange={(e) => setDbConnForm((p) => ({ ...p, nome: e.target.value }))} placeholder="Ex: ERP SQL Server" />
+                </label>
+                <label className={styles.dbConnField}>
+                  <span>Descrição</span>
+                  <input className="mm-field" value={dbConnForm.descricao ?? ""} onChange={(e) => setDbConnForm((p) => ({ ...p, descricao: e.target.value || null }))} placeholder="Opcional" />
+                </label>
+                <label className={styles.dbConnField}>
+                  <span>Host *</span>
+                  <input className="mm-field" value={dbConnForm.host ?? ""} onChange={(e) => setDbConnForm((p) => ({ ...p, host: e.target.value }))} placeholder="servidor.dominio.com" />
+                </label>
+                <label className={styles.dbConnField} style={{ maxWidth: "120px" }}>
+                  <span>Porta</span>
+                  <input className="mm-field" type="number" value={dbConnForm.port ?? 1433} onChange={(e) => setDbConnForm((p) => ({ ...p, port: Number(e.target.value) }))} />
+                </label>
+                <label className={styles.dbConnField}>
+                  <span>Banco de dados *</span>
+                  <input className="mm-field" value={dbConnForm.database ?? ""} onChange={(e) => setDbConnForm((p) => ({ ...p, database: e.target.value }))} placeholder="NomeDoBanco" />
+                </label>
+                <label className={styles.dbConnField}>
+                  <span>Usuário *</span>
+                  <input className="mm-field" value={dbConnForm.username ?? ""} onChange={(e) => setDbConnForm((p) => ({ ...p, username: e.target.value }))} placeholder="sa" />
+                </label>
+                <label className={styles.dbConnField}>
+                  <span>{dbConnEditing != null ? "Senha (vazio = manter)" : "Senha *"}</span>
+                  <input className="mm-field" type="password" value={dbConnForm.password} onChange={(e) => setDbConnForm((p) => ({ ...p, password: e.target.value }))} autoComplete="new-password" />
+                </label>
+                <label className={styles.dbConnField} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem", maxWidth: "fit-content" }}>
+                  <input type="checkbox" checked={dbConnForm.encrypt === 1} onChange={(e) => setDbConnForm((p) => ({ ...p, encrypt: e.target.checked ? 1 : 0 }))} />
+                  <span>Criptografar conexão</span>
+                </label>
+                <label className={styles.dbConnField} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem", maxWidth: "fit-content" }}>
+                  <input type="checkbox" checked={dbConnForm.trustServerCertificate === 1} onChange={(e) => setDbConnForm((p) => ({ ...p, trustServerCertificate: e.target.checked ? 1 : 0 }))} />
+                  <span>Confiar no certificado do servidor</span>
+                </label>
+              </div>
+              <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
+                <button type="button" className="mm-btn mm-btn--primary" disabled={dbConnSaving} onClick={() => void saveDbConn()}>
+                  {dbConnSaving ? "Salvando…" : dbConnEditing != null ? "Atualizar" : "Criar"}
+                </button>
+                {dbConnEditing != null ? (
+                  <button type="button" className="mm-btn mm-btn--ghost" onClick={cancelEditDbConn}>
+                    Cancelar
+                  </button>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Lista de conexões */}
+            {dbConnsLoading ? (
+              <p className="mm-muted">Carregando…</p>
+            ) : (
+              <div className={styles.dbConnList}>
+                {dbConns.filter((c) => c.isActive === 1).length === 0 ? (
+                  <p className="mm-muted">Nenhuma conexão cadastrada.</p>
+                ) : (
+                  dbConns
+                    .filter((c) => c.isActive === 1)
+                    .map((c) => {
+                      const testResult = dbConnTestResults[c.id];
+                      const testing = dbConnTesting.has(c.id);
+                      return (
+                        <div key={c.id} className={styles.dbConnRow}>
+                          <div className={styles.dbConnRowInfo}>
+                            <strong>{c.nome}</strong>
+                            <span className="mm-muted">{c.host}:{c.port} / {c.database} — usuário: {c.username}</span>
+                            {c.descricao ? <span className="mm-muted" style={{ fontStyle: "italic" }}>{c.descricao}</span> : null}
+                          </div>
+                          <div className={styles.dbConnRowActions}>
+                            <button type="button" className="mm-btn mm-btn--ghost" disabled={testing} onClick={() => void testDbConn(c.id)}>
+                              {testing ? "Testando…" : "Testar"}
+                            </button>
+                            <button type="button" className="mm-btn mm-btn--ghost" onClick={() => startEditDbConn(c)}>
+                              Editar
+                            </button>
+                            <button type="button" className="mm-btn mm-btn--ghost" style={{ color: "var(--color-danger, #c00)" }} onClick={() => void deleteDbConn(c.id, c.nome)}>
+                              Desativar
+                            </button>
+                          </div>
+                          {testResult ? (
+                            <div className={styles.dbConnTestResult} style={{ color: testResult.ok ? "var(--color-success, green)" : "var(--color-danger, #c00)" }}>
+                              {testResult.ok ? `✓ ${testResult.message}${testResult.latencyMs != null ? ` (${testResult.latencyMs}ms)` : ""}` : `✗ ${testResult.message}`}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })
+                )}
+              </div>
+            )}
           </div>
         ) : null}
       </main>

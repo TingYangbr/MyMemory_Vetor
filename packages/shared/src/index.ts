@@ -644,10 +644,39 @@ export interface QueryCategoria {
   nome: string;
   descricao: string | null;
   sentencaSql: string;
+  /** null = usar conexão PostgreSQL interna padrão */
+  conexaoId: number | null;
   isActive: number;
   createdAt: string;
   updatedAt: string;
   params: QueryCategoriaParam[];
+}
+
+export interface DbConnection {
+  id: number;
+  nome: string;
+  descricao: string | null;
+  host: string;
+  port: number;
+  database: string;
+  username: string;
+  /** Nunca retornado ao cliente — campo write-only */
+  password?: string;
+  encrypt: number;
+  trustServerCertificate: number;
+  isActive: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DbConnectionListResponse {
+  connections: DbConnection[];
+}
+
+export interface DbConnectionTestResult {
+  ok: boolean;
+  message: string;
+  latencyMs?: number;
 }
 
 export interface MemoContextStructureCapabilities {

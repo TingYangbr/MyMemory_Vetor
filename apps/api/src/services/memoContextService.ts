@@ -296,7 +296,7 @@ export async function loadMemoContextStructure(
   let queryParamRows: RowDataPacket[] = [];
   try {
     const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryid, nome, descricao, sentencasql, isactive, createdat, updatedat
+      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, isactive, createdat, updatedat
        FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -367,6 +367,7 @@ export async function loadMemoContextStructure(
         nome: r.nome as string,
         descricao: (r.descricao as string) ?? null,
         sentencaSql: r.sentencaSql as string,
+        conexaoId: r.conexaoId != null ? (r.conexaoId as number) : null,
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
@@ -620,13 +621,13 @@ export async function softDeleteCampo(userId: number, campoId: number): Promise<
 export async function createQueryCategoria(
   userId: number,
   categoryId: number,
-  input: { nome: string; descricao?: string | null; sentencaSql: string }
+  input: { nome: string; descricao?: string | null; sentencaSql: string; conexaoId?: number | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, isactive)
-     VALUES (?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim()]
+    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, conexaoid, isactive)
+     VALUES (?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim(), input.conexaoId ?? null]
   );
   return rows[0].id;
 }
@@ -634,7 +635,7 @@ export async function createQueryCategoria(
 export async function updateQueryCategoria(
   userId: number,
   queryId: number,
-  patch: { nome?: string; descricao?: string | null; sentencaSql?: string; isActive?: number }
+  patch: { nome?: string; descricao?: string | null; sentencaSql?: string; conexaoId?: number | null; isActive?: number }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -653,6 +654,7 @@ export async function updateQueryCategoria(
   if (patch.nome !== undefined) { sets.push("nome = ?"); vals.push(patch.nome.trim()); }
   if (patch.descricao !== undefined) { sets.push("descricao = ?"); vals.push(patch.descricao?.trim() ?? null); }
   if (patch.sentencaSql !== undefined) { sets.push("sentencasql = ?"); vals.push(patch.sentencaSql.trim()); }
+  if (patch.conexaoId !== undefined) { sets.push("conexaoid = ?"); vals.push(patch.conexaoId ?? null); }
   if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
   if (sets.length === 0) return;
   vals.push(queryId);

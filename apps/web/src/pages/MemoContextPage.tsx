@@ -1,6 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import type {
+  DbConnection,
+  DbConnectionListResponse,
   MeResponse,
   MemoContextCategory,
   MemoContextEditorMetaResponse,
@@ -109,6 +111,8 @@ export default function MemoContextPage() {
   const [modalQueryNome, setModalQueryNome] = useState("");
   const [modalQueryDescricao, setModalQueryDescricao] = useState("");
   const [modalQuerySentencaSql, setModalQuerySentencaSql] = useState("");
+  const [modalQueryConexaoId, setModalQueryConexaoId] = useState<number | null>(null);
+  const [dbConnOptions, setDbConnOptions] = useState<DbConnection[]>([]);
 
   // Param modal state
   const [modalParamId, setModalParamId] = useState<number | null>(null);
@@ -281,12 +285,20 @@ export default function MemoContextPage() {
     setModal("campoEdit");
   };
 
+  const loadDbConnOptions = () => {
+    apiGet<DbConnectionListResponse>("/api/admin/db-connections")
+      .then((r) => setDbConnOptions(r.connections.filter((c) => c.isActive === 1)))
+      .catch(() => setDbConnOptions([]));
+  };
+
   const openNewQuery = (cid: number) => {
     resetModalState();
     setModalCategoryId(cid);
     setModalQueryNome("");
     setModalQueryDescricao("");
     setModalQuerySentencaSql("");
+    setModalQueryConexaoId(null);
+    loadDbConnOptions();
     setModal("query");
   };
 
@@ -296,6 +308,8 @@ export default function MemoContextPage() {
     setModalQueryNome(q.nome);
     setModalQueryDescricao(q.descricao ?? "");
     setModalQuerySentencaSql(q.sentencaSql);
+    setModalQueryConexaoId(q.conexaoId ?? null);
+    loadDbConnOptions();
     setModal("queryEdit");
   };
 
@@ -459,6 +473,7 @@ export default function MemoContextPage() {
             nome: modalQueryNome.trim(),
             descricao: modalQueryDescricao.trim() || null,
             sentencaSql: modalQuerySentencaSql.trim(),
+            conexaoId: modalQueryConexaoId ?? null,
           }
         );
         for (const p of pendingAutoParams) {
@@ -469,6 +484,7 @@ export default function MemoContextPage() {
           nome: modalQueryNome.trim(),
           descricao: modalQueryDescricao.trim() || null,
           sentencaSql: modalQuerySentencaSql.trim(),
+          conexaoId: modalQueryConexaoId ?? null,
         });
       } else if (modal === "queryParam" && modalQueryId != null) {
         await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, {
@@ -1062,6 +1078,23 @@ export default function MemoContextPage() {
                   />
                   <p className={styles.fieldHelpSmall}>
                     Use <code>:nome_param</code> como placeholder para os parâmetros definidos abaixo.
+                  </p>
+                </div>
+                <div className={styles.modalField}>
+                  <label htmlFor="mod-q-conexao">Conexão BD externa</label>
+                  <select
+                    id="mod-q-conexao"
+                    className="mm-field"
+                    value={modalQueryConexaoId ?? ""}
+                    onChange={(e) => setModalQueryConexaoId(e.target.value === "" ? null : Number(e.target.value))}
+                  >
+                    <option value="">— PostgreSQL interno (padrão) —</option>
+                    {dbConnOptions.map((c) => (
+                      <option key={c.id} value={c.id}>{c.nome} ({c.host}:{c.port}/{c.database})</option>
+                    ))}
+                  </select>
+                  <p className={styles.fieldHelpSmall}>
+                    Deixe em branco para usar o banco interno. Selecione uma conexão SQL Server para executar o query externamente.
                   </p>
                 </div>
               </>

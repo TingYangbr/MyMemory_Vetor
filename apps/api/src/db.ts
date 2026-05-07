@@ -61,9 +61,11 @@ const COL: Record<string, string> = {
   configkey: "configKey", configvalue: "configValue", updatedbyuserid: "updatedByUserId",
   // user_auth_tokens
   tokenhash: "tokenHash",
-  // categories / sub_categories / queries
+  // categories / sub_categories / queries / db_connections
   categoryid: "categoryId", normalizedterms: "normalizedTerms",
   queryid: "queryId", sentencasql: "sentencaSql", operadorsql: "operadorSql",
+  conexaoid: "conexaoId",
+  trustservercertificate: "trustServerCertificate",
   // dados_especificos
   id_categoria: "id_Categoria", dadooriginal: "dadoOriginal",
   dadopadronizado: "dadoPadronizado",

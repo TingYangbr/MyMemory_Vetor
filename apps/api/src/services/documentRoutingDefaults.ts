@@ -8,7 +8,7 @@ export type DocumentPreprocessRule = {
     mime?: string[];
     mimePrefix?: string[];
   };
-  /** Pipelines: extract_utf8_text | extract_pdf_text | extract_msg_text | extract_eml_text | extract_docx_text | unsupported */
+  /** Pipelines: extract_utf8_text | extract_pdf_text | extract_msg_text | extract_eml_text | extract_docx_text | extract_xlsx_text | unsupported */
   pipeline: string;
 };
 
@@ -55,7 +55,17 @@ export const DEFAULT_DOCUMENT_ROUTING: DocumentRoutingConfig = {
     },
     {
       match: {
-        ext: [".doc", ".xls", ".xlsx", ".ppt", ".pptx", ".rtf", ".odt", ".ods"],
+        ext: [".xls", ".xlsx"],
+        mime: [
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        ],
+      },
+      pipeline: "extract_xlsx_text",
+    },
+    {
+      match: {
+        ext: [".doc", ".ppt", ".pptx", ".rtf", ".odt", ".ods"],
       },
       pipeline: "unsupported",
     },

@@ -103,6 +103,7 @@ function buildQueriesDisponiveis(
           nome: q.nome,
           descricao: q.descricao,
           sentencaSql: q.sentencaSql,
+          conexaoId: q.conexaoId ?? null,
           params: (q.params ?? [])
             .filter((p) => p.isActive === 1)
             .sort((a, b) => a.ordem - b.ordem)
