@@ -127,6 +127,14 @@ export const config = {
       return (process.env.OPENAI_WHISPER_LANGUAGE ?? "").trim();
     })(),
   },
+  gemini: {
+    /** Chave da Google AI Studio / Vertex AI. Define GEMINI_API_KEY no .env. */
+    apiKey: (process.env.GEMINI_API_KEY ?? "").trim(),
+  },
+  anthropic: {
+    /** Chave da API Anthropic (Claude). Define ANTHROPIC_API_KEY no .env. */
+    apiKey: (process.env.ANTHROPIC_API_KEY ?? "").trim(),
+  },
 };
 
 if (isProd && config.jwtSecret === "dev-jwt-secret-change-me") {

@@ -837,6 +837,46 @@ export interface SearchHit {
   reason: string;
 }
 
+export type AiConfigProvider = "openai" | "google_gemini" | "anthropic" | "manus_proxy" | "microsoft_azure";
+
+export const AI_PROVIDER_LABELS: Record<AiConfigProvider, string> = {
+  openai:          "OpenAI",
+  google_gemini:   "Google Gemini",
+  anthropic:       "Anthropic (Claude)",
+  manus_proxy:     "Manus Proxy",
+  microsoft_azure: "Microsoft Azure",
+};
+
+export const AI_PROVIDER_OPTIONS: { value: AiConfigProvider; label: string }[] = [
+  { value: "openai",          label: "OpenAI" },
+  { value: "google_gemini",   label: "Google Gemini" },
+  { value: "anthropic",       label: "Anthropic (Claude)" },
+  { value: "manus_proxy",     label: "Manus Proxy" },
+  { value: "microsoft_azure", label: "Microsoft Azure" },
+];
+
+export interface AiConfigRow {
+  id: number;
+  operation: string;
+  displayName: string;
+  provider: AiConfigProvider;
+  model: string;
+  isEnabled: boolean;
+  maxTokens: number | null;
+  temperature: number | null;
+  notes: string | null;
+  updatedAt: string;
+}
+
+export interface AiConfigListResponse {
+  rows: AiConfigRow[];
+  providersConfigured: {
+    openai:    boolean;
+    gemini:    boolean;
+    anthropic: boolean;
+  };
+}
+
 /** Log de uso de API — sempre memoId (não factId); null se a operação não está ligada a um memo */
 export interface ApiUsageLogRow {
   id: number;

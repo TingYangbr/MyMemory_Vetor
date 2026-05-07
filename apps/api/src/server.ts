@@ -21,6 +21,7 @@ import { LlmPromptConfigs1700000000105 } from "./migrations/1700000000105-LlmPro
 import { SemanticBuscaMinSimilarity1700000000106 } from "./migrations/1700000000106-SemanticBuscaMinSimilarity.js";
 import { LlmPromptCategoryOverrides1700000000107 } from "./migrations/1700000000107-LlmPromptCategoryOverrides.js";
 import { PerguntaModelos1700000000108 } from "./migrations/1700000000108-PerguntaModelos.js";
+import { AiConfigSeed1700000000109 } from "./migrations/1700000000109-AiConfigSeed.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -32,6 +33,7 @@ import adminLlmPromptRoutes from "./routes/adminLlmPrompt.js";
 import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
 import adminSystemConfigRoutes from "./routes/adminSystemConfig.js";
 import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
+import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -60,6 +62,7 @@ assertMediaStorageEnv();
       SemanticBuscaMinSimilarity1700000000106,
       LlmPromptCategoryOverrides1700000000107,
       PerguntaModelos1700000000108,
+      AiConfigSeed1700000000109,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -122,6 +125,7 @@ await app.register(adminLlmPromptRoutes);
 await app.register(adminCadPipelineRoutes);
 await app.register(adminSystemConfigRoutes);
 await app.register(adminPromptConfigsRoutes);
+await app.register(adminAiConfigRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

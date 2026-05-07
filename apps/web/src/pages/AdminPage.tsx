@@ -5,6 +5,9 @@ import type {
   AdminCostReportResponse,
   AdminPromptCategory,
   AdminPromptCategoryListResponse,
+  AiConfigListResponse,
+  AiConfigProvider,
+  AiConfigRow,
   HardDeleteSoftDeletedMonthResponse,
   LlmPromptCategoryOverride,
   LlmPromptCategoryOverrideListResponse,
@@ -20,11 +23,12 @@ import type {
   SubscriptionPlanAdmin,
   SubscriptionPlansListResponse,
 } from "@mymemory/shared";
-import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
+import { AI_PROVIDER_OPTIONS } from "@mymemory/shared";
+import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 import Header from "../components/Header";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts";
+type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia";
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -796,6 +800,52 @@ export default function AdminPage() {
     }
   }, [me?.role, tab, promptsLoaded, loadPromptConfigs]);
 
+  // ── Aba IA ────────────────────────────────────────────────────────────────
+  const [aiConfig, setAiConfig] = useState<AiConfigListResponse | null>(null);
+  const [aiConfigLoading, setAiConfigLoading] = useState(false);
+  const [aiConfigErr, setAiConfigErr] = useState<string | null>(null);
+  const [aiDrafts, setAiDrafts] = useState<Record<string, Partial<AiConfigRow>>>({});
+  const [aiSaving, setAiSaving] = useState<Record<string, boolean>>({});
+  const [aiSaveOk, setAiSaveOk] = useState<Record<string, boolean>>({});
+
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "ia" || aiConfig !== null) return;
+    setAiConfigLoading(true);
+    void apiGet<AiConfigListResponse>("/api/admin/ai-config")
+      .then((data) => { setAiConfig(data); setAiConfigLoading(false); })
+      .catch((e) => { setAiConfigErr(e instanceof Error ? e.message : "Erro ao carregar"); setAiConfigLoading(false); });
+  }, [me?.role, tab, aiConfig]);
+
+  function aiDraft(op: string): Partial<AiConfigRow> { return aiDrafts[op] ?? {}; }
+  function setAiDraftField<K extends keyof AiConfigRow>(op: string, field: K, val: AiConfigRow[K]) {
+    setAiDrafts((prev) => ({ ...prev, [op]: { ...prev[op], [field]: val } }));
+    setAiSaveOk((prev) => ({ ...prev, [op]: false }));
+  }
+
+  async function saveAiRow(row: AiConfigRow) {
+    const draft = aiDrafts[row.operation] ?? {};
+    const payload = {
+      provider:    (draft.provider    ?? row.provider) as AiConfigProvider,
+      model:       draft.model        ?? row.model,
+      isEnabled:   draft.isEnabled    ?? row.isEnabled,
+      maxTokens:   draft.maxTokens    !== undefined ? draft.maxTokens    : row.maxTokens,
+      temperature: draft.temperature  !== undefined ? draft.temperature  : row.temperature,
+      notes:       draft.notes        !== undefined ? draft.notes        : row.notes,
+    };
+    setAiSaving((prev) => ({ ...prev, [row.operation]: true }));
+    try {
+      await apiPutJson(`/api/admin/ai-config/${row.operation}`, payload);
+      setAiConfig(null); // force reload
+      setAiDrafts((prev) => { const n = { ...prev }; delete n[row.operation]; return n; });
+      setAiSaveOk((prev) => ({ ...prev, [row.operation]: true }));
+      setTimeout(() => setAiSaveOk((prev) => ({ ...prev, [row.operation]: false })), 2500);
+    } catch (e) {
+      setAiConfigErr(e instanceof Error ? e.message : "Erro ao salvar");
+    } finally {
+      setAiSaving((prev) => ({ ...prev, [row.operation]: false }));
+    }
+  }
+
   function togglePromptGroup(grupo: string) {
     setExpandedGroups((prev) => {
       const n = new Set(prev);
@@ -1026,6 +1076,15 @@ export default function AdminPage() {
             onClick={() => setTab("prompts")}
           >
             Prompts LLM
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "ia"}
+            className={`${styles.tab} ${tab === "ia" ? styles.tabActive : ""}`}
+            onClick={() => setTab("ia")}
+          >
+            Provedores IA
           </button>
         </div>
 
@@ -1914,6 +1973,167 @@ export default function AdminPage() {
               </>
             ) : consultaLoading ? (
               <p className="mm-muted">A consultar…</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        {tab === "ia" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.tableToolbarLabel} style={{ marginBottom: "0.5rem" }}>
+              Provedores de IA
+            </h2>
+            <p className="mm-muted" style={{ marginBottom: "1rem", fontSize: "0.88rem" }}>
+              Configure qual provedor e modelo será usado para cada operação. As API keys devem estar no <code>.env</code> do servidor.
+            </p>
+
+            {aiConfigErr ? <p className="mm-error">{aiConfigErr}</p> : null}
+
+            {aiConfig ? (
+              <>
+                <div className={styles.aiProviderBadges}>
+                  <span className={`${styles.aiProviderBadge} ${aiConfig.providersConfigured.openai ? styles.aiProviderBadgeOn : styles.aiProviderBadgeOff}`}>
+                    OpenAI {aiConfig.providersConfigured.openai ? "✓" : "sem key"}
+                  </span>
+                  <span className={`${styles.aiProviderBadge} ${aiConfig.providersConfigured.gemini ? styles.aiProviderBadgeOn : styles.aiProviderBadgeOff}`}>
+                    Gemini {aiConfig.providersConfigured.gemini ? "✓" : "sem key"}
+                  </span>
+                  <span className={`${styles.aiProviderBadge} ${aiConfig.providersConfigured.anthropic ? styles.aiProviderBadgeOn : styles.aiProviderBadgeOff}`}>
+                    Anthropic {aiConfig.providersConfigured.anthropic ? "✓" : "sem key"}
+                  </span>
+                </div>
+
+                <div className={styles.aiRows}>
+                  {aiConfig.rows.map((row) => {
+                    const draft = aiDraft(row.operation);
+                    const isReadOnly = row.operation === "audio_transcription_ia";
+                    const provider = (draft.provider ?? row.provider) as AiConfigProvider;
+                    const model = draft.model ?? row.model;
+                    const isEnabled = draft.isEnabled ?? row.isEnabled;
+                    const maxTokens = draft.maxTokens !== undefined ? draft.maxTokens : row.maxTokens;
+                    const temperature = draft.temperature !== undefined ? draft.temperature : row.temperature;
+                    const saving = aiSaving[row.operation] ?? false;
+                    const saveOk = aiSaveOk[row.operation] ?? false;
+
+                    return (
+                      <div key={row.operation} className={styles.aiRow}>
+                        <div className={styles.aiRowHeader}>
+                          <strong className={styles.aiRowName}>{row.displayName}</strong>
+                          <code className={styles.aiRowOp}>{row.operation}</code>
+                          {isReadOnly ? (
+                            <span className={styles.aiReadOnlyBadge}>somente leitura</span>
+                          ) : null}
+                        </div>
+
+                        <div className={styles.aiRowFields}>
+                          <div className={styles.aiField}>
+                            <label>Provedor</label>
+                            {isReadOnly ? (
+                              <span className="mm-muted">{row.provider}</span>
+                            ) : (
+                              <select
+                                className="mm-field"
+                                value={provider}
+                                onChange={(e) => setAiDraftField(row.operation, "provider", e.target.value as AiConfigProvider)}
+                              >
+                                {AI_PROVIDER_OPTIONS.map((opt) => (
+                                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+
+                          <div className={`${styles.aiField} ${styles.aiFieldModel}`}>
+                            <label>Modelo</label>
+                            {isReadOnly ? (
+                              <span className="mm-muted">{row.model}</span>
+                            ) : (
+                              <input
+                                className="mm-field"
+                                value={model}
+                                onChange={(e) => setAiDraftField(row.operation, "model", e.target.value)}
+                                placeholder="ex: gpt-4o-mini"
+                                maxLength={100}
+                              />
+                            )}
+                          </div>
+
+                          <div className={styles.aiField}>
+                            <label>Max tokens</label>
+                            {isReadOnly ? (
+                              <span className="mm-muted">—</span>
+                            ) : (
+                              <input
+                                className="mm-field"
+                                type="number"
+                                min={1}
+                                value={maxTokens ?? ""}
+                                onChange={(e) => {
+                                  const v = e.target.value.trim();
+                                  setAiDraftField(row.operation, "maxTokens", v === "" ? null : Number(v));
+                                }}
+                                placeholder="—"
+                                style={{ width: "90px" }}
+                              />
+                            )}
+                          </div>
+
+                          <div className={styles.aiField}>
+                            <label>Temperatura</label>
+                            {isReadOnly ? (
+                              <span className="mm-muted">—</span>
+                            ) : (
+                              <input
+                                className="mm-field"
+                                type="number"
+                                min={0}
+                                max={2}
+                                step={0.1}
+                                value={temperature ?? ""}
+                                onChange={(e) => {
+                                  const v = e.target.value.trim();
+                                  setAiDraftField(row.operation, "temperature", v === "" ? null : Number(v));
+                                }}
+                                placeholder="—"
+                                style={{ width: "80px" }}
+                              />
+                            )}
+                          </div>
+
+                          {!isReadOnly ? (
+                            <div className={styles.aiField}>
+                              <label>Ativo</label>
+                              <input
+                                type="checkbox"
+                                checked={isEnabled}
+                                onChange={(e) => setAiDraftField(row.operation, "isEnabled", e.target.checked)}
+                                style={{ width: "auto", marginTop: "0.25rem" }}
+                              />
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {!isReadOnly ? (
+                          <div className={styles.aiRowActions}>
+                            <button
+                              type="button"
+                              className="mm-btn mm-btn--primary"
+                              disabled={saving}
+                              onClick={() => void saveAiRow(row)}
+                            >
+                              {saving ? "Salvando…" : "Salvar"}
+                            </button>
+                            {saveOk ? (
+                              <span className={styles.aiSaveOk}>✓ Salvo</span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : aiConfigLoading ? (
+              <p className="mm-muted">Carregando…</p>
             ) : null}
           </div>
         ) : null}
