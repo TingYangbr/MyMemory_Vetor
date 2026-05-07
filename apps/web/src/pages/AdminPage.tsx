@@ -819,7 +819,7 @@ export default function AdminPage() {
   const AI_DEFAULT_MODELS: Record<string, string> = {
     openai:           "gpt-4o-mini",
     google_gemini:    "gemini-1.5-flash",
-    anthropic:        "claude-3-5-haiku-20241022",
+    anthropic:        "claude-haiku-4-5-20251001",
     manus_proxy:      "gpt-4o-mini",
     microsoft_azure:  "gpt-4o-mini",
   };

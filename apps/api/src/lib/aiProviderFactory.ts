@@ -250,7 +250,7 @@ async function _anthropicChat(
 ): Promise<{ content: string; costUsd: number }> {
   const key = config.anthropic.apiKey;
   if (!key) throw new Error("anthropic_not_configured");
-  const model = entry.model || "claude-3-5-haiku-20241022";
+  const model = entry.model || "claude-haiku-4-5-20251001";
   const maxTokens = entry.maxTokens ?? 4096;
   const systemMsg = messages.find(m => m.role === "system");
   const userMsgs = messages.filter(m => m.role !== "system").map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
@@ -277,7 +277,7 @@ async function _anthropicVision(
 ): Promise<{ content: string; costUsd: number }> {
   const key = config.anthropic.apiKey;
   if (!key) throw new Error("anthropic_not_configured");
-  const model = entry.model || "claude-3-5-haiku-20241022";
+  const model = entry.model || "claude-haiku-4-5-20251001";
   const maxTokens = entry.maxTokens ?? 4096;
   const systemMsg = messages.find(m => m.role === "system");
   const userMsgs = messages.filter(m => m.role !== "system").map(m => {
