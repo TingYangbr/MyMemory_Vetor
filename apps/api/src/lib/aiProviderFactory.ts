@@ -45,15 +45,15 @@ export async function getAiConfig(operation: string): Promise<AiConfigEntry> {
       [operation]
     );
     if (rows[0]) {
-      const r = rows[0] as AiConfigEntry & { isEnabled: unknown };
+      const r = rows[0] as Record<string, unknown>;
       const entry: AiConfigEntry = {
         operation,
-        displayName: String(r.displayName ?? operation),
-        provider: (r.provider ?? "openai") as AiProviderName,
-        model: String(r.model ?? config.openai.model),
-        isEnabled: r.isEnabled === 1 || r.isEnabled === true,
-        maxTokens: r.maxTokens != null ? Number(r.maxTokens) : null,
-        temperature: r.temperature != null ? Number(r.temperature) : null,
+        displayName: String(r["displayName"] ?? operation),
+        provider: ((r["provider"] as string | undefined) ?? "openai") as AiProviderName,
+        model: String(r["model"] ?? config.openai.model),
+        isEnabled: r["isEnabled"] === 1 || r["isEnabled"] === true,
+        maxTokens: r["maxTokens"] != null ? Number(r["maxTokens"]) : null,
+        temperature: r["temperature"] != null ? Number(r["temperature"]) : null,
       };
       _cache.set(operation, { entry, ts: now });
       return entry;
@@ -250,7 +250,7 @@ async function _anthropicChat(
 ): Promise<{ content: string; costUsd: number }> {
   const key = config.anthropic.apiKey;
   if (!key) throw new Error("anthropic_not_configured");
-  const model = entry.model || "claude-haiku-4-5-20251001";
+  const model = entry.model || "claude-3-5-haiku-20241022";
   const maxTokens = entry.maxTokens ?? 4096;
   const systemMsg = messages.find(m => m.role === "system");
   const userMsgs = messages.filter(m => m.role !== "system").map(m => ({ role: m.role as "user" | "assistant", content: m.content }));
@@ -263,7 +263,7 @@ async function _anthropicChat(
     body: JSON.stringify(body),
   });
   const text = await res.text();
-  if (!res.ok) { const e = new Error(`anthropic_http_${res.status}`); (e as Error & { body?: string }).body = text.slice(0, 800); throw e; }
+  if (!res.ok) { throw new Error(`anthropic_http_${res.status}: ${text.slice(0, 400)}`); }
   const j = JSON.parse(text) as { content?: { text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
   const content = stripJsonFences(j.content?.[0]?.text ?? "");
   setLastLlmPromptTrace({ provider: "anthropic", model, source, messages: [...messages, { role: "assistant", content }] });
@@ -277,7 +277,7 @@ async function _anthropicVision(
 ): Promise<{ content: string; costUsd: number }> {
   const key = config.anthropic.apiKey;
   if (!key) throw new Error("anthropic_not_configured");
-  const model = entry.model || "claude-haiku-4-5-20251001";
+  const model = entry.model || "claude-3-5-haiku-20241022";
   const maxTokens = entry.maxTokens ?? 4096;
   const systemMsg = messages.find(m => m.role === "system");
   const userMsgs = messages.filter(m => m.role !== "system").map(m => {
@@ -301,7 +301,7 @@ async function _anthropicVision(
     body: JSON.stringify(body),
   });
   const text = await res.text();
-  if (!res.ok) { const e = new Error(`anthropic_vision_http_${res.status}`); (e as Error & { body?: string }).body = text.slice(0, 800); throw e; }
+  if (!res.ok) { throw new Error(`anthropic_vision_http_${res.status}: ${text.slice(0, 400)}`); }
   const j = JSON.parse(text) as { content?: { text?: string }[]; usage?: { input_tokens?: number; output_tokens?: number } };
   const content = stripJsonFences(j.content?.[0]?.text ?? "");
   setLastLlmPromptTrace({ provider: "anthropic", model, source, messages: [] });

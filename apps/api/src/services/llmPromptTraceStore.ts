@@ -7,7 +7,7 @@ export interface LlmPromptTraceMessage {
 
 export interface LlmPromptTrace {
   createdAt: string;
-  provider: "openai" | "forge" | "sql";
+  provider: "openai" | "forge" | "sql" | "google_gemini" | "anthropic";
   model: string;
   source: string;
   messages: LlmPromptTraceMessage[];
@@ -26,7 +26,7 @@ function normalizeContent(v: unknown): string {
 }
 
 function buildTrace(input: {
-  provider: "openai" | "forge" | "sql";
+  provider: "openai" | "forge" | "sql" | "google_gemini" | "anthropic";
   model: string;
   source: string;
   system?: unknown;

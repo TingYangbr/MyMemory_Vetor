@@ -986,7 +986,7 @@ export interface AdminLlmLastPromptResponse {
   ok: true;
   trace: {
     createdAt: string;
-    provider: "openai" | "forge" | "sql";
+    provider: "openai" | "forge" | "sql" | "google_gemini" | "anthropic";
     model: string;
     source: string;
     messages: AdminLlmPromptMessage[];
@@ -1072,7 +1072,7 @@ export interface PerguntaLlmTraceMessage {
 
 export interface PerguntaLlmTraceEntry {
   createdAt: string;
-  provider: "openai" | "forge" | "sql";
+  provider: "openai" | "forge" | "sql" | "google_gemini" | "anthropic";
   model: string;
   source: string;
   messages: PerguntaLlmTraceMessage[];

@@ -816,9 +816,26 @@ export default function AdminPage() {
       .catch((e) => { setAiConfigErr(e instanceof Error ? e.message : "Erro ao carregar"); setAiConfigLoading(false); });
   }, [me?.role, tab, aiConfig]);
 
+  const AI_DEFAULT_MODELS: Record<string, string> = {
+    openai:           "gpt-4o-mini",
+    google_gemini:    "gemini-1.5-flash",
+    anthropic:        "claude-3-5-haiku-20241022",
+    manus_proxy:      "gpt-4o-mini",
+    microsoft_azure:  "gpt-4o-mini",
+  };
+
   function aiDraft(op: string): Partial<AiConfigRow> { return aiDrafts[op] ?? {}; }
   function setAiDraftField<K extends keyof AiConfigRow>(op: string, field: K, val: AiConfigRow[K]) {
     setAiDrafts((prev) => ({ ...prev, [op]: { ...prev[op], [field]: val } }));
+    setAiSaveOk((prev) => ({ ...prev, [op]: false }));
+  }
+
+  function changeAiProvider(op: string, newProvider: AiConfigProvider, currentModel: string) {
+    const defaultModel = AI_DEFAULT_MODELS[newProvider] ?? "";
+    setAiDrafts((prev) => ({
+      ...prev,
+      [op]: { ...prev[op], provider: newProvider, model: defaultModel || currentModel },
+    }));
     setAiSaveOk((prev) => ({ ...prev, [op]: false }));
   }
 
@@ -2033,7 +2050,7 @@ export default function AdminPage() {
                               <select
                                 className="mm-field"
                                 value={provider}
-                                onChange={(e) => setAiDraftField(row.operation, "provider", e.target.value as AiConfigProvider)}
+                                onChange={(e) => changeAiProvider(row.operation, e.target.value as AiConfigProvider, model)}
                               >
                                 {AI_PROVIDER_OPTIONS.map((opt) => (
                                   <option key={opt.value} value={opt.value}>{opt.label}</option>
