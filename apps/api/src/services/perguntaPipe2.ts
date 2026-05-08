@@ -135,12 +135,12 @@ function stripLimitOffset(sql: string): string {
   return sql.replace(/\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, "").trim();
 }
 
-/** Valida e double-quota um identificador de coluna para uso seguro em SQL. */
-function sanitizeIdentifier(name: string): string {
+/** Valida e quota um identificador de coluna: "col" para PostgreSQL, [col] para T-SQL. */
+function sanitizeIdentifier(name: string, dialect: "pg" | "mssql" = "pg"): string {
   if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
     throw new Error(`Nome de coluna inválido: "${name}"`);
   }
-  return `"${name}"`;
+  return dialect === "mssql" ? `[${name}]` : `"${name}"`;
 }
 
 /**
@@ -157,25 +157,28 @@ const MEDIDA_ALIAS: Record<string, string> = {
   max: "maximo", maximo: "maximo",
 };
 
-function applyAgregacao(baseSql: string, ag: PlanoAgregacao): string {
+function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "mssql" = "pg"): string {
   const cleanBase = stripLimitOffset(baseSql);
+  const qi = (name: string) => sanitizeIdentifier(name, dialect);
 
-  const groupCols = ag.group_by.map(sanitizeIdentifier);
+  const groupCols = ag.group_by.map(qi);
 
   // Normaliza o campo de order_by: se o LLM referenciou o alias da medida pelo nome
   // genérico (ex: "count"), substitui pelo alias real gerado abaixo (ex: "contagem").
   const resolveOrderCampo = (campo: string): string =>
     MEDIDA_ALIAS[campo.toLowerCase()] ?? campo;
 
-  const limitClause = ag.limit ? ` LIMIT ${ag.limit}` : "";
+  // mssql usa TOP N antes do SELECT; PostgreSQL usa LIMIT N no final
+  const topN = dialect === "mssql" && ag.limit ? `TOP ${ag.limit} ` : "";
+  const limitClause = dialect === "pg" && ag.limit ? ` LIMIT ${ag.limit}` : "";
 
   // Sem função de medida — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
   if (!ag.medida) {
     const cols = groupCols.length > 0 ? groupCols.join(", ") : "*";
     const orderClauses = ag.order_by.map(
-      (o) => `${sanitizeIdentifier(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
+      (o) => `${qi(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
     );
-    let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${cols} FROM _base`;
+    let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${cols} FROM _base`;
     if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
     sql += limitClause;
     return sql;
@@ -188,21 +191,21 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao): string {
     measureExpr = `COUNT(*) AS ${measureAlias}`;
   } else {
     if (!ag.campo_medida) throw new Error(`campo_medida obrigatório para medida "${ag.medida}"`);
-    const col = sanitizeIdentifier(ag.campo_medida);
+    const col = qi(ag.campo_medida);
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
     measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
     measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
   }
 
   const orderClauses = ag.order_by.map(
-    (o) => `${sanitizeIdentifier(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
+    (o) => `${qi(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
   );
 
   const selectList = groupCols.length > 0
     ? `${groupCols.join(", ")}, ${measureExpr}`
     : measureExpr;
 
-  let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${selectList} FROM _base`;
+  let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${selectList} FROM _base`;
   if (groupCols.length > 0) sql += ` GROUP BY ${groupCols.join(", ")}`;
   if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
   sql += limitClause;
@@ -504,7 +507,7 @@ async function executarConsultasPlano(input: {
     let colunasQuery: string[];
 
     if (template.conexaoId != null) {
-      // Execução em SQL Server externo via mssql (sem applyAgregacao — T-SQL puro)
+      // Execução em SQL Server externo via mssql
       const paramValues: Record<string, unknown> = {
         userid: userId,
         groupid: groupId,
@@ -512,15 +515,23 @@ async function executarConsultasPlano(input: {
       for (const p of task.parametros) {
         if (p.nome) paramValues[p.nome.toLowerCase()] = p.valor ?? null;
       }
+      let sqlToExecute = template.sentencaSql;
+      if (task.agregacao) {
+        try {
+          sqlToExecute = applyAgregacao(template.sentencaSql, task.agregacao, "mssql");
+        } catch (err) {
+          console.warn("[Pipe2] applyAgregacao mssql ignorada:", err instanceof Error ? err.message : err);
+        }
+      }
       const result = await executeQueryMssql(
         template.conexaoId,
-        template.sentencaSql,
+        sqlToExecute,
         paramValues,
         template.params.map((p) => ({ nome: p.nome, operadorSql: p.operadorSql }))
       );
       linhas = result.linhas;
       colunasQuery = result.colunas;
-      sqlParts.push(`[mssql:${template.conexaoId}] ${template.sentencaSql}`);
+      sqlParts.push(`[mssql:${template.conexaoId}] ${sqlToExecute}`);
       allValues.push(paramValues);
     } else {
       const { sql: baseSql, values } = bindTemplateParams(
