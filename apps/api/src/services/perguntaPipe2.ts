@@ -197,8 +197,17 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
   }
 
+  // Resolve o campo do ORDER BY: nome genérico (ex: "sum") → alias (ex: "total"),
+  // ou nome real da coluna medida (ex: "Valor_Total_Produto") → alias também.
+  const resolveOrderCampoFinal = (campo: string): string => {
+    const lower = campo.toLowerCase();
+    if (MEDIDA_ALIAS[lower]) return MEDIDA_ALIAS[lower];
+    if (ag.campo_medida && lower === ag.campo_medida.toLowerCase()) return measureAlias;
+    return campo;
+  };
+
   const orderClauses = ag.order_by.map(
-    (o) => `${qi(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
+    (o) => `${qi(resolveOrderCampoFinal(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
   );
 
   const selectList = groupCols.length > 0
