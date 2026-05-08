@@ -150,24 +150,28 @@ export function bindParamsMssql(
   const params: { name: string; value: unknown }[] = [];
   const seen = new Set<string>();
 
-  const sql = sentencaSql.replace(/(?<!:):([a-zA-Z][a-zA-Z0-9_]*)/g, (_match, name: string) => {
-    const key = name.toLowerCase();
-    if (!seen.has(key)) {
-      seen.add(key);
-      let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
-      if (val === "") val = null;
+  // Aceita tanto :param (convenção interna) quanto @param (T-SQL nativo).
+  // (?<!@)@ exclui variáveis de sistema @@ROWCOUNT etc.
+  const sql = sentencaSql.replace(
+    /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g,
+    (_match, nameColon: string | undefined, nameAt: string | undefined) => {
+      const key = (nameColon ?? nameAt!).toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
+        if (val === "") val = null;
 
-      // Para LIKE: adiciona %valor% e normaliza diacríticos
-      const def = defByName.get(key);
-      if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
-        const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
-        val = `%${stripped}%`;
+        const def = defByName.get(key);
+        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
+          const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
+          val = `%${stripped}%`;
+        }
+
+        params.push({ name: key, value: val ?? null });
       }
-
-      params.push({ name: key, value: val ?? null });
+      return `@${key}`;
     }
-    return `@${key}`;
-  });
+  );
 
   return { sql, params };
 }

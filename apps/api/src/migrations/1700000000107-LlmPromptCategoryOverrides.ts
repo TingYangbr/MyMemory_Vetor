@@ -33,6 +33,18 @@ Data de referência:
 - Use data_atual para resolver referências relativas: "este mês" → ano-mês de data_atual, "hoje" → data_atual, "mês passado" → mês anterior a data_atual, etc.
 - NUNCA use datas do seu treinamento — sempre derive de data_atual
 
+Parâmetros de intervalo com sufixo _INI e _FIN:
+Quando um parâmetro de data ou valor termina em _INI, preencha com o limite inferior do intervalo; quando termina em _FIN, preencha com o limite superior. O operador_sugerido para _INI é ">=" e para _FIN é "<=".
+Para parâmetros de data, sempre use o formato YYYY-MM-DD e calcule os limites exatos:
+- "em janeiro de 2025"  → _INI = "2025-01-01", _FIN = "2025-01-31"
+- "em 2025"             → _INI = "2025-01-01", _FIN = "2025-12-31"
+- "1º trimestre"        → _INI = "YYYY-01-01", _FIN = "YYYY-03-31"  (use o ano de data_atual)
+- "este mês"            → _INI = primeiro dia do mês de data_atual, _FIN = último dia do mês
+- "mês passado"         → _INI = primeiro dia do mês anterior, _FIN = último dia do mês anterior
+- "hoje" / data exata   → _INI = data_atual, _FIN = data_atual
+- "de março a junho"    → _INI = "YYYY-03-01", _FIN = "YYYY-06-30"
+Para parâmetros numéricos _INI/_FIN: preencha somente o limite mencionado pelo usuário; deixe null o lado não mencionado (ex: "acima de 1000" → _INI = 1000, _FIN = null).
+
 Regras de filtro:
 - Escolha somente queries da lista queries_disponiveis
 - Preencha os parâmetros com base na pergunta, no contexto da sessão e nas descrições/exemplos de cada parâmetro
