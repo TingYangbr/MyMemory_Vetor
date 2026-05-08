@@ -24,6 +24,7 @@ import { PerguntaModelos1700000000108 } from "./migrations/1700000000108-Pergunt
 import { AiConfigSeed1700000000109 } from "./migrations/1700000000109-AiConfigSeed.js";
 import { DbConnections1700000000110 } from "./migrations/1700000000110-DbConnections.js";
 import { UpdatePipe2PlanejamentoPrompt1700000000111 } from "./migrations/1700000000111-UpdatePipe2PlanejamentoPrompt.js";
+import { UpdatePipe2PercentualPrompts1700000000112 } from "./migrations/1700000000112-UpdatePipe2PercentualPrompts.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -68,6 +69,7 @@ assertMediaStorageEnv();
       AiConfigSeed1700000000109,
       DbConnections1700000000110,
       UpdatePipe2PlanejamentoPrompt1700000000111,
+      UpdatePipe2PercentualPrompts1700000000112,
     ],
   });
   const ds = await AppDataSource.initialize();
