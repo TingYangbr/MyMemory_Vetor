@@ -94,56 +94,6 @@ interface QueryExecResultado {
   totalLinhas: number;
 }
 
-// ── Prompts ───────────────────────────────────────────────────────────────────
-
-const SYSTEM_PLANEJAMENTO_ESTRUTURADO = `Você é um planejador de consultas estruturadas do MyMemory. Sua função é escolher uma ou mais queries cadastradas, preencher os parâmetros de filtro e, quando necessário, especificar uma agregação analítica.
-
-Você receberá as queries disponíveis para a categoria identificada. Cada query inclui:
-- sentenca_sql: o SQL que será executado — use para identificar os nomes exatos das colunas retornadas
-- params: parâmetros de filtro, cada um podendo ter descricao_campo e exemplos_valores
-
-Use descricao_campo e exemplos_valores para associar com precisão os termos do usuário ao parâmetro correto.
-Por exemplo: se o usuário menciona "diabete" e há um parâmetro com descricao_campo="Diagnóstico médico do paciente" e exemplos_valores=["diabetes","hipertensão"], associe "diabete" a esse parâmetro.
-
-Extração de valores numéricos: quando o usuário menciona uma quantidade com descritor de unidade (ex: "1 vaga", "2 dormitórios", "3 banheiros", "1 suite"), extraia SOMENTE o número como valor do parâmetro — nunca inclua o descritor. Exemplos: "1 vaga" → valor "1"; "2 dormitórios" → valor "2"; "3 banheiros" → valor "3". Se os exemplos_valores do parâmetro forem numéricos (["1","2","3"]), sempre retorne o número puro.
-
-Parâmetros de sistema (NUNCA peça ao usuário, são injetados automaticamente pelo backend):
-- userid, groupid — identificação do contexto do usuário; sempre disponíveis.
-
-Data de referência:
-- A entrada inclui o campo "data_atual" com a data de hoje no formato YYYY-MM-DD
-- Use data_atual para resolver referências relativas: "este mês" → ano-mês de data_atual, "hoje" → data_atual, "mês passado" → mês anterior a data_atual, etc.
-- NUNCA use datas do seu treinamento — sempre derive de data_atual
-
-Regras de filtro:
-- Escolha somente queries da lista queries_disponiveis
-- Preencha os parâmetros com base na pergunta, no contexto da sessão e nas descrições/exemplos de cada parâmetro
-- Para parâmetros não mencionados na pergunta, retorne valor null
-- Só sinalize dados_insuficientes: true quando NENHUMA query puder ser executada
-- Você NÃO deve criar SQL — apenas selecionar queries, preencher parâmetros e especificar agregação
-
-Agregação analítica (campo "agregacao"):
-Quando a pergunta solicitar contagem, soma, média, agrupamento, ordenação ou limite de resultados analíticos, preencha o campo "agregacao" na query selecionada usando os nomes de coluna que aparecem no sentenca_sql:
-- medida: "count" | "sum" | "avg" | "min" | "max" (null se não precisar de função de agregação)
-- campo_medida: nome exato da coluna para sum/avg/min/max; null para count
-- group_by: lista de nomes de coluna para agrupar os resultados
-- order_by: lista de {campo, direcao: "asc"|"desc"} para ordenar os resultados agregados
-- limit: número máximo de grupos/linhas (padrão 50 quando não especificado; máximo 1000)
-Se a pergunta não precisar de agregação, omita "agregacao" ou defina como null.
-
-Retorne somente JSON válido`;
-
-const SYSTEM_RESPOSTA_ESTRUTURADA = `Você é um assistente de resposta do MyMemory.
-
-Responda à pergunta do usuário usando somente os resultados estruturados fornecidos.
-Não invente números.
-Não altere totais.
-Não use conhecimento externo.
-Se o resultado for vazio ou insuficiente, informe isso claramente.
-
-A resposta deve ser clara, objetiva e em português do Brasil.
-Retorne somente JSON válido.`;
-
 // Parâmetros injetados automaticamente pelo backend — nunca expostos ao LLM
 const SYSTEM_PARAM_NAMES = new Set(["userid", "groupid"]);
 
@@ -562,7 +512,12 @@ async function executarConsultasPlano(input: {
       for (const p of task.parametros) {
         if (p.nome) paramValues[p.nome.toLowerCase()] = p.valor ?? null;
       }
-      const result = await executeQueryMssql(template.conexaoId, template.sentencaSql, paramValues);
+      const result = await executeQueryMssql(
+        template.conexaoId,
+        template.sentencaSql,
+        paramValues,
+        template.params.map((p) => ({ nome: p.nome, operadorSql: p.operadorSql }))
+      );
       linhas = result.linhas;
       colunasQuery = result.colunas;
       sqlParts.push(`[mssql:${template.conexaoId}] ${template.sentencaSql}`);

@@ -136,12 +136,17 @@ export async function testDbConnection(id: number): Promise<{ ok: boolean; messa
 
 /**
  * Converte `:paramName` → `@paramName` no SQL e coleta os valores.
- * Retorna o SQL ajustado e um array de { name, value } para request.input().
+ * Aplica o mesmo processamento de valores do PostgreSQL:
+ *   - LIKE/NOT LIKE → adiciona %valor% automaticamente (e strip diacríticos)
+ *   - Outros operadores → passa o valor cru
+ * Parâmetros com valor null são passados como null (IS NULL check fica no template T-SQL).
  */
 export function bindParamsMssql(
   sentencaSql: string,
-  paramValues: Record<string, unknown>
+  paramValues: Record<string, unknown>,
+  paramDefs?: { nome: string; operadorSql: string }[]
 ): { sql: string; params: { name: string; value: unknown }[] } {
+  const defByName = new Map((paramDefs ?? []).map((p) => [p.nome.toLowerCase(), p]));
   const params: { name: string; value: unknown }[] = [];
   const seen = new Set<string>();
 
@@ -149,8 +154,17 @@ export function bindParamsMssql(
     const key = name.toLowerCase();
     if (!seen.has(key)) {
       seen.add(key);
-      const val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
-      params.push({ name: key, value: val });
+      let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
+      if (val === "") val = null;
+
+      // Para LIKE: adiciona %valor% e normaliza diacríticos
+      const def = defByName.get(key);
+      if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
+        const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
+        val = `%${stripped}%`;
+      }
+
+      params.push({ name: key, value: val ?? null });
     }
     return `@${key}`;
   });
@@ -161,7 +175,8 @@ export function bindParamsMssql(
 export async function executeQueryMssql(
   conexaoId: number,
   sentencaSql: string,
-  paramValues: Record<string, unknown>
+  paramValues: Record<string, unknown>,
+  paramDefs?: { nome: string; operadorSql: string }[]
 ): Promise<{ colunas: string[]; linhas: Record<string, unknown>[] }> {
   const conn = await getDbConnectionWithPassword(conexaoId);
   if (!conn) throw new Error("db_connection_not_found");
@@ -185,7 +200,7 @@ export async function executeQueryMssql(
     requestTimeout: 60_000,
   };
 
-  const { sql, params } = bindParamsMssql(sentencaSql, paramValues);
+  const { sql, params } = bindParamsMssql(sentencaSql, paramValues, paramDefs);
 
   let sqlPool: import("mssql").ConnectionPool | null = null;
   try {
