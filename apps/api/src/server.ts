@@ -26,6 +26,7 @@ import { DbConnections1700000000110 } from "./migrations/1700000000110-DbConnect
 import { UpdatePipe2PlanejamentoPrompt1700000000111 } from "./migrations/1700000000111-UpdatePipe2PlanejamentoPrompt.js";
 import { UpdatePipe2PercentualPrompts1700000000112 } from "./migrations/1700000000112-UpdatePipe2PercentualPrompts.js";
 import { UpdatePipe2PlanejamentoOmitNullParams1700000000113 } from "./migrations/1700000000113-UpdatePipe2PlanejamentoOmitNullParams.js";
+import { UpdatePipe2WildcardControl1700000000114 } from "./migrations/1700000000114-UpdatePipe2WildcardControl.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -72,6 +73,7 @@ assertMediaStorageEnv();
       UpdatePipe2PlanejamentoPrompt1700000000111,
       UpdatePipe2PercentualPrompts1700000000112,
       UpdatePipe2PlanejamentoOmitNullParams1700000000113,
+      UpdatePipe2WildcardControl1700000000114,
     ],
   });
   const ds = await AppDataSource.initialize();

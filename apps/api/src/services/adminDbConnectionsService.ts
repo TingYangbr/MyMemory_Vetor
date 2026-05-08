@@ -163,8 +163,9 @@ export function bindParamsMssql(
 
         const def = defByName.get(key);
         if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
-          const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
-          val = `%${stripped}%`;
+          const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
+          // Se o LLM já incluiu wildcard (%), respeita o padrão; senão envolve com %valor%
+          val = strVal.includes("%") ? strVal : `%${strVal}%`;
         }
 
         params.push({ name: key, value: val ?? null });
