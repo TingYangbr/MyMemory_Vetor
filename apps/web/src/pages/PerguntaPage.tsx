@@ -1012,7 +1012,7 @@ export default function PerguntaPage() {
                   <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
                   <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
                   <div className={styles.refazerArea}>
-                    {r.classificacao.pipe === "semantica" ? (
+                    {r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2) ? (
                       (() => {
                         const proxLimiar = Math.max(
                           Math.round(((r.limiarUsado ?? 0) - 0.1) * 100) / 100,
@@ -1020,6 +1020,7 @@ export default function PerguntaPage() {
                         );
                         const noMinimo = r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001;
                         const semResposta = isSemResposta(r);
+                        const pipe = r.classificacao.pipe === "hibrida" ? "hibrida" : "semantica";
                         return (
                           <div className={styles.ampliarWrap}>
                             {semResposta ? (
@@ -1037,7 +1038,7 @@ export default function PerguntaPage() {
                               className={styles.ampliarBtn}
                               disabled={busy || noMinimo}
                               title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
-                              onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
+                              onClick={() => void enviar({ forcePipe: pipe, perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
                             >
                               ↓ Ampliar busca
                             </button>
@@ -1121,10 +1122,10 @@ export default function PerguntaPage() {
                         Confiança: {Math.round(r.resposta.confianca_estimada * 100)}%
                       </span>
                     )}
-                    {r.classificacao.pipe === "semantica" && r.limiarInicial != null && r.limiarUsado != null && r.limiarUsado < r.limiarInicial - 0.001 ? (
+                    {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.limiarInicial != null && r.limiarUsado != null && r.limiarUsado < r.limiarInicial - 0.001 ? (
                       <span
                         className={styles.limiarAmpliadoBadge}
-                        title={`Busca ampliada automaticamente: limiar reduzido de ${Math.round(r.limiarInicial * 100)}% para ${Math.round(r.limiarUsado * 100)}%`}
+                        title={`Busca ampliada: limiar reduzido de ${Math.round(r.limiarInicial * 100)}% para ${Math.round(r.limiarUsado * 100)}%`}
                       >
                         ↓ Busca ampliada
                       </span>
@@ -1161,7 +1162,7 @@ export default function PerguntaPage() {
                       <IconRepoIn />
                     </button>
                   </div>
-                  {r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
+                  {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
                       Limiar mínimo de {Math.round(r.limiarMinimo * 100)}% atingido sem memos relevantes encontrados.
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.

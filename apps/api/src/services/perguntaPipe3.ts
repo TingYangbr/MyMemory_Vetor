@@ -36,6 +36,7 @@ export interface Pipe3Result {
   limiarUsado?: number;
   limiarMinimo?: number;
   memosEncontrados?: number;
+  aguardaFase2?: boolean;
 }
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
@@ -186,5 +187,6 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     limiarUsado: pipe1.limiarUsado,
     limiarMinimo: pipe1.limiarMinimo,
     memosEncontrados: pipe1.memosEncontrados,
+    aguardaFase2: pipe1.memosEncontrados === 0 && pipe2.dadosEstruturados.totalLinhas > 0,
   };
 }

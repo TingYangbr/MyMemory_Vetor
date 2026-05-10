@@ -339,6 +339,7 @@ export async function perguntarMemory(input: {
     resposta: result.resposta,
     classificacao,
     apiCost: totalCost + result.apiCost,
+    aguardaFase2: result.aguardaFase2,
     limiarInicial: result.limiarInicial,
     limiarUsado: result.limiarUsado,
     limiarMinimo: result.limiarMinimo,
