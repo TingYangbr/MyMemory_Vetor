@@ -609,12 +609,22 @@ async function gerarRespostaEstruturada(input: {
     prioridade: q.prioridade,
   }));
 
+  const LIMITE_LINHAS_LLM = 20;
+
   const resultados = input.porQuery.map((r) => ({
     query_id: r.query_id,
     colunas: r.colunas,
-    linhas: r.linhas.slice(0, 20),
+    linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
     total_linhas: r.totalLinhas,
   }));
+
+  // Aviso injetado pelo backend quando o resultado foi truncado
+  const avisosTruncamento: string[] = input.porQuery
+    .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM)
+    .map(
+      (r) =>
+        `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Valores de soma, contagem ou total calculados a partir dessas linhas estão incompletos e podem estar incorretos. Informe essa limitação ao usuário e sugira usar um filtro mais específico ou reformular a pergunta com agregação.`
+    );
 
   const parametros_aplicados = input.plano.queries.map((q) => ({
     query_id: q.query_id,
@@ -632,6 +642,7 @@ async function gerarRespostaEstruturada(input: {
       resultados,
       parametros_aplicados,
       normalizacoes_aplicadas,
+      ...(avisosTruncamento.length > 0 ? { avisos_truncamento: avisosTruncamento } : {}),
     },
     null,
     2
