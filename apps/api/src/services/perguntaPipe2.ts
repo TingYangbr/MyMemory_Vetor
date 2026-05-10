@@ -197,23 +197,37 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
   }
 
+  // Extras adicionados automaticamente ao SELECT quando ORDER BY usa coluna fora do GROUP BY.
+  // Ex: ORDER BY Valor_Total_Produto com medida=min → adiciona SUM(Valor_Total_Produto) AS ord_xxx.
+  const orderByExtras: { alias: string; expr: string }[] = [];
+
+  const groupByLowers = new Set(ag.group_by.map((c) => stripBase(c).toLowerCase()));
+
   // Resolve o campo do ORDER BY: prefixo "_base." → strip; nome genérico → alias real;
-  // nome real da coluna medida → alias gerado acima.
+  // nome real da coluna medida → alias gerado; coluna em group_by → usa diretamente;
+  // qualquer outro campo → adiciona SUM() extra ao SELECT para evitar erro de GROUP BY.
   const resolveOrderCampoFinal = (campo: string): string => {
     const name = stripBase(campo);
     const lower = name.toLowerCase();
     if (MEDIDA_ALIAS[lower]) return MEDIDA_ALIAS[lower];
     if (ag.campo_medida && lower === stripBase(ag.campo_medida).toLowerCase()) return measureAlias;
-    return name;
+    if (groupByLowers.has(lower)) return name;
+    // Campo não está no GROUP BY nem é a medida principal → adiciona SUM extra para ORDER BY
+    const alias = `ord_${lower.replace(/[^a-z0-9_]/g, "_")}`;
+    if (!orderByExtras.some((e) => e.alias === alias)) {
+      orderByExtras.push({ alias, expr: `SUM(${qi(name)}) AS ${alias}` });
+    }
+    return alias;
   };
 
   const orderClauses = ag.order_by.map(
     (o) => `${qi(resolveOrderCampoFinal(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
   );
 
-  const selectList = groupCols.length > 0
-    ? `${groupCols.join(", ")}, ${measureExpr}`
-    : measureExpr;
+  const baseSelect = groupCols.length > 0 ? `${groupCols.join(", ")}, ${measureExpr}` : measureExpr;
+  const selectList = orderByExtras.length > 0
+    ? `${baseSelect}, ${orderByExtras.map((e) => e.expr).join(", ")}`
+    : baseSelect;
 
   let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${selectList} FROM _base`;
   if (groupCols.length > 0) sql += ` GROUP BY ${groupCols.join(", ")}`;
