@@ -1130,9 +1130,6 @@ export default function PerguntaPage() {
                         ↓ Busca ampliada
                       </span>
                     ) : null}
-                    {r.aguardaFase2 ? (
-                      <span className={styles.fase2Badge}>Em desenvolvimento</span>
-                    ) : null}
                     {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
                       <button
                         type="button"
