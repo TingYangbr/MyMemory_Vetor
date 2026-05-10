@@ -86,6 +86,6 @@ jobs:
             set -e
             cd ${{ secrets.DEPLOY_PATH }}
             export IMAGE_TAG=${{ github.sha }}
+            docker image prune -a -f
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d
-            docker image prune -f
