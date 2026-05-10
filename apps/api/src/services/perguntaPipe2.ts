@@ -161,12 +161,10 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   const cleanBase = stripLimitOffset(baseSql);
   const qi = (name: string) => sanitizeIdentifier(name, dialect);
 
-  const groupCols = ag.group_by.map(qi);
+  // Remove prefixo "_base." que o LLM às vezes inclui nos nomes de coluna
+  const stripBase = (name: string) => name.replace(/^_base\./i, "");
 
-  // Normaliza o campo de order_by: se o LLM referenciou o alias da medida pelo nome
-  // genérico (ex: "count"), substitui pelo alias real gerado abaixo (ex: "contagem").
-  const resolveOrderCampo = (campo: string): string =>
-    MEDIDA_ALIAS[campo.toLowerCase()] ?? campo;
+  const groupCols = ag.group_by.map((col) => qi(stripBase(col)));
 
   // mssql usa TOP N antes do SELECT; PostgreSQL usa LIMIT N no final
   const topN = dialect === "mssql" && ag.limit ? `TOP ${ag.limit} ` : "";
@@ -175,9 +173,11 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   // Sem função de medida — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
   if (!ag.medida) {
     const cols = groupCols.length > 0 ? groupCols.join(", ") : "*";
-    const orderClauses = ag.order_by.map(
-      (o) => `${qi(resolveOrderCampo(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
-    );
+    const orderClauses = ag.order_by.map((o) => {
+      const name = stripBase(o.campo);
+      const resolved = MEDIDA_ALIAS[name.toLowerCase()] ?? name;
+      return `${qi(resolved)} ${o.direcao === "desc" ? "DESC" : "ASC"}`;
+    });
     let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${cols} FROM _base`;
     if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
     sql += limitClause;
@@ -191,19 +191,20 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     measureExpr = `COUNT(*) AS ${measureAlias}`;
   } else {
     if (!ag.campo_medida) throw new Error(`campo_medida obrigatório para medida "${ag.medida}"`);
-    const col = qi(ag.campo_medida);
+    const col = qi(stripBase(ag.campo_medida));
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
     measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
     measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
   }
 
-  // Resolve o campo do ORDER BY: nome genérico (ex: "sum") → alias (ex: "total"),
-  // ou nome real da coluna medida (ex: "Valor_Total_Produto") → alias também.
+  // Resolve o campo do ORDER BY: prefixo "_base." → strip; nome genérico → alias real;
+  // nome real da coluna medida → alias gerado acima.
   const resolveOrderCampoFinal = (campo: string): string => {
-    const lower = campo.toLowerCase();
+    const name = stripBase(campo);
+    const lower = name.toLowerCase();
     if (MEDIDA_ALIAS[lower]) return MEDIDA_ALIAS[lower];
-    if (ag.campo_medida && lower === ag.campo_medida.toLowerCase()) return measureAlias;
-    return campo;
+    if (ag.campo_medida && lower === stripBase(ag.campo_medida).toLowerCase()) return measureAlias;
+    return name;
   };
 
   const orderClauses = ag.order_by.map(
