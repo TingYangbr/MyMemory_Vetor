@@ -164,6 +164,19 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   // Remove prefixo "_base." que o LLM às vezes inclui nos nomes de coluna
   const stripBase = (name: string) => name.replace(/^_base\./i, "");
 
+  // Desempacota chamadas de função literais que o LLM coloca no order_by:
+  // "COUNT(*)" → "contagem", "SUM(col)" → "col", "MIN(col)" → "col".
+  const unwrapFn = (name: string): string => {
+    const m = /^(\w+)\(([^)]*)\)$/.exec(name.trim());
+    if (!m) return name;
+    const fn = m[1].toLowerCase();
+    const arg = m[2].trim();
+    if (fn === "count") return "contagem";
+    return arg === "*" ? name : arg;
+  };
+
+  const normalizeOrderCampo = (campo: string) => unwrapFn(stripBase(campo));
+
   const groupCols = ag.group_by.map((col) => qi(stripBase(col)));
 
   // mssql usa TOP N antes do SELECT; PostgreSQL usa LIMIT N no final
@@ -174,7 +187,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   if (!ag.medida) {
     const cols = groupCols.length > 0 ? groupCols.join(", ") : "*";
     const orderClauses = ag.order_by.map((o) => {
-      const name = stripBase(o.campo);
+      const name = normalizeOrderCampo(o.campo);
       const resolved = MEDIDA_ALIAS[name.toLowerCase()] ?? name;
       return `${qi(resolved)} ${o.direcao === "desc" ? "DESC" : "ASC"}`;
     });
@@ -200,19 +213,16 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   // Extras adicionados automaticamente ao SELECT quando ORDER BY usa coluna fora do GROUP BY.
   // Ex: ORDER BY Valor_Total_Produto com medida=min → adiciona SUM(Valor_Total_Produto) AS ord_xxx.
   const orderByExtras: { alias: string; expr: string }[] = [];
-
   const groupByLowers = new Set(ag.group_by.map((c) => stripBase(c).toLowerCase()));
 
-  // Resolve o campo do ORDER BY: prefixo "_base." → strip; nome genérico → alias real;
-  // nome real da coluna medida → alias gerado; coluna em group_by → usa diretamente;
-  // qualquer outro campo → adiciona SUM() extra ao SELECT para evitar erro de GROUP BY.
+  // Resolve o campo do ORDER BY: normaliza (strip prefix + unwrap fn); mapeia alias genérico;
+  // mapeia coluna da medida principal; aceita coluna do GROUP BY; senão adiciona SUM extra.
   const resolveOrderCampoFinal = (campo: string): string => {
-    const name = stripBase(campo);
+    const name = normalizeOrderCampo(campo);
     const lower = name.toLowerCase();
     if (MEDIDA_ALIAS[lower]) return MEDIDA_ALIAS[lower];
     if (ag.campo_medida && lower === stripBase(ag.campo_medida).toLowerCase()) return measureAlias;
     if (groupByLowers.has(lower)) return name;
-    // Campo não está no GROUP BY nem é a medida principal → adiciona SUM extra para ORDER BY
     const alias = `ord_${lower.replace(/[^a-z0-9_]/g, "_")}`;
     if (!orderByExtras.some((e) => e.alias === alias)) {
       orderByExtras.push({ alias, expr: `SUM(${qi(name)}) AS ${alias}` });
