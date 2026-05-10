@@ -1179,6 +1179,11 @@ export default function PerguntaPage() {
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>
                   ) : null}
+                  {me?.showApiCost !== false && r.apiCost > 0 ? (
+                    <p className={styles.apiCostLine}>
+                      Custo de API: ${r.apiCost.toFixed(6)} — Créditos: {(r.apiCost * 100).toFixed(6)}
+                    </p>
+                  ) : null}
                   {r.resposta.dados_usados.length > 0 ? (
                     <details className={styles.memosDetails}>
                       <summary className={styles.memosSummary}>

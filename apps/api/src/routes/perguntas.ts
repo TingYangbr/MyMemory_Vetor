@@ -7,6 +7,7 @@ import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
+import { pool } from "../db.js";
 
 const perguntaBodySchema = z.object({
   pergunta: z.string().min(1).max(4000),
@@ -105,6 +106,14 @@ const plugin: FastifyPluginAsync = async (app) => {
           ? "Não foi possível contatar o serviço de IA. Tente novamente em instantes."
           : `Erro ao processar a pergunta: ${msg}`,
       });
+    }
+
+    if (result.apiCost > 0) {
+      pool.query(
+        `INSERT INTO api_usage_logs (memoid, userid, operation, model, inputtokens, outputtokens, totaltokens, costusd)
+         VALUES (NULL, ?, 'Response to Question', 'aggregate', 0, 0, 0, ?)`,
+        [userId, result.apiCost]
+      ).catch(() => {});
     }
 
     const body: PerguntaResponse = {
