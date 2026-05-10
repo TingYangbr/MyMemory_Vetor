@@ -135,12 +135,12 @@ function stripLimitOffset(sql: string): string {
   return sql.replace(/\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, "").trim();
 }
 
-/** Valida e quota um identificador de coluna: "col" para PostgreSQL, [col] para T-SQL. */
+/** Quota um identificador de coluna usando a convenção do dialeto. Aceita qualquer nome. */
 function sanitizeIdentifier(name: string, dialect: "pg" | "mssql" = "pg"): string {
-  if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name)) {
-    throw new Error(`Nome de coluna inválido: "${name}"`);
+  if (dialect === "mssql") {
+    return `[${name.replace(/]/g, "]]")}]`;
   }
-  return dialect === "mssql" ? `[${name}]` : `"${name}"`;
+  return `"${name.replace(/"/g, '""')}"`;
 }
 
 /**
@@ -686,7 +686,10 @@ async function gerarRespostaEstruturada(input: {
     confianca_estimada: typeof parsed.confianca_estimada === "number"
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
-    dados_estruturados: input.agregado,
+    dados_estruturados: {
+      ...input.agregado,
+      linhas: input.agregado.linhas.slice(0, LIMITE_LINHAS_LLM),
+    },
   };
 
   return { resposta, costUsd };
