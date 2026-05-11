@@ -88,6 +88,10 @@ function stripAccents(s: string): string {
 /**
  * Correspondência por **palavra inteira** usando `\y` (word boundary POSIX no PostgreSQL).
  * "ting" não casa "softing"; "softing" casa em "Softing Automação Ltda".
+ *
+ * Em frases multi-palavra (ex.: "120 metros quadrados"), as palavras precisam estar
+ * **contíguas** separadas apenas por espaço/pontuação (`\W+`), não espalhadas por
+ * trechos longos. Evita falsos positivos em buscas vindas da Sugestão.
  */
 function wholeWordRegexpPattern(termLower: string): string | null {
   const words = termLower
@@ -97,7 +101,7 @@ function wholeWordRegexpPattern(termLower: string): string | null {
     .filter(Boolean);
   if (!words.length) return null;
   const parts = words.map((w) => `\\y${pgRegexpEscape(w)}\\y`);
-  return parts.join(".*?");
+  return parts.join("\\W+");
 }
 
 function parseYmd(s: string): string | null {
@@ -309,7 +313,9 @@ export async function searchMemosForUser(input: {
       for (const term of uniq) {
         const pat = wholeWordRegexpPattern(stripAccents(term));
         if (!pat) continue;
-        sub.push(`${hay} ~* ?`);
+        // unaccent() no padrão espelha o unaccent do haystack: cobre símbolos como
+        // ² ³ ½ que o PostgreSQL normaliza mas o stripAccents (NFD) do JS não.
+        sub.push(`${hay} ~* unaccent(?)`);
         vals.push(pat);
       }
       if (sub.length) orParts.push(sub.length === 1 ? sub[0]! : `(${sub.join(" OR ")})`);

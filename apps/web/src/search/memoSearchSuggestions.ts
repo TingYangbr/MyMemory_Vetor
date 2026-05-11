@@ -393,6 +393,30 @@ function parseDadosValueEntries(raw: string | null | undefined): Array<{ label: 
 
 const MAX_ROWS = 120;
 
+/**
+ * Verifica se uma frase (já normalizada via stripAccents+lowercase) ocorre em `textNorm`
+ * (mesma normalização) respeitando limites de palavra. Necessário porque o `tokenize`
+ * só capta palavras que começam com letra — frases como "120 metros quadrados", "50 m²"
+ * ou "120m²" nunca viram tokens e, sem este caminho, contariam 0 no texto.
+ */
+function textContainsPhrase(textNorm: string, phraseNorm: string): boolean {
+  if (!phraseNorm) return false;
+  const isWordChar = (c: string) => /[\p{L}\p{N}_]/u.test(c);
+  const firstIsWord = isWordChar(phraseNorm.charAt(0));
+  const lastIsWord = isWordChar(phraseNorm.charAt(phraseNorm.length - 1));
+  let from = 0;
+  for (;;) {
+    const idx = textNorm.indexOf(phraseNorm, from);
+    if (idx < 0) return false;
+    const prev = idx > 0 ? textNorm.charAt(idx - 1) : "";
+    const next = textNorm.charAt(idx + phraseNorm.length);
+    const leftOk = !firstIsWord || prev === "" || !isWordChar(prev);
+    const rightOk = !lastIsWord || next === "" || !isWordChar(next);
+    if (leftOk && rightOk) return true;
+    from = idx + 1;
+  }
+}
+
 function collectLemmaSurfacesInText(text: string, excluded: Set<string>): Map<string, Set<string>> {
   const map = new Map<string, Set<string>>();
   for (const tok of tokenize(text)) {
@@ -495,6 +519,17 @@ export function computeSearchSuggestions(
     const mediaMap = collectLemmaSurfacesInText(m.mediaText || "", excludedLemmas);
     const kwMap = collectLemmaSurfacesInKeywords(m.keywords, excludedLemmas, excludedPhrases);
     const dadosMap = collectDadosValueSurfaces(m.dadosEspecificosJson, excludedLemmas, excludedPhrases);
+
+    // Frases vindas de keywords/dados (chaves normalizadas) que aparecem literalmente
+    // no mediaText também contam como ocorrência por texto. `tokenize` só vê palavras
+    // que começam com letra; isto cobre "120 metros quadrados", "50 m²", "120m²", etc.
+    const textNorm = stripAccents((m.mediaText || "").toLowerCase());
+    for (const lk of [...kwMap.keys(), ...dadosMap.keys()]) {
+      if (mediaMap.has(lk)) continue;
+      if (!textContainsPhrase(textNorm, lk)) continue;
+      mediaMap.set(lk, new Set<string>([lk]));
+    }
+
     const allLk = new Set<string>([...mediaMap.keys(), ...kwMap.keys(), ...dadosMap.keys()]);
     for (const lk of allLk) {
       const a = getAgg(lk);
