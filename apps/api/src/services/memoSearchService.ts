@@ -92,6 +92,10 @@ function stripAccents(s: string): string {
  * Em frases multi-palavra (ex.: "120 metros quadrados"), as palavras precisam estar
  * **contíguas** separadas apenas por espaço/pontuação (`\W+`), não espalhadas por
  * trechos longos. Evita falsos positivos em buscas vindas da Sugestão.
+ *
+ * `\y` exige transição word↔non-word. Se a palavra começa/termina em caractere
+ * não-word (ex.: `²` em `m²`), o `\y` correspondente jamais casa e o match falha.
+ * Nestes casos omite-se o `\y` desse lado.
  */
 function wholeWordRegexpPattern(termLower: string): string | null {
   const words = termLower
@@ -100,7 +104,13 @@ function wholeWordRegexpPattern(termLower: string): string | null {
     .map((w) => w.trim())
     .filter(Boolean);
   if (!words.length) return null;
-  const parts = words.map((w) => `\\y${pgRegexpEscape(w)}\\y`);
+  const isPosixWordChar = (c: string): boolean => /[A-Za-z0-9_]/.test(c);
+  const parts = words.map((w) => {
+    const escaped = pgRegexpEscape(w);
+    const left = isPosixWordChar(w.charAt(0)) ? `\\y` : ``;
+    const right = isPosixWordChar(w.charAt(w.length - 1)) ? `\\y` : ``;
+    return `${left}${escaped}${right}`;
+  });
   return parts.join("\\W+");
 }
 
