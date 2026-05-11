@@ -514,22 +514,42 @@ export function computeSearchSuggestions(
     return a;
   }
 
+  // Pré-coleta: maps por memo + conjunto global de frases vindas de qualquer
+  // keyword/dados (não só do memo atual). Necessário para o passo seguinte
+  // checar a presença literal dessas frases no `mediaText` de cada memo,
+  // mesmo dos memos que não as têm em keywords/dados.
+  type MemoMaps = {
+    memoId: number;
+    textNorm: string;
+    mediaMap: Map<string, Set<string>>;
+    kwMap: Map<string, Set<string>>;
+    dadosMap: Map<string, { values: Set<string>; example: { label: string; value: string } | null }>;
+  };
+  const memoMaps: MemoMaps[] = [];
+  const globalPhrases = new Set<string>();
   items.forEach((m, idx) => {
     const memoId = Number.isFinite(m.id) ? m.id : idx;
     const mediaMap = collectLemmaSurfacesInText(m.mediaText || "", excludedLemmas);
     const kwMap = collectLemmaSurfacesInKeywords(m.keywords, excludedLemmas, excludedPhrases);
     const dadosMap = collectDadosValueSurfaces(m.dadosEspecificosJson, excludedLemmas, excludedPhrases);
-
-    // Frases vindas de keywords/dados (chaves normalizadas) que aparecem literalmente
-    // no mediaText também contam como ocorrência por texto. `tokenize` só vê palavras
-    // que começam com letra; isto cobre "120 metros quadrados", "50 m²", "120m²", etc.
     const textNorm = stripAccents((m.mediaText || "").toLowerCase());
-    for (const lk of [...kwMap.keys(), ...dadosMap.keys()]) {
-      if (mediaMap.has(lk)) continue;
-      if (!textContainsPhrase(textNorm, lk)) continue;
-      mediaMap.set(lk, new Set<string>([lk]));
-    }
+    memoMaps.push({ memoId, textNorm, mediaMap, kwMap, dadosMap });
+    for (const lk of kwMap.keys()) globalPhrases.add(lk);
+    for (const lk of dadosMap.keys()) globalPhrases.add(lk);
+  });
 
+  // Para cada memo, marca como ocorrência por texto qualquer frase global que
+  // apareça literalmente no `mediaText` — cobre o caso em que o memo tem a
+  // frase só no texto, sem keyword/dados correspondentes.
+  for (const mm of memoMaps) {
+    for (const lk of globalPhrases) {
+      if (mm.mediaMap.has(lk)) continue;
+      if (!textContainsPhrase(mm.textNorm, lk)) continue;
+      mm.mediaMap.set(lk, new Set<string>([lk]));
+    }
+  }
+
+  for (const { memoId, mediaMap, kwMap, dadosMap } of memoMaps) {
     const allLk = new Set<string>([...mediaMap.keys(), ...kwMap.keys(), ...dadosMap.keys()]);
     for (const lk of allLk) {
       const a = getAgg(lk);
@@ -554,7 +574,7 @@ export function computeSearchSuggestions(
         a.surfMemoCount.set(s, (a.surfMemoCount.get(s) ?? 0) + 1);
       }
     }
-  });
+  }
 
   const rows: SearchSuggestionRow[] = [];
   for (const [lk, a] of aggs) {
