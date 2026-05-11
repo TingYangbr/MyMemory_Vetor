@@ -64,10 +64,16 @@ interface PlanoParam {
   precisa_normalizacao: boolean;
 }
 
+interface PlanoAgregacaoTrunc {
+  campo: string;
+  granularidade: "year" | "month" | "week" | "day";
+}
+
 interface PlanoAgregacao {
   medida: "count" | "sum" | "avg" | "min" | "max" | null;
   campo_medida: string | null;
   group_by: string[];
+  group_by_trunc?: PlanoAgregacaoTrunc[];
   order_by: { campo: string; direcao: "asc" | "desc" }[];
   limit: number | null;
 }
@@ -177,7 +183,33 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
 
   const normalizeOrderCampo = (campo: string) => unwrapFn(stripBase(campo));
 
-  const groupCols = ag.group_by.map((col) => qi(stripBase(col)));
+  // Constrói expressões de truncamento para colunas de data com granularidade
+  const truncMap = new Map<string, { selectExpr: string; groupExpr: string }>();
+  for (const t of (ag.group_by_trunc ?? [])) {
+    const colNorm = stripBase(t.campo).toLowerCase();
+    const colQ = qi(stripBase(t.campo));
+    const aliasQ = qi(stripBase(t.campo));
+    let expr: string;
+    if (dialect === "mssql") {
+      const fmtMap: Record<string, string> = { year: "yyyy", month: "yyyy-MM", week: "yyyy-WW", day: "yyyy-MM-dd" };
+      const fmt = fmtMap[t.granularidade] ?? "yyyy-MM";
+      expr = `FORMAT(${colQ}, '${fmt}')`;
+    } else {
+      expr = `DATE_TRUNC('${t.granularidade}', ${colQ})`;
+    }
+    truncMap.set(colNorm, { selectExpr: `${expr} AS ${aliasQ}`, groupExpr: expr });
+  }
+
+  const groupSelectParts = ag.group_by.map((col) => {
+    const stripped = stripBase(col);
+    const trunc = truncMap.get(stripped.toLowerCase());
+    return trunc ? trunc.selectExpr : qi(stripped);
+  });
+  const groupByParts = ag.group_by.map((col) => {
+    const stripped = stripBase(col);
+    const trunc = truncMap.get(stripped.toLowerCase());
+    return trunc ? trunc.groupExpr : qi(stripped);
+  });
 
   // mssql usa TOP N antes do SELECT; PostgreSQL usa LIMIT N no final
   const topN = dialect === "mssql" && ag.limit ? `TOP ${ag.limit} ` : "";
@@ -185,7 +217,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
 
   // Sem função de medida — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
   if (!ag.medida) {
-    const cols = groupCols.length > 0 ? groupCols.join(", ") : "*";
+    const cols = groupSelectParts.length > 0 ? groupSelectParts.join(", ") : "*";
     const orderClauses = ag.order_by.map((o) => {
       const name = normalizeOrderCampo(o.campo);
       const resolved = MEDIDA_ALIAS[name.toLowerCase()] ?? name;
@@ -213,6 +245,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   // Extras adicionados automaticamente ao SELECT quando ORDER BY usa coluna fora do GROUP BY.
   // Ex: ORDER BY Valor_Total_Produto com medida=min → adiciona SUM(Valor_Total_Produto) AS ord_xxx.
   const orderByExtras: { alias: string; expr: string }[] = [];
+  // aliases das colunas de GROUP BY: para trunc, o alias é o campo original (ex: "Data_Emissao")
   const groupByLowers = new Set(ag.group_by.map((c) => stripBase(c).toLowerCase()));
 
   // Resolve o campo do ORDER BY: normaliza (strip prefix + unwrap fn); mapeia alias genérico;
@@ -230,17 +263,22 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     return alias;
   };
 
-  const orderClauses = ag.order_by.map(
-    (o) => `${qi(resolveOrderCampoFinal(o.campo))} ${o.direcao === "desc" ? "DESC" : "ASC"}`
-  );
+  const orderClauses: string[] = [];
+  const orderSeen = new Set<string>();
+  for (const o of ag.order_by) {
+    const resolved = resolveOrderCampoFinal(o.campo);
+    if (orderSeen.has(resolved.toLowerCase())) continue;
+    orderSeen.add(resolved.toLowerCase());
+    orderClauses.push(`${qi(resolved)} ${o.direcao === "desc" ? "DESC" : "ASC"}`);
+  }
 
-  const baseSelect = groupCols.length > 0 ? `${groupCols.join(", ")}, ${measureExpr}` : measureExpr;
+  const baseSelect = groupSelectParts.length > 0 ? `${groupSelectParts.join(", ")}, ${measureExpr}` : measureExpr;
   const selectList = orderByExtras.length > 0
     ? `${baseSelect}, ${orderByExtras.map((e) => e.expr).join(", ")}`
     : baseSelect;
 
   let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${selectList} FROM _base`;
-  if (groupCols.length > 0) sql += ` GROUP BY ${groupCols.join(", ")}`;
+  if (groupByParts.length > 0) sql += ` GROUP BY ${groupByParts.join(", ")}`;
   if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
   sql += limitClause;
 
@@ -428,7 +466,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50}}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50}}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -485,11 +523,23 @@ async function planejarConsultaEstruturada(input: {
                 .filter((o) => o.campo.length > 0)
             : [];
           const limit = typeof ag.limit === "number" && ag.limit > 0 ? Math.min(ag.limit, 1000) : null;
-          if (medida || group_by.length > 0 || order_by.length > 0 || limit) {
+          const GRANULARIDADES = ["year", "month", "week", "day"] as const;
+          type Granularidade = typeof GRANULARIDADES[number];
+          const group_by_trunc: PlanoAgregacaoTrunc[] = Array.isArray(ag.group_by_trunc)
+            ? (ag.group_by_trunc as unknown[])
+                .filter((t): t is Record<string, unknown> => t !== null && typeof t === "object")
+                .map((t) => ({
+                  campo: String(t.campo ?? ""),
+                  granularidade: GRANULARIDADES.includes(t.granularidade as Granularidade) ? (t.granularidade as Granularidade) : "month",
+                }))
+                .filter((t) => t.campo.length > 0)
+            : [];
+          if (medida || group_by.length > 0 || group_by_trunc.length > 0 || order_by.length > 0 || limit) {
             agregacao = {
               medida,
               campo_medida: typeof ag.campo_medida === "string" && ag.campo_medida.length > 0 ? ag.campo_medida : null,
               group_by,
+              ...(group_by_trunc.length > 0 ? { group_by_trunc } : {}),
               order_by,
               limit,
             };
