@@ -522,7 +522,11 @@ async function planejarConsultaEstruturada(input: {
                 .map((o) => ({ campo: String(o.campo ?? ""), direcao: o.direcao === "desc" ? "desc" as const : "asc" as const }))
                 .filter((o) => o.campo.length > 0)
             : [];
-          const limit = typeof ag.limit === "number" && ag.limit > 0 ? Math.min(ag.limit, 1000) : null;
+          // Limite padrão 100 para queries com GROUP BY/medida e sem limit explícito.
+          // Evita que queries subsidiárias de comparação retornem todos os registros.
+          const hasGroupOrMedida = MEDIDAS.includes(ag.medida as Medida) || Array.isArray(ag.group_by) && (ag.group_by as unknown[]).length > 0;
+          const defaultLimit = hasGroupOrMedida ? 100 : null;
+          const limit = typeof ag.limit === "number" && ag.limit > 0 ? Math.min(ag.limit, 1000) : defaultLimit;
           const GRANULARIDADES = ["year", "month", "week", "day"] as const;
           type Granularidade = typeof GRANULARIDADES[number];
           const group_by_trunc: PlanoAgregacaoTrunc[] = Array.isArray(ag.group_by_trunc)
