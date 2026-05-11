@@ -28,6 +28,7 @@ import { UpdatePipe2PercentualPrompts1700000000112 } from "./migrations/17000000
 import { UpdatePipe2PlanejamentoOmitNullParams1700000000113 } from "./migrations/1700000000113-UpdatePipe2PlanejamentoOmitNullParams.js";
 import { UpdatePipe2WildcardControl1700000000114 } from "./migrations/1700000000114-UpdatePipe2WildcardControl.js";
 import { UpdatePipe2TruncGroupBy1700000000115 } from "./migrations/1700000000115-UpdatePipe2TruncGroupBy.js";
+import { UpdatePipe2TruncGroupByV21700000000116 } from "./migrations/1700000000116-UpdatePipe2TruncGroupByV2.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -76,6 +77,7 @@ assertMediaStorageEnv();
       UpdatePipe2PlanejamentoOmitNullParams1700000000113,
       UpdatePipe2WildcardControl1700000000114,
       UpdatePipe2TruncGroupBy1700000000115,
+      UpdatePipe2TruncGroupByV21700000000116,
     ],
   });
   const ds = await AppDataSource.initialize();
