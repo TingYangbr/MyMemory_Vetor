@@ -113,6 +113,8 @@ export default function MemoContextPage() {
   const [modalQuerySentencaSql, setModalQuerySentencaSql] = useState("");
   const [modalQueryConexaoId, setModalQueryConexaoId] = useState<number | null>(null);
   const [dbConnOptions, setDbConnOptions] = useState<DbConnection[]>([]);
+  const [syntaxResult, setSyntaxResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [syntaxBusy, setSyntaxBusy] = useState(false);
 
   // Param modal state
   const [modalParamId, setModalParamId] = useState<number | null>(null);
@@ -232,6 +234,8 @@ export default function MemoContextPage() {
     setPendingAutoParams([]);
     setModalSaveError(null);
     setModalSaveBusy(false);
+    setSyntaxResult(null);
+    setSyntaxBusy(false);
   }
 
   const openNewCategory = () => {
@@ -311,6 +315,26 @@ export default function MemoContextPage() {
     setModalQueryConexaoId(q.conexaoId ?? null);
     loadDbConnOptions();
     setModal("queryEdit");
+  };
+
+  const checkSyntax = async () => {
+    if (!modalQueryConexaoId) {
+      setSyntaxResult({ ok: false, message: "Verificação disponível apenas para conexões SQL Server externas." });
+      return;
+    }
+    setSyntaxBusy(true);
+    setSyntaxResult(null);
+    try {
+      const res = await apiPostJson<{ ok: boolean; message: string }>(
+        `/api/admin/db-connections/${modalQueryConexaoId}/syntax-check`,
+        { sentencaSql: modalQuerySentencaSql }
+      );
+      setSyntaxResult(res);
+    } catch (e) {
+      setSyntaxResult({ ok: false, message: e instanceof Error ? e.message : "Erro ao verificar." });
+    } finally {
+      setSyntaxBusy(false);
+    }
   };
 
   function toParamName(name: string): string {
@@ -1073,9 +1097,24 @@ export default function MemoContextPage() {
                     rows={28}
                     style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem", resize: "vertical", minHeight: "30rem", whiteSpace: "pre-wrap", overflowWrap: "break-word", width: "100%" }}
                     value={modalQuerySentencaSql}
-                    onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); }}
+                    onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); setSyntaxResult(null); }}
                     placeholder="SELECT * FROM tabela WHERE campo = :campo"
                   />
+                  <div className={styles.syntaxCheckRow}>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--ghost"
+                      onClick={checkSyntax}
+                      disabled={syntaxBusy || !modalQuerySentencaSql.trim()}
+                    >
+                      {syntaxBusy ? "Verificando…" : "✓ Verificar sintaxe"}
+                    </button>
+                    {syntaxResult ? (
+                      <span className={syntaxResult.ok ? styles.syntaxOk : styles.syntaxErr}>
+                        {syntaxResult.ok ? "✓ " : "✗ "}{syntaxResult.message}
+                      </span>
+                    ) : null}
+                  </div>
                   <p className={styles.fieldHelpSmall}>
                     Use <code>:nome_param</code> como placeholder para os parâmetros definidos abaixo.
                   </p>

@@ -5,6 +5,7 @@ import {
   createDbConnection,
   listDbConnections,
   softDeleteDbConnection,
+  syntaxCheckMssql,
   testDbConnection,
   updateDbConnection,
 } from "../services/adminDbConnectionsService.js";
@@ -77,6 +78,17 @@ const plugin: FastifyPluginAsync = async (app) => {
     const id = z.coerce.number().int().positive().safeParse((req.params as { id: string }).id);
     if (!id.success) return reply.code(400).send({ error: "invalid_id" });
     const result = await testDbConnection(id.data);
+    return result;
+  });
+
+  app.post("/api/admin/db-connections/:id/syntax-check", async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    if (admin == null) return;
+    const id = z.coerce.number().int().positive().safeParse((req.params as { id: string }).id);
+    if (!id.success) return reply.code(400).send({ error: "invalid_id" });
+    const body = z.object({ sentencaSql: z.string().min(1) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    const result = await syntaxCheckMssql(id.data, body.data.sentencaSql);
     return result;
   });
 };

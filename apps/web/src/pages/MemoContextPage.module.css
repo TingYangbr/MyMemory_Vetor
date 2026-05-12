@@ -834,11 +834,35 @@
   opacity: 0.85;
 }
 
+.syntaxCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.syntaxOk {
+  font-size: 0.82rem;
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.syntaxErr {
+  font-size: 0.82rem;
+  color: #dc2626;
+  font-weight: 500;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .sqlModal {
   width: 96vw;
   max-width: 96vw;
   max-height: 94vh;
-  overflow-y: auto;
+  overflow: auto;
   min-height: 18rem;
+  min-width: 40rem;
+  resize: both;
 }
 

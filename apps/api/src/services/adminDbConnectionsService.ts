@@ -132,6 +132,55 @@ export async function testDbConnection(id: number): Promise<{ ok: boolean; messa
   }
 }
 
+// ── Syntax check via mssql PARSEONLY ─────────────────────────────────────────
+
+export async function syntaxCheckMssql(
+  conexaoId: number,
+  sentencaSql: string
+): Promise<{ ok: boolean; message: string }> {
+  const conn = await getDbConnectionWithPassword(conexaoId);
+  if (!conn) return { ok: false, message: "Conexão não encontrada." };
+
+  const { createRequire } = await import("node:module");
+  const require = createRequire(import.meta.url);
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const mssql = require("mssql") as typeof import("mssql");
+
+  // Substitui :param e @param (não @@sistema) por NULL para validação de sintaxe
+  const sqlForCheck = sentencaSql.replace(
+    /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g,
+    "NULL"
+  );
+  const sqlWithParseOnly = `SET PARSEONLY ON\n${sqlForCheck}`;
+
+  const cfg: import("mssql").config = {
+    server: conn.host,
+    port: conn.port,
+    database: conn.database,
+    user: conn.username,
+    password: conn.password,
+    options: {
+      encrypt: conn.encrypt === 1,
+      trustServerCertificate: conn.trustServerCertificate === 1,
+    },
+    connectionTimeout: 10_000,
+    requestTimeout: 10_000,
+  };
+
+  let sqlPool: import("mssql").ConnectionPool | null = null;
+  try {
+    sqlPool = new mssql.ConnectionPool(cfg);
+    await sqlPool.connect();
+    await sqlPool.request().query(sqlWithParseOnly);
+    return { ok: true, message: "Sintaxe válida." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: msg };
+  } finally {
+    if (sqlPool?.connected) await sqlPool.close().catch(() => {});
+  }
+}
+
 // ── Execute query via mssql ───────────────────────────────────────────────────
 
 /**
