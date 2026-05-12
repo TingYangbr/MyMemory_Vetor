@@ -1070,8 +1070,8 @@ export default function MemoContextPage() {
                   <textarea
                     id="mod-q-sql"
                     className="mm-field"
-                    rows={24}
-                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.82rem", resize: "vertical", minHeight: "24rem", whiteSpace: "pre" }}
+                    rows={28}
+                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem", resize: "vertical", minHeight: "30rem", whiteSpace: "pre", width: "100%" }}
                     value={modalQuerySentencaSql}
                     onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); }}
                     placeholder="SELECT * FROM tabela WHERE campo = :campo"
