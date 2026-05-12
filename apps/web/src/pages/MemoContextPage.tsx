@@ -950,7 +950,7 @@ export default function MemoContextPage() {
           className="mm-modal-overlay"
           role="presentation"
           onClick={(e) => {
-            if (e.target === e.currentTarget) {
+            if (e.target === e.currentTarget && modal !== "query" && modal !== "queryEdit") {
               setModal("none");
               resetModalState();
             }
@@ -1071,7 +1071,7 @@ export default function MemoContextPage() {
                     id="mod-q-sql"
                     className="mm-field"
                     rows={28}
-                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem", resize: "vertical", minHeight: "30rem", whiteSpace: "pre", width: "100%" }}
+                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem", resize: "vertical", minHeight: "30rem", whiteSpace: "pre-wrap", overflowWrap: "break-word", width: "100%" }}
                     value={modalQuerySentencaSql}
                     onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); }}
                     placeholder="SELECT * FROM tabela WHERE campo = :campo"
