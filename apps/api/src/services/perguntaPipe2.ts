@@ -151,6 +151,27 @@ function stripLimitOffset(sql: string): string {
   return sql.replace(/\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, "").trim();
 }
 
+/**
+ * Extrai os nomes das colunas presentes no SELECT da sentença SQL.
+ * Retorna lista em lowercase. Usado para validar campo_medida e group_by do LLM
+ * e para informar explicitamente ao LLM quais colunas existem no template.
+ */
+function extractSelectColumnNames(sentencaSql: string): string[] {
+  const m = /\bSELECT\b([\s\S]+?)\bFROM\b/i.exec(sentencaSql);
+  if (!m) return [];
+  return m[1]
+    .split(",")
+    .map((col) => {
+      const trimmed = col.trim().replace(/\s+/g, " ");
+      const asMatch = /\bAS\s+[\[\"`]?(\w+)[\]\"`]?\s*$/i.exec(trimmed);
+      if (asMatch) return asMatch[1].toLowerCase();
+      const lastId = /[\[\"`]?(\w+)[\]\"`]?\s*$/.exec(trimmed);
+      const name = lastId ? lastId[1].toLowerCase() : "";
+      return name === "select" ? "" : name;
+    })
+    .filter((c) => c.length > 0 && c !== "*");
+}
+
 /** Quota um identificador de coluna usando a convenção do dialeto. Aceita qualquer nome. */
 function sanitizeIdentifier(name: string, dialect: "pg" | "mssql" = "pg"): string {
   if (dialect === "mssql") {
@@ -495,6 +516,7 @@ async function planejarConsultaEstruturada(input: {
         nome: q.nome,
         descricao: q.descricao,
         sentenca_sql: q.sentencaSql,
+        colunas_select: extractSelectColumnNames(q.sentencaSql),
         params: q.params
           .filter((p) => !SYSTEM_PARAM_NAMES.has(p.nome.toLowerCase()))
           .map(({ nome, tipo, obrigatorio, operadorSql, normalizar, descricao_campo, exemplos_valores }) => ({
@@ -512,7 +534,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -630,6 +652,32 @@ async function planejarConsultaEstruturada(input: {
   return { plano, costUsd };
 }
 
+/**
+ * Valida e sanitiza os campos de agregação contra as colunas disponíveis no SELECT do template.
+ * Previne "Invalid column name" no SQL Server quando o LLM referencia colunas de outro template.
+ */
+function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAgregacao {
+  const available = new Set(extractSelectColumnNames(sentencaSql));
+  if (available.size === 0) return ag; // não conseguiu extrair colunas — deixa passar
+  let { medida, campo_medida, group_by, order_by } = ag;
+  if (campo_medida && medida !== "count" && !available.has(campo_medida.toLowerCase())) {
+    console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
+    campo_medida = null;
+    medida = null;
+  }
+  const validGroupBy = group_by.filter((c) => available.has(c.toLowerCase()));
+  if (validGroupBy.length < group_by.length) {
+    const removidos = group_by.filter((c) => !available.has(c.toLowerCase()));
+    console.warn(`[Pipe2] group_by colunas inválidas removidas: ${removidos.join(", ")}`);
+  }
+  const validOrderBy = order_by.filter((o) => {
+    const lower = o.campo.toLowerCase().replace(/^_base\./i, "");
+    // Mantém order_by por aliases conhecidos (contagem, total, media, etc.) ou colunas válidas
+    return Object.prototype.hasOwnProperty.call(MEDIDA_ALIAS, lower) || available.has(lower);
+  });
+  return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy };
+}
+
 // ── Internal: execução das queries do plano ───────────────────────────────────
 
 async function executarConsultasPlano(input: {
@@ -712,8 +760,9 @@ async function executarConsultasPlano(input: {
       }
       let sqlToExecute = template.sentencaSql;
       if (task.agregacao) {
+        const ag = sanitizeAgregacaoCols(task.agregacao, template.sentencaSql);
         try {
-          sqlToExecute = applyAgregacao(template.sentencaSql, task.agregacao, "mssql");
+          sqlToExecute = applyAgregacao(template.sentencaSql, ag, "mssql");
         } catch (err) {
           console.warn("[Pipe2] applyAgregacao mssql ignorada:", err instanceof Error ? err.message : err);
         }
@@ -738,8 +787,9 @@ async function executarConsultasPlano(input: {
 
       let finalSql = baseSql;
       if (task.agregacao) {
+        const ag = sanitizeAgregacaoCols(task.agregacao, template.sentencaSql);
         try {
-          finalSql = applyAgregacao(baseSql, task.agregacao);
+          finalSql = applyAgregacao(baseSql, ag);
         } catch (err) {
           console.warn("[Pipe2] applyAgregacao ignorada:", err instanceof Error ? err.message : err);
         }
