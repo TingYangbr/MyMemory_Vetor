@@ -682,11 +682,26 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
     const removidos = group_by.filter((c) => !available.has(c.toLowerCase()));
     console.warn(`[Pipe2] group_by colunas inválidas removidas: ${removidos.join(", ")}`);
   }
-  const validOrderBy = order_by.filter((o) => {
-    const lower = o.campo.toLowerCase().replace(/^_base\./i, "");
-    // Mantém order_by por aliases conhecidos (contagem, total, media, etc.) ou colunas válidas
-    return Object.prototype.hasOwnProperty.call(MEDIDA_ALIAS, lower) || available.has(lower);
-  });
+  const campoDaMedidaLower = campo_medida?.toLowerCase() ?? null;
+  const groupByLowerSet = new Set(validGroupBy.map((c) => c.toLowerCase()));
+  // Só aceita order_by seguro: alias de medida, a própria coluna de medida, ou coluna do group_by.
+  // Qualquer outra coisa geraria SUM(col_varchar) no applyAgregacao → erro no SQL Server.
+  const validOrderBy = order_by
+    .map((o) => {
+      const lower = o.campo.toLowerCase().replace(/^_base\./i, "");
+      if (Object.prototype.hasOwnProperty.call(MEDIDA_ALIAS, lower)) return o;
+      if (campoDaMedidaLower && lower === campoDaMedidaLower) return o;
+      if (groupByLowerSet.has(lower)) return o;
+      // Coluna inválida para ORDER BY: substitui pelo alias da medida (ex: "total", "contagem")
+      const fallbackAlias = medida ? (MEDIDA_ALIAS[medida] ?? null) : null;
+      if (fallbackAlias) {
+        console.warn(`[Pipe2] order_by "${o.campo}" não é coluna de GROUP BY nem de medida. Substituindo por "${fallbackAlias}".`);
+        return { ...o, campo: fallbackAlias };
+      }
+      console.warn(`[Pipe2] order_by "${o.campo}" removido (sem medida e sem group_by correspondente).`);
+      return null;
+    })
+    .filter((o): o is NonNullable<typeof o> => o !== null);
   return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy };
 }
 
