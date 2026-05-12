@@ -366,6 +366,7 @@ export default function PerguntaPage() {
   const [historico, setHistorico] = useState<PerguntaCardHistorico[]>([]);
   const [respostas, setRespostas] = useState<(PerguntaResponse & { perguntaTexto: string })[]>([]);
   const [busy, setBusy] = useState(false);
+  const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refazerIdx, setRefazerIdx] = useState<number | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
@@ -607,6 +608,7 @@ export default function PerguntaPage() {
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
     setError(null);
+    setStatusMsg(null);
     setBusy(true);
     setRefazerIdx(null);
     setHelpHintOpenIdx(null);
@@ -627,16 +629,52 @@ export default function PerguntaPage() {
       if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
       if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
-      const res = await apiPostJson<PerguntaResponse>("/api/perguntas", body, { signal: ac.signal });
+
+      const response = await fetch(`${apiBase}/api/perguntas`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(body),
+        signal: ac.signal,
+      });
+
+      if (!response.ok || !response.body) {
+        const txt = await response.text().catch(() => "");
+        let msg = `HTTP ${response.status}`;
+        try { msg = (JSON.parse(txt) as { message?: string }).message ?? msg; } catch { /* */ }
+        throw new Error(msg);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let res: PerguntaResponse | null = null;
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const lines = buf.split("\n");
+        buf = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const evt = JSON.parse(line.slice(6)) as { type: string; message?: string; data?: PerguntaResponse };
+          if (evt.type === "status") setStatusMsg(evt.message ?? null);
+          if (evt.type === "error") throw new Error(evt.message ?? "Erro ao processar a pergunta.");
+          if (evt.type === "result" && evt.data) res = evt.data;
+        }
+      }
+
+      if (!res) throw new Error("Resposta não recebida.");
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
       setHistorico((prev) => [
         ...prev,
         {
           pergunta: q,
-          resposta: res.resposta.resposta,
-          pipe: res.classificacao.pipe,
-          dados_usados: res.resposta.dados_usados.length > 0 ? res.resposta.dados_usados : undefined,
+          resposta: res!.resposta.resposta,
+          pipe: res!.classificacao.pipe,
+          dados_usados: res!.resposta.dados_usados.length > 0 ? res!.resposta.dados_usados : undefined,
         },
       ].slice(-5));
       setPergunta("");
@@ -648,6 +686,7 @@ export default function PerguntaPage() {
     } finally {
       abortControllerRef.current = null;
       setBusy(false);
+      setStatusMsg(null);
       setPendingQuestion(null);
     }
   }
@@ -997,7 +1036,9 @@ export default function PerguntaPage() {
               <div className={styles.cardResposta}>
                 <div className={styles.searchingIndicator}>
                   <span className={styles.searchingSpinner} aria-hidden />
-                  <span className={styles.searchingLabel}>Pesquisando nos seus memos…</span>
+                  <span className={styles.searchingLabel}>
+                    {statusMsg ?? "Pesquisando nos seus memos…"}
+                  </span>
                 </div>
               </div>
             </article>

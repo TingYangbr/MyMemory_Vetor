@@ -2,6 +2,7 @@ import { pool } from "../db.js";
 import { config } from "../config.js";
 import type { RowDataPacket } from "./dbTypes.js";
 import { setLastLlmPromptTrace } from "../services/llmPromptTraceStore.js";
+import { emitStatus } from "./requestStatus.js";
 
 // ── Tipos públicos ─────────────────────────────────────────────────────────────
 
@@ -333,6 +334,36 @@ async function _manusProxyChat(
   return { content, costUsd: 0 };
 }
 
+// ── Retry com backoff ─────────────────────────────────────────────────────────
+
+const RETRYABLE_HTTP = new Set([429, 503, 529]);
+const RETRY_DELAYS_MS = [1_000, 3_000, 7_000];
+
+const PROVIDER_DISPLAY: Record<string, string> = {
+  openai: "OpenAI", anthropic: "Anthropic",
+  google_gemini: "Google Gemini", manus_proxy: "servidor IA", microsoft_azure: "Azure OpenAI",
+};
+
+async function withRetry<T>(fn: () => Promise<T>, provider: string): Promise<T> {
+  const label = PROVIDER_DISPLAY[provider] ?? provider;
+  for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const statusMatch = /http_(\d{3})/.exec(msg);
+      const status = statusMatch ? parseInt(statusMatch[1], 10) : null;
+      if (!status || !RETRYABLE_HTTP.has(status) || attempt === RETRY_DELAYS_MS.length) throw err;
+      const delayMs = RETRY_DELAYS_MS[attempt];
+      emitStatus(
+        `Servidor ${label} com carga excedida. Tentando novamente em ${delayMs / 1_000}s (tentativa ${attempt + 1}/${RETRY_DELAYS_MS.length})…`
+      );
+      await new Promise<void>((res) => setTimeout(res, delayMs));
+    }
+  }
+  throw new Error("retry_exhausted");
+}
+
 // ── API pública ────────────────────────────────────────────────────────────────
 
 export const OPERATION_CHAT   = "chat_ia";
@@ -358,10 +389,10 @@ export async function chatIa(
   }
   const entry = await getAiConfig(opts.operation ?? OPERATION_CHAT);
   switch (entry.provider) {
-    case "google_gemini": return _geminiChat(entry, messages, source);
-    case "anthropic":     return _anthropicChat(entry, messages, source);
-    case "manus_proxy":   return _manusProxyChat(entry, messages, source);
-    default:              return _openaiChat(entry, messages, source);
+    case "google_gemini": return withRetry(() => _geminiChat(entry, messages, source), "google_gemini");
+    case "anthropic":     return withRetry(() => _anthropicChat(entry, messages, source), "anthropic");
+    case "manus_proxy":   return withRetry(() => _manusProxyChat(entry, messages, source), "manus_proxy");
+    default:              return withRetry(() => _openaiChat(entry, messages, source), "openai");
   }
 }
 
@@ -382,8 +413,8 @@ export async function visionIa(
   }
   const entry = await getAiConfig(opts.operation ?? OPERATION_VISION);
   switch (entry.provider) {
-    case "google_gemini": return _geminiVision(entry, messages, source);
-    case "anthropic":     return _anthropicVision(entry, messages, source);
-    default:              return _openaiVision(entry, messages, source);
+    case "google_gemini": return withRetry(() => _geminiVision(entry, messages, source), "google_gemini");
+    case "anthropic":     return withRetry(() => _anthropicVision(entry, messages, source), "anthropic");
+    default:              return withRetry(() => _openaiVision(entry, messages, source), "openai");
   }
 }

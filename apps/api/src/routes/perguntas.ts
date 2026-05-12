@@ -7,6 +7,7 @@ import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
+import { runWithStatusEmitter } from "../lib/requestStatus.js";
 import { pool } from "../db.js";
 
 const perguntaBodySchema = z.object({
@@ -75,37 +76,56 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const thresholds = await getSemanticSearchThresholds();
 
+    // ── SSE setup ───────────────────────────────────────────────────────────────
+    const raw = reply.raw;
+    raw.writeHead(200, {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "Connection": "keep-alive",
+      "X-Accel-Buffering": "no",
+    });
+    raw.flushHeaders();
+
+    const sendEvent = (data: unknown) => {
+      if (!raw.destroyed) raw.write(`data: ${JSON.stringify(data)}\n\n`);
+    };
+
     let result;
     try {
-      result = await perguntarMemory({
-        userId,
-        isAdmin,
-        groupId,
-        pergunta,
-        filtros: {
-          autorId: filtros?.autorId ?? null,
-          dataInicio: filtros?.dataInicio ?? null,
-          dataFim: filtros?.dataFim ?? null,
-        },
-        historico: contextoSessao ?? [],
-        categories: structure.categories,
-        forcePipe: parsed.data.forcePipe,
-        forceCategories: parsed.data.forceCategories,
-        thresholdInitial: parsed.data.thresholdOverride != null
-          ? Math.max(parsed.data.thresholdOverride, thresholds.min)
-          : thresholds.initial,
-        thresholdMin: thresholds.min,
-      });
+      result = await runWithStatusEmitter(
+        (msg) => sendEvent({ type: "status", message: msg }),
+        () => perguntarMemory({
+          userId,
+          isAdmin,
+          groupId,
+          pergunta,
+          filtros: {
+            autorId: filtros?.autorId ?? null,
+            dataInicio: filtros?.dataInicio ?? null,
+            dataFim: filtros?.dataFim ?? null,
+          },
+          historico: contextoSessao ?? [],
+          categories: structure.categories,
+          forcePipe: parsed.data.forcePipe,
+          forceCategories: parsed.data.forceCategories,
+          thresholdInitial: parsed.data.thresholdOverride != null
+            ? Math.max(parsed.data.thresholdOverride, thresholds.min)
+            : thresholds.initial,
+          thresholdMin: thresholds.min,
+        })
+      );
     } catch (err) {
       req.log.error(err, "perguntarMemory failed");
       const msg = err instanceof Error ? err.message : "Erro interno";
       const isNetwork = /fetch failed|ECONNREFUSED|ETIMEDOUT|socket hang up/i.test(msg);
-      return reply.code(503).send({
-        error: "service_unavailable",
+      sendEvent({
+        type: "error",
         message: isNetwork
           ? "Não foi possível contatar o serviço de IA. Tente novamente em instantes."
           : `Erro ao processar a pergunta: ${msg}`,
       });
+      raw.end();
+      return reply;
     }
 
     pool.query(
@@ -128,7 +148,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       llmTrace: getAllLlmPromptTraces(),
     };
 
-    return body;
+    sendEvent({ type: "result", data: body });
+    raw.end();
+    return reply;
   });
 };
 
