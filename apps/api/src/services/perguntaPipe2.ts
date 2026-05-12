@@ -78,12 +78,22 @@ interface PlanoAgregacao {
   limit: number | null;
 }
 
+interface PlanoCrossQueryFilter {
+  /** Prioridade da query cujos resultados serão usados como filtro. */
+  from_priority: number;
+  /** Nome da coluna nos resultados da query origem. */
+  from_field: string;
+  /** Nome do parâmetro da query destino que receberá a lista. Deve estar cadastrado com operador IN ou NOT IN. */
+  to_param: string;
+}
+
 interface PlanoQuery {
   query_id: string;
   motivo_uso: string;
   prioridade: number;
   parametros: PlanoParam[];
   agregacao?: PlanoAgregacao | null;
+  cross_query_filter?: PlanoCrossQueryFilter[];
 }
 
 interface PlanoConsulta {
@@ -337,12 +347,25 @@ function bindTemplateParams(
     colExpr?: string;  // expressão de coluna antes de ILIKE
     colStart?: number; // posição no SQL onde a expressão de coluna começa
     isUnaccentLike?: boolean; // true = envolve colExpr em unaccent(); false = expansão de datas
+    inContext?: "in" | "notin"; // token está dentro de "IN (...)" ou "NOT IN (...)" → expandir lista
   }
   const tokens: Token[] = [];
   const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)/g;
   let m: RegExpExecArray | null;
   while ((m = re.exec(sentencaSql)) !== null) {
     tokens.push({ start: m.index, end: m.index + m[0].length, name: m[1] });
+  }
+
+  // Detecta tokens dentro de cláusula IN (...) ou NOT IN (...). Sinal: termina com "IN (" ou "NOT IN ("
+  function detectInContext(before: string): "in" | "notin" | null {
+    const reIn = /(?:\bNOT\s+IN|\bIN)\s*\(\s*$/i;
+    const m = reIn.exec(before);
+    if (!m) return null;
+    return /\bNOT\s+IN/i.test(m[0]) ? "notin" : "in";
+  }
+  for (const token of tokens) {
+    const ctx = detectInContext(sentencaSql.slice(0, token.start));
+    if (ctx) token.inContext = ctx;
   }
 
   // Para parâmetros com ILIKE/LIKE e valor não-nulo, encontra a expressão de coluna
@@ -390,6 +413,29 @@ function bindTemplateParams(
     if (val === "") val = null; // LLMs às vezes retornam "" para "sem valor" — trata como null
     const def = defByName.get(key);
     const cast = SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text";
+
+    if (token.inContext) {
+      // Token está dentro de "IN (...)" ou "NOT IN (...)" — expande lista para múltiplos placeholders
+      result += sentencaSql.slice(pos, token.start);
+      if (val === null || val === undefined || (Array.isArray(val) && val.length === 0)) {
+        // Lista vazia ou nula: emite NULL — IN/NOT IN com NULL não casa, mas o template normalmente
+        // tem "(:param IS NULL OR col IN (:param))", e o IS NULL pega esse caso.
+        result += "NULL";
+      } else {
+        const list = Array.isArray(val) ? val : [val];
+        result += list.map(() => `?::${cast}`).join(", ");
+        for (const item of list) values.push(item);
+      }
+      pos = token.end;
+      continue;
+    }
+
+    // Token fora de contexto IN mas valor é lista (caso "(:param IS NULL OR col IN (:param))"):
+    // primeira ocorrência precisa de scalar para o IS NULL check. Usa primeiro elemento como
+    // representante: se lista vazia → null (IS NULL passa); senão → valor não-nulo (IS NULL falha).
+    if (Array.isArray(val)) {
+      val = val.length > 0 ? val[0] : null;
+    }
 
     if (token.colExpr !== undefined && token.colStart !== undefined) {
       if (token.isUnaccentLike) {
@@ -466,7 +512,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50}}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -549,12 +595,25 @@ async function planejarConsultaEstruturada(input: {
             };
           }
         }
+        // Parse cross_query_filter (referência cruzada de resultados entre queries)
+        const cross_query_filter: PlanoCrossQueryFilter[] = Array.isArray(qObj.cross_query_filter)
+          ? (qObj.cross_query_filter as unknown[])
+              .filter((f): f is Record<string, unknown> => f !== null && typeof f === "object")
+              .map((f) => ({
+                from_priority: typeof f.from_priority === "number" ? f.from_priority : 0,
+                from_field: String(f.from_field ?? ""),
+                to_param: String(f.to_param ?? ""),
+              }))
+              .filter((f) => f.from_priority > 0 && f.from_field.length > 0 && f.to_param.length > 0)
+          : [];
+
         queries.push({
           query_id: String(qObj.query_id ?? ""),
           motivo_uso: String(qObj.motivo_uso ?? ""),
           prioridade: typeof qObj.prioridade === "number" ? qObj.prioridade : 1,
           parametros,
           agregacao,
+          ...(cross_query_filter.length > 0 ? { cross_query_filter } : {}),
         });
       }
     }
@@ -587,9 +646,57 @@ async function executarConsultasPlano(input: {
   const sqlParts: string[] = [];
   const allValues: unknown[] = [];
 
+  /** Mapa de prioridade → resultado. Usado para resolver cross_query_filter de tasks subsequentes. */
+  const resultadosPorPrioridade = new Map<number, QueryExecResultado>();
+
   for (const task of plano.queries) {
     const template = queriesDisponiveis.find((q) => q.query_id === task.query_id);
     if (!template) continue;
+
+    // Resolve cross_query_filter: extrai lista de valores de query origem e injeta como parâmetro IN/NOT IN
+    const parametrosResolvidos: PlanoParam[] = [...task.parametros];
+    if (task.cross_query_filter && task.cross_query_filter.length > 0) {
+      for (const ref of task.cross_query_filter) {
+        const origem = resultadosPorPrioridade.get(ref.from_priority);
+        if (!origem) {
+          throw new Error(
+            `cross_query_filter inválido: query de prioridade ${ref.from_priority} não foi executada antes da prioridade ${task.prioridade}.`
+          );
+        }
+        const paramDef = template.params.find((p) => p.nome.toLowerCase() === ref.to_param.toLowerCase());
+        if (!paramDef) {
+          throw new Error(
+            `cross_query_filter inválido: query ${task.query_id} não tem parâmetro "${ref.to_param}" cadastrado. ` +
+            `Cadastre o parâmetro com tipo "lista_texto" e operador IN ou NOT IN para suportar este tipo de pergunta.`
+          );
+        }
+        const op = (paramDef.operadorSql ?? "").toUpperCase();
+        if (op !== "IN" && op !== "NOT IN") {
+          throw new Error(
+            `cross_query_filter inválido: parâmetro "${ref.to_param}" da query ${task.query_id} tem operador "${paramDef.operadorSql}". ` +
+            `Esperado IN ou NOT IN para receber lista de valores de outra query.`
+          );
+        }
+        // Extrai valores únicos não-nulos do campo na query origem
+        const fieldLower = ref.from_field.toLowerCase();
+        const fieldKey = origem.colunas.find((c) => c.toLowerCase() === fieldLower) ?? ref.from_field;
+        const valores = Array.from(new Set(
+          origem.linhas
+            .map((row) => row[fieldKey])
+            .filter((v): v is string | number => v !== null && v !== undefined && v !== "")
+            .map((v) => String(v))
+        ));
+        parametrosResolvidos.push({
+          nome: ref.to_param,
+          termo_usuario: `(de query prioridade ${ref.from_priority}.${ref.from_field})`,
+          valor: valores,
+          tipo: "lista_texto",
+          operador_sugerido: paramDef.operadorSql,
+          obrigatorio: false,
+          precisa_normalizacao: false,
+        });
+      }
+    }
 
     let linhas: Record<string, unknown>[];
     let colunasQuery: string[];
@@ -600,7 +707,7 @@ async function executarConsultasPlano(input: {
         userid: userId,
         groupid: groupId,
       };
-      for (const p of task.parametros) {
+      for (const p of parametrosResolvidos) {
         if (p.nome) paramValues[p.nome.toLowerCase()] = p.valor ?? null;
       }
       let sqlToExecute = template.sentencaSql;
@@ -624,7 +731,7 @@ async function executarConsultasPlano(input: {
     } else {
       const { sql: baseSql, values } = bindTemplateParams(
         template.sentencaSql,
-        task.parametros,
+        parametrosResolvidos,
         template.params,
         { userid: userId, groupid: groupId }
       );
@@ -645,7 +752,9 @@ async function executarConsultasPlano(input: {
       allValues.push(...values);
     }
 
-    porQuery.push({ query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length });
+    const resultado: QueryExecResultado = { query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length };
+    porQuery.push(resultado);
+    resultadosPorPrioridade.set(task.prioridade, resultado);
 
     if (colunas.length === 0) colunas = colunasQuery;
     allLinhas.push(...linhas);
