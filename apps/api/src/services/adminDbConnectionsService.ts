@@ -138,6 +138,7 @@ export async function testDbConnection(id: number): Promise<{ ok: boolean; messa
  * Converte `:paramName` → `@paramName` no SQL e coleta os valores.
  * Aplica o mesmo processamento de valores do PostgreSQL:
  *   - LIKE/NOT LIKE → adiciona %valor% automaticamente (e strip diacríticos)
+ *   - IN/NOT IN com valor lista → expande `@param` em `@param_l0, @param_l1, ...`
  *   - Outros operadores → passa o valor cru
  * Parâmetros com valor null são passados como null (IS NULL check fica no template T-SQL).
  */
@@ -149,32 +150,66 @@ export function bindParamsMssql(
   const defByName = new Map((paramDefs ?? []).map((p) => [p.nome.toLowerCase(), p]));
   const params: { name: string; value: unknown }[] = [];
   const seen = new Set<string>();
+  let listCounter = 0;
 
+  function detectInContextAt(sql: string, atIndex: number): "in" | "notin" | null {
+    const before = sql.slice(0, atIndex);
+    const reIn = /(?:\bNOT\s+IN|\bIN)\s*\(\s*$/i;
+    const m = reIn.exec(before);
+    if (!m) return null;
+    return /\bNOT\s+IN/i.test(m[0]) ? "notin" : "in";
+  }
+
+  let result = "";
+  let pos = 0;
   // Aceita tanto :param (convenção interna) quanto @param (T-SQL nativo).
   // (?<!@)@ exclui variáveis de sistema @@ROWCOUNT etc.
-  const sql = sentencaSql.replace(
-    /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g,
-    (_match, nameColon: string | undefined, nameAt: string | undefined) => {
-      const key = (nameColon ?? nameAt!).toLowerCase();
+  const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g;
+  let match: RegExpExecArray | null;
+
+  while ((match = re.exec(sentencaSql)) !== null) {
+    const key = (match[1] ?? match[2]).toLowerCase();
+    result += sentencaSql.slice(pos, match.index);
+
+    let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
+    if (val === "") val = null;
+    const def = defByName.get(key);
+
+    const ctx = detectInContextAt(sentencaSql, match.index);
+    if (ctx) {
+      // Token dentro de IN (...) ou NOT IN (...): expande lista para múltiplos placeholders
+      if (val === null || val === undefined || (Array.isArray(val) && val.length === 0)) {
+        result += "NULL";
+      } else {
+        const list = Array.isArray(val) ? val : [val];
+        const placeholders: string[] = [];
+        for (const item of list) {
+          const phName = `${key}_l${listCounter++}`;
+          params.push({ name: phName, value: item });
+          placeholders.push(`@${phName}`);
+        }
+        result += placeholders.join(", ");
+      }
+    } else {
+      // Token fora de contexto IN. Se valor é array (primeira ocorrência no IS NULL check),
+      // usa o primeiro elemento como representante.
+      if (Array.isArray(val)) val = val.length > 0 ? val[0] : null;
+
       if (!seen.has(key)) {
         seen.add(key);
-        let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
-        if (val === "") val = null;
-
-        const def = defByName.get(key);
         if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
-          // Se o LLM já incluiu wildcard (%), respeita o padrão; senão envolve com %valor%
           val = strVal.includes("%") ? strVal : `%${strVal}%`;
         }
-
         params.push({ name: key, value: val ?? null });
       }
-      return `@${key}`;
+      result += `@${key}`;
     }
-  );
+    pos = match.index + match[0].length;
+  }
+  result += sentencaSql.slice(pos);
 
-  return { sql, params };
+  return { sql: result, params };
 }
 
 export async function executeQueryMssql(
