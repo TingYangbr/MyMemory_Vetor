@@ -1126,6 +1126,7 @@ export default function MemoContextPage() {
                       <option value="number">number</option>
                       <option value="date">date</option>
                       <option value="boolean">boolean</option>
+                      <option value="lista_texto">lista_texto</option>
                     </select>
                   </div>
                   <div className={styles.modalField}>
