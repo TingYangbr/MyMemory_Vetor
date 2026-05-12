@@ -304,6 +304,11 @@ export async function executeQueryMssql(
     const linhas = (result.recordset ?? []) as Record<string, unknown>[];
     const colunas = linhas.length > 0 ? Object.keys(linhas[0]) : [];
     return { colunas, linhas };
+  } catch (err) {
+    console.error("[executeQueryMssql] SQL error:", err instanceof Error ? err.message : String(err));
+    console.error("[executeQueryMssql] SQL sent:\n", sql);
+    console.error("[executeQueryMssql] Params:", JSON.stringify(params, null, 2));
+    throw err;
   } finally {
     if (sqlPool?.connected) await sqlPool.close().catch(() => {});
   }

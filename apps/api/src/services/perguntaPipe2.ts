@@ -534,7 +534,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -652,6 +652,12 @@ async function planejarConsultaEstruturada(input: {
   return { plano, costUsd };
 }
 
+// Padrões de nomes de colunas que indicam valor numérico (monetário, quantidade, etc.)
+const NUMERIC_COL_RE = /^(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|desconto|acrescimo|imposto|taxa|margem|lucro|receita)_|_(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume)$/i;
+function isLikelyNumericColumn(col: string): boolean {
+  return NUMERIC_COL_RE.test(col);
+}
+
 /**
  * Valida e sanitiza os campos de agregação contra as colunas disponíveis no SELECT do template.
  * Previne "Invalid column name" no SQL Server quando o LLM referencia colunas de outro template.
@@ -660,10 +666,16 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
   const available = new Set(extractSelectColumnNames(sentencaSql));
   if (available.size === 0) return ag; // não conseguiu extrair colunas — deixa passar
   let { medida, campo_medida, group_by, order_by } = ag;
-  if (campo_medida && medida !== "count" && !available.has(campo_medida.toLowerCase())) {
-    console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
-    campo_medida = null;
-    medida = null;
+  if (campo_medida && medida !== "count" && medida !== null) {
+    if (!available.has(campo_medida.toLowerCase())) {
+      console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
+      campo_medida = null;
+      medida = null;
+    } else if (!isLikelyNumericColumn(campo_medida)) {
+      console.warn(`[Pipe2] campo_medida "${campo_medida}" não parece numérico para medida "${medida}". Removendo.`);
+      campo_medida = null;
+      medida = null;
+    }
   }
   const validGroupBy = group_by.filter((c) => available.has(c.toLowerCase()));
   if (validGroupBy.length < group_by.length) {
