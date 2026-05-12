@@ -146,12 +146,13 @@ export async function syntaxCheckMssql(
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const mssql = require("mssql") as typeof import("mssql");
 
-  // Substitui :param e @param (não @@sistema) por NULL para validação de sintaxe
+  // Substitui :param e @param (não @@sistema) por NULL para validação sem execução.
+  // SET NOEXEC ON compila a query (detecta erros de coluna/tabela) sem executar nada.
   const sqlForCheck = sentencaSql.replace(
     /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g,
     "NULL"
   );
-  const sqlWithParseOnly = `SET PARSEONLY ON\n${sqlForCheck}`;
+  const sqlWithNoexec = `SET NOEXEC ON\n${sqlForCheck}\nSET NOEXEC OFF`;
 
   const cfg: import("mssql").config = {
     server: conn.host,
@@ -171,7 +172,7 @@ export async function syntaxCheckMssql(
   try {
     sqlPool = new mssql.ConnectionPool(cfg);
     await sqlPool.connect();
-    await sqlPool.request().query(sqlWithParseOnly);
+    await sqlPool.request().query(sqlWithNoexec);
     return { ok: true, message: "Sintaxe válida." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
