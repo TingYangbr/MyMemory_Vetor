@@ -13,20 +13,27 @@ import styles from "./BatchImportPage.module.css";
 
 type IaLevel = "semIA" | "basico" | "completo";
 
-const IA_LEVEL_OPTIONS: { value: IaLevel; label: string; desc: string }[] = [
-  { value: "semIA", label: "Sem IA", desc: "Cria memo com placeholder — edição manual depois" },
-  { value: "basico", label: "Básico", desc: "Extrai texto + palavras-chave + categoria" },
-  { value: "completo", label: "Completo", desc: "Extrai texto + campos estruturados" },
+const PROVIDER_OPTIONS: { value: StorageProvider; label: string; hint: string }[] = [
+  { value: "LOCAL",        label: "Disco Local",    hint: "Pasta no servidor (ex.: C:\\Documentos)" },
+  { value: "REDE",         label: "Rede Local",     hint: "Caminho UNC (ex.: \\\\servidor\\pasta)" },
+  { value: "ONEDRIVE",     label: "OneDrive",       hint: "Selecione os arquivos do OneDrive" },
+  { value: "GOOGLE_DRIVE", label: "Google Drive",   hint: "Selecione os arquivos do Google Drive" },
+  { value: "URL",          label: "URL Externa",    hint: "Disponível em breve" },
+];
+
+const IA_OPTIONS: { value: IaLevel; label: string; desc: string }[] = [
+  { value: "semIA",    label: "Sem IA",    desc: "Texto bruto + [Edição Pendente]" },
+  { value: "basico",   label: "Básico",    desc: "Palavras-chave + categoria" },
+  { value: "completo", label: "Completo",  desc: "Campos estruturados" },
 ];
 
 const LOCAL_PROVIDERS: StorageProvider[] = ["LOCAL", "REDE"];
 const UPLOAD_PROVIDERS: StorageProvider[] = ["ONEDRIVE", "GOOGLE_DRIVE"];
 
-function situacaoClass(s: BatchFileVerifyResult["situacao"]): string {
-  if (s === "pronto") return styles.ok;
-  if (s === "ja_cadastrado") return styles.warn;
-  if (s === "suspeito_duplicidade") return styles.warn;
-  return styles.err;
+function situacaoBadgeClass(s: BatchFileVerifyResult["situacao"]): string {
+  if (s === "pronto") return styles.badgeOk;
+  if (s === "ja_cadastrado" || s === "suspeito_duplicidade") return styles.badgeWarn;
+  return styles.badgeErr;
 }
 
 function formatBytes(n: number): string {
@@ -39,7 +46,6 @@ export default function BatchImportPage() {
   const [provider, setProvider] = useState<StorageProvider>("LOCAL");
   const [folderPath, setFolderPath] = useState("");
   const [iaLevel, setIaLevel] = useState<IaLevel>("semIA");
-  const [groupId] = useState<number | null>(null);
 
   const [verifyResult, setVerifyResult] = useState<BatchVerifyResponse | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -48,14 +54,22 @@ export default function BatchImportPage() {
   const [processResult, setProcessResult] = useState<BatchProcessResponse | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
-  const [processedCount, setProcessedCount] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const isLocalProvider = LOCAL_PROVIDERS.includes(provider);
-  const isUploadProvider = UPLOAD_PROVIDERS.includes(provider);
+  const isLocal = LOCAL_PROVIDERS.includes(provider);
+  const isUpload = UPLOAD_PROVIDERS.includes(provider);
+  const currentHint = PROVIDER_OPTIONS.find(p => p.value === provider)?.hint ?? "";
 
-  // ── Verificar ──────────────────────────────────────────────────────────────
+  const readyFiles = verifyResult?.files.filter(
+    f => f.situacao === "pronto" || f.situacao === "suspeito_duplicidade"
+  ) ?? [];
+  const hasErrors = verifyResult?.files.some(
+    f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade"
+  ) ?? false;
+  const canProcess = readyFiles.length > 0 && !processResult;
+
+  // ── Verificar ─────────────────────────────────────────────────────────────
 
   async function handleVerify() {
     setVerifyError(null);
@@ -63,26 +77,19 @@ export default function BatchImportPage() {
     setProcessResult(null);
     setVerifyLoading(true);
     try {
-      if (isLocalProvider) {
-        const result = await apiPostJson<BatchVerifyResponse & { folderPath?: string }>(
+      if (isLocal) {
+        const result = await apiPostJson<BatchVerifyResponse>(
           "/api/memos/batch/verify/local",
-          { provider, folderPath: folderPath.trim(), iaLevel, groupId }
+          { provider, folderPath: folderPath.trim(), iaLevel }
         );
         setVerifyResult(result);
-      } else if (isUploadProvider) {
+      } else if (isUpload) {
         const files = fileInputRef.current?.files;
-        if (!files?.length) {
-          setVerifyError("Selecione ao menos um arquivo.");
-          return;
-        }
+        if (!files?.length) { setVerifyError("Selecione ao menos um arquivo."); return; }
         const form = new FormData();
         form.append("provider", provider);
-        if (groupId) form.append("groupId", String(groupId));
         for (const f of Array.from(files)) form.append("files", f);
-        const result = (await apiPostMultipart("/api/memos/batch/verify/upload", form)) as BatchVerifyResponse;
-        setVerifyResult(result);
-      } else if (provider === "URL") {
-        setVerifyError("Importação por URL: use o formulário de URL (em breve).");
+        setVerifyResult((await apiPostMultipart("/api/memos/batch/verify/upload", form)) as BatchVerifyResponse);
       } else {
         setVerifyError("Provider não suportado para verificação.");
       }
@@ -93,49 +100,31 @@ export default function BatchImportPage() {
     }
   }
 
-  // ── Processar ──────────────────────────────────────────────────────────────
+  // ── Processar ─────────────────────────────────────────────────────────────
 
   async function handleProcess() {
-    if (!verifyResult) return;
-    const ready = verifyResult.files.filter(
-      (f) => f.situacao === "pronto" || f.situacao === "suspeito_duplicidade"
-    );
-    if (!ready.length) return;
-
+    if (!verifyResult || !canProcess) return;
     setProcessError(null);
     setProcessResult(null);
     setProcessLoading(true);
-    setProcessedCount(0);
     try {
-      if (isLocalProvider) {
+      if (isLocal) {
         const result = await apiPostJson<BatchProcessResponse>(
           "/api/memos/batch/process/local",
-          {
-            provider,
-            folderPath: folderPath.trim(),
-            iaLevel,
-            groupId,
-            onlyFileNames: ready.map((f) => f.originalFileName),
-          }
+          { provider, folderPath: folderPath.trim(), iaLevel, onlyFileNames: readyFiles.map(f => f.originalFileName) }
         );
         setProcessResult(result);
-        setProcessedCount(result.totalCreated);
-      } else if (isUploadProvider) {
+      } else if (isUpload) {
         const files = fileInputRef.current?.files;
         if (!files?.length) return;
         const form = new FormData();
         form.append("provider", provider);
         form.append("iaLevel", iaLevel);
-        if (groupId) form.append("groupId", String(groupId));
-        form.append("onlyFileNames", JSON.stringify(ready.map((f) => f.originalFileName)));
+        form.append("onlyFileNames", JSON.stringify(readyFiles.map(f => f.originalFileName)));
         for (const f of Array.from(files)) {
-          if (ready.some((r) => r.originalFileName === f.name)) {
-            form.append("files", f);
-          }
+          if (readyFiles.some(r => r.originalFileName === f.name)) form.append("files", f);
         }
-        const result = (await apiPostMultipart("/api/memos/batch/process/upload", form)) as BatchProcessResponse;
-        setProcessResult(result);
-        setProcessedCount(result.totalCreated);
+        setProcessResult((await apiPostMultipart("/api/memos/batch/process/upload", form)) as BatchProcessResponse);
       }
     } catch (err) {
       setProcessError(err instanceof Error ? err.message : String(err));
@@ -144,125 +133,150 @@ export default function BatchImportPage() {
     }
   }
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-
-  const readyFiles = verifyResult?.files.filter(
-    (f) => f.situacao === "pronto" || f.situacao === "suspeito_duplicidade"
-  ) ?? [];
+  const busy = verifyLoading || processLoading;
 
   return (
-    <div className={styles.page}>
+    <div className={styles.shell}>
       <Header />
       <main className={styles.main}>
-        <div className={styles.header}>
-          <h1 className={styles.title}>Importação em Lote</h1>
+
+        {/* ── Cabeçalho ── */}
+        <div className={styles.pageHead}>
+          <div>
+            <h1 className={styles.title}>Importação em Lote</h1>
+            <p className={styles.subtitle}>
+              Registre arquivos externos sem copiá-los para a nuvem.
+            </p>
+          </div>
           <Link to="/" className={styles.backLink}>← Início</Link>
         </div>
-        <p className={styles.subtitle}>
-          Registre arquivos do OneDrive, Google Drive, rede local ou disco sem copiá-los para a nuvem.
-        </p>
 
-        {/* Provider */}
-        <section className={styles.section}>
-          <label className={styles.label}>Origem dos arquivos</label>
-          <div className={styles.providerGrid}>
-            {(Object.keys(STORAGE_PROVIDER_LABELS) as StorageProvider[])
-              .filter((p) => p !== "S3")
-              .map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  className={`${styles.providerBtn} ${provider === p ? styles.providerBtnActive : ""}`}
-                  onClick={() => {
-                    setProvider(p);
-                    setVerifyResult(null);
-                    setProcessResult(null);
-                  }}
-                >
-                  {STORAGE_PROVIDER_LABELS[p]}
-                </button>
-              ))}
-          </div>
-        </section>
+        {/* ── Card de configuração ── */}
+        <div className={styles.card}>
 
-        {/* Endereço / Arquivos */}
-        <section className={styles.section}>
-          {isLocalProvider && (
-            <>
-              <label className={styles.label} htmlFor="folderPath">
-                Caminho da pasta ({provider === "REDE" ? "ex.: \\\\servidor\\compartilhamento" : "ex.: C:\\Documentos\\Contratos"})
-              </label>
-              <input
-                id="folderPath"
-                type="text"
-                className={styles.input}
-                placeholder={provider === "REDE" ? "\\\\servidor\\pasta" : "C:\\pasta\\subpasta"}
-                value={folderPath}
-                onChange={(e) => setFolderPath(e.target.value)}
-              />
-            </>
-          )}
-          {isUploadProvider && (
-            <>
-              <label className={styles.label} htmlFor="fileInput">
-                Selecione os arquivos do {STORAGE_PROVIDER_LABELS[provider]}
-              </label>
-              <input
-                id="fileInput"
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className={styles.fileInput}
-                onChange={() => {
+          {/* Linha 1: Origem + caminho/arquivos */}
+          <div className={styles.row}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label} htmlFor="provider">Origem</label>
+              <select
+                id="provider"
+                className={styles.select}
+                value={provider}
+                onChange={e => {
+                  setProvider(e.target.value as StorageProvider);
                   setVerifyResult(null);
                   setProcessResult(null);
                 }}
-              />
-            </>
-          )}
-          {provider === "URL" && (
-            <p className={styles.infoMsg}>Importação por URL disponível em breve.</p>
-          )}
-        </section>
-
-        {/* Modo IA */}
-        <section className={styles.section}>
-          <label className={styles.label}>Modo de processamento</label>
-          <div className={styles.iaGrid}>
-            {IA_LEVEL_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                className={`${styles.iaBtn} ${iaLevel === opt.value ? styles.iaBtnActive : ""}`}
-                onClick={() => setIaLevel(opt.value)}
               >
-                <span className={styles.iaBtnLabel}>{opt.label}</span>
-                <span className={styles.iaBtnDesc}>{opt.desc}</span>
-              </button>
-            ))}
+                {PROVIDER_OPTIONS.map(o => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className={styles.fieldGroupFlex}>
+              {isLocal && (
+                <>
+                  <label className={styles.label} htmlFor="folderPath">Caminho da pasta</label>
+                  <div className={styles.inputWithHint}>
+                    <input
+                      id="folderPath"
+                      type="text"
+                      className={styles.input}
+                      placeholder={currentHint}
+                      value={folderPath}
+                      onChange={e => setFolderPath(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+              {isUpload && (
+                <>
+                  <label className={styles.label} htmlFor="fileInput">Arquivos</label>
+                  <input
+                    id="fileInput"
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className={styles.fileInput}
+                    onChange={() => { setVerifyResult(null); setProcessResult(null); }}
+                  />
+                  <span className={styles.hint}>{currentHint}</span>
+                </>
+              )}
+              {!isLocal && !isUpload && (
+                <p className={styles.hint}>{currentHint}</p>
+              )}
+            </div>
           </div>
-        </section>
 
-        {/* Botão verificar */}
-        <button
-          type="button"
-          className={styles.primaryBtn}
-          onClick={handleVerify}
-          disabled={verifyLoading || processLoading || (isLocalProvider && !folderPath.trim())}
-        >
-          {verifyLoading ? "Verificando…" : "Verificar arquivos"}
-        </button>
+          {/* Linha 2: Modo IA + botões */}
+          <div className={styles.row}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.label}>Modo de processamento</label>
+              <div className={styles.iaRow}>
+                {IA_OPTIONS.map(opt => (
+                  <label key={opt.value} className={`${styles.iaOption} ${iaLevel === opt.value ? styles.iaOptionActive : ""}`}>
+                    <input
+                      type="radio"
+                      name="iaLevel"
+                      value={opt.value}
+                      checked={iaLevel === opt.value}
+                      onChange={() => setIaLevel(opt.value)}
+                      className={styles.iaRadio}
+                    />
+                    <span className={styles.iaLabel}>{opt.label}</span>
+                    <span className={styles.iaDesc}>{opt.desc}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
 
-        {verifyError && <p className={styles.error}>{verifyError}</p>}
+            <div className={styles.btnGroup}>
+              <button
+                type="button"
+                className={styles.btnVerify}
+                onClick={handleVerify}
+                disabled={busy || (isLocal && !folderPath.trim())}
+              >
+                {verifyLoading ? "Verificando…" : "Verificar"}
+              </button>
+              <button
+                type="button"
+                className={canProcess && !hasErrors ? styles.btnProcessOk : canProcess ? styles.btnProcessWarn : styles.btnProcessDisabled}
+                onClick={handleProcess}
+                disabled={!canProcess || busy}
+              >
+                {processLoading ? "Processando…" : `Processar${readyFiles.length > 0 ? ` (${readyFiles.length})` : ""}`}
+              </button>
+            </div>
+          </div>
 
-        {/* Tabela de verificação */}
+          {(verifyError || processError) && (
+            <p className={styles.error}>{verifyError ?? processError}</p>
+          )}
+        </div>
+
+        {/* ── Tabela de verificação ── */}
         {verifyResult && (
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Pré-verificação</h2>
+          <div className={styles.card}>
+            <div className={styles.tableHead}>
+              <span className={styles.tableTitle}>Pré-verificação</span>
+              <span className={styles.tableSummary}>
+                <span className={styles.countOk}>{verifyResult.files.filter(f => f.situacao === "pronto").length} prontos</span>
+                {verifyResult.files.filter(f => f.situacao === "suspeito_duplicidade").length > 0 && (
+                  <span className={styles.countWarn}>{verifyResult.files.filter(f => f.situacao === "suspeito_duplicidade").length} suspeitos</span>
+                )}
+                {verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade").length > 0 && (
+                  <span className={styles.countErr}>{verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade").length} bloqueados</span>
+                )}
+              </span>
+            </div>
+
             {verifyResult.files.length === 0 ? (
-              <p className={styles.infoMsg}>Nenhum arquivo encontrado.</p>
+              <p className={styles.hint}>Nenhum arquivo encontrado na pasta.</p>
             ) : (
-              <div className={styles.tableWrapper}>
+              <div className={styles.tableWrap}>
                 <table className={styles.table}>
                   <thead>
                     <tr>
@@ -274,16 +288,12 @@ export default function BatchImportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {verifyResult.files.map((f) => (
-                      <tr key={f.originalFileName} className={situacaoClass(f.situacao)}>
+                    {verifyResult.files.map(f => (
+                      <tr key={f.originalFileName}>
                         <td className={styles.nameCell} title={f.fullPath}>{f.originalFileName}</td>
                         <td>{f.mediaType ?? "—"}</td>
                         <td>{formatBytes(f.sizeBytes)}</td>
-                        <td>
-                          <span className={`${styles.badge} ${situacaoClass(f.situacao)}`}>
-                            {BATCH_FILE_SITUACAO_LABELS[f.situacao]}
-                          </span>
-                        </td>
+                        <td><span className={`${styles.badge} ${situacaoBadgeClass(f.situacao)}`}>{BATCH_FILE_SITUACAO_LABELS[f.situacao]}</span></td>
                         <td className={styles.motivoCell}>{f.motivo ?? ""}</td>
                       </tr>
                     ))}
@@ -292,64 +302,32 @@ export default function BatchImportPage() {
               </div>
             )}
 
-            {/* Estimativa de créditos */}
             <div className={styles.creditBar}>
-              <span>
-                Estimativa de créditos — Sem IA: {verifyResult.creditEstimate.semIA} |
-                Básico: {verifyResult.creditEstimate.basico} |
-                Completo: {verifyResult.creditEstimate.completo}
-              </span>
-              {verifyResult.userCurrentCredits != null && (
-                <span className={styles.creditBalance}>
-                  Saldo atual: {verifyResult.userCurrentCredits}
-                </span>
-              )}
+              <span>Estimativa — Sem IA: <strong>{verifyResult.creditEstimate.semIA}</strong> · Básico: <strong>{verifyResult.creditEstimate.basico}</strong> · Completo: <strong>{verifyResult.creditEstimate.completo}</strong> créditos</span>
             </div>
-
-            {/* Botão processar */}
-            {readyFiles.length > 0 && !processResult && (
-              <button
-                type="button"
-                className={styles.primaryBtn}
-                onClick={handleProcess}
-                disabled={processLoading}
-              >
-                {processLoading
-                  ? `Processando… (${processedCount}/${readyFiles.length})`
-                  : `Processar ${readyFiles.length} arquivo${readyFiles.length !== 1 ? "s" : ""} válido${readyFiles.length !== 1 ? "s" : ""}`}
-              </button>
-            )}
-          </section>
+          </div>
         )}
 
-        {processError && <p className={styles.error}>{processError}</p>}
-
-        {/* Resultado */}
+        {/* ── Resultado do processamento ── */}
         {processResult && (
-          <section className={styles.section}>
-            <h2 className={styles.sectionTitle}>Resultado</h2>
-            <div className={styles.resultSummary}>
-              <span className={styles.ok}>✓ {processResult.totalCreated} criado{processResult.totalCreated !== 1 ? "s" : ""}</span>
+          <div className={styles.card}>
+            <div className={styles.resultBar}>
+              <span className={styles.resultOk}>✓ {processResult.totalCreated} criado{processResult.totalCreated !== 1 ? "s" : ""}</span>
               {processResult.totalErrors > 0 && (
-                <span className={styles.err}>✗ {processResult.totalErrors} erro{processResult.totalErrors !== 1 ? "s" : ""}</span>
+                <span className={styles.resultErr}>✗ {processResult.totalErrors} erro{processResult.totalErrors !== 1 ? "s" : ""}</span>
               )}
+              <Link to="/" className={styles.resultLink}>Ver memos →</Link>
             </div>
-            {processResult.results.some((r) => !r.ok) && (
+            {processResult.results.some(r => !r.ok) && (
               <ul className={styles.errorList}>
-                {processResult.results
-                  .filter((r) => !r.ok)
-                  .map((r) => (
-                    <li key={r.originalFileName}>
-                      <strong>{r.originalFileName}</strong>: {r.error}
-                    </li>
-                  ))}
+                {processResult.results.filter(r => !r.ok).map(r => (
+                  <li key={r.originalFileName}><strong>{r.originalFileName}</strong>: {r.error}</li>
+                ))}
               </ul>
             )}
-            <Link to="/" className={styles.primaryBtn} style={{ display: "inline-block", textAlign: "center" }}>
-              Ver memos criados →
-            </Link>
-          </section>
+          </div>
         )}
+
       </main>
     </div>
   );
