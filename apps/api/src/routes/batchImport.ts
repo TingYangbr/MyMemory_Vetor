@@ -332,43 +332,33 @@ async function processBatchFileFromBuffer(input: {
     let category: string | null = null;
     let apiCost = 0;
 
-    if (iaLevel === "semIA") {
-      mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider });
-    } else if (mediaType === "document") {
+    // Extrai texto bruto (usado para semIA e basico/completo)
+    let rawExtractedText = "";
+    if (mediaType === "document") {
       const routing = await loadDocumentRoutingConfig();
       const pipeline = resolveDocumentPipeline(mime, ext, routing);
-      if (pipeline === "unsupported") {
-        mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider });
-      } else {
+      if (pipeline !== "unsupported") {
         const extracted = await runDocumentExtractPipeline(pipeline, buffer, mime, originalFileName);
-        if (!extracted.text.trim()) {
-          mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider });
-        } else {
-          const processed = await processTextMemoForReview({
-            userId: input.userId,
-            groupId: input.groupId,
-            isAdmin: input.isAdmin,
-            rawText: extracted.text,
-            iaUseTexto: iaLevel,
-          });
-          mediaText = processed.suggestedMediaText;
-          keywords = processed.suggestedKeywords || null;
-          dadosEspecificosJson = processed.dadosEspecificosJson ?? null;
-          matchedCategoryId = processed.matchedCategoryId ?? null;
-          category = processed.category ?? null;
-          apiCost = processed.apiCost ?? 0;
-        }
+        rawExtractedText = extracted.text.trim();
       }
     } else if (mediaType === "image") {
       const ocrResult = await recognizeImageWithTesseract(buffer);
-      if (!ocrResult.text.trim()) {
+      rawExtractedText = ocrResult.text.trim();
+    }
+
+    if (iaLevel === "semIA") {
+      mediaText = rawExtractedText
+        ? `[Edição Pendente]\n${rawExtractedText}`
+        : buildSemIaPlaceholder({ filename: originalFileName, provider });
+    } else {
+      if (!rawExtractedText) {
         mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider });
       } else {
         const processed = await processTextMemoForReview({
           userId: input.userId,
           groupId: input.groupId,
           isAdmin: input.isAdmin,
-          rawText: ocrResult.text,
+          rawText: rawExtractedText,
           iaUseTexto: iaLevel,
         });
         mediaText = processed.suggestedMediaText;
@@ -378,8 +368,6 @@ async function processBatchFileFromBuffer(input: {
         category = processed.category ?? null;
         apiCost = processed.apiCost ?? 0;
       }
-    } else {
-      mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider });
     }
 
     const result = await createBatchMemoDirectly({

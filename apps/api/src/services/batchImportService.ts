@@ -284,72 +284,57 @@ export async function processBatchFile(
     let category: string | null = null;
     let apiCost = 0;
 
-    if (iaLevel === "semIA") {
-      mediaText = buildSemIaPlaceholder({
-        filename: originalFileName,
-        provider,
-        folder: input.folder,
-      });
-    } else {
-      // Ler buffer do arquivo
-      let buffer: Buffer;
-      if (provider === "LOCAL" || provider === "REDE") {
-        assertPathAllowed(fullPath);
-        buffer = await fs.readFile(fullPath);
-      } else {
-        throw new Error(
-          `Processamento com IA para provider "${provider}" não suportado nesta versão. Use semIA ou OneDrive/GDrive via upload de arquivo.`
-        );
-      }
+    // Ler buffer para LOCAL/REDE (usado em todos os níveis para extração de texto)
+    let buffer: Buffer | null = null;
+    if (provider === "LOCAL" || provider === "REDE") {
+      assertPathAllowed(fullPath);
+      buffer = await fs.readFile(fullPath);
+    } else if (iaLevel !== "semIA") {
+      throw new Error(
+        `Processamento com IA para provider "${provider}" não suportado nesta versão. Use semIA ou OneDrive/GDrive via upload de arquivo.`
+      );
+    }
 
+    // Extrai texto bruto (usado tanto para semIA quanto para basico/completo)
+    let rawExtractedText = "";
+    if (buffer) {
       if (mediaType === "document") {
         const routing = await loadDocumentRoutingConfig();
         const pipeline = resolveDocumentPipeline(mime, ext, routing);
-
-        if (pipeline === "unsupported") {
-          mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider, folder: input.folder });
-        } else {
+        if (pipeline !== "unsupported") {
           const extracted = await runDocumentExtractPipeline(pipeline, buffer, mime, originalFileName);
-          if (!extracted.text.trim()) {
-            mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider, folder: input.folder });
-          } else {
-            const processed = await processTextMemoForReview({
-              userId: input.userId,
-              groupId: input.groupId,
-              isAdmin: input.isAdmin,
-              rawText: extracted.text,
-              iaUseTexto: iaLevel,
-            });
-            mediaText = processed.suggestedMediaText;
-            keywords = processed.suggestedKeywords || null;
-            dadosEspecificosJson = processed.dadosEspecificosJson ?? null;
-            matchedCategoryId = processed.matchedCategoryId ?? null;
-            category = processed.category ?? null;
-            apiCost = processed.apiCost ?? 0;
-          }
+          rawExtractedText = extracted.text.trim();
         }
       } else if (mediaType === "image") {
         const ocrResult = await recognizeImageWithTesseract(buffer);
-        if (!ocrResult.text.trim()) {
-          mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider, folder: input.folder });
-        } else {
-          const processed = await processTextMemoForReview({
-            userId: input.userId,
-            groupId: input.groupId,
-            isAdmin: input.isAdmin,
-            rawText: ocrResult.text,
-            iaUseTexto: iaLevel,
-          });
-          mediaText = processed.suggestedMediaText;
-          keywords = processed.suggestedKeywords || null;
-          dadosEspecificosJson = processed.dadosEspecificosJson ?? null;
-          matchedCategoryId = processed.matchedCategoryId ?? null;
-          category = processed.category ?? null;
-          apiCost = processed.apiCost ?? 0;
-        }
-      } else {
-        // Áudio e vídeo: sem pipeline direto disponível para batch fase 1
+        rawExtractedText = ocrResult.text.trim();
+      }
+      // áudio e vídeo: sem extração em batch fase 1
+    }
+
+    if (iaLevel === "semIA") {
+      // Texto bruto com marcação de edição pendente; placeholder quando sem texto extraível
+      mediaText = rawExtractedText
+        ? `[Edição Pendente]\n${rawExtractedText}`
+        : buildSemIaPlaceholder({ filename: originalFileName, provider, folder: input.folder });
+    } else {
+      // basico / completo — processa com IA
+      if (!rawExtractedText) {
         mediaText = buildSemIaPlaceholder({ filename: originalFileName, provider, folder: input.folder });
+      } else {
+        const processed = await processTextMemoForReview({
+          userId: input.userId,
+          groupId: input.groupId,
+          isAdmin: input.isAdmin,
+          rawText: rawExtractedText,
+          iaUseTexto: iaLevel,
+        });
+        mediaText = processed.suggestedMediaText;
+        keywords = processed.suggestedKeywords || null;
+        dadosEspecificosJson = processed.dadosEspecificosJson ?? null;
+        matchedCategoryId = processed.matchedCategoryId ?? null;
+        category = processed.category ?? null;
+        apiCost = processed.apiCost ?? 0;
       }
     }
 
