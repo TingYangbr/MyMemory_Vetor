@@ -250,18 +250,7 @@ export async function verifyBatchFiles(
   const readyCount = results.filter((r) => r.situacao === "pronto" || r.situacao === "suspeito_duplicidade").length;
   const creditEstimate = estimateBatchCredits(readyCount);
 
-  const [creditRows] = await pool.query<RowDataPacket[]>(
-    `SELECT creditBalance, creditLimit FROM users WHERE id = ? LIMIT 1`,
-    [input.userId]
-  );
-  const userCurrentCredits = creditRows[0]?.creditBalance != null
-    ? Number(creditRows[0].creditBalance)
-    : null;
-  const userCreditLimit = creditRows[0]?.creditLimit != null
-    ? Number(creditRows[0].creditLimit)
-    : null;
-
-  return { files: results, creditEstimate, userCurrentCredits, userCreditLimit };
+  return { files: results, creditEstimate, userCurrentCredits: null, userCreditLimit: null };
 }
 
 // ── Processamento de um arquivo ───────────────────────────────────────────────
