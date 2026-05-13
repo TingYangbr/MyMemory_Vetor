@@ -58,8 +58,11 @@ services:
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       S3_ENDPOINT: ${S3_ENDPOINT:-}
 
+      BATCH_ALLOWED_LOCAL_PATHS: ${BATCH_ALLOWED_LOCAL_PATHS:-}
+
     volumes:
       - uploads_data:/data/uploads
+      - ${BATCH_IMPORT_HOST_PATH:-/home/ubuntu/importacao}:/data/importacao
 
     networks:
       - traefik-net
