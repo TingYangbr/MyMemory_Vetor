@@ -1,5 +1,4 @@
 import type { FastifyPluginAsync } from "fastify";
-import multipart from "@fastify/multipart";
 import { z } from "zod";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
 import { classifyFile, guessMimeFromFilename } from "../lib/media.js";
@@ -40,15 +39,9 @@ const processLocalBody = z.object({
 
 const MAX_BATCH_FILES = 50;
 
-const plugin: FastifyPluginAsync = async (app) => {
-  // Registra multipart com limite maior apenas para este plugin (escopo isolado)
-  await app.register(multipart, {
-    limits: {
-      fileSize: 500 * 1024 * 1024, // 500 MB total
-      files: 200,
-    },
-  });
+const BATCH_MULTIPART_LIMITS = { fileSize: 500 * 1024 * 1024, files: 200 } as const;
 
+const plugin: FastifyPluginAsync = async (app) => {
   // ── POST /api/memos/batch/verify ─────────────────────────────────────────
 
   /**
@@ -90,7 +83,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const userId = await resolveUserId(req);
     if (!userId) return reply.code(401).send({ error: "unauthorized" });
 
-    const parts = req.parts();
+    const parts = req.parts({ limits: BATCH_MULTIPART_LIMITS });
     const files: { originalFileName: string; fullPath: string; sizeBytes: number }[] = [];
     let provider: (typeof PROVIDER_VALUES)[number] = "ONEDRIVE";
     let groupId: number | null = null;
@@ -225,7 +218,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     // mas o multipart é stream-based. Coletamos tudo primeiro.
     const fileBuffers: { name: string; buffer: Buffer; sizeBytes: number; externalRef?: string }[] = [];
 
-    const parts = req.parts();
+    const parts = req.parts({ limits: BATCH_MULTIPART_LIMITS });
     for await (const part of parts) {
       if (part.type === "field") {
         const fieldVal = String(part.value ?? "");
