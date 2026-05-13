@@ -6,7 +6,7 @@ import type {
   BatchProcessResponse,
   StorageProvider,
 } from "@mymemory/shared";
-import { STORAGE_PROVIDER_LABELS, BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
+import { BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
 import { apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
 import styles from "./BatchImportPage.module.css";
