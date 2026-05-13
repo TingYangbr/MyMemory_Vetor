@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { AudioMemoReviewNavState, MeResponse, MemoCreatedResponse } from "@mymemory/shared";
-import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
+import { USER_IA_USE_LABELS, SEMIA_PLACEHOLDER_PREFIX, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGetOptional, apiPostJson } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
@@ -173,7 +173,10 @@ export default function MemoAudioReviewPage() {
 
   useEffect(() => {
     if (!state) return;
-    setMediaText(state.suggestedMediaText);
+    const audioText = state.suggestedMediaText;
+    setMediaText((!audioText.trim() && state.iaLevel === "semIA")
+      ? `${SEMIA_PLACEHOLDER_PREFIX}\nArquivo importado sem processamento de IA.\nNome do arquivo: ${state.originalFilename ?? ""}`
+      : audioText);
     setKeywords(dedupeMemoKeywordsCommaSeparated(state.suggestedKeywords));
     setDadosEntries(parseDadosEntries(state.dadosEspecificosJson));
     setSelectedCategoryId(state.matchedCategoryId ?? null);

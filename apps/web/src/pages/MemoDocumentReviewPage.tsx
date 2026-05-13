@@ -6,7 +6,7 @@ import type {
   MeResponse,
   MemoCreatedResponse,
 } from "@mymemory/shared";
-import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
+import { USER_IA_USE_LABELS, SEMIA_PLACEHOLDER_PREFIX, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiDeleteJson, apiGetOptional, apiPostJson } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
@@ -112,7 +112,10 @@ export default function MemoDocumentReviewPage() {
       .then((out) => {
         if (cancelled) return;
         setProcessResult(out);
-        setMediaText(out.suggestedMediaText);
+        const docText = out.suggestedMediaText;
+        setMediaText((!docText.trim() && out.iaLevel === "semIA")
+          ? `${SEMIA_PLACEHOLDER_PREFIX}\nArquivo importado sem processamento de IA.\nNome do arquivo: ${out.originalFilename ?? ""}`
+          : docText);
         setKeywords(dedupeMemoKeywordsCommaSeparated(out.suggestedKeywords));
         setDadosEntries(parseDadosEntries(out.dadosEspecificosJson));
         setSelectedCategoryId(out.matchedCategoryId ?? null);

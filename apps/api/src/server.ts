@@ -31,6 +31,7 @@ import { UpdatePipe2TruncGroupBy1700000000115 } from "./migrations/1700000000115
 import { UpdatePipe2TruncGroupByV21700000000116 } from "./migrations/1700000000116-UpdatePipe2TruncGroupByV2.js";
 import { UpdatePipe2SubsidiaryLimit1700000000117 } from "./migrations/1700000000117-UpdatePipe2SubsidiaryLimit.js";
 import { UpdatePipe2CrossQueryFilter1700000000118 } from "./migrations/1700000000118-UpdatePipe2CrossQueryFilter.js";
+import { BatchImportStorageProvider1700000000119 } from "./migrations/1700000000119-BatchImportStorageProvider.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -51,6 +52,7 @@ import perguntasRoutes from "./routes/perguntas.js";
 import perguntaModelosRoutes from "./routes/perguntaModelos.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
+import batchImportRoutes from "./routes/batchImport.js";
 
 assertMediaStorageEnv();
 
@@ -82,6 +84,7 @@ assertMediaStorageEnv();
       UpdatePipe2TruncGroupByV21700000000116,
       UpdatePipe2SubsidiaryLimit1700000000117,
       UpdatePipe2CrossQueryFilter1700000000118,
+      BatchImportStorageProvider1700000000119,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -127,6 +130,8 @@ if (config.mediaLocalPublic) {
   await app.register(mediaLocalProtectedRoutes);
 }
 
+// Batch import registrado antes do multipart global (escopo isolado com files: 200)
+await app.register(batchImportRoutes);
 await app.register(authRoutes);
 await app.register(groupsRoutes);
 await app.register(groupInvitesRoutes);

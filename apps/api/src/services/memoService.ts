@@ -8,6 +8,7 @@ import type {
   MemoMediaTypeDb,
   MemoRecentCard,
   PhotoAiUsage,
+  StorageProvider,
   UserIaUseLevel,
   VideoMemoProcessSource,
 } from "@mymemory/shared";
@@ -1433,4 +1434,114 @@ export async function getMemoCardForViewer(input: {
     iaUseLevel: extractIaUseLevel(m.mediaMetadata),
     hasSemanticChunks: Boolean(m.hasChunks),
   };
+}
+
+// ── Importação em lote / armazenamento alternativo ────────────────────────────
+
+/**
+ * Cria um memo para arquivo externo (não S3) sem validação de URL de posse.
+ * Usado pelo batch import onde o arquivo fica em OneDrive, rede local, etc.
+ * A autenticação do usuário é garantida pelo JWT antes de chamar esta função.
+ */
+export async function createBatchMemoDirectly(input: {
+  userId: number;
+  groupId: number | null;
+  mediaType: Exclude<MemoMediaTypeDb, "text" | "url">;
+  /** URL ou caminho externo gravado no campo mediaXxxUrl correspondente. */
+  externalFileRef: string;
+  mediaText: string;
+  keywords: string | null;
+  dadosEspecificosJson?: string | null;
+  matchedCategoryId?: number | null;
+  category?: string | null;
+  apiCost: number;
+  iaLevel: UserIaUseLevel;
+  originalText: string;
+  tamMediaUrl: number;
+  originalFileName: string;
+  storageProvider: StorageProvider;
+}): Promise<MemoCreatedResponse> {
+  const cost = Number.isFinite(input.apiCost) && input.apiCost >= 0 ? input.apiCost : 0;
+  const mult = await getUsdToCreditsMultiplier();
+  const usedCred = creditsFromUsdCost(cost, mult);
+  const kw = keywordsForStorage(input.keywords);
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
+  const text = stripAccents(input.mediaText.trim());
+  const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
+
+  const meta = JSON.stringify({
+    iaUseImagem: input.mediaType === "image" ? input.iaLevel : undefined,
+    iaUseAudio: input.mediaType === "audio" ? input.iaLevel : undefined,
+    iaUseVideo: input.mediaType === "video" ? input.iaLevel : undefined,
+    iaUseDocumento: input.mediaType === "document" ? input.iaLevel : undefined,
+    originalText: truncateOriginalTextForMeta(input.originalText),
+    reviewFlow: "batch_v1",
+    storageProvider: input.storageProvider,
+    originalFileName: input.originalFileName,
+  });
+
+  const ref = input.externalFileRef.trim();
+  const audioUrl   = input.mediaType === "audio"    ? ref : null;
+  const imageUrl   = input.mediaType === "image"    ? ref : null;
+  const videoUrl   = input.mediaType === "video"    ? ref : null;
+  const docUrl     = input.mediaType === "document" ? ref : null;
+
+  const sql = `
+    INSERT INTO memos (
+      userId, groupId, mediaType,
+      mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl, mediaWebUrl,
+      mediaText, keywords, dadosEspecificosJson, mediaMetadata,
+      apiCost, usedApiCred, tamMediaUrl, isActive, category,
+      storage_provider, original_file_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+  `;
+  const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
+    input.userId,
+    input.groupId,
+    input.mediaType,
+    audioUrl,
+    imageUrl,
+    videoUrl,
+    docUrl,
+    text,
+    kw,
+    dadosJson,
+    meta,
+    cost,
+    usedCred,
+    tam,
+    input.category?.trim() || null,
+    input.storageProvider,
+    input.originalFileName,
+  ]);
+  const memoId = memoRows[0].id;
+
+  if (input.matchedCategoryId != null || dadosJson) {
+    await trySyncMemoDadosEspecificosRows({
+      memoId,
+      groupId: input.groupId,
+      mediaType: input.mediaType,
+      explicitCategoryId: input.matchedCategoryId ?? null,
+      dadosEspecificosJson: dadosJson,
+      dadosEspecificosOriginaisJson: null,
+    });
+  }
+
+  if (cost > 0) {
+    try {
+      await pool.query(
+        `INSERT INTO api_usage_logs (memoId, userId, operation, model, inputTokens, outputTokens, totalTokens, costUsd)
+         VALUES (?, ?, 'memo_batch_ia', 'aggregate', 0, 0, 0, ?)`,
+        [memoId, input.userId, cost]
+      );
+    } catch { /* opcional */ }
+  }
+
+  if (input.iaLevel === "completo") {
+    upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson }).catch(() => {});
+  }
+
+  const row = await getMemoById(memoId, input.userId);
+  if (!row) throw new Error("insert_failed");
+  return rowToCreated(row);
 }

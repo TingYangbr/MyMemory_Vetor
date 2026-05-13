@@ -26,6 +26,7 @@ import MemoImageReviewPage from "./pages/MemoImageReviewPage";
 import MemoTextReviewPage from "./pages/MemoTextReviewPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
+import BatchImportPage from "./pages/BatchImportPage";
 
 export default function App() {
   return (
@@ -53,6 +54,7 @@ export default function App() {
       <Route path="/revisao/memo-audio" element={<MemoAudioReviewPage />} />
       <Route path="/revisao/memo-video" element={<MemoVideoReviewPage />} />
       <Route path="/revisao/memo-documento" element={<MemoDocumentReviewPage />} />
+      <Route path="/importar-lote" element={<BatchImportPage />} />
       <Route path="/memo/:id/editar" element={<MemoEditPage />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />

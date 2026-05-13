@@ -287,6 +287,18 @@ export default function Header({
                 {me ? (
                   <li>
                     <Link
+                      to="/importar-lote"
+                      role="menuitem"
+                      className={styles.dropdownLink}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <span aria-hidden>📥</span> Importar em lote
+                    </Link>
+                  </li>
+                ) : null}
+                {me ? (
+                  <li>
+                    <Link
                       to="/conta/preferencias"
                       role="menuitem"
                       className={styles.dropdownLink}

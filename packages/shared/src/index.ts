@@ -1210,3 +1210,71 @@ export interface AdminPromptCategory {
 export interface AdminPromptCategoryListResponse {
   categories: AdminPromptCategory[];
 }
+
+// ── Importação em lote / armazenamento alternativo ao S3 ─────────────────────
+
+export type StorageProvider = "S3" | "ONEDRIVE" | "GOOGLE_DRIVE" | "LOCAL" | "REDE" | "URL";
+
+export const STORAGE_PROVIDER_LABELS: Record<StorageProvider, string> = {
+  S3: "S3 / Nuvem",
+  ONEDRIVE: "OneDrive",
+  GOOGLE_DRIVE: "Google Drive",
+  LOCAL: "Disco Local",
+  REDE: "Rede Local",
+  URL: "URL Externa",
+};
+
+export const SEMIA_PLACEHOLDER_PREFIX = "PENDENTE_EDICAO_SEM_IA";
+
+export type BatchFileSituacao =
+  | "pronto"
+  | "ja_cadastrado"
+  | "suspeito_duplicidade"
+  | "formato_nao_suportado"
+  | "muito_grande"
+  | "erro_acesso";
+
+export const BATCH_FILE_SITUACAO_LABELS: Record<BatchFileSituacao, string> = {
+  pronto: "Pronto",
+  ja_cadastrado: "Já cadastrado",
+  suspeito_duplicidade: "Suspeito de duplicidade",
+  formato_nao_suportado: "Formato não suportado",
+  muito_grande: "Arquivo muito grande",
+  erro_acesso: "Erro de acesso",
+};
+
+export interface BatchFileVerifyResult {
+  originalFileName: string;
+  fullPath: string;
+  sizeBytes: number;
+  mediaType: MemoMediaTypeDb | null;
+  situacao: BatchFileSituacao;
+  motivo?: string | null;
+}
+
+export interface BatchCreditEstimate {
+  semIA: number;
+  basico: number;
+  completo: number;
+}
+
+export interface BatchVerifyResponse {
+  files: BatchFileVerifyResult[];
+  creditEstimate: BatchCreditEstimate;
+  userCurrentCredits: number | null;
+  userCreditLimit: number | null;
+}
+
+export interface BatchProcessResult {
+  originalFileName: string;
+  ok: boolean;
+  memoId?: number;
+  error?: string;
+}
+
+export interface BatchProcessResponse {
+  totalRequested: number;
+  totalCreated: number;
+  totalErrors: number;
+  results: BatchProcessResult[];
+}
