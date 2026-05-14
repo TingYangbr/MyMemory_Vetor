@@ -195,7 +195,9 @@ export async function syntaxCheckMssql(
 export function bindParamsMssql(
   sentencaSql: string,
   paramValues: Record<string, unknown>,
-  paramDefs?: { nome: string; operadorSql: string }[]
+  paramDefs?: { nome: string; operadorSql: string }[],
+  /** Operadores sugeridos pelo LLM por param (lowercase). "=" suprime o wrap com % do LIKE. */
+  operadorOverrides?: Record<string, string>
 ): { sql: string; params: { name: string; value: unknown }[] } {
   const defByName = new Map((paramDefs ?? []).map((p) => [p.nome.toLowerCase(), p]));
   const params: { name: string; value: unknown }[] = [];
@@ -247,7 +249,8 @@ export function bindParamsMssql(
 
       if (!seen.has(key)) {
         seen.add(key);
-        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
+        const llmOpOverride = operadorOverrides?.[key];
+        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "=") {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
           val = strVal.includes("%") ? strVal : `%${strVal}%`;
         }
@@ -266,7 +269,8 @@ export async function executeQueryMssql(
   conexaoId: number,
   sentencaSql: string,
   paramValues: Record<string, unknown>,
-  paramDefs?: { nome: string; operadorSql: string }[]
+  paramDefs?: { nome: string; operadorSql: string }[],
+  operadorOverrides?: Record<string, string>
 ): Promise<{ colunas: string[]; linhas: Record<string, unknown>[] }> {
   const conn = await getDbConnectionWithPassword(conexaoId);
   if (!conn) throw new Error("db_connection_not_found");
@@ -290,7 +294,7 @@ export async function executeQueryMssql(
     requestTimeout: 60_000,
   };
 
-  const { sql, params } = bindParamsMssql(sentencaSql, paramValues, paramDefs);
+  const { sql, params } = bindParamsMssql(sentencaSql, paramValues, paramDefs, operadorOverrides);
 
   let sqlPool: import("mssql").ConnectionPool | null = null;
   try {

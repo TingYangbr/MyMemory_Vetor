@@ -295,6 +295,39 @@ export default function MemoContextPage() {
       .catch(() => setDbConnOptions([]));
   };
 
+  function extrairParamsDoSql() {
+    const sql = modalQuerySentencaSql;
+    const SYSTEM_PARAMS = new Set(["userid", "groupid", "categoryid"]);
+    // Match :param (PostgreSQL) and @param (MSSQL), excluding @@system variables
+    const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g;
+    const seen = new Set<string>();
+    const extracted: typeof pendingAutoParams = [];
+    let ordem = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(sql)) !== null) {
+      const name = (m[1] ?? m[2]).toLowerCase();
+      if (SYSTEM_PARAMS.has(name) || seen.has(name)) continue;
+      seen.add(name);
+      const before = sql.slice(0, m.index).trimEnd();
+      let operadorSql: string = "=";
+      if (/\bNOT\s+IN\s*\(\s*$/i.test(before))        operadorSql = "NOT IN";
+      else if (/\bIN\s*\(\s*$/i.test(before))          operadorSql = "IN";
+      else if (/\bI?LIKE\s+$/i.test(before))           operadorSql = "LIKE";
+      else if (/>=\s*$/.test(before))                  operadorSql = ">=";
+      else if (/<=\s*$/.test(before))                  operadorSql = "<=";
+      else if (/[<>!]=?\s*$/.test(before) && !/>=$/.test(before) && !/<=$/.test(before)) {
+        if (/!=\s*$|<>\s*$/.test(before)) operadorSql = "!=";
+        else if (/>\s*$/.test(before))    operadorSql = ">";
+        else if (/<\s*$/.test(before))    operadorSql = "<";
+      }
+      let tipo: QueryCategoriaParamTipo = "string";
+      if (/^(id$|.*_id$|userid|groupid)/.test(name))              tipo = "number";
+      else if (/data|date|lancamento|vencimento|emissao/.test(name)) tipo = "date";
+      extracted.push({ campo: name, tipo, obrigatorio: 0, operadorSql, normalizar: 0, ordem: ordem++ });
+    }
+    setPendingAutoParams(extracted);
+  }
+
   const openNewQuery = (cid: number) => {
     resetModalState();
     setModalCategoryId(cid);
@@ -510,6 +543,9 @@ export default function MemoContextPage() {
           sentencaSql: modalQuerySentencaSql.trim(),
           conexaoId: modalQueryConexaoId ?? null,
         });
+        for (const p of pendingAutoParams) {
+          await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, p);
+        }
       } else if (modal === "queryParam" && modalQueryId != null) {
         await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, {
           campo: modalParamCampo.trim(),
@@ -1074,8 +1110,8 @@ export default function MemoContextPage() {
                 </div>
                 <div className={styles.modalField}>
                   <label htmlFor="mod-q-sql">Sentença SQL</label>
-                  {modal === "query" ? (
-                    <div className={styles.gerarQueryRow}>
+                  <div className={styles.gerarQueryRow}>
+                    {modal === "query" ? (
                       <button
                         type="button"
                         className="mm-btn mm-btn--ghost"
@@ -1084,18 +1120,27 @@ export default function MemoContextPage() {
                       >
                         ✦ Gerar Query padrão
                       </button>
-                      {pendingAutoParams.length > 0 ? (
-                        <span className={styles.gerarQueryHint}>
-                          {pendingAutoParams.length} parâm. criados ao salvar
-                        </span>
-                      ) : null}
-                    </div>
-                  ) : null}
+                    ) : null}
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--ghost"
+                      onClick={extrairParamsDoSql}
+                      disabled={!modalQuerySentencaSql.trim()}
+                      title="Detecta :param e @param no SQL e gera parâmetros automaticamente"
+                    >
+                      ⚡ Extrair parâmetros
+                    </button>
+                    {pendingAutoParams.length > 0 ? (
+                      <span className={styles.gerarQueryHint}>
+                        {pendingAutoParams.length} parâm. {modal === "queryEdit" ? "adicionados ao salvar" : "criados ao salvar"}
+                      </span>
+                    ) : null}
+                  </div>
                   <textarea
                     id="mod-q-sql"
                     className="mm-field"
-                    rows={28}
-                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.85rem", resize: "vertical", minHeight: "30rem", whiteSpace: "pre-wrap", overflowWrap: "break-word", width: "100%" }}
+                    rows={18}
+                    style={{ fontFamily: "ui-monospace, monospace", fontSize: "0.78rem", resize: "vertical", minHeight: "18rem", whiteSpace: "pre-wrap", overflowWrap: "break-word", width: "100%" }}
                     value={modalQuerySentencaSql}
                     onChange={(e) => { setModalQuerySentencaSql(e.target.value); setPendingAutoParams([]); setSyntaxResult(null); }}
                     placeholder="SELECT * FROM tabela WHERE campo = :campo"
