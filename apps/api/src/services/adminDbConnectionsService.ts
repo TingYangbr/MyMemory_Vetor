@@ -226,6 +226,7 @@ export function bindParamsMssql(
     let val = Object.prototype.hasOwnProperty.call(paramValues, key) ? paramValues[key] : null;
     if (val === "") val = null;
     const def = defByName.get(key);
+    const llmOpOverride = operadorOverrides?.[key];
 
     const ctx = detectInContextAt(sentencaSql, match.index);
     if (ctx) {
@@ -243,20 +244,22 @@ export function bindParamsMssql(
         result += placeholders.join(", ");
       }
     } else {
+      // EXACT mode: reescreve "LIKE @param" → "= @param" no SQL já construído.
+      // SQL Server '=' ignora trailing spaces em CHAR(n) — match exato sem wildcards nem falsos positivos.
+      if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride === "EXACT") {
+        result = result.replace(/\bLIKE\s*$/i, "= ");
+      }
+
       // Token fora de contexto IN. Se valor é array (primeira ocorrência no IS NULL check),
       // usa o primeiro elemento como representante.
       if (Array.isArray(val)) val = val.length > 0 ? val[0] : null;
 
       if (!seen.has(key)) {
         seen.add(key);
-        const llmOpOverride = operadorOverrides?.[key];
         if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
           if (llmOpOverride === "EXACT") {
-            // Match exato pedido pelo LLM ("EXACT" é sinal sintético, nunca padrão do LLM).
-            // Adiciona % somente no final para absorver padding de colunas CHAR(n)
-            // sem abrir busca parcial no início do valor.
-            val = strVal.endsWith("%") ? strVal : `${strVal}%`;
+            val = strVal; // sem wildcards — operador já foi reescrito para =
           } else {
             val = strVal.includes("%") ? strVal : `%${strVal}%`;
           }
