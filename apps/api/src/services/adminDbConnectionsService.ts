@@ -244,9 +244,10 @@ export function bindParamsMssql(
         result += placeholders.join(", ");
       }
     } else {
-      // EXACT mode: reescreve "LIKE @param" → "= @param" no SQL já construído.
-      // SQL Server '=' ignora trailing spaces em CHAR(n) — match exato sem wildcards nem falsos positivos.
-      if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride === "EXACT") {
+      // Padrão para LIKE params: match exato (reescreve LIKE→= no SQL).
+      // SQL Server '=' ignora trailing spaces em CHAR(n) — sem wildcards, sem falsos positivos.
+      // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
+      if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "LIKE") {
         result = result.replace(/\bLIKE\s*$/i, "= ");
       }
 
@@ -258,10 +259,10 @@ export function bindParamsMssql(
         seen.add(key);
         if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
-          if (llmOpOverride === "EXACT") {
-            val = strVal; // sem wildcards — operador já foi reescrito para =
-          } else {
+          if (llmOpOverride === "LIKE") {
             val = strVal.includes("%") ? strVal : `%${strVal}%`;
+          } else {
+            val = strVal; // match exato — operador já foi reescrito para =
           }
         }
         params.push({ name: key, value: val ?? null });
