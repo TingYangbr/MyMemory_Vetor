@@ -250,9 +250,16 @@ export function bindParamsMssql(
       if (!seen.has(key)) {
         seen.add(key);
         const llmOpOverride = operadorOverrides?.[key];
-        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "=") {
+        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
-          val = strVal.includes("%") ? strVal : `%${strVal}%`;
+          if (llmOpOverride === "EXACT") {
+            // Match exato pedido pelo LLM ("EXACT" é sinal sintético, nunca padrão do LLM).
+            // Adiciona % somente no final para absorver padding de colunas CHAR(n)
+            // sem abrir busca parcial no início do valor.
+            val = strVal.endsWith("%") ? strVal : `${strVal}%`;
+          } else {
+            val = strVal.includes("%") ? strVal : `%${strVal}%`;
+          }
         }
         params.push({ name: key, value: val ?? null });
       }
