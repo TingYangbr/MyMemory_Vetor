@@ -66,6 +66,33 @@ function safeParseJson<T>(raw: string, fallback: T): T {
   return fallback;
 }
 
+const DATE_COL_PATTERN = /data|date|lancamento|emissao|vencimento|criacao|created|updated|entrega|pagamento|competencia/i;
+
+/**
+ * Quando há mais linhas do que o LLM recebe, ordena pelas colunas de data DESC
+ * para garantir que o LLM sempre veja os registros mais recentes — não os mais antigos.
+ */
+function sortLinhasParaLlm(linhas: Record<string, unknown>[], totalLinhas: number, limit = 20): Record<string, unknown>[] {
+  if (totalLinhas <= limit || linhas.length <= 1) return linhas;
+
+  // Detecta colunas de data pelo nome e confirma que o valor parece data ISO
+  const firstRow = linhas[0] ?? {};
+  const dateCols = Object.keys(firstRow).filter((col) => {
+    if (!DATE_COL_PATTERN.test(col)) return false;
+    const v = firstRow[col];
+    return typeof v === "string" && /^\d{4}-\d{2}-\d{2}/.test(v);
+  });
+
+  if (!dateCols.length) return linhas;
+
+  const primaryCol = dateCols[0];
+  return [...linhas].sort((a, b) => {
+    const va = String(a[primaryCol] ?? "");
+    const vb = String(b[primaryCol] ?? "");
+    return vb.localeCompare(va); // DESC — mais recente primeiro
+  });
+}
+
 // ── Internal: síntese híbrida ─────────────────────────────────────────────────
 
 async function gerarRespostaHibrida(input: {
@@ -80,7 +107,7 @@ async function gerarRespostaHibrida(input: {
     pergunta: input.pergunta,
     dados_estruturados: {
       colunas: pipe2.dadosEstruturados.colunas,
-      linhas: pipe2.dadosEstruturados.linhas.slice(0, 20),
+      linhas: sortLinhasParaLlm(pipe2.dadosEstruturados.linhas, pipe2.dadosEstruturados.totalLinhas).slice(0, 20),
       total_linhas: pipe2.dadosEstruturados.totalLinhas,
       resumo_analitico: pipe2.resposta.resposta,
     },
