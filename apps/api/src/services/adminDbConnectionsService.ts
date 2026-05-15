@@ -244,11 +244,15 @@ export function bindParamsMssql(
         result += placeholders.join(", ");
       }
     } else {
-      // Padrão para LIKE params: match exato (reescreve LIKE→= no SQL).
+      // Padrão para LIKE params: match exato (reescreve LIKE→= e NOT LIKE→<> no SQL).
       // SQL Server '=' ignora trailing spaces em CHAR(n) — sem wildcards, sem falsos positivos.
       // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
       if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "LIKE") {
-        result = result.replace(/\bLIKE\s*$/i, "= ");
+        if (/\bNOT\s+LIKE\s*$/i.test(result)) {
+          result = result.replace(/\bNOT\s+LIKE\s*$/i, "<> ");
+        } else {
+          result = result.replace(/\bLIKE\s*$/i, "= ");
+        }
       }
 
       // Token fora de contexto IN. Se valor é array (primeira ocorrência no IS NULL check),
