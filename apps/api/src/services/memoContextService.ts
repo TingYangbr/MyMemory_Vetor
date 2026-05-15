@@ -194,7 +194,8 @@ export async function assertMemoContextReadScope(
   isAdmin: boolean
 ): Promise<void> {
   if (scopeGroupId === null) return;
-  await assertUserCanAccessGroup(userId, scopeGroupId, isAdmin);
+  // Leitura: qualquer membro do grupo pode ver categorias/queries (não apenas owner).
+  await assertUserWorkspaceGroupAccess(userId, scopeGroupId, isAdmin);
 }
 
 async function userOwnsGroupForMemoContext(userId: number, groupId: number): Promise<boolean> {
