@@ -118,10 +118,8 @@ export default function AdminDocumentAiPage() {
           <code className={adminStyles.tableToolbarCode}>memo_document_ia</code>. Define regras <strong>preprocess</strong>{" "}
           (ordem importa: primeira que coincidir) com pipelines <code>extract_utf8_text</code>,{" "}
           <code>extract_pdf_text</code>, <code>extract_msg_text</code> (Outlook .msg),{" "}
-          <code>extract_eml_text</code> (e-mail .eml / Gmail), <code>extract_docx_text</code> (Word .docx) ou{" "}
-          <code>unsupported</code>. O
-          bloco <code>providers</code> é referência para
-          integrações futuras (input direto OpenAI/Gemini).
+          <code>extract_eml_text</code> (e-mail .eml / Gmail), <code>extract_docx_text</code> (Word .docx),{" "}
+          <code>extract_xlsx_text</code> (Excel .xlsx) ou <code>unsupported</code>.
         </p>
         {usingDefaults ? (
           <p className="mm-muted">

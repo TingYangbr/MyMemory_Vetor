@@ -21,10 +21,6 @@ function shallowMerge(base: DocumentRoutingConfig, patch: Partial<DocumentRoutin
   return {
     version: typeof patch.version === "number" ? patch.version : base.version,
     preprocess: Array.isArray(patch.preprocess) ? patch.preprocess : base.preprocess,
-    providers:
-      patch.providers && typeof patch.providers === "object"
-        ? { ...base.providers, ...patch.providers }
-        : base.providers,
   };
 }
 

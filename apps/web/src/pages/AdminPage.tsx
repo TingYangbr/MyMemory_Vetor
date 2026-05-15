@@ -2327,7 +2327,18 @@ export default function AdminPage() {
                 </label>
               </div>
               <div style={{ display: "flex", gap: "0.5rem", marginTop: "1rem" }}>
-                <button type="button" className="mm-btn mm-btn--primary" disabled={dbConnSaving} onClick={() => void saveDbConn()}>
+                <button
+                  type="button"
+                  className="mm-btn mm-btn--primary"
+                  disabled={dbConnSaving || !(
+                    dbConnForm.nome?.trim() &&
+                    dbConnForm.host?.trim() &&
+                    dbConnForm.database?.trim() &&
+                    dbConnForm.username?.trim() &&
+                    (dbConnEditing != null || !!dbConnForm.password)
+                  )}
+                  onClick={() => void saveDbConn()}
+                >
                   {dbConnSaving ? "Salvando…" : dbConnEditing != null ? "Atualizar" : "Criar"}
                 </button>
                 {dbConnEditing != null ? (

@@ -12,16 +12,9 @@ export type DocumentPreprocessRule = {
   pipeline: string;
 };
 
-export type ProviderDirectHints = {
-  /** Extensões que o provedor costuma aceitar como input_file (referência; pipeline ainda extrai localmente). */
-  directExtensions: string[];
-  maxDirectBytes: number;
-};
-
 export type DocumentRoutingConfig = {
   version: number;
   preprocess: DocumentPreprocessRule[];
-  providers: Record<string, ProviderDirectHints>;
 };
 
 export const DEFAULT_DOCUMENT_ROUTING: DocumentRoutingConfig = {
@@ -81,14 +74,4 @@ export const DEFAULT_DOCUMENT_ROUTING: DocumentRoutingConfig = {
       pipeline: "extract_pdf_text",
     },
   ],
-  providers: {
-    openai: {
-      directExtensions: [".pdf", ".txt", ".md", ".csv", ".doc", ".docx", ".ppt", ".pptx", ".xls", ".xlsx"],
-      maxDirectBytes: 52_428_800,
-    },
-    google_gemini: {
-      directExtensions: [".pdf", ".txt", ".md"],
-      maxDirectBytes: 20_971_520,
-    },
-  },
 };
