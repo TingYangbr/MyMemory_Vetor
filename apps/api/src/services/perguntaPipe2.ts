@@ -76,6 +76,8 @@ interface PlanoAgregacao {
   group_by_trunc?: PlanoAgregacaoTrunc[];
   order_by: { campo: string; direcao: "asc" | "desc" }[];
   limit: number | null;
+  /** Filtra grupos onde o resultado da função de agregação seja > having_gt. Ex: 0 exclui grupos com total <= 0. */
+  having_gt?: number | null;
 }
 
 interface PlanoCrossQueryFilter {
@@ -262,15 +264,18 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
 
   let measureAlias: string;
   let measureExpr: string;
+  let measureFnExpr: string; // sem alias — usado no HAVING
   if (ag.medida === "count") {
     measureAlias = "contagem";
-    measureExpr = `COUNT(*) AS ${measureAlias}`;
+    measureFnExpr = "COUNT(*)";
+    measureExpr = `${measureFnExpr} AS ${measureAlias}`;
   } else {
     if (!ag.campo_medida) throw new Error(`campo_medida obrigatório para medida "${ag.medida}"`);
     const col = qi(stripBase(ag.campo_medida));
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
     measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
-    measureExpr = `${fnName}(${col}) AS ${measureAlias}`;
+    measureFnExpr = `${fnName}(${col})`;
+    measureExpr = `${measureFnExpr} AS ${measureAlias}`;
   }
 
   // Extras adicionados automaticamente ao SELECT quando ORDER BY usa coluna fora do GROUP BY.
@@ -310,6 +315,9 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
 
   let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${selectList} FROM _base`;
   if (groupByParts.length > 0) sql += ` GROUP BY ${groupByParts.join(", ")}`;
+  if (ag.having_gt !== null && ag.having_gt !== undefined) {
+    sql += ` HAVING ${measureFnExpr} > ${ag.having_gt}`;
+  }
   if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
   sql += limitClause;
 
@@ -546,7 +554,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -626,6 +634,7 @@ async function planejarConsultaEstruturada(input: {
               ...(group_by_trunc.length > 0 ? { group_by_trunc } : {}),
               order_by,
               limit,
+              ...(typeof ag.having_gt === "number" ? { having_gt: ag.having_gt } : {}),
             };
           }
         }
