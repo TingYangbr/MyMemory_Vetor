@@ -226,7 +226,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
       const fmt = fmtMap[t.granularidade] ?? "yyyy-MM";
       expr = `FORMAT(${colQ}, '${fmt}')`;
     } else {
-      expr = `DATE_TRUNC('${t.granularidade}', ${colQ})`;
+      expr = `DATE_TRUNC('${t.granularidade}', ${colQ}::timestamp)`;
     }
     truncMap.set(colNorm, { selectExpr: `${expr} AS ${aliasQ}`, groupExpr: expr });
   }
