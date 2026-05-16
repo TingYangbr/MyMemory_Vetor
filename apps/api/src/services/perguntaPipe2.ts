@@ -683,7 +683,8 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
       campo_medida = null;
       medida = null;
-    } else if (!isLikelyNumericColumn(campo_medida)) {
+    } else if ((medida === "sum" || medida === "avg") && !isLikelyNumericColumn(campo_medida)) {
+      // SUM/AVG exigem coluna numérica. MIN/MAX funcionam em datas e textos — não bloquear.
       console.warn(`[Pipe2] campo_medida "${campo_medida}" não parece numérico para medida "${medida}". Removendo.`);
       campo_medida = null;
       medida = null;
