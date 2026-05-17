@@ -543,8 +543,15 @@ export default function MemoContextPage() {
           sentencaSql: modalQuerySentencaSql.trim(),
           conexaoId: modalQueryConexaoId ?? null,
         });
+        const existingParamNames = new Set(
+          categories.flatMap((c) => c.queries)
+            .find((q) => q.id === modalQueryId)
+            ?.params.map((p) => p.campo.toLowerCase()) ?? []
+        );
         for (const p of pendingAutoParams) {
-          await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, p);
+          if (!existingParamNames.has(p.campo.toLowerCase())) {
+            await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, p);
+          }
         }
       } else if (modal === "queryParam" && modalQueryId != null) {
         await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, {

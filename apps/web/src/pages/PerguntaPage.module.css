@@ -1264,3 +1264,48 @@
   color: var(--mm-text, #1e293b);
   line-height: 1.4;
 }
+.modeloItemNote {
+  font-size: 0.75rem;
+  color: var(--mm-text-muted, #94a3b8);
+  line-height: 1.35;
+  font-style: italic;
+  margin-top: 0.1rem;
+}
+.modeloItemRow {
+  display: flex;
+  align-items: flex-start;
+}
+.modeloItemEditBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.8rem;
+  color: var(--mm-text-muted, #94a3b8);
+  padding: 0.5rem 0.6rem;
+  transition: color 0.1s;
+  align-self: center;
+}
+.modeloItemEditBtn:hover { color: var(--mm-primary, #6366f1); }
+.modeloItemEditArea {
+  padding: 0.4rem 1rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.modeloItemNoteTextarea {
+  width: 100%;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 6px;
+  resize: vertical;
+  font-family: inherit;
+  color: var(--mm-text, #1e293b);
+  background: var(--mm-input-bg, #f8fafc);
+  box-sizing: border-box;
+}
+.modeloItemNoteActions {
+  display: flex;
+  gap: 0.5rem;
+}

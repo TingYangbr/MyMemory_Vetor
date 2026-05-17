@@ -1132,6 +1132,7 @@ export interface PerguntaModelo {
   groupId: number | null;
   category: string | null;
   pergunta: string;
+  anotacoes: string | null;
   createdAt: string;
   updatedAt: string;
 }
