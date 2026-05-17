@@ -227,12 +227,13 @@ button {
   inset: 0;
   z-index: 100;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   padding: 1.25rem;
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(6px);
   animation: mm-fade-in 0.2s ease;
+  overflow-y: auto;
 }
 
 .mm-modal {

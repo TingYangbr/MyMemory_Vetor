@@ -859,8 +859,7 @@
 .sqlModal {
   width: 96vw;
   max-width: 96vw;
-  max-height: 94vh;
-  overflow: auto;
+  overflow: visible;
   min-height: 18rem;
   min-width: 40rem;
   resize: both;
