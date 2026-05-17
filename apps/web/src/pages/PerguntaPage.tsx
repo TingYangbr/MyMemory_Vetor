@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type {
   MeResponse,
@@ -386,6 +386,8 @@ export default function PerguntaPage() {
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
+  const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [showCatFilter, setShowCatFilter] = useState(false);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
@@ -845,6 +847,8 @@ export default function PerguntaPage() {
   async function abrirModeloSelect() {
     setModeloSelectOpen(true);
     setOpenNoteId(null);
+    setFilterCat(null);
+    setShowCatFilter(false);
     setModelosLoading(true);
     try {
       const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
@@ -873,6 +877,26 @@ export default function PerguntaPage() {
     }
   }
 
+
+  const modeloCatOptions = useMemo(() => {
+    if (modelos.length <= 6) return [];
+    const cats = new Set<string>();
+    let hasSemCat = false;
+    for (const m of modelos) {
+      if (m.category) cats.add(m.category);
+      else hasSemCat = true;
+    }
+    if (cats.size === 0) return [];
+    const sorted = [...cats].sort((a, b) => a.localeCompare(b, "pt"));
+    if (hasSemCat) sorted.push("Sem categoria");
+    return sorted;
+  }, [modelos]);
+
+  const filteredModelos = useMemo(() => {
+    if (!filterCat) return modelos;
+    if (filterCat === "Sem categoria") return modelos.filter((m) => !m.category);
+    return modelos.filter((m) => m.category === filterCat);
+  }, [modelos, filterCat]);
 
   if (!ready) {
     return (
@@ -1366,7 +1390,22 @@ export default function PerguntaPage() {
         <div className={styles.modeloModalOverlay} onClick={() => setModeloSelectOpen(false)}>
           <div className={styles.modeloModal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modeloModalHeader}>
-              <span className={styles.modeloModalTitle}>Perguntas salvas</span>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                <span className={styles.modeloModalTitle}>Perguntas salvas</span>
+                {modeloCatOptions.length > 1 && (
+                  <button
+                    type="button"
+                    className={`${styles.modeloFilterBtn}${showCatFilter || filterCat ? ` ${styles.modeloFilterBtnActive}` : ""}`}
+                    title="Filtrar por categoria"
+                    onClick={() => setShowCatFilter((v) => !v)}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                    </svg>
+                    {filterCat && <span className={styles.modeloFilterDot} />}
+                  </button>
+                )}
+              </div>
               <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
                 <button
                   type="button"
@@ -1378,13 +1417,30 @@ export default function PerguntaPage() {
                 <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
               </div>
             </div>
+            {showCatFilter && modeloCatOptions.length > 1 && (
+              <div className={styles.modeloCatFilterBar}>
+                <button
+                  className={`${styles.modeloCatChip}${!filterCat ? ` ${styles.modeloCatChipActive}` : ""}`}
+                  onClick={() => setFilterCat(null)}
+                >Todas</button>
+                {modeloCatOptions.map((cat) => (
+                  <button
+                    key={cat}
+                    className={`${styles.modeloCatChip}${filterCat === cat ? ` ${styles.modeloCatChipActive}` : ""}`}
+                    onClick={() => setFilterCat(filterCat === cat ? null : cat)}
+                  >{cat}</button>
+                ))}
+              </div>
+            )}
             {modelosLoading ? (
               <p className={styles.modeloModalEmpty}>Carregando…</p>
             ) : modelos.length === 0 ? (
               <p className={styles.modeloModalEmpty}>Nenhuma pergunta salva{workspaceGroupId ? " neste grupo" : ""}.</p>
+            ) : filteredModelos.length === 0 ? (
+              <p className={styles.modeloModalEmpty}>Nenhuma pergunta nesta categoria.</p>
             ) : (
               <ul className={styles.modeloList}>
-                {modelos.map((m) => (
+                {filteredModelos.map((m) => (
                   <li key={m.id} className={styles.modeloItem}>
                     <div className={styles.modeloItemRow}>
                       <button

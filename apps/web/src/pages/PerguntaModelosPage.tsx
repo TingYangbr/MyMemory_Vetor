@@ -15,6 +15,8 @@ export default function PerguntaModelosPage() {
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [filterCat, setFilterCat] = useState<string | null>(null);
+  const [showCatFilter, setShowCatFilter] = useState(false);
 
   useEffect(() => {
     apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -87,19 +89,52 @@ export default function PerguntaModelosPage() {
   const groupKeys = Object.keys(grouped).sort((a, b) =>
     a === "Sem categoria" ? 1 : b === "Sem categoria" ? -1 : a.localeCompare(b)
   );
+  const showFilterBtn = modelos.length > 6 && groupKeys.length > 1;
+  const visibleGroupKeys = filterCat ? groupKeys.filter((k) => k === filterCat) : groupKeys;
 
   return (
     <div className={styles.shell}>
       <Header />
       <main className={styles.main}>
         <div className={styles.topBar}>
-          <h1 className={styles.title}>Perguntas salvas</h1>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+            <h1 className={styles.title}>Perguntas salvas</h1>
+            {showFilterBtn && (
+              <button
+                type="button"
+                className={`${styles.filterBtn}${showCatFilter || filterCat ? ` ${styles.filterBtnActive}` : ""}`}
+                title="Filtrar por categoria"
+                onClick={() => setShowCatFilter((v) => !v)}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+                </svg>
+                {filterCat && <span className={styles.filterDot} />}
+              </button>
+            )}
+          </div>
           <button
             type="button"
             className="mm-btn mm-btn--ghost"
             onClick={() => navigate("/perguntar")}
           >← Voltar</button>
         </div>
+
+        {showFilterBtn && showCatFilter && (
+          <div className={styles.catFilterBar}>
+            <button
+              className={`${styles.catChip}${!filterCat ? ` ${styles.catChipActive}` : ""}`}
+              onClick={() => setFilterCat(null)}
+            >Todas</button>
+            {groupKeys.map((cat) => (
+              <button
+                key={cat}
+                className={`${styles.catChip}${filterCat === cat ? ` ${styles.catChipActive}` : ""}`}
+                onClick={() => setFilterCat(filterCat === cat ? null : cat)}
+              >{cat}</button>
+            ))}
+          </div>
+        )}
 
         {loading && <p className={styles.muted}>Carregando…</p>}
         {error && <p className={styles.errorMsg}>{error}</p>}
@@ -108,7 +143,7 @@ export default function PerguntaModelosPage() {
           <p className={styles.muted}>Nenhuma pergunta salva{workspaceGroupId ? " neste grupo" : ""}.</p>
         )}
 
-        {groupKeys.map((group) => (
+        {visibleGroupKeys.map((group) => (
           <section key={group} className={styles.group}>
             {group !== "Sem categoria" && (
               <h2 className={styles.groupTitle}>{group}</h2>
@@ -120,22 +155,21 @@ export default function PerguntaModelosPage() {
                   <li key={m.id} className={styles.item}>
                     {isEditing ? (
                       <div className={styles.editBlock}>
-                        <label className={styles.fieldLabel}>Pergunta</label>
                         <textarea
                           className={`mm-field ${styles.editTextarea}`}
-                          rows={3}
+                          rows={2}
                           value={editing.pergunta}
                           onChange={(e) => setEditing({ ...editing, pergunta: e.target.value })}
+                          placeholder="Pergunta"
                           // eslint-disable-next-line jsx-a11y/no-autofocus
                           autoFocus
                         />
-                        <label className={styles.fieldLabel}>Anotações</label>
                         <textarea
                           className={`mm-field ${styles.editTextarea}`}
-                          rows={3}
+                          rows={2}
                           value={editing.anotacoes}
                           onChange={(e) => setEditing({ ...editing, anotacoes: e.target.value })}
-                          placeholder="Notas relevantes sobre esta pergunta…"
+                          placeholder="Anotações (opcional)"
                         />
                         {saveErr && <p className={styles.errorMsg}>{saveErr}</p>}
                         <div className={styles.editActions}>
@@ -155,22 +189,26 @@ export default function PerguntaModelosPage() {
                       </div>
                     ) : (
                       <div className={styles.viewBlock}>
-                        <div className={styles.perguntaText}>{m.pergunta}</div>
-                        {m.anotacoes && (
-                          <div className={styles.anotacoesText}>{m.anotacoes}</div>
-                        )}
+                        <div className={styles.viewMain}>
+                          <div className={styles.perguntaText}>{m.pergunta}</div>
+                          {m.anotacoes && (
+                            <div className={styles.anotacoesText}>{m.anotacoes}</div>
+                          )}
+                        </div>
                         <div className={styles.itemActions}>
                           <button
                             type="button"
-                            className="mm-btn mm-btn--ghost"
+                            className={`mm-btn mm-btn--ghost ${styles.actionBtn}`}
+                            title="Editar"
                             onClick={() => startEdit(m)}
-                          >✏ Editar</button>
+                          >✏</button>
                           <button
                             type="button"
-                            className={`mm-btn mm-btn--ghost ${styles.deleteBtn}`}
+                            className={`mm-btn mm-btn--ghost ${styles.actionBtn} ${styles.deleteBtn}`}
+                            title="Excluir"
                             onClick={() => void deleteModelo(m.id)}
                             disabled={deletingId === m.id}
-                          >{deletingId === m.id ? "…" : "Excluir"}</button>
+                          >{deletingId === m.id ? "…" : "✕"}</button>
                         </div>
                       </div>
                     )}
