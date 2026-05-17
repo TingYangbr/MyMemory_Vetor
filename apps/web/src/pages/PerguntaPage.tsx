@@ -1378,7 +1378,16 @@ export default function PerguntaPage() {
           <div className={styles.modeloModal} onClick={(e) => e.stopPropagation()}>
             <div className={styles.modeloModalHeader}>
               <span className={styles.modeloModalTitle}>Perguntas salvas</span>
-              <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <button
+                  type="button"
+                  className={styles.modeloModalClose}
+                  style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", opacity: 0.7 }}
+                  title="Editar perguntas salvas"
+                  onClick={() => { setModeloSelectOpen(false); navigate("/perguntas-salvas"); }}
+                >✏ Editar</button>
+                <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
+              </div>
             </div>
             {modelosLoading ? (
               <p className={styles.modeloModalEmpty}>Carregando…</p>
