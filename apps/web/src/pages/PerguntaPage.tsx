@@ -11,7 +11,7 @@ import type {
   PerguntaResponse,
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
+import { apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
@@ -385,7 +385,7 @@ export default function PerguntaPage() {
   const [modelosLoading, setModelosLoading] = useState(false);
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
-  const [editingAnotacoes, setEditingAnotacoes] = useState<{ id: number; draft: string } | null>(null);
+  const [openNoteId, setOpenNoteId] = useState<number | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
@@ -844,6 +844,7 @@ export default function PerguntaPage() {
 
   async function abrirModeloSelect() {
     setModeloSelectOpen(true);
+    setOpenNoteId(null);
     setModelosLoading(true);
     try {
       const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
@@ -872,18 +873,6 @@ export default function PerguntaPage() {
     }
   }
 
-  async function saveAnotacoes(id: number, draft: string) {
-    try {
-      const res = await apiPutJson<{ modelo: PerguntaModelo }>(
-        `/api/pergunta-modelos/${id}`,
-        { anotacoes: draft.trim() || null }
-      );
-      setModelos((prev) => prev.map((m) => (m.id === id ? { ...m, anotacoes: res.modelo.anotacoes } : m)));
-      setEditingAnotacoes(null);
-    } catch (e) {
-      setModeloSaveErr(e instanceof Error ? e.message : "Erro ao salvar anotação.");
-    }
-  }
 
   if (!ready) {
     return (
@@ -1405,39 +1394,24 @@ export default function PerguntaPage() {
                       >
                         {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
                         <span className={styles.modeloItemText}>{m.pergunta}</span>
-                        {m.anotacoes && editingAnotacoes?.id !== m.id ? (
-                          <span className={styles.modeloItemNote}>{m.anotacoes}</span>
-                        ) : null}
                       </button>
-                      <button
-                        type="button"
-                        className={styles.modeloItemEditBtn}
-                        title={editingAnotacoes?.id === m.id ? "Cancelar" : "Editar anotação"}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setEditingAnotacoes(editingAnotacoes?.id === m.id ? null : { id: m.id, draft: m.anotacoes ?? "" });
-                        }}
-                      >{editingAnotacoes?.id === m.id ? "✕" : "✏"}</button>
+                      {m.anotacoes ? (
+                        <button
+                          type="button"
+                          className={styles.modeloItemInfoBtn}
+                          title={openNoteId === m.id ? "Fechar orientação" : "Ver orientação"}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenNoteId(openNoteId === m.id ? null : m.id);
+                          }}
+                        >
+                          <span className={styles.modeloItemInfoBadge}>i</span>
+                        </button>
+                      ) : null}
                     </div>
-                    {editingAnotacoes?.id === m.id ? (
-                      <div className={styles.modeloItemEditArea}>
-                        <textarea
-                          className={styles.modeloItemNoteTextarea}
-                          value={editingAnotacoes.draft}
-                          onChange={(e) => setEditingAnotacoes({ id: m.id, draft: e.target.value })}
-                          rows={3}
-                          placeholder="Anotações sobre esta pergunta…"
-                          // eslint-disable-next-line jsx-a11y/no-autofocus
-                          autoFocus
-                        />
-                        <div className={styles.modeloItemNoteActions}>
-                          <button
-                            type="button"
-                            className="mm-btn mm-btn--primary"
-                            style={{ fontSize: "0.78rem", padding: "0.25rem 0.75rem" }}
-                            onClick={() => void saveAnotacoes(m.id, editingAnotacoes.draft)}
-                          >Salvar</button>
-                        </div>
+                    {openNoteId === m.id && m.anotacoes ? (
+                      <div className={styles.modeloItemNoteExpanded}>
+                        {m.anotacoes}
                       </div>
                     ) : null}
                   </li>

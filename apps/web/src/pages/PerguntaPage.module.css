@@ -1238,7 +1238,7 @@
   padding: 0.4rem 0;
   overflow-y: auto;
 }
-.modeloItem { display: flex; }
+.modeloItem { display: flex; flex-direction: column; }
 .modeloItemBtn {
   flex: 1;
   display: flex;
@@ -1276,18 +1276,39 @@
   display: flex;
   align-items: flex-start;
 }
-.modeloItemEditBtn {
+.modeloItemInfoBtn {
   flex-shrink: 0;
   background: none;
   border: none;
   cursor: pointer;
+  padding: 0.35rem 0.5rem;
+  align-self: flex-start;
+  margin-top: 0.45rem;
+}
+.modeloItemInfoBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  border-radius: 50%;
+  background: var(--mm-primary, #6366f1);
+  color: #fff;
+  font-size: 0.58rem;
+  font-weight: 700;
+  font-style: italic;
+  line-height: 1;
+  user-select: none;
+}
+.modeloItemNoteExpanded {
+  padding: 0.5rem 1rem 0.6rem;
   font-size: 0.8rem;
   color: var(--mm-text-muted, #94a3b8);
-  padding: 0.5rem 0.6rem;
-  transition: color 0.1s;
-  align-self: center;
+  font-style: italic;
+  line-height: 1.45;
+  border-top: 1px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-hover-bg, #f8fafc);
 }
-.modeloItemEditBtn:hover { color: var(--mm-primary, #6366f1); }
 .modeloItemEditArea {
   padding: 0.4rem 1rem 0.6rem;
   display: flex;
