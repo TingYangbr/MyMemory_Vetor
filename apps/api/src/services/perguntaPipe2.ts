@@ -674,7 +674,7 @@ async function planejarConsultaEstruturada(input: {
 }
 
 // Padrões de nomes de colunas que indicam valor numérico (monetário, quantidade, etc.)
-const NUMERIC_COL_RE = /^(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|desconto|acrescimo|imposto|taxa|margem|lucro|receita)_|_(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume)$/i;
+const NUMERIC_COL_RE = /^(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|desconto|acrescimo|imposto|taxa|margem|lucro|receita|prazo|indice|índice|media|média|dias)_|_(valor|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|medio|médio|media|média|prazo|indice|índice|dias)$/i;
 function isLikelyNumericColumn(col: string): boolean {
   return NUMERIC_COL_RE.test(col);
 }
