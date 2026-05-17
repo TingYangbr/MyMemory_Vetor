@@ -1437,12 +1437,6 @@ export default function PerguntaPage() {
                             style={{ fontSize: "0.78rem", padding: "0.25rem 0.75rem" }}
                             onClick={() => void saveAnotacoes(m.id, editingAnotacoes.draft)}
                           >Salvar</button>
-                          <button
-                            type="button"
-                            className="mm-btn mm-btn--ghost"
-                            style={{ fontSize: "0.78rem", padding: "0.25rem 0.75rem" }}
-                            onClick={() => setEditingAnotacoes(null)}
-                          >Cancelar</button>
                         </div>
                       </div>
                     ) : null}
