@@ -1101,9 +1101,11 @@ export default function MemoContextPage() {
                 </div>
                 <div className={styles.modalField}>
                   <label htmlFor="mod-q-desc">Descrição</label>
-                  <input
+                  <textarea
                     id="mod-q-desc"
                     className="mm-field"
+                    rows={4}
+                    style={{ resize: "vertical" }}
                     value={modalQueryDescricao}
                     onChange={(e) => setModalQueryDescricao(e.target.value)}
                   />
