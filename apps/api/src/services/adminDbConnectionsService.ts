@@ -204,6 +204,15 @@ export function bindParamsMssql(
   const seen = new Set<string>();
   let listCounter = 0;
 
+  // Pré-varre o SQL para detectar params que aparecem em contexto LIKE/NOT LIKE no template.
+  // Necessário porque operadorSql pode ser "=" mesmo quando o template usa LIKE (configuração inconsistente).
+  const likeContextParams = new Set<string>();
+  const preScanRe = /\bNOT\s+LIKE\s+[@:]([a-zA-Z][a-zA-Z0-9_]*)|\bLIKE\s+[@:]([a-zA-Z][a-zA-Z0-9_]*)/gi;
+  let psm: RegExpExecArray | null;
+  while ((psm = preScanRe.exec(sentencaSql)) !== null) {
+    likeContextParams.add((psm[1] ?? psm[2]).toLowerCase());
+  }
+
   function detectInContextAt(sql: string, atIndex: number): "in" | "notin" | null {
     const before = sql.slice(0, atIndex);
     const reIn = /(?:\bNOT\s+IN|\bIN)\s*\(\s*$/i;
@@ -228,6 +237,9 @@ export function bindParamsMssql(
     const def = defByName.get(key);
     const llmOpOverride = operadorOverrides?.[key];
 
+    // isLikeContext: true se operadorSql é LIKE OU se o template usa LIKE/NOT LIKE para este param.
+    const isLikeContext = /LIKE/i.test(def?.operadorSql ?? "") || likeContextParams.has(key);
+
     const ctx = detectInContextAt(sentencaSql, match.index);
     if (ctx) {
       // Token dentro de IN (...) ou NOT IN (...): expande lista para múltiplos placeholders
@@ -245,13 +257,13 @@ export function bindParamsMssql(
       }
     } else {
       // Padrão para LIKE params: match exato usando RTRIM(col) = @param.
-      // RTRIM remove espaços finais de colunas CHAR(n) do Protheus antes de comparar,
+      // RTRIM remove espaços finais de colunas CHAR(n) antes de comparar,
       // pois mssql envia parâmetros como NVarChar e CHAR = NVarChar não faz padding automático.
       // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
-      if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "LIKE") {
+      if (isLikeContext && llmOpOverride !== "LIKE") {
         if (/\bNOT\s+LIKE\s*$/i.test(result)) {
           result = result.replace(/(\S+)\s+NOT\s+LIKE\s*$/i, "RTRIM($1) <> ");
-        } else {
+        } else if (/\bLIKE\s*$/i.test(result)) {
           result = result.replace(/(\S+)\s+LIKE\s*$/i, "RTRIM($1) = ");
         }
       }
@@ -262,12 +274,12 @@ export function bindParamsMssql(
 
       if (!seen.has(key)) {
         seen.add(key);
-        if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "")) {
+        if (val !== null && val !== undefined && isLikeContext) {
           const strVal = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
           if (llmOpOverride === "LIKE") {
             val = strVal.includes("%") ? strVal : `%${strVal}%`;
           } else {
-            val = strVal; // match exato — operador já foi reescrito para =
+            val = strVal; // match exato — operador já foi reescrito para RTRIM(col) =
           }
         }
         params.push({ name: key, value: val ?? null });
