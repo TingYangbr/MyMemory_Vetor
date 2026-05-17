@@ -244,14 +244,15 @@ export function bindParamsMssql(
         result += placeholders.join(", ");
       }
     } else {
-      // Padrão para LIKE params: match exato (reescreve LIKE→= e NOT LIKE→<> no SQL).
-      // SQL Server '=' ignora trailing spaces em CHAR(n) — sem wildcards, sem falsos positivos.
+      // Padrão para LIKE params: match exato usando RTRIM(col) = @param.
+      // RTRIM remove espaços finais de colunas CHAR(n) do Protheus antes de comparar,
+      // pois mssql envia parâmetros como NVarChar e CHAR = NVarChar não faz padding automático.
       // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
       if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpOverride !== "LIKE") {
         if (/\bNOT\s+LIKE\s*$/i.test(result)) {
-          result = result.replace(/\bNOT\s+LIKE\s*$/i, "<> ");
+          result = result.replace(/(\S+)\s+NOT\s+LIKE\s*$/i, "RTRIM($1) <> ");
         } else {
-          result = result.replace(/\bLIKE\s*$/i, "= ");
+          result = result.replace(/(\S+)\s+LIKE\s*$/i, "RTRIM($1) = ");
         }
       }
 
