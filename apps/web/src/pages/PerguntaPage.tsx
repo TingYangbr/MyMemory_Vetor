@@ -335,8 +335,6 @@ function LlmTraceModal({
   );
 }
 
-const SILENCE_MS = 3000;
-
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
 interface SpeechRecInstance extends EventTarget {
@@ -407,13 +405,8 @@ export default function PerguntaPage() {
   const [authorOptions, setAuthorOptions] = useState<SearchAuthorOption[]>([]);
 
   // Voz
-  const [micState, setMicState] = useState<"idle" | "listening" | "done">("idle");
-  const [voiceAutoSubmitText, setVoiceAutoSubmitText] = useState<string | null>(null);
+  const [micState, setMicState] = useState<"idle" | "listening">("idle");
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const voiceSessionRef = useRef(0);
-  const voiceTranscriptRef = useRef("");
-  const voiceHadResultRef = useRef(false);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
@@ -469,21 +462,11 @@ export default function PerguntaPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me?.id, me?.lastWorkspaceGroupId]);
 
-  // Auto-submit após timeout de silêncio: usa estado para evitar closure stale
-  useEffect(() => {
-    if (!voiceAutoSubmitText) return;
-    setVoiceAutoSubmitText(null);
-    void enviar({ perguntaOverride: voiceAutoSubmitText });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [voiceAutoSubmitText]);
-
-  const stopListening = useCallback((toState: "idle" | "done" = "idle") => {
-    voiceSessionRef.current = 0;
-    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
+  const stopListening = useCallback(() => {
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     try { rec?.stop?.(); } catch { /* já parado */ }
-    setMicState(toState);
+    setMicState("idle");
   }, []);
 
   const startListening = useCallback(async () => {
@@ -505,13 +488,9 @@ export default function PerguntaPage() {
 
     setError(null);
     stopListening();
-    voiceHadResultRef.current = false;
-    voiceTranscriptRef.current = "";
-    const sessionId = ++voiceSessionRef.current;
 
     let rec: SpeechRecInstance;
     try { rec = new SR(); } catch {
-      voiceSessionRef.current = 0;
       setMicState("idle");
       setError("Não foi possível iniciar o microfone.");
       return;
@@ -522,28 +501,15 @@ export default function PerguntaPage() {
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
-      if (voiceSessionRef.current !== sessionId) return;
       let thisSession = "";
       for (let i = 0; i < ev.results.length; i++) {
         thisSession += ev.results[i]![0]!.transcript;
       }
-      const display = stripPunctuation(thisSession.trim());
-      voiceTranscriptRef.current = display;
-      voiceHadResultRef.current = display.length > 0;
-      setPergunta(display);
-      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current);
-      silenceTimerRef.current = setTimeout(() => {
-        silenceTimerRef.current = null;
-        if (voiceSessionRef.current !== sessionId) return;
-        const transcript = voiceTranscriptRef.current;
-        stopListening("idle");
-        if (transcript) setVoiceAutoSubmitText(transcript);
-      }, SILENCE_MS);
+      setPergunta(stripPunctuation(thisSession.trim()));
     };
 
     rec.onerror = (ev: Event) => {
       const code = (ev as Event & { error?: string }).error ?? "";
-      if (voiceSessionRef.current !== sessionId) return;
       const map: Record<string, string> = {
         "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
         "no-speech": "Não foi detectada fala. Tente de novo.",
@@ -556,26 +522,14 @@ export default function PerguntaPage() {
     };
 
     rec.onend = () => {
-      if (voiceSessionRef.current !== sessionId) return;
-      // Não reinicia. Se houve fala, agenda auto-envio após 3 s (usuário pode cancelar).
-      if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
       recognitionRef.current = null;
-      voiceSessionRef.current = 0;
-      setMicState("done");
-      const transcript = voiceTranscriptRef.current.trim();
-      if (transcript) {
-        silenceTimerRef.current = setTimeout(() => {
-          silenceTimerRef.current = null;
-          setVoiceAutoSubmitText(transcript);
-        }, 3000);
-      }
+      setMicState("idle");
     };
 
     recognitionRef.current = rec;
     try {
       rec.start();
     } catch {
-      voiceSessionRef.current = 0;
       recognitionRef.current = null;
       setMicState("idle");
       setError("Não foi possível iniciar o microfone.");
@@ -585,15 +539,9 @@ export default function PerguntaPage() {
   }, [stopListening]);
 
   function cancelar() {
-    // Aborta processamento em curso (se houver), zera mic e accumulator,
-    // limpa o campo de pergunta e reseta o estado para aguardar novo Falar.
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
-    if (silenceTimerRef.current) { clearTimeout(silenceTimerRef.current); silenceTimerRef.current = null; }
-    voiceTranscriptRef.current = "";
-    voiceHadResultRef.current = false;
-    setVoiceAutoSubmitText(null);
-    stopListening("idle");
+    stopListening();
     setPergunta("");
     setPendingQuestion(null);
   }
@@ -996,7 +944,7 @@ export default function PerguntaPage() {
               type="button"
               className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
               onClick={() => {
-                if (micState === "listening") { stopListening("done"); return; }
+                if (micState === "listening") { stopListening(); return; }
                 setPergunta("");
                 void startListening();
               }}
