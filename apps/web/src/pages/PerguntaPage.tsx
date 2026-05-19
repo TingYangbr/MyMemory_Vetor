@@ -518,22 +518,16 @@ export default function PerguntaPage() {
     }
 
     rec.lang = "pt-BR";
-    rec.continuous = true;
+    rec.continuous = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     rec.interimResults = true;
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      let finalText = "";
-      let interimText = "";
+      let thisSession = "";
       for (let i = 0; i < ev.results.length; i++) {
-        const t = ev.results[i]![0]!.transcript;
-        if (ev.results[i]!.isFinal) {
-          finalText += t;
-        } else {
-          interimText = t;
-        }
+        thisSession += ev.results[i]![0]!.transcript;
       }
-      const display = stripPunctuation((finalText + interimText).trim());
+      const display = stripPunctuation(thisSession.trim());
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
