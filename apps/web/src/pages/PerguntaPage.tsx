@@ -523,11 +523,17 @@ export default function PerguntaPage() {
 
     rec.onresult = (ev) => {
       if (voiceSessionRef.current !== sessionId) return;
-      let thisSession = "";
+      let finalText = "";
+      let interimText = "";
       for (let i = 0; i < ev.results.length; i++) {
-        thisSession += ev.results[i]![0]!.transcript;
+        const t = ev.results[i]![0]!.transcript;
+        if (ev.results[i]!.isFinal) {
+          finalText += t;
+        } else {
+          interimText = t;
+        }
       }
-      const display = stripPunctuation(thisSession.trim());
+      const display = stripPunctuation((finalText + interimText).trim());
       voiceTranscriptRef.current = display;
       voiceHadResultRef.current = display.length > 0;
       setPergunta(display);
