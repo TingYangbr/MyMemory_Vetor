@@ -96,8 +96,10 @@
 .perguntaInput {
   width: 100%;
   box-sizing: border-box;
-  resize: vertical;
+  resize: none;
   min-height: 80px;
+  max-height: 160px;
+  overflow-y: auto;
   font: inherit;
   font-size: 0.97rem;
   color: var(--mm-text, #1e293b);
