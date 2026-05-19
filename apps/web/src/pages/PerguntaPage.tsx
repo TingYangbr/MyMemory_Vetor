@@ -518,7 +518,7 @@ export default function PerguntaPage() {
     }
 
     rec.lang = "pt-BR";
-    rec.continuous = false;
+    rec.continuous = true;
     rec.interimResults = true;
 
     rec.onresult = (ev) => {

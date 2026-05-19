@@ -34,6 +34,7 @@ import { UpdatePipe2CrossQueryFilter1700000000118 } from "./migrations/170000000
 import { BatchImportStorageProvider1700000000119 } from "./migrations/1700000000119-BatchImportStorageProvider.js";
 import { ParsePtDateFunction1700000000120 } from "./migrations/1700000000120-ParsePtDateFunction.js";
 import { PerguntaModelosAnotacoes1700000000121 } from "./migrations/1700000000121-PerguntaModelosAnotacoes.js";
+import { UpdateClassificacaoVendaFaturamento1700000000122 } from "./migrations/1700000000122-UpdateClassificacaoVendaFaturamento.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -89,6 +90,7 @@ assertMediaStorageEnv();
       BatchImportStorageProvider1700000000119,
       ParsePtDateFunction1700000000120,
       PerguntaModelosAnotacoes1700000000121,
+      UpdateClassificacaoVendaFaturamento1700000000122,
     ],
   });
   const ds = await AppDataSource.initialize();
