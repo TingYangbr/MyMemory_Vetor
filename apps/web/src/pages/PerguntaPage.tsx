@@ -484,9 +484,9 @@ export default function PerguntaPage() {
     recognitionRef.current = null;
     try { rec?.stop?.(); } catch {}
     // mobile
-    if (chunkTimerRef.current) { clearTimeout(chunkTimerRef.current); chunkTimerRef.current = null; }
+    if (chunkTimerRef.current) { clearInterval(chunkTimerRef.current); chunkTimerRef.current = null; }
     const mr = mediaRecorderRef.current;
-    if (mr?.state === "recording") mr.stop(); // onstop faz cleanup da stream
+    if (mr?.state === "recording") mr.stop(); // onstop faz transcrição final + cleanup da stream
     setMicState("idle");
   }, []);
 
@@ -498,7 +498,7 @@ export default function PerguntaPage() {
     setPergunta("");
     listeningRef.current = true;
 
-    // ── MOBILE: MediaRecorder + Whisper ──────────────────────────────────────
+    // ── MOBILE: MediaRecorder contínuo + Whisper periódico ───────────────────
     if (IS_MOBILE) {
       let stream: MediaStream;
       try {
@@ -514,54 +514,56 @@ export default function PerguntaPage() {
         MediaRecorder.isTypeSupported("audio/webm")             ? "audio/webm" :
         "audio/mp4";
 
-      const sendChunk = (blob: Blob) => {
+      const allChunks: Blob[] = [];
+
+      // Envia o áudio acumulado completo ao Whisper; substitui o campo com a
+      // melhor transcrição disponível até o momento.
+      const sendAccumulated = () => {
+        if (allChunks.length === 0) return;
+        const blob = new Blob(allChunks, { type: mimeType });
         if (blob.size < 1000) return;
         transcribeQueueRef.current = transcribeQueueRef.current.then(async () => {
           try {
             const form = new FormData();
-            form.append("audio", blob, "chunk.webm");
+            form.append("audio", blob, "recording.webm");
             const res = await fetch("/api/perguntas/transcribe", {
               method: "POST", body: form, credentials: "include",
             });
             if (!res.ok) return;
             const { text } = await (res.json() as Promise<{ text: string }>);
             if (text?.trim()) {
-              const sep = capturedRef.current.length > 0 && !capturedRef.current.endsWith(" ") ? " " : "";
-              capturedRef.current += sep + text.trim();
-              setPergunta(capturedRef.current);
+              capturedRef.current = text.trim();
+              setPergunta(text.trim());
             }
-          } catch { /* rede — ignora chunk */ }
+          } catch { /* rede — tenta no próximo intervalo */ }
         });
       };
 
-      const startChunk = () => {
-        const chunks: Blob[] = [];
-        let recorder: MediaRecorder;
-        try { recorder = new MediaRecorder(stream, { mimeType }); } catch {
+      let recorder: MediaRecorder;
+      try { recorder = new MediaRecorder(stream, { mimeType }); } catch {
+        stream.getTracks().forEach(t => t.stop());
+        listeningRef.current = false;
+        setError("Não foi possível iniciar a gravação.");
+        return;
+      }
+
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) allChunks.push(e.data); };
+
+      recorder.onstop = () => {
+        sendAccumulated(); // transcrição final com todo o áudio
+        transcribeQueueRef.current.finally(() => {
           stream.getTracks().forEach(t => t.stop());
-          listeningRef.current = false;
-          setMicState("idle");
-          setError("Não foi possível iniciar a gravação.");
-          return;
-        }
-        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-        recorder.onstop = () => {
-          sendChunk(new Blob(chunks, { type: mimeType }));
-          if (listeningRef.current) {
-            startChunk();
-          } else {
-            stream.getTracks().forEach(t => t.stop());
-            mediaRecorderRef.current = null;
-          }
-        };
-        recorder.start();
-        mediaRecorderRef.current = recorder;
-        chunkTimerRef.current = setTimeout(() => {
-          if (recorder.state === "recording") recorder.stop();
-        }, CHUNK_MS);
+          mediaRecorderRef.current = null;
+        });
       };
 
-      startChunk();
+      // 500 ms por chunk interno → acumulação suave sem parar o mic
+      recorder.start(500);
+      mediaRecorderRef.current = recorder;
+
+      // Envia transcrição a cada CHUNK_MS enquanto grava
+      chunkTimerRef.current = setInterval(sendAccumulated, CHUNK_MS) as unknown as ReturnType<typeof setTimeout>;
+
       setMicState("listening");
       return;
     }
