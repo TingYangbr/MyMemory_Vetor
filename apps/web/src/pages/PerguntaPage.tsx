@@ -407,8 +407,6 @@ export default function PerguntaPage() {
   // Voz
   const [micState, setMicState] = useState<"idle" | "listening">("idle");
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const listeningRef = useRef(false);
-  const capturedRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
@@ -472,7 +470,6 @@ export default function PerguntaPage() {
   }, [me?.id, me?.lastWorkspaceGroupId]);
 
   const stopListening = useCallback(() => {
-    listeningRef.current = false;
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     try { rec?.stop?.(); } catch { /* já parado */ }
@@ -485,7 +482,6 @@ export default function PerguntaPage() {
       (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
     if (!SR) { setError("Voz não disponível neste navegador. Use Chrome ou Edge."); return; }
 
-    // iOS Safari exige getUserMedia antes de iniciar SpeechRecognition
     if (navigator.mediaDevices?.getUserMedia) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -498,78 +494,56 @@ export default function PerguntaPage() {
 
     setError(null);
     stopListening();
-    capturedRef.current = "";
     setPergunta("");
 
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    listeningRef.current = true;
+    let rec: SpeechRecInstance;
+    try { rec = new SR(); } catch {
+      setError("Não foi possível iniciar o microfone.");
+      return;
+    }
 
-    const launchRec = (prefix: string) => {
-      let rec: SpeechRecInstance;
-      try { rec = new SR(); } catch {
-        listeningRef.current = false;
-        setMicState("idle");
-        setError("Não foi possível iniciar o microfone.");
-        return;
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    rec.onresult = (ev) => {
+      let text = "";
+      for (let i = 0; i < ev.results.length; i++) {
+        text += ev.results[i]![0]!.transcript;
       }
-
-      rec.lang = "pt-BR";
-      rec.continuous = !isMobile;
-      rec.interimResults = true;
-
-      rec.onresult = (ev) => {
-        let session = "";
-        for (let i = 0; i < ev.results.length; i++) {
-          session += ev.results[i]![0]!.transcript;
-        }
-        const display = stripPunctuation((prefix + session).trim());
-        capturedRef.current = display;
-        setPergunta(display);
-      };
-
-      rec.onerror = (ev: Event) => {
-        const code = (ev as Event & { error?: string }).error ?? "";
-        const map: Record<string, string> = {
-          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-          "no-speech": "Não foi detectada fala. Tente de novo.",
-          network: "Erro de rede no reconhecimento de voz.",
-        };
-        const msg = map[code];
-        if (msg) setError(msg);
-        else if (code && code !== "aborted") setError(`Voz: ${code}`);
-        stopListening();
-      };
-
-      rec.onend = () => {
-        if (!listeningRef.current) {
-          recognitionRef.current = null;
-          setMicState("idle");
-          return;
-        }
-        // Reinicia automaticamente (mobile para na pausa; desktop só chega aqui ao parar)
-        const next = capturedRef.current ? capturedRef.current + " " : "";
-        setTimeout(() => { if (listeningRef.current) launchRec(next); }, 150);
-      };
-
-      recognitionRef.current = rec;
-      try {
-        rec.start();
-      } catch {
-        listeningRef.current = false;
-        recognitionRef.current = null;
-        setMicState("idle");
-        setError("Não foi possível iniciar o microfone.");
-      }
+      setPergunta(stripPunctuation(text.trim()));
     };
 
-    launchRec("");
-    setMicState("listening");
+    rec.onerror = (ev: Event) => {
+      const code = (ev as Event & { error?: string }).error ?? "";
+      const map: Record<string, string> = {
+        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+        "no-speech": "Não foi detectada fala. Tente de novo.",
+        network: "Erro de rede no reconhecimento de voz.",
+      };
+      const msg = map[code];
+      if (msg) setError(msg);
+      else if (code && code !== "aborted") setError(`Voz: ${code}`);
+      stopListening();
+    };
+
+    rec.onend = () => {
+      recognitionRef.current = null;
+      setMicState("idle");
+    };
+
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+      setMicState("listening");
+    } catch {
+      setError("Não foi possível iniciar o microfone.");
+    }
   }, [stopListening]);
 
   function cancelar() {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
-    capturedRef.current = "";
     stopListening();
     setPergunta("");
     setPendingQuestion(null);
@@ -585,6 +559,7 @@ export default function PerguntaPage() {
   }
 
   async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
+    stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
     setError(null);
