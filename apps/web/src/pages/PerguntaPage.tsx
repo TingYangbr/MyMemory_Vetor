@@ -407,7 +407,9 @@ export default function PerguntaPage() {
   // Voz
   const [micState, setMicState] = useState<"idle" | "listening">("idle");
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const listeningRef = useRef(false);   // false = usuário parou; true = ativo
+  const capturedRef  = useRef("");      // texto acumulado entre reinícios (mobile)
+  const textareaRef  = useRef<HTMLTextAreaElement | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
@@ -470,6 +472,7 @@ export default function PerguntaPage() {
   }, [me?.id, me?.lastWorkspaceGroupId]);
 
   const stopListening = useCallback(() => {
+    listeningRef.current = false;
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     try { rec?.stop?.(); } catch { /* já parado */ }
@@ -494,56 +497,82 @@ export default function PerguntaPage() {
 
     setError(null);
     stopListening();
+    capturedRef.current = "";
     setPergunta("");
 
-    let rec: SpeechRecInstance;
-    try { rec = new SR(); } catch {
-      setError("Não foi possível iniciar o microfone.");
-      return;
-    }
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    listeningRef.current = true;
 
-    rec.lang = "pt-BR";
-    rec.continuous = true;
-    rec.interimResults = true;
-
-    rec.onresult = (ev) => {
-      let text = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        text += ev.results[i]![0]!.transcript;
+    // launch cria uma nova instância de rec com o prefixo acumulado.
+    // No mobile (continuous:false) o browser para em cada pausa e onend
+    // reinicia automaticamente enquanto listeningRef.current for true.
+    const launch = (prefix: string) => {
+      let rec: SpeechRecInstance;
+      try { rec = new SR(); } catch {
+        listeningRef.current = false;
+        setMicState("idle");
+        setError("Não foi possível iniciar o microfone.");
+        return;
       }
-      setPergunta(stripPunctuation(text.trim()));
-    };
 
-    rec.onerror = (ev: Event) => {
-      const code = (ev as Event & { error?: string }).error ?? "";
-      const map: Record<string, string> = {
-        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-        "no-speech": "Não foi detectada fala. Tente de novo.",
-        network: "Erro de rede no reconhecimento de voz.",
+      rec.lang = "pt-BR";
+      rec.continuous = !isMobile;
+      rec.interimResults = true;
+
+      rec.onresult = (ev) => {
+        let session = "";
+        for (let i = 0; i < ev.results.length; i++) {
+          session += ev.results[i]![0]!.transcript;
+        }
+        const display = stripPunctuation((prefix + session).trim());
+        capturedRef.current = display;
+        setPergunta(display);
       };
-      const msg = map[code];
-      if (msg) setError(msg);
-      else if (code && code !== "aborted") setError(`Voz: ${code}`);
-      stopListening();
+
+      rec.onerror = (ev: Event) => {
+        const code = (ev as Event & { error?: string }).error ?? "";
+        const map: Record<string, string> = {
+          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+          "no-speech": "Não foi detectada fala. Tente de novo.",
+          network: "Erro de rede no reconhecimento de voz.",
+        };
+        const msg = map[code];
+        if (msg) setError(msg);
+        else if (code && code !== "aborted") setError(`Voz: ${code}`);
+        stopListening();
+      };
+
+      rec.onend = () => {
+        if (!listeningRef.current) {
+          // Parada intencional (stopListening ou enviar) — não reinicia
+          recognitionRef.current = null;
+          setMicState("idle");
+          return;
+        }
+        // Mobile: browser parou numa pausa — reinicia preservando texto
+        const next = capturedRef.current ? capturedRef.current + " " : "";
+        setTimeout(() => { if (listeningRef.current) launch(next); }, 200);
+      };
+
+      recognitionRef.current = rec;
+      try {
+        rec.start();
+      } catch {
+        listeningRef.current = false;
+        recognitionRef.current = null;
+        setMicState("idle");
+        setError("Não foi possível iniciar o microfone.");
+      }
     };
 
-    rec.onend = () => {
-      recognitionRef.current = null;
-      setMicState("idle");
-    };
-
-    recognitionRef.current = rec;
-    try {
-      rec.start();
-      setMicState("listening");
-    } catch {
-      setError("Não foi possível iniciar o microfone.");
-    }
+    launch("");
+    setMicState("listening");
   }, [stopListening]);
 
   function cancelar() {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    capturedRef.current = "";
     stopListening();
     setPergunta("");
     setPendingQuestion(null);
