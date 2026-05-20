@@ -335,6 +335,9 @@ function LlmTraceModal({
   );
 }
 
+const CHUNK_MS = 4000; // duração de cada chunk enviado ao Whisper (ms)
+const IS_MOBILE = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+
 type SearchAuthorOption = { id: number; name: string | null; email: string | null };
 
 interface SpeechRecInstance extends EventTarget {
@@ -406,10 +409,13 @@ export default function PerguntaPage() {
 
   // Voz
   const [micState, setMicState] = useState<"idle" | "listening">("idle");
-  const recognitionRef = useRef<{ stop: () => void } | null>(null);
-  const listeningRef = useRef(false);   // false = usuário parou; true = ativo
-  const capturedRef  = useRef("");      // texto acumulado entre reinícios (mobile)
-  const textareaRef  = useRef<HTMLTextAreaElement | null>(null);
+  const recognitionRef     = useRef<{ stop: () => void } | null>(null); // desktop
+  const mediaRecorderRef   = useRef<MediaRecorder | null>(null);         // mobile
+  const chunkTimerRef      = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listeningRef       = useRef(false);
+  const capturedRef        = useRef("");
+  const transcribeQueueRef = useRef<Promise<void>>(Promise.resolve());   // serializa chunks
+  const textareaRef        = useRef<HTMLTextAreaElement | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
@@ -473,100 +479,138 @@ export default function PerguntaPage() {
 
   const stopListening = useCallback(() => {
     listeningRef.current = false;
+    // desktop
     const rec = recognitionRef.current;
     recognitionRef.current = null;
-    try { rec?.stop?.(); } catch { /* já parado */ }
+    try { rec?.stop?.(); } catch {}
+    // mobile
+    if (chunkTimerRef.current) { clearTimeout(chunkTimerRef.current); chunkTimerRef.current = null; }
+    const mr = mediaRecorderRef.current;
+    if (mr?.state === "recording") mr.stop(); // onstop faz cleanup da stream
     setMicState("idle");
   }, []);
 
   const startListening = useCallback(async () => {
-    const SR =
-      (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
-      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
-    if (!SR) { setError("Voz não disponível neste navegador. Use Chrome ou Edge."); return; }
-
-    if (navigator.mediaDevices?.getUserMedia) {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach((t) => t.stop());
-      } catch {
-        setError("Microfone bloqueado. Permita o acesso nas configurações do navegador.");
-        return;
-      }
-    }
-
     setError(null);
     stopListening();
     capturedRef.current = "";
+    transcribeQueueRef.current = Promise.resolve();
     setPergunta("");
-
-    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
     listeningRef.current = true;
 
-    // launch cria uma nova instância de rec com o prefixo acumulado.
-    // No mobile (continuous:false) o browser para em cada pausa e onend
-    // reinicia automaticamente enquanto listeningRef.current for true.
-    const launch = (prefix: string) => {
-      let rec: SpeechRecInstance;
-      try { rec = new SR(); } catch {
+    // ── MOBILE: MediaRecorder + Whisper ──────────────────────────────────────
+    if (IS_MOBILE) {
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      } catch {
         listeningRef.current = false;
-        setMicState("idle");
-        setError("Não foi possível iniciar o microfone.");
+        setError("Microfone bloqueado. Permita o acesso nas configurações do navegador.");
         return;
       }
 
-      rec.lang = "pt-BR";
-      rec.continuous = !isMobile;
-      rec.interimResults = true;
+      const mimeType =
+        MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
+        MediaRecorder.isTypeSupported("audio/webm")             ? "audio/webm" :
+        "audio/mp4";
 
-      rec.onresult = (ev) => {
-        let session = "";
-        for (let i = 0; i < ev.results.length; i++) {
-          session += ev.results[i]![0]!.transcript;
-        }
-        const display = stripPunctuation((prefix + session).trim());
-        capturedRef.current = display;
-        setPergunta(display);
+      const sendChunk = (blob: Blob) => {
+        if (blob.size < 1000) return;
+        transcribeQueueRef.current = transcribeQueueRef.current.then(async () => {
+          try {
+            const form = new FormData();
+            form.append("audio", blob, "chunk.webm");
+            const res = await fetch("/api/perguntas/transcribe", {
+              method: "POST", body: form, credentials: "include",
+            });
+            if (!res.ok) return;
+            const { text } = await (res.json() as Promise<{ text: string }>);
+            if (text?.trim()) {
+              const sep = capturedRef.current.length > 0 && !capturedRef.current.endsWith(" ") ? " " : "";
+              capturedRef.current += sep + text.trim();
+              setPergunta(capturedRef.current);
+            }
+          } catch { /* rede — ignora chunk */ }
+        });
       };
 
-      rec.onerror = (ev: Event) => {
-        const code = (ev as Event & { error?: string }).error ?? "";
-        const map: Record<string, string> = {
-          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-          "no-speech": "Não foi detectada fala. Tente de novo.",
-          network: "Erro de rede no reconhecimento de voz.",
-        };
-        const msg = map[code];
-        if (msg) setError(msg);
-        else if (code && code !== "aborted") setError(`Voz: ${code}`);
-        stopListening();
-      };
-
-      rec.onend = () => {
-        if (!listeningRef.current) {
-          // Parada intencional (stopListening ou enviar) — não reinicia
-          recognitionRef.current = null;
+      const startChunk = () => {
+        const chunks: Blob[] = [];
+        let recorder: MediaRecorder;
+        try { recorder = new MediaRecorder(stream, { mimeType }); } catch {
+          stream.getTracks().forEach(t => t.stop());
+          listeningRef.current = false;
           setMicState("idle");
+          setError("Não foi possível iniciar a gravação.");
           return;
         }
-        // Mobile: browser parou numa pausa — reinicia preservando texto
-        const next = capturedRef.current ? capturedRef.current + " " : "";
-        setTimeout(() => { if (listeningRef.current) launch(next); }, 200);
+        recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+        recorder.onstop = () => {
+          sendChunk(new Blob(chunks, { type: mimeType }));
+          if (listeningRef.current) {
+            startChunk();
+          } else {
+            stream.getTracks().forEach(t => t.stop());
+            mediaRecorderRef.current = null;
+          }
+        };
+        recorder.start();
+        mediaRecorderRef.current = recorder;
+        chunkTimerRef.current = setTimeout(() => {
+          if (recorder.state === "recording") recorder.stop();
+        }, CHUNK_MS);
       };
 
-      recognitionRef.current = rec;
-      try {
-        rec.start();
-      } catch {
-        listeningRef.current = false;
-        recognitionRef.current = null;
-        setMicState("idle");
-        setError("Não foi possível iniciar o microfone.");
-      }
-    };
+      startChunk();
+      setMicState("listening");
+      return;
+    }
 
-    launch("");
-    setMicState("listening");
+    // ── DESKTOP: Web Speech API ───────────────────────────────────────────────
+    const SR =
+      (window as unknown as { SpeechRecognition?: new () => SpeechRecInstance }).SpeechRecognition ??
+      (window as unknown as { webkitSpeechRecognition?: new () => SpeechRecInstance }).webkitSpeechRecognition;
+    if (!SR) {
+      listeningRef.current = false;
+      setError("Voz não disponível neste navegador. Use Chrome ou Edge.");
+      return;
+    }
+
+    let rec: SpeechRecInstance;
+    try { rec = new SR(); } catch {
+      listeningRef.current = false;
+      setError("Não foi possível iniciar o microfone.");
+      return;
+    }
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (ev) => {
+      let text = "";
+      for (let i = 0; i < ev.results.length; i++) text += ev.results[i]![0]!.transcript;
+      setPergunta(stripPunctuation(text.trim()));
+    };
+    rec.onerror = (ev: Event) => {
+      const code = (ev as Event & { error?: string }).error ?? "";
+      const map: Record<string, string> = {
+        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+        "no-speech": "Não foi detectada fala. Tente de novo.",
+        network: "Erro de rede no reconhecimento de voz.",
+      };
+      const msg = map[code];
+      if (msg) setError(msg);
+      else if (code && code !== "aborted") setError(`Voz: ${code}`);
+      stopListening();
+    };
+    rec.onend = () => { recognitionRef.current = null; setMicState("idle"); };
+    recognitionRef.current = rec;
+    try {
+      rec.start();
+      setMicState("listening");
+    } catch {
+      listeningRef.current = false;
+      setError("Não foi possível iniciar o microfone.");
+    }
   }, [stopListening]);
 
   function cancelar() {

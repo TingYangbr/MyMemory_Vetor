@@ -9,6 +9,7 @@ import { getSemanticSearchThresholds } from "../services/systemConfigService.js"
 import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
 import { runWithStatusEmitter } from "../lib/requestStatus.js";
 import { pool } from "../db.js";
+import { openaiTranscribeAudio } from "../lib/openaiTranscription.js";
 
 const perguntaBodySchema = z.object({
   pergunta: z.string().min(1).max(4000),
@@ -151,6 +152,27 @@ const plugin: FastifyPluginAsync = async (app) => {
     sendEvent({ type: "result", data: body });
     raw.end();
     return reply;
+  });
+
+  // Transcrição de chunk de áudio via Whisper (usado pelo gravador mobile)
+  app.post("/api/perguntas/transcribe", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized" });
+
+    const data = await req.file();
+    if (!data) return reply.code(400).send({ error: "no_file" });
+
+    const chunks: Buffer[] = [];
+    for await (const chunk of data.file) chunks.push(chunk as Buffer);
+    const buffer = Buffer.concat(chunks);
+
+    if (buffer.length < 1000) return reply.send({ text: "" });
+
+    const mime = data.mimetype || "audio/webm";
+    const filename = data.filename || "chunk.webm";
+
+    const result = await openaiTranscribeAudio({ buffer, filename, mime });
+    return reply.send({ text: result.text });
   });
 };
 
