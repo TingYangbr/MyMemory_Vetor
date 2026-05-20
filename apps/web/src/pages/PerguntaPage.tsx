@@ -407,6 +407,8 @@ export default function PerguntaPage() {
   // Voz
   const [micState, setMicState] = useState<"idle" | "listening">("idle");
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
+  const listeningRef = useRef(false);
+  const capturedRef = useRef("");
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
@@ -470,6 +472,7 @@ export default function PerguntaPage() {
   }, [me?.id, me?.lastWorkspaceGroupId]);
 
   const stopListening = useCallback(() => {
+    listeningRef.current = false;
     const rec = recognitionRef.current;
     recognitionRef.current = null;
     try { rec?.stop?.(); } catch { /* já parado */ }
@@ -495,59 +498,78 @@ export default function PerguntaPage() {
 
     setError(null);
     stopListening();
+    capturedRef.current = "";
+    setPergunta("");
 
-    let rec: SpeechRecInstance;
-    try { rec = new SR(); } catch {
-      setMicState("idle");
-      setError("Não foi possível iniciar o microfone.");
-      return;
-    }
+    const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
+    listeningRef.current = true;
 
-    rec.lang = "pt-BR";
-    rec.continuous = !/Mobi|Android|iPhone|iPad/i.test(navigator.userAgent);
-    rec.interimResults = true;
-
-    rec.onresult = (ev) => {
-      let thisSession = "";
-      for (let i = 0; i < ev.results.length; i++) {
-        thisSession += ev.results[i]![0]!.transcript;
+    const launchRec = (prefix: string) => {
+      let rec: SpeechRecInstance;
+      try { rec = new SR(); } catch {
+        listeningRef.current = false;
+        setMicState("idle");
+        setError("Não foi possível iniciar o microfone.");
+        return;
       }
-      setPergunta(stripPunctuation(thisSession.trim()));
-    };
 
-    rec.onerror = (ev: Event) => {
-      const code = (ev as Event & { error?: string }).error ?? "";
-      const map: Record<string, string> = {
-        "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
-        "no-speech": "Não foi detectada fala. Tente de novo.",
-        network: "Erro de rede no reconhecimento de voz.",
+      rec.lang = "pt-BR";
+      rec.continuous = !isMobile;
+      rec.interimResults = true;
+
+      rec.onresult = (ev) => {
+        let session = "";
+        for (let i = 0; i < ev.results.length; i++) {
+          session += ev.results[i]![0]!.transcript;
+        }
+        const display = stripPunctuation((prefix + session).trim());
+        capturedRef.current = display;
+        setPergunta(display);
       };
-      const msg = map[code];
-      if (msg) setError(msg);
-      else if (code && code !== "aborted") setError(`Voz: ${code}`);
-      stopListening();
+
+      rec.onerror = (ev: Event) => {
+        const code = (ev as Event & { error?: string }).error ?? "";
+        const map: Record<string, string> = {
+          "not-allowed": "Microfone bloqueado. Permita o acesso nas configurações do navegador.",
+          "no-speech": "Não foi detectada fala. Tente de novo.",
+          network: "Erro de rede no reconhecimento de voz.",
+        };
+        const msg = map[code];
+        if (msg) setError(msg);
+        else if (code && code !== "aborted") setError(`Voz: ${code}`);
+        stopListening();
+      };
+
+      rec.onend = () => {
+        if (!listeningRef.current) {
+          recognitionRef.current = null;
+          setMicState("idle");
+          return;
+        }
+        // Reinicia automaticamente (mobile para na pausa; desktop só chega aqui ao parar)
+        const next = capturedRef.current ? capturedRef.current + " " : "";
+        setTimeout(() => { if (listeningRef.current) launchRec(next); }, 150);
+      };
+
+      recognitionRef.current = rec;
+      try {
+        rec.start();
+      } catch {
+        listeningRef.current = false;
+        recognitionRef.current = null;
+        setMicState("idle");
+        setError("Não foi possível iniciar o microfone.");
+      }
     };
 
-    rec.onend = () => {
-      recognitionRef.current = null;
-      setMicState("idle");
-    };
-
-    recognitionRef.current = rec;
-    try {
-      rec.start();
-    } catch {
-      recognitionRef.current = null;
-      setMicState("idle");
-      setError("Não foi possível iniciar o microfone.");
-      return;
-    }
+    launchRec("");
     setMicState("listening");
   }, [stopListening]);
 
   function cancelar() {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    capturedRef.current = "";
     stopListening();
     setPergunta("");
     setPendingQuestion(null);
