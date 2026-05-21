@@ -358,7 +358,7 @@ function stripPunctuation(t: string): string {
   return t.replace(/[.!?,;:]+$/g, "").trim();
 }
 
-export default function PerguntaPage() {
+export default function PerguntaPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
 
   const [me, setMe] = useState<MeResponse | null>(null);
@@ -926,6 +926,7 @@ export default function PerguntaPage() {
   }, [modelos, filterCat]);
 
   if (!ready) {
+    if (embedded) return <p className={styles.muted}>Carregando…</p>;
     return (
       <div className={styles.shell}>
         <Header />
@@ -935,8 +936,8 @@ export default function PerguntaPage() {
   }
 
   return (
-    <div className={styles.shell}>
-      <Header meRefreshKey={0} />
+    <div className={embedded ? styles.embeddedShell : styles.shell}>
+      {!embedded && <Header meRefreshKey={0} />}
 
       {filterModal ? (
         <div className={styles.filterOverlay} onClick={() => setFilterModal(null)}>

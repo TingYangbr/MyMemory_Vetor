@@ -506,7 +506,7 @@ function IconUndoTerm({ className }: { className?: string }) {
   );
 }
 
-export default function MemoSearchPage() {
+export default function MemoSearchPage({ embedded = false }: { embedded?: boolean } = {}) {
   const navigate = useNavigate();
   const location = useLocation();
   const searchId = useId();
@@ -1340,8 +1340,8 @@ export default function MemoSearchPage() {
     : null;
 
   return (
-    <div className={styles.shell}>
-      <Header />
+    <div className={embedded ? styles.embeddedShell : styles.shell}>
+      {!embedded && <Header />}
       <main className={styles.main}>
         <section className={`mm-panel ${styles.unifiedCard}`} aria-labelledby={panelTitleId}>
           <p className={styles.visuallyHidden} id={searchFormId}>

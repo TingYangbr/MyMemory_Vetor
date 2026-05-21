@@ -16,8 +16,6 @@ import MemoContextPage from "./pages/MemoContextPage";
 import RegisterPage from "./pages/RegisterPage";
 import SelectPlanPage from "./pages/SelectPlanPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-import MemoSearchPage from "./pages/MemoSearchPage";
-import PerguntaPage from "./pages/PerguntaPage";
 import PerguntaModelosPage from "./pages/PerguntaModelosPage";
 import MemoEditPage from "./pages/MemoEditPage";
 import MemoAudioReviewPage from "./pages/MemoAudioReviewPage";
@@ -46,8 +44,8 @@ export default function App() {
       <Route path="/admin/system-config" element={<AdminSystemConfigPage />} />
       <Route path="/admin/llm-prompt" element={<AdminLlmPromptPage />} />
       <Route path="/estrutura-memo" element={<MemoContextPage />} />
-      <Route path="/buscar" element={<MemoSearchPage />} />
-      <Route path="/perguntar" element={<PerguntaPage />} />
+      <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
+      <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />
       <Route path="/perguntas-salvas" element={<PerguntaModelosPage />} />
       <Route path="/conta" element={<Navigate to="/conta/preferencias" replace />} />
       <Route path="/conta/preferencias" element={<UserPreferencesPage />} />

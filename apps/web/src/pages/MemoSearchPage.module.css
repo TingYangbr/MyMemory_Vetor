@@ -5,6 +5,12 @@
   background: #f1f5f9;
 }
 
+.embeddedShell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
 .main {
   flex: 1;
   width: 100%;

@@ -12,7 +12,30 @@ import { apiGet, apiGetOptional, apiPatchJson } from "../api";
 import Header from "../components/Header";
 import MemoRegisterPanel from "../components/MemoRegisterPanel";
 import RecentMemos from "../components/RecentMemos";
+import PerguntaPage from "./PerguntaPage";
+import MemoSearchPage from "./MemoSearchPage";
 import styles from "./HomePage.module.css";
+
+type HomeTab = "perguntar" | "buscar" | "registrar";
+const TAB_KEY = "mm_home_tab";
+
+function getInitialTab(params: URLSearchParams): HomeTab {
+  const p = params.get("tab");
+  if (p === "buscar" || p === "perguntar" || p === "registrar") return p;
+  const s = localStorage.getItem(TAB_KEY);
+  if (s === "buscar" || s === "perguntar" || s === "registrar") return s as HomeTab;
+  return "perguntar";
+}
+
+function IconRegister() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="12" y1="3" x2="12" y2="15" />
+      <polyline points="8 11 12 15 16 11" />
+      <line x1="4" y1="20" x2="20" y2="20" />
+    </svg>
+  );
+}
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -29,6 +52,12 @@ export default function HomePage() {
   const [workspaceSaving, setWorkspaceSaving] = useState(false);
   const [meRefreshKey, setMeRefreshKey] = useState(0);
   const [mediaLimits, setMediaLimits] = useState<UserMediaLimitsResponse | null>(null);
+  const [tab, setTab] = useState<HomeTab>(() => getInitialTab(searchParams));
+
+  function handleTabChange(t: HomeTab) {
+    setTab(t);
+    localStorage.setItem(TAB_KEY, t);
+  }
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
 
@@ -77,11 +106,20 @@ export default function HomePage() {
   }, [me, workspaceGroupId, meRefreshKey]);
 
   useEffect(() => {
-    if (searchParams.get("escolherEspaco") !== "1") return;
-    setWorkspacePicker(true);
     const next = new URLSearchParams(searchParams);
-    next.delete("escolherEspaco");
-    setSearchParams(next, { replace: true });
+    let changed = false;
+    if (searchParams.get("escolherEspaco") === "1") {
+      setWorkspacePicker(true);
+      next.delete("escolherEspaco");
+      changed = true;
+    }
+    const tabParam = searchParams.get("tab");
+    if (tabParam === "buscar" || tabParam === "perguntar" || tabParam === "registrar") {
+      handleTabChange(tabParam);
+      next.delete("tab");
+      changed = true;
+    }
+    if (changed) setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
   const onRegistered = useCallback((_memo: MemoCreatedResponse) => {
@@ -151,6 +189,14 @@ export default function HomePage() {
     return (
       <main className={styles.pickerMain}>
         <div className={styles.pickerHead}>
+          <button
+            type="button"
+            className={styles.pickerBack}
+            onClick={() => setWorkspacePicker(false)}
+            aria-label="Voltar"
+          >
+            ← Voltar
+          </button>
           <h1 className={styles.pickerTitle}>Selecione Qual espaço de Memos Quer acessar?</h1>
         </div>
 
@@ -318,29 +364,69 @@ export default function HomePage() {
         renderWorkspacePicker()
       ) : (
         <main className={styles.main}>
-          <MemoRegisterPanel
-            onRegistered={onRegistered}
-            workspaceGroupId={workspaceGroupId}
-            mediaLimits={mediaLimits}
-            memoPrefs={{
-              confirmEnabled: me.confirmEnabled,
-              soundEnabled: me.soundEnabled,
-              iaUseTexto: me.iaUseTexto,
-              iaUseImagem: me.iaUseImagem,
-              iaUseVideo: me.iaUseVideo,
-              iaUseAudio: me.iaUseAudio,
-              iaUseDocumento: me.iaUseDocumento,
-              iaUseUrl: me.iaUseUrl,
-            }}
-            showBuscarMemosLink
-          />
-          <hr className={styles.divider} aria-hidden />
-          <RecentMemos
-            refreshKey={refreshKey}
-            workspaceGroupId={workspaceGroupId}
-            currentUserId={typeof me.id === "number" ? me.id : null}
-            showApiCost={me.showApiCost !== false}
-          />
+          <div className={styles.tabBar}>
+            <button
+              type="button"
+              className={`${styles.tab} ${tab === "perguntar" ? styles.tabActive : ""}`}
+              onClick={() => handleTabChange("perguntar")}
+              aria-selected={tab === "perguntar"}
+              role="tab"
+            >
+              Perguntar
+            </button>
+            <button
+              type="button"
+              className={`${styles.tab} ${tab === "buscar" ? styles.tabActive : ""}`}
+              onClick={() => handleTabChange("buscar")}
+              aria-selected={tab === "buscar"}
+              role="tab"
+            >
+              Buscar
+            </button>
+            <button
+              type="button"
+              className={`${styles.tab} ${styles.tabIcon} ${tab === "registrar" ? styles.tabActive : ""}`}
+              onClick={() => handleTabChange("registrar")}
+              aria-selected={tab === "registrar"}
+              aria-label="Registrar memo"
+              role="tab"
+              title="Registrar novo memo"
+            >
+              <IconRegister />
+            </button>
+          </div>
+
+          <div style={{ display: tab === "perguntar" ? "" : "none" }}>
+            <PerguntaPage embedded />
+          </div>
+          <div style={{ display: tab === "buscar" ? "" : "none" }}>
+            <MemoSearchPage embedded />
+          </div>
+          <div style={{ display: tab === "registrar" ? "" : "none" }}>
+            <MemoRegisterPanel
+              onRegistered={onRegistered}
+              workspaceGroupId={workspaceGroupId}
+              mediaLimits={mediaLimits}
+              memoPrefs={{
+                confirmEnabled: me.confirmEnabled,
+                soundEnabled: me.soundEnabled,
+                iaUseTexto: me.iaUseTexto,
+                iaUseImagem: me.iaUseImagem,
+                iaUseVideo: me.iaUseVideo,
+                iaUseAudio: me.iaUseAudio,
+                iaUseDocumento: me.iaUseDocumento,
+                iaUseUrl: me.iaUseUrl,
+              }}
+              showBuscarMemosLink={false}
+            />
+            <hr className={styles.divider} aria-hidden />
+            <RecentMemos
+              refreshKey={refreshKey}
+              workspaceGroupId={workspaceGroupId}
+              currentUserId={typeof me.id === "number" ? me.id : null}
+              showApiCost={me.showApiCost !== false}
+            />
+          </div>
         </main>
       )}
     </div>
