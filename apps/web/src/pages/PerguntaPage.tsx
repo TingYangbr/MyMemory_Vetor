@@ -116,6 +116,17 @@ function IconRepoIn({ className }: { className?: string }) {
   );
 }
 
+function formatNumericCell(num: number, colName: string): string {
+  const col = colName.toLowerCase().replace(/[_\s]+/g, " ");
+  if (/\b(dias?|prazos?|atrasos?)\b/.test(col))
+    return Math.round(num).toLocaleString("pt-BR");
+  if (/\b(taxas?|indices?|índices?|juros|percentual|percent)\b/.test(col))
+    return num.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  if (/\b(valores?|vlr|vl|prec[oa]s?|custos?|saldos?|receitas?|despesas?|montantes?)\b/.test(col))
+    return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return num.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+}
+
 function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
@@ -147,10 +158,16 @@ function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
               <tr key={i} className={styles.tabelaTr}>
                 {dados.colunas.map((col) => {
                   const val = linha[col];
-                  const display =
-                    col === "mediaType" && typeof val === "string"
-                      ? (MEDIA_TYPE_LABELS[val] ?? val)
-                      : val == null ? "—" : String(val);
+                  const display = (() => {
+                    if (col === "mediaType" && typeof val === "string")
+                      return MEDIA_TYPE_LABELS[val] ?? val;
+                    if (val == null) return "—";
+                    if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
+                      const num = typeof val === "number" ? val : Number(val);
+                      return formatNumericCell(num, col);
+                    }
+                    return String(val);
+                  })();
                   const isLong = display.length > 80;
                   if (col === "id" && onOpenMemo && val != null) {
                     const id = Number(val);
