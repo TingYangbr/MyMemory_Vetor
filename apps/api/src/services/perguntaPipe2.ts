@@ -717,10 +717,13 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       if (groupByLowerSet.has(lower)) return o;
       // Sem função de agregação: qualquer coluna disponível no SELECT é segura para ORDER BY
       if (!medida && available.has(lower)) return o;
-      // Com agregação e coluna inválida: substitui pelo alias da medida
+      // Se a coluna existe no template e parece numérica, deixa passar — applyAgregacao vai envolvê-la em SUM()
+      // Não deixar passar varchar/date: applyAgregacao usa SUM() cegamente e quebraria no SQL Server.
+      if (available.has(lower) && isLikelyNumericColumn(lower)) return o;
+      // Coluna inexistente no template: substitui pelo alias da medida para não gerar SQL inválido
       const fallbackAlias = medida ? (MEDIDA_ALIAS[medida] ?? null) : null;
       if (fallbackAlias) {
-        console.warn(`[Pipe2] order_by "${o.campo}" não é coluna de GROUP BY nem de medida. Substituindo por "${fallbackAlias}".`);
+        console.warn(`[Pipe2] order_by "${o.campo}" não existe no template nem é GROUP BY/medida. Substituindo por "${fallbackAlias}".`);
         return { ...o, campo: fallbackAlias };
       }
       console.warn(`[Pipe2] order_by "${o.campo}" removido (não encontrado no SELECT).`);
