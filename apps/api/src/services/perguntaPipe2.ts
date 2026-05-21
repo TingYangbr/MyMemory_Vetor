@@ -69,9 +69,17 @@ interface PlanoAgregacaoTrunc {
   granularidade: "year" | "month" | "week" | "day";
 }
 
+interface PlanoMedida {
+  medida: "count" | "sum" | "avg" | "min" | "max";
+  campo: string;
+  alias?: string;
+}
+
 interface PlanoAgregacao {
   medida: "count" | "sum" | "avg" | "min" | "max" | null;
   campo_medida: string | null;
+  /** Múltiplas funções de agregação simultâneas (ex: AVG(prazo) + AVG(atraso) na mesma query). */
+  medidas?: PlanoMedida[];
   group_by: string[];
   group_by_trunc?: PlanoAgregacaoTrunc[];
   order_by: { campo: string; direcao: "asc" | "desc" }[];
@@ -258,6 +266,55 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     });
     let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${cols} FROM _base`;
     if (orderClauses.length) sql += ` ORDER BY ${orderClauses.join(", ")}`;
+    sql += limitClause;
+    return sql;
+  }
+
+  // Multi-medida: quando o LLM especificou medidas[] com 2+ funções simultâneas
+  if (ag.medidas && ag.medidas.length > 0) {
+    const FN: Record<string, string> = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX", count: "COUNT" };
+    const AL: Record<string, string> = { sum: "total", avg: "media", min: "minimo", max: "maximo", count: "contagem" };
+    const measureExprs = ag.medidas.map((m) => {
+      const arg = m.medida === "count" ? "*" : qi(stripBase(m.campo));
+      const alias = m.alias || `${AL[m.medida]}_${stripBase(m.campo).toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
+      return `${FN[m.medida]}(${arg}) AS ${alias}`;
+    });
+    const medidaAliasLowers = new Set(ag.medidas.map((m) =>
+      (m.alias || `${AL[m.medida]}_${stripBase(m.campo).toLowerCase().replace(/[^a-z0-9]/g, "_")}`).toLowerCase()
+    ));
+    const groupByLowersMulti = new Set(ag.group_by.map((c) => stripBase(c).toLowerCase()));
+    const multiOrderExtras: { alias: string; expr: string }[] = [];
+    const multiOrderClauses: string[] = [];
+    const multiOrderSeen = new Set<string>();
+    for (const o of ag.order_by) {
+      const name = normalizeOrderCampo(o.campo);
+      const lower = name.toLowerCase();
+      let resolved: string;
+      if (medidaAliasLowers.has(lower) || MEDIDA_ALIAS[lower]) {
+        resolved = MEDIDA_ALIAS[lower] ?? name;
+      } else if (groupByLowersMulti.has(lower)) {
+        resolved = name;
+      } else {
+        const extraAlias = `ord_${lower.replace(/[^a-z0-9_]/g, "_")}`;
+        if (!multiOrderExtras.some((e) => e.alias === extraAlias)) {
+          multiOrderExtras.push({ alias: extraAlias, expr: `SUM(${qi(name)}) AS ${extraAlias}` });
+        }
+        resolved = extraAlias;
+      }
+      if (!multiOrderSeen.has(resolved.toLowerCase())) {
+        multiOrderSeen.add(resolved.toLowerCase());
+        multiOrderClauses.push(`${qi(resolved)} ${o.direcao === "desc" ? "DESC" : "ASC"}`);
+      }
+    }
+    const baseSelect = groupSelectParts.length > 0
+      ? `${groupSelectParts.join(", ")}, ${measureExprs.join(", ")}`
+      : measureExprs.join(", ");
+    const selectList = multiOrderExtras.length > 0
+      ? `${baseSelect}, ${multiOrderExtras.map((e) => e.expr).join(", ")}`
+      : baseSelect;
+    let sql = `WITH _base AS (\n${cleanBase}\n) SELECT ${topN}${selectList} FROM _base`;
+    if (groupByParts.length > 0) sql += ` GROUP BY ${groupByParts.join(", ")}`;
+    if (multiOrderClauses.length) sql += ` ORDER BY ${multiOrderClauses.join(", ")}`;
     sql += limitClause;
     return sql;
   }
@@ -626,10 +683,22 @@ async function planejarConsultaEstruturada(input: {
                 }))
                 .filter((t) => t.campo.length > 0)
             : [];
-          if (medida || group_by.length > 0 || group_by_trunc.length > 0 || order_by.length > 0 || limit) {
+          const MEDIDAS_VALS = ["count", "sum", "avg", "min", "max"] as const;
+          type MedidaVal = typeof MEDIDAS_VALS[number];
+          const medidas: PlanoMedida[] = Array.isArray(ag.medidas)
+            ? (ag.medidas as unknown[])
+                .filter((m): m is Record<string, unknown> => m !== null && typeof m === "object")
+                .flatMap((m): PlanoMedida[] => {
+                  const mv = m.medida as MedidaVal;
+                  if (!MEDIDAS_VALS.includes(mv) || !String(m.campo ?? "").length) return [];
+                  return [{ medida: mv, campo: String(m.campo), ...(typeof m.alias === "string" && m.alias.length > 0 ? { alias: m.alias } : {}) }];
+                })
+            : [];
+          if (medida || group_by.length > 0 || group_by_trunc.length > 0 || order_by.length > 0 || limit || medidas.length > 0) {
             agregacao = {
               medida,
               campo_medida: typeof ag.campo_medida === "string" && ag.campo_medida.length > 0 ? ag.campo_medida : null,
+              ...(medidas.length > 0 ? { medidas } : {}),
               group_by,
               ...(group_by_trunc.length > 0 ? { group_by_trunc } : {}),
               order_by,
@@ -687,6 +756,24 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
   const available = new Set(extractSelectColumnNames(sentencaSql));
   if (available.size === 0) return ag; // não conseguiu extrair colunas — deixa passar
   let { medida, campo_medida, group_by, order_by } = ag;
+
+  // Valida medidas[] quando presente
+  let medidas = ag.medidas;
+  if (medidas && medidas.length > 0) {
+    const validMedidas = medidas.filter((m) => {
+      const lower = m.campo.toLowerCase();
+      if (!available.has(lower)) {
+        console.warn(`[Pipe2] medidas campo "${m.campo}" não existe no SELECT do template. Removendo.`);
+        return false;
+      }
+      if ((m.medida === "sum" || m.medida === "avg") && !isLikelyNumericColumn(lower)) {
+        console.warn(`[Pipe2] medidas campo "${m.campo}" não parece numérico para medida "${m.medida}". Removendo.`);
+        return false;
+      }
+      return true;
+    });
+    medidas = validMedidas.length > 0 ? validMedidas : undefined;
+  }
   if (campo_medida && medida !== "count" && medida !== null) {
     if (!available.has(campo_medida.toLowerCase())) {
       console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
@@ -730,7 +817,7 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       return null;
     })
     .filter((o): o is NonNullable<typeof o> => o !== null);
-  return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy };
+  return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy, medidas };
 }
 
 // ── Internal: execução das queries do plano ───────────────────────────────────
