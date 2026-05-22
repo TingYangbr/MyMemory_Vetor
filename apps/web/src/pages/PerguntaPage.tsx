@@ -105,18 +105,6 @@ function IconLightbulb({ className }: { className?: string }) {
   );
 }
 
-function IconFilter({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="3" y1="6" x2="21" y2="6"/>
-      <line x1="3" y1="12" x2="21" y2="12"/>
-      <line x1="3" y1="18" x2="21" y2="18"/>
-      <circle cx="7" cy="6" r="2"/>
-      <circle cx="17" cy="12" r="2"/>
-      <circle cx="11" cy="18" r="2"/>
-    </svg>
-  );
-}
 
 function IconRepoIn({ className }: { className?: string }) {
   return (
