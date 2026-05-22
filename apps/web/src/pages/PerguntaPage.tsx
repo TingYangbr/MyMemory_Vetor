@@ -419,6 +419,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [filterDateTo, setFilterDateTo] = useState("");
   const [filterAuthorId, setFilterAuthorId] = useState<number | null>(null);
   const [filterModal, setFilterModal] = useState<null | "quando" | "quem">(null);
+  const [showFilters, setShowFilters] = useState(false);
   const [draftDateFrom, setDraftDateFrom] = useState("");
   const [draftDateTo, setDraftDateTo] = useState("");
   const [draftAuthorId, setDraftAuthorId] = useState<number | null>(null);
@@ -997,33 +998,35 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       ) : null}
 
       <main className={styles.main}>
-        <div className={styles.topBar}>
-          <h1 className={styles.pageTitle}>Pergunte ao myMemory</h1>
-          <div className={styles.topBarFilters}>
-            {isGroup ? (
+        {!embedded && (
+          <div className={styles.topBar}>
+            <h1 className={styles.pageTitle}>Pergunte ao myMemory</h1>
+            <div className={styles.topBarFilters}>
+              {isGroup ? (
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${hasQuem ? styles.filterBtnActive : ""}`}
+                  onClick={() => openFilterModal("quem")}
+                >
+                  Quem {hasQuem ? "✓" : ""}
+                  {hasQuem ? (
+                    <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quem"); }} title="Limpar">×</span>
+                  ) : null}
+                </button>
+              ) : null}
               <button
                 type="button"
-                className={`${styles.filterBtn} ${hasQuem ? styles.filterBtnActive : ""}`}
-                onClick={() => openFilterModal("quem")}
+                className={`${styles.filterBtn} ${hasQuando ? styles.filterBtnActive : ""}`}
+                onClick={() => openFilterModal("quando")}
               >
-                Quem {hasQuem ? "✓" : ""}
-                {hasQuem ? (
-                  <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quem"); }} title="Limpar">×</span>
+                Quando {hasQuando ? "✓" : ""}
+                {hasQuando ? (
+                  <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quando"); }} title="Limpar">×</span>
                 ) : null}
               </button>
-            ) : null}
-            <button
-              type="button"
-              className={`${styles.filterBtn} ${hasQuando ? styles.filterBtnActive : ""}`}
-              onClick={() => openFilterModal("quando")}
-            >
-              Quando {hasQuando ? "✓" : ""}
-              {hasQuando ? (
-                <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quando"); }} title="Limpar">×</span>
-              ) : null}
-            </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <div className={styles.inputArea}>
           <div className={styles.inputRow}>
@@ -1082,6 +1085,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 >
                   <IconLightbulb /> Perguntas salvas
                 </button>
+                {embedded && (
+                  <button
+                    type="button"
+                    className={`${styles.filterIconBtn} ${(hasQuem || hasQuando) ? styles.filterIconBtnActive : ""}`}
+                    onClick={() => setShowFilters((v) => !v)}
+                    title="Filtros"
+                  >
+                    ▼
+                  </button>
+                )}
                 <button
                   type="button"
                   className={styles.perguntarBtn}
@@ -1093,6 +1106,28 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               </>
             ) : null}
           </div>
+          {embedded && showFilters && (
+            <div className={styles.filterPopover}>
+              {isGroup ? (
+                <button
+                  type="button"
+                  className={`${styles.filterBtn} ${hasQuem ? styles.filterBtnActive : ""}`}
+                  onClick={() => { openFilterModal("quem"); setShowFilters(false); }}
+                >
+                  Quem {hasQuem ? "✓" : ""}
+                  {hasQuem ? <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quem"); }}>×</span> : null}
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={`${styles.filterBtn} ${hasQuando ? styles.filterBtnActive : ""}`}
+                onClick={() => { openFilterModal("quando"); setShowFilters(false); }}
+              >
+                Quando {hasQuando ? "✓" : ""}
+                {hasQuando ? <span className={styles.filterClear} onClick={(e) => { e.stopPropagation(); clearFilter("quando"); }}>×</span> : null}
+              </button>
+            </div>
+          )}
         </div>
 
         {error ? <p className="mm-error" role="alert">{error}</p> : null}
