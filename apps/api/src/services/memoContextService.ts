@@ -693,10 +693,18 @@ export async function createQueryCategoriaParam(
   }
 ): Promise<number> {
   await assertQueryInAccessibleCategory(userId, queryId);
+  const campoNorm = input.campo.trim();
+  const [existing] = await pool.query<{ id: number }[]>(
+    `SELECT id FROM queries_categoria_params WHERE queryid = ? AND campo = ? AND isactive = 1 LIMIT 1`,
+    [queryId, campoNorm]
+  );
+  if ((existing as unknown[]).length > 0) {
+    throw Object.assign(new Error(`Parâmetro "${campoNorm}" já existe nesta query.`), { statusCode: 409 });
+  }
   const [rows] = await pool.query<{ id: number }[]>(
     `INSERT INTO queries_categoria_params (queryid, campo, tipo, obrigatorio, operadorsql, normalizar, ordem, isactive)
      VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
-    [queryId, input.campo.trim(), input.tipo, input.obrigatorio, input.operadorSql, input.normalizar, input.ordem]
+    [queryId, campoNorm, input.tipo, input.obrigatorio, input.operadorSql, input.normalizar, input.ordem]
   );
   return rows[0].id;
 }

@@ -51,7 +51,7 @@ function sortByName<T extends { name: string }>(items: T[]): T[] {
   return [...items].sort((a, b) => a.name.localeCompare(b.name, PT_SORT, { sensitivity: "base" }));
 }
 
-/** Categorias A–Z; subcategorias e campos também A–Z; queries A–Z; params por ordem. */
+/** Categorias A–Z; subcategorias e campos também A–Z; queries A–Z; params A–Z. */
 function sortStructureForDisplay(cats: MemoContextCategory[]): MemoContextCategory[] {
   return sortByName(cats).map((c) => ({
     ...c,
@@ -61,7 +61,7 @@ function sortStructureForDisplay(cats: MemoContextCategory[]): MemoContextCatego
       .sort((a, b) => a.nome.localeCompare(b.nome, PT_SORT, { sensitivity: "base" }))
       .map((q) => ({
         ...q,
-        params: [...q.params].sort((a, b) => a.ordem - b.ordem || a.id - b.id),
+        params: [...q.params].sort((a, b) => a.campo.localeCompare(b.campo, PT_SORT, { sensitivity: "base" })),
       })),
   }));
 }

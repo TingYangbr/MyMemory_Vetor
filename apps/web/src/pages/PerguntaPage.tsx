@@ -105,6 +105,19 @@ function IconLightbulb({ className }: { className?: string }) {
   );
 }
 
+function IconFilter({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+      <circle cx="7" cy="6" r="2"/>
+      <circle cx="17" cy="12" r="2"/>
+      <circle cx="11" cy="18" r="2"/>
+    </svg>
+  );
+}
+
 function IconRepoIn({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -124,7 +137,7 @@ function formatNumericCell(num: number, colName: string): string {
     return num.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
   if (/\b(valores?|vlr|vl|prec[oa]s?|custos?|saldos?|receitas?|despesas?|montantes?)\b/.test(col))
     return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return num.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+  return num.toLocaleString("pt-BR");
 }
 
 function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
@@ -402,6 +415,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
   const [modelosLoading, setModelosLoading] = useState(false);
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
+  const [modeloSavingIdx, setModeloSavingIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<string | null>(null);
@@ -906,9 +920,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
   async function salvarModelo(cardIdx: number) {
     const r = respostas[cardIdx];
-    if (!r) return;
+    if (!r || modeloSavingIdx === cardIdx || modeloSavedIdx === cardIdx) return;
     const category = r.classificacao.categorias[0] ?? null;
     setModeloSaveErr(null);
+    setModeloSavingIdx(cardIdx);
     try {
       await apiPostJson("/api/pergunta-modelos", {
         pergunta: r.perguntaTexto,
@@ -919,6 +934,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
     } catch (e) {
       setModeloSaveErr(e instanceof Error ? e.message : "Erro ao salvar pergunta.");
+    } finally {
+      setModeloSavingIdx(null);
     }
   }
 
@@ -1085,16 +1102,6 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 >
                   <IconLightbulb /> Perguntas salvas
                 </button>
-                {embedded && (
-                  <button
-                    type="button"
-                    className={`${styles.filterIconBtn} ${(hasQuem || hasQuando) ? styles.filterIconBtnActive : ""}`}
-                    onClick={() => setShowFilters((v) => !v)}
-                    title="Filtros"
-                  >
-                    ▼
-                  </button>
-                )}
                 <button
                   type="button"
                   className={styles.perguntarBtn}
@@ -1303,9 +1310,13 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       className={`${styles.modeloBtn} ${modeloSavedIdx === i ? styles.modeloBtnSaved : ""}`}
                       onClick={() => void salvarModelo(i)}
                       title="Salvar esta pergunta"
+                      disabled={modeloSavingIdx === i || modeloSavedIdx === i}
                     >
                       <IconRepoIn />
                     </button>
+                    {modeloSavedIdx === i && (
+                      <span className={styles.modeloSavedMsg}>Salvo!</span>
+                    )}
                   </div>
                   {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
