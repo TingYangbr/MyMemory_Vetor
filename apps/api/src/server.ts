@@ -35,6 +35,8 @@ import { BatchImportStorageProvider1700000000119 } from "./migrations/1700000000
 import { ParsePtDateFunction1700000000120 } from "./migrations/1700000000120-ParsePtDateFunction.js";
 import { PerguntaModelosAnotacoes1700000000121 } from "./migrations/1700000000121-PerguntaModelosAnotacoes.js";
 import { UpdateClassificacaoVendaFaturamento1700000000122 } from "./migrations/1700000000122-UpdateClassificacaoVendaFaturamento.js";
+import { UpdatePipe2MultiMedida1700000000123 } from "./migrations/1700000000123-UpdatePipe2MultiMedida.js";
+import { PerguntaModelosEstrelas1700000000124 } from "./migrations/1700000000124-PerguntaModelosEstrelas.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -91,6 +93,8 @@ assertMediaStorageEnv();
       ParsePtDateFunction1700000000120,
       PerguntaModelosAnotacoes1700000000121,
       UpdateClassificacaoVendaFaturamento1700000000122,
+      UpdatePipe2MultiMedida1700000000123,
+      PerguntaModelosEstrelas1700000000124,
     ],
   });
   const ds = await AppDataSource.initialize();
