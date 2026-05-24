@@ -11,7 +11,7 @@ export default function PerguntaModelosPage() {
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: number; pergunta: string; anotacoes: string } | null>(null);
+  const [editing, setEditing] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -45,7 +45,7 @@ export default function PerguntaModelosPage() {
   useEffect(() => { void load(); }, [load]);
 
   function startEdit(m: PerguntaModelo) {
-    setEditing({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "" });
+    setEditing({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null });
     setSaveErr(null);
   }
 
@@ -56,7 +56,7 @@ export default function PerguntaModelosPage() {
     try {
       const res = await apiPutJson<{ modelo: PerguntaModelo }>(
         `/api/pergunta-modelos/${editing.id}`,
-        { pergunta: editing.pergunta.trim(), anotacoes: editing.anotacoes.trim() || null }
+        { pergunta: editing.pergunta.trim(), anotacoes: editing.anotacoes.trim() || null, estrelas: editing.estrelas }
       );
       setModelos((prev) => prev.map((m) => (m.id === editing.id ? res.modelo : m)));
       setEditing(null);
@@ -171,6 +171,18 @@ export default function PerguntaModelosPage() {
                           onChange={(e) => setEditing({ ...editing, anotacoes: e.target.value })}
                           placeholder="Anotações (opcional)"
                         />
+                        <div className={styles.editStarRow}>
+                          <span className={styles.editStarLabel}>Classificação:</span>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className={`${styles.starBtn}${editing.estrelas !== null && n <= editing.estrelas ? ` ${styles.starBtnOn}` : ""}`}
+                              onClick={() => setEditing({ ...editing, estrelas: editing.estrelas === n ? null : n })}
+                              title={`${n} estrela${n > 1 ? "s" : ""}`}
+                            >★</button>
+                          ))}
+                        </div>
                         {saveErr && <p className={styles.errorMsg}>{saveErr}</p>}
                         <div className={styles.editActions}>
                           <button
@@ -194,6 +206,11 @@ export default function PerguntaModelosPage() {
                           {m.anotacoes && (
                             <div className={styles.anotacoesText}>{m.anotacoes}</div>
                           )}
+                          {m.estrelas ? (
+                            <div className={styles.viewStars}>
+                              {"★".repeat(m.estrelas)}{"☆".repeat(5 - m.estrelas)}
+                            </div>
+                          ) : null}
                         </div>
                         <div className={styles.itemActions}>
                           <button

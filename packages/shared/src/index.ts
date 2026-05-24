@@ -1133,6 +1133,7 @@ export interface PerguntaModelo {
   category: string | null;
   pergunta: string;
   anotacoes: string | null;
+  estrelas: number | null;
   createdAt: string;
   updatedAt: string;
 }

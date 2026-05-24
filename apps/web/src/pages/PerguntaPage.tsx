@@ -1060,28 +1060,28 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             </button>
           </div>
           <div className={styles.inputActions}>
-            {(micState !== "idle" || busy) ? (
-              <button
-                type="button"
-                className={styles.cancelarBtn}
-                onClick={cancelar}
-                title="Limpar e começar de novo"
-              >
-                ✕ Cancelar
-              </button>
-            ) : null}
-            {respostas.length > 0 && !busy ? (
-              <button
-                type="button"
-                className={styles.novaSessaoBtn}
-                onClick={novasSessao}
-                title="Limpar histórico e começar nova sessão"
-              >
-                ↺ Nova sessão
-              </button>
-            ) : null}
-            {!busy ? (
-              <>
+            <div className={styles.inputActionsLeft}>
+              {(micState !== "idle" || busy) ? (
+                <button
+                  type="button"
+                  className={styles.cancelarBtn}
+                  onClick={cancelar}
+                  title="Limpar e começar de novo"
+                >
+                  ✕ Cancelar
+                </button>
+              ) : null}
+              {respostas.length > 0 && !busy ? (
+                <button
+                  type="button"
+                  className={styles.novaSessaoBtn}
+                  onClick={novasSessao}
+                  title="Limpar histórico e começar nova sessão"
+                >
+                  ↺ Nova sessão
+                </button>
+              ) : null}
+              {!busy ? (
                 <button
                   type="button"
                   className={styles.carregarModeloBtn}
@@ -1090,15 +1090,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 >
                   <IconLightbulb /> Perguntas salvas
                 </button>
-                <button
-                  type="button"
-                  className={styles.perguntarBtn}
-                  onClick={() => void enviar()}
-                  disabled={!pergunta.trim()}
-                >
-                  Perguntar →
-                </button>
-              </>
+              ) : null}
+            </div>
+            {!busy ? (
+              <button
+                type="button"
+                className={styles.perguntarBtn}
+                onClick={() => void enviar()}
+                disabled={!pergunta.trim()}
+              >
+                Perguntar →
+              </button>
             ) : null}
           </div>
           {embedded && showFilters && (
@@ -1527,7 +1529,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         className={styles.modeloItemBtn}
                         onClick={() => { setPergunta(m.pergunta); setModeloSelectOpen(false); }}
                       >
-                        {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
+                        {(m.category || m.estrelas) ? (
+                          <span className={styles.modeloItemMeta}>
+                            {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
+                            {m.estrelas ? <span className={styles.modeloItemStars}>{"★".repeat(m.estrelas)}</span> : null}
+                          </span>
+                        ) : null}
                         <span className={styles.modeloItemText}>{m.pergunta}</span>
                       </button>
                       {m.anotacoes ? (

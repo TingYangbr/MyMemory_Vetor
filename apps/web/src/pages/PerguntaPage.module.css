@@ -177,8 +177,14 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  justify-content: flex-end;
+  justify-content: space-between;
   flex-wrap: nowrap;
+}
+
+.inputActionsLeft {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
 }
 
 .cancelarBtn {
@@ -1369,12 +1375,25 @@
   transition: background 0.1s;
 }
 .modeloItemBtn:hover { background: var(--mm-hover-bg, #f1f5f9); }
+.modeloItemMeta {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
 .modeloItemCat {
   font-size: 0.7rem;
   font-weight: 600;
   color: var(--mm-primary, #6366f1);
   text-transform: uppercase;
   letter-spacing: 0.04em;
+}
+
+.modeloItemStars {
+  font-size: 0.68rem;
+  color: #f59e0b;
+  letter-spacing: 0.02em;
+  opacity: 0.85;
 }
 .modeloItemText {
   font-size: 0.85rem;

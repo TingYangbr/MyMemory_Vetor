@@ -17,6 +17,7 @@ const updateSchema = z.object({
   pergunta: z.string().min(1).max(4000).optional(),
   category: z.string().nullable().optional(),
   anotacoes: z.string().nullable().optional(),
+  estrelas: z.number().int().min(1).max(5).nullable().optional(),
 });
 
 const plugin: FastifyPluginAsync = async (app) => {
@@ -37,14 +38,14 @@ const plugin: FastifyPluginAsync = async (app) => {
         return reply.code(403).send({ error: "forbidden_group" });
       }
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT id, userid, groupid, category, pergunta, anotacoes, createdat, updatedat
+        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat
          FROM pergunta_modelos WHERE groupid = ? ORDER BY createdat DESC`,
         [groupId]
       );
       return reply.send({ modelos: rows });
     } else {
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT id, userid, groupid, category, pergunta, anotacoes, createdat, updatedat
+        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat
          FROM pergunta_modelos WHERE groupid IS NULL AND userid = ? ORDER BY createdat DESC`,
         [userId]
       );
@@ -74,7 +75,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `INSERT INTO pergunta_modelos (userid, groupid, category, pergunta, anotacoes)
-       VALUES (?, ?, ?, ?, ?) RETURNING id, userid, groupid, category, pergunta, anotacoes, createdat, updatedat`,
+       VALUES (?, ?, ?, ?, ?) RETURNING id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat`,
       [userId, groupId, category ?? null, pergunta, anotacoes ?? null]
     );
     return reply.code(201).send({ modelo: (rows as Record<string, unknown>[])[0] });
@@ -98,17 +99,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     );
     if (!(existing as unknown[]).length) return reply.code(404).send({ error: "not_found" });
 
-    const { pergunta, category, anotacoes } = parsed.data;
+    const { pergunta, category, anotacoes, estrelas } = parsed.data;
     const sets: string[] = ["updatedat = NOW()"];
     const vals: unknown[] = [];
     if (pergunta !== undefined) { sets.push("pergunta = ?"); vals.push(pergunta); }
     if (category !== undefined) { sets.push("category = ?"); vals.push(category); }
     if (anotacoes !== undefined) { sets.push("anotacoes = ?"); vals.push(anotacoes); }
+    if (estrelas !== undefined) { sets.push("estrelas = ?"); vals.push(estrelas); }
     vals.push(id, userId);
 
     const [rows] = await pool.query<RowDataPacket[]>(
       `UPDATE pergunta_modelos SET ${sets.join(", ")} WHERE id = ? AND userid = ?
-       RETURNING id, userid, groupid, category, pergunta, anotacoes, createdat, updatedat`,
+       RETURNING id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat`,
       vals
     );
     return reply.send({ modelo: (rows as Record<string, unknown>[])[0] });
