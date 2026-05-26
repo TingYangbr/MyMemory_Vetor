@@ -256,8 +256,8 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
   const topN = dialect === "mssql" && ag.limit ? `TOP ${ag.limit} ` : "";
   const limitClause = dialect === "pg" && ag.limit ? ` LIMIT ${ag.limit}` : "";
 
-  // Sem função de medida — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
-  if (!ag.medida) {
+  // Sem função de medida E sem medidas[] — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
+  if (!ag.medida && !(ag.medidas && ag.medidas.length > 0)) {
     const cols = groupSelectParts.length > 0 ? groupSelectParts.join(", ") : "*";
     const orderClauses = ag.order_by.map((o) => {
       const name = normalizeOrderCampo(o.campo);
@@ -318,6 +318,9 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     sql += limitClause;
     return sql;
   }
+
+  // Aqui ag.medida é garantidamente não-nulo (medidas[] retornou acima; !medida+!medidas retornou acima)
+  if (!ag.medida) throw new Error("medida obrigatório para agregação simples");
 
   let measureAlias: string;
   let measureExpr: string;
