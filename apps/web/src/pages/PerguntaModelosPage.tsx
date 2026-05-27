@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MeResponse, PerguntaModelo } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPutJson } from "../api";
@@ -81,16 +81,12 @@ export default function PerguntaModelosPage() {
     }
   }
 
-  const grouped = modelos.reduce<Record<string, PerguntaModelo[]>>((acc, m) => {
-    const key = m.category ?? "Sem categoria";
-    (acc[key] ??= []).push(m);
-    return acc;
-  }, {});
-  const groupKeys = Object.keys(grouped).sort((a, b) =>
-    a === "Sem categoria" ? 1 : b === "Sem categoria" ? -1 : a.localeCompare(b)
+  const catOptions = useMemo(
+    () => Array.from(new Set(modelos.map((m) => m.category).filter(Boolean) as string[])).sort((a, b) => a.localeCompare(b)),
+    [modelos]
   );
-  const showFilterBtn = modelos.length > 6 && groupKeys.length > 1;
-  const visibleGroupKeys = filterCat ? groupKeys.filter((k) => k === filterCat) : groupKeys;
+  const showFilterBtn = modelos.length > 5 && catOptions.length > 1;
+  const filteredModelos = filterCat ? modelos.filter((m) => m.category === filterCat) : modelos;
 
   return (
     <div className={styles.shell}>
@@ -126,7 +122,7 @@ export default function PerguntaModelosPage() {
               className={`${styles.catChip}${!filterCat ? ` ${styles.catChipActive}` : ""}`}
               onClick={() => setFilterCat(null)}
             >Todas</button>
-            {groupKeys.map((cat) => (
+            {catOptions.map((cat) => (
               <button
                 key={cat}
                 className={`${styles.catChip}${filterCat === cat ? ` ${styles.catChipActive}` : ""}`}
@@ -143,98 +139,98 @@ export default function PerguntaModelosPage() {
           <p className={styles.muted}>Nenhuma pergunta salva{workspaceGroupId ? " neste grupo" : ""}.</p>
         )}
 
-        {visibleGroupKeys.map((group) => (
-          <section key={group} className={styles.group}>
-            {group !== "Sem categoria" && (
-              <h2 className={styles.groupTitle}>{group}</h2>
-            )}
-            <ul className={styles.list}>
-              {grouped[group]!.map((m) => {
-                const isEditing = editing?.id === m.id;
-                return (
-                  <li key={m.id} className={styles.item}>
-                    {isEditing ? (
-                      <div className={styles.editBlock}>
-                        <textarea
-                          className={`mm-field ${styles.editTextarea}`}
-                          rows={2}
-                          value={editing.pergunta}
-                          onChange={(e) => setEditing({ ...editing, pergunta: e.target.value })}
-                          placeholder="Pergunta"
-                          // eslint-disable-next-line jsx-a11y/no-autofocus
-                          autoFocus
-                        />
-                        <textarea
-                          className={`mm-field ${styles.editTextarea}`}
-                          rows={2}
-                          value={editing.anotacoes}
-                          onChange={(e) => setEditing({ ...editing, anotacoes: e.target.value })}
-                          placeholder="Anotações (opcional)"
-                        />
-                        <div className={styles.editStarRow}>
-                          <span className={styles.editStarLabel}>Classificação:</span>
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              className={`${styles.starBtn}${editing.estrelas !== null && n <= editing.estrelas ? ` ${styles.starBtnOn}` : ""}`}
-                              onClick={() => setEditing({ ...editing, estrelas: editing.estrelas === n ? null : n })}
-                              title={`${n} estrela${n > 1 ? "s" : ""}`}
-                            >★</button>
-                          ))}
-                        </div>
-                        {saveErr && <p className={styles.errorMsg}>{saveErr}</p>}
-                        <div className={styles.editActions}>
+        {filteredModelos.length > 0 && (
+          <ul className={styles.list}>
+            {filteredModelos.map((m) => {
+              const isEditing = editing?.id === m.id;
+              return (
+                <li key={m.id} className={styles.item}>
+                  <div className={styles.itemTop}>
+                    {m.category ? <span className={styles.itemCat}>{m.category}</span> : null}
+                    {m.estrelas && !isEditing ? <span className={styles.itemStars}>{"★".repeat(m.estrelas)}</span> : null}
+                  </div>
+                  {isEditing ? (
+                    <div className={styles.editBlock}>
+                      <textarea
+                        className={`mm-field ${styles.editTextarea}`}
+                        rows={2}
+                        value={editing.pergunta}
+                        onChange={(e) => setEditing({ ...editing, pergunta: e.target.value })}
+                        // eslint-disable-next-line jsx-a11y/no-autofocus
+                        autoFocus
+                      />
+                      <textarea
+                        className={`mm-field ${styles.editTextarea}`}
+                        rows={2}
+                        value={editing.anotacoes}
+                        onChange={(e) => setEditing({ ...editing, anotacoes: e.target.value })}
+                        placeholder="Anotações (opcional)"
+                        style={{ fontStyle: "italic", fontSize: "0.82rem" }}
+                      />
+                      <div className={styles.editStarRow}>
+                        <span className={styles.editStarLabel}>Classificação:</span>
+                        {[1, 2, 3, 4, 5].map((n) => (
                           <button
+                            key={n}
                             type="button"
-                            className="mm-btn mm-btn--primary"
-                            onClick={() => void saveEdit()}
-                            disabled={saving || !editing.pergunta.trim()}
-                          >{saving ? "Salvando…" : "Salvar"}</button>
-                          <button
-                            type="button"
-                            className="mm-btn mm-btn--ghost"
-                            onClick={() => setEditing(null)}
-                            disabled={saving}
-                          >Cancelar</button>
-                        </div>
+                            className={`${styles.starBtn}${editing.estrelas !== null && n <= editing.estrelas ? ` ${styles.starBtnOn}` : ""}`}
+                            onClick={() => setEditing({ ...editing, estrelas: editing.estrelas === n ? null : n })}
+                            title={`${n} estrela${n > 1 ? "s" : ""}`}
+                          >★</button>
+                        ))}
                       </div>
-                    ) : (
-                      <div className={styles.viewBlock}>
-                        <div className={styles.viewMain}>
-                          <div className={styles.perguntaText}>{m.pergunta}</div>
-                          {m.anotacoes && (
-                            <div className={styles.anotacoesText}>{m.anotacoes}</div>
-                          )}
-                          {m.estrelas ? (
-                            <div className={styles.viewStars}>
-                              {"★".repeat(m.estrelas)}{"☆".repeat(5 - m.estrelas)}
-                            </div>
-                          ) : null}
-                        </div>
-                        <div className={styles.itemActions}>
-                          <button
-                            type="button"
-                            className={`mm-btn mm-btn--ghost ${styles.actionBtn}`}
-                            title="Editar"
-                            onClick={() => startEdit(m)}
-                          >✏</button>
-                          <button
-                            type="button"
-                            className={`mm-btn mm-btn--ghost ${styles.actionBtn} ${styles.deleteBtn}`}
-                            title="Excluir"
-                            onClick={() => void deleteModelo(m.id)}
-                            disabled={deletingId === m.id}
-                          >{deletingId === m.id ? "…" : "✕"}</button>
-                        </div>
+                      {saveErr && <p className={styles.errorMsg}>{saveErr}</p>}
+                      <div className={styles.editActions}>
+                        <button
+                          type="button"
+                          className="mm-btn mm-btn--primary"
+                          onClick={() => void saveEdit()}
+                          disabled={saving || !editing.pergunta.trim()}
+                        >{saving ? "Salvando…" : "Salvar"}</button>
+                        <button
+                          type="button"
+                          className="mm-btn mm-btn--ghost"
+                          onClick={() => setEditing(null)}
+                          disabled={saving}
+                        >Cancelar</button>
+                        <button
+                          type="button"
+                          className={`mm-btn mm-btn--ghost ${styles.deleteBtn}`}
+                          title="Excluir"
+                          onClick={() => void deleteModelo(m.id)}
+                          disabled={deletingId === m.id}
+                          style={{ marginLeft: "auto" }}
+                        >{deletingId === m.id ? "…" : "✕"}</button>
                       </div>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          </section>
-        ))}
+                    </div>
+                  ) : (
+                    <>
+                      <p
+                        className={styles.perguntaText}
+                        onClick={() => startEdit(m)}
+                        title="Clique para editar"
+                      >{m.pergunta}</p>
+                      {m.anotacoes && (
+                        <p
+                          className={styles.anotacoesText}
+                          onClick={() => startEdit(m)}
+                          title="Clique para editar"
+                        >{m.anotacoes}</p>
+                      )}
+                      <button
+                        type="button"
+                        className={styles.deleteFloatBtn}
+                        onClick={() => void deleteModelo(m.id)}
+                        title="Excluir"
+                        disabled={deletingId === m.id}
+                      >{deletingId === m.id ? "…" : "✕"}</button>
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </main>
     </div>
   );

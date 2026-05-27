@@ -1466,3 +1466,86 @@
   display: flex;
   gap: 0.5rem;
 }
+
+/* ── Botão de edição no modal ── */
+.modeloItemEditBtn {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  font-size: 0.72rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0.25rem 0.35rem;
+  border-radius: 4px;
+  line-height: 1;
+  align-self: flex-start;
+  margin-top: 0.45rem;
+  transition: color 0.1s, background 0.1s;
+}
+.modeloItemEditBtn:hover { color: var(--mm-primary, #6366f1); background: var(--mm-hover-bg, #f1f5f9); }
+
+/* ── Edição inline no modal ── */
+.modeloInlineEdit {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  padding: 0.5rem 0.75rem 0.6rem;
+}
+.modeloInlineTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  font-size: 0.83rem;
+  font-family: inherit;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 5px;
+  resize: none;
+  background: var(--mm-input-bg, #f8fafc);
+  color: var(--mm-text, #1e293b);
+  line-height: 1.5;
+}
+.modeloInlineStarRow {
+  display: flex;
+  align-items: center;
+  gap: 0.08rem;
+}
+.modeloInlineStar {
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 0 0.04rem;
+  line-height: 1;
+  transition: color 0.1s, transform 0.1s;
+}
+.modeloInlineStar:hover { color: #f59e0b; transform: scale(1.15); }
+.modeloInlineStarOn { color: #f59e0b; }
+.modeloInlineActions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.05rem;
+}
+.modeloInlineSave {
+  padding: 0.25rem 0.7rem;
+  background: var(--mm-accent, #0d9488);
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.modeloInlineSave:disabled { opacity: 0.4; cursor: default; }
+.modeloInlineSave:hover:not(:disabled) { background: #0f766e; }
+.modeloInlineCancel {
+  padding: 0.25rem 0.7rem;
+  background: none;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 5px;
+  font: inherit;
+  font-size: 0.78rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+}

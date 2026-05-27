@@ -11,7 +11,7 @@ import type {
   PerguntaResponse,
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
+import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
@@ -406,6 +406,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [modeloSavingIdx, setModeloSavingIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
+  const [editingModalModelo, setEditingModalModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
+  const [savingModalModelo, setSavingModalModelo] = useState(false);
   const [filterCat, setFilterCat] = useState<string | null>(null);
   const [showCatFilter, setShowCatFilter] = useState(false);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
@@ -894,6 +896,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   async function abrirModeloSelect() {
     setModeloSelectOpen(true);
     setOpenNoteId(null);
+    setEditingModalModelo(null);
     setFilterCat(null);
     setShowCatFilter(false);
     setModelosLoading(true);
@@ -903,6 +906,21 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       setModelos(data.modelos);
     } catch { /* silencia */ } finally {
       setModelosLoading(false);
+    }
+  }
+
+  async function saveModalModelo() {
+    if (!editingModalModelo) return;
+    setSavingModalModelo(true);
+    try {
+      const res = await apiPutJson<{ modelo: PerguntaModelo }>(
+        `/api/pergunta-modelos/${editingModalModelo.id}`,
+        { pergunta: editingModalModelo.pergunta.trim(), anotacoes: editingModalModelo.anotacoes.trim() || null, estrelas: editingModalModelo.estrelas }
+      );
+      setModelos((prev) => prev.map((m) => (m.id === editingModalModelo.id ? res.modelo : m)));
+      setEditingModalModelo(null);
+    } catch { /* silencia erros no modal */ } finally {
+      setSavingModalModelo(false);
     }
   }
 
@@ -1523,39 +1541,92 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               <ul className={styles.modeloList}>
                 {filteredModelos.map((m) => (
                   <li key={m.id} className={styles.modeloItem}>
-                    <div className={styles.modeloItemRow}>
-                      <button
-                        type="button"
-                        className={styles.modeloItemBtn}
-                        onClick={() => { setPergunta(m.pergunta); setModeloSelectOpen(false); }}
-                      >
-                        {(m.category || m.estrelas) ? (
-                          <span className={styles.modeloItemMeta}>
-                            {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
-                            {m.estrelas ? <span className={styles.modeloItemStars}>{"★".repeat(m.estrelas)}</span> : null}
-                          </span>
-                        ) : null}
-                        <span className={styles.modeloItemText}>{m.pergunta}</span>
-                      </button>
-                      {m.anotacoes ? (
-                        <button
-                          type="button"
-                          className={styles.modeloItemInfoBtn}
-                          title={openNoteId === m.id ? "Fechar orientação" : "Ver orientação"}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setOpenNoteId(openNoteId === m.id ? null : m.id);
-                          }}
-                        >
-                          <span className={styles.modeloItemInfoBadge}>i</span>
-                        </button>
-                      ) : null}
-                    </div>
-                    {openNoteId === m.id && m.anotacoes ? (
-                      <div className={styles.modeloItemNoteExpanded}>
-                        {m.anotacoes}
+                    {editingModalModelo?.id === m.id ? (
+                      <div className={styles.modeloInlineEdit}>
+                        <textarea
+                          className={styles.modeloInlineTextarea}
+                          value={editingModalModelo.pergunta}
+                          rows={2}
+                          onChange={(e) => setEditingModalModelo({ ...editingModalModelo, pergunta: e.target.value })}
+                          // eslint-disable-next-line jsx-a11y/no-autofocus
+                          autoFocus
+                        />
+                        <textarea
+                          className={styles.modeloInlineTextarea}
+                          value={editingModalModelo.anotacoes}
+                          rows={1}
+                          placeholder="Anotações (opcional)"
+                          onChange={(e) => setEditingModalModelo({ ...editingModalModelo, anotacoes: e.target.value })}
+                          style={{ fontStyle: "italic", fontSize: "0.78rem" }}
+                        />
+                        <div className={styles.modeloInlineStarRow}>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className={`${styles.modeloInlineStar}${editingModalModelo.estrelas !== null && n <= editingModalModelo.estrelas ? ` ${styles.modeloInlineStarOn}` : ""}`}
+                              onClick={() => setEditingModalModelo({ ...editingModalModelo, estrelas: editingModalModelo.estrelas === n ? null : n })}
+                              title={`${n} estrela${n > 1 ? "s" : ""}`}
+                            >★</button>
+                          ))}
+                        </div>
+                        <div className={styles.modeloInlineActions}>
+                          <button
+                            type="button"
+                            className={styles.modeloInlineSave}
+                            onClick={() => void saveModalModelo()}
+                            disabled={savingModalModelo || !editingModalModelo.pergunta.trim()}
+                          >{savingModalModelo ? "…" : "Salvar"}</button>
+                          <button
+                            type="button"
+                            className={styles.modeloInlineCancel}
+                            onClick={() => setEditingModalModelo(null)}
+                          >Cancelar</button>
+                        </div>
                       </div>
-                    ) : null}
+                    ) : (
+                      <>
+                        <div className={styles.modeloItemRow}>
+                          <button
+                            type="button"
+                            className={styles.modeloItemBtn}
+                            onClick={() => { setPergunta(m.pergunta); setModeloSelectOpen(false); }}
+                          >
+                            {(m.category || m.estrelas) ? (
+                              <span className={styles.modeloItemMeta}>
+                                {m.category ? <span className={styles.modeloItemCat}>{m.category}</span> : null}
+                                {m.estrelas ? <span className={styles.modeloItemStars}>{"★".repeat(m.estrelas)}</span> : null}
+                              </span>
+                            ) : null}
+                            <span className={styles.modeloItemText}>{m.pergunta}</span>
+                          </button>
+                          <button
+                            type="button"
+                            className={styles.modeloItemEditBtn}
+                            title="Editar"
+                            onClick={(e) => { e.stopPropagation(); setEditingModalModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null }); }}
+                          >✏</button>
+                          {m.anotacoes ? (
+                            <button
+                              type="button"
+                              className={styles.modeloItemInfoBtn}
+                              title={openNoteId === m.id ? "Fechar orientação" : "Ver orientação"}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setOpenNoteId(openNoteId === m.id ? null : m.id);
+                              }}
+                            >
+                              <span className={styles.modeloItemInfoBadge}>i</span>
+                            </button>
+                          ) : null}
+                        </div>
+                        {openNoteId === m.id && m.anotacoes ? (
+                          <div className={styles.modeloItemNoteExpanded}>
+                            {m.anotacoes}
+                          </div>
+                        ) : null}
+                      </>
+                    )}
                   </li>
                 ))}
               </ul>

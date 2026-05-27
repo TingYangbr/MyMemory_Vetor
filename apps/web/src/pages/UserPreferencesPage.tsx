@@ -104,7 +104,7 @@ export default function UserPreferencesPage() {
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
   const [modelosLoading, setModelosLoading] = useState(false);
   const [modelosErr, setModelosErr] = useState<string | null>(null);
-  const [editingModelo, setEditingModelo] = useState<{ id: number; pergunta: string; anotacoes: string } | null>(null);
+  const [editingModelo, setEditingModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,7 +174,7 @@ export default function UserPreferencesPage() {
     if (!editingModelo) return;
     const updated = await apiPutJson<{ modelo: PerguntaModelo }>(
       `/api/pergunta-modelos/${editingModelo.id}`,
-      { pergunta: editingModelo.pergunta, anotacoes: editingModelo.anotacoes.trim() || null }
+      { pergunta: editingModelo.pergunta, anotacoes: editingModelo.anotacoes.trim() || null, estrelas: editingModelo.estrelas }
     );
     setModelos((m) => m.map((x) => (x.id === updated.modelo.id ? updated.modelo : x)));
     setEditingModelo(null);
@@ -467,6 +467,7 @@ export default function UserPreferencesPage() {
                     <div className={styles.modelosItemTop}>
                       {m.category ? <span className={styles.modelosCat}>{m.category}</span> : null}
                       {m.groupId ? <span className={styles.modelosGroup}>Grupo</span> : <span className={styles.modelosPessoal}>Pessoal</span>}
+                      {m.estrelas && !editingModelo ? <span className={styles.modelosStars}>{"★".repeat(m.estrelas)}</span> : null}
                     </div>
                     {editingModelo?.id === m.id ? (
                       <div className={styles.modelosEdit}>
@@ -484,6 +485,18 @@ export default function UserPreferencesPage() {
                           onChange={(e) => setEditingModelo({ ...editingModelo, anotacoes: e.target.value })}
                           style={{ marginTop: "0.35rem", fontStyle: "italic", fontSize: "0.82rem" }}
                         />
+                        <div className={styles.modelosStarRow}>
+                          <span className={styles.modelosStarLabel}>Classificação:</span>
+                          {[1, 2, 3, 4, 5].map((n) => (
+                            <button
+                              key={n}
+                              type="button"
+                              className={`${styles.modelosStarBtn}${editingModelo.estrelas !== null && n <= editingModelo.estrelas ? ` ${styles.modelosStarBtnOn}` : ""}`}
+                              onClick={() => setEditingModelo({ ...editingModelo, estrelas: editingModelo.estrelas === n ? null : n })}
+                              title={`${n} estrela${n > 1 ? "s" : ""}`}
+                            >★</button>
+                          ))}
+                        </div>
                         <div className={styles.modelosEditActions}>
                           <button type="button" className={styles.modelosSaveBtn} onClick={() => void saveEditModelo()}>Salvar</button>
                           <button type="button" className={styles.modelosCancelBtn} onClick={() => setEditingModelo(null)}>Cancelar</button>
@@ -501,7 +514,7 @@ export default function UserPreferencesPage() {
                       <>
                         <p
                           className={styles.modelosText}
-                          onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "" })}
+                          onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null })}
                           title="Clique para editar"
                         >
                           {m.pergunta}
@@ -510,7 +523,7 @@ export default function UserPreferencesPage() {
                           <p
                             className={styles.modelosText}
                             style={{ fontSize: "0.78rem", color: "var(--mm-text-muted, #94a3b8)", fontStyle: "italic", marginTop: "0.15rem", cursor: "pointer" }}
-                            onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "" })}
+                            onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null })}
                             title="Clique para editar"
                           >{m.anotacoes}</p>
                         ) : null}

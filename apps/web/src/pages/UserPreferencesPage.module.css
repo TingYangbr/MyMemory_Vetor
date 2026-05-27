@@ -393,3 +393,32 @@
   line-height: 1;
 }
 .modelosDeleteEditBtn:hover { color: #ef4444; background: #fee2e2; }
+
+.modelosStars {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
+}
+.modelosStarRow {
+  display: flex;
+  align-items: center;
+  gap: 0.1rem;
+}
+.modelosStarLabel {
+  font-size: 0.76rem;
+  color: var(--mm-text-muted, #94a3b8);
+  margin-right: 0.3rem;
+}
+.modelosStarBtn {
+  background: none;
+  border: none;
+  font-size: 1.1rem;
+  color: #d1d5db;
+  cursor: pointer;
+  padding: 0 0.04rem;
+  line-height: 1;
+  transition: color 0.1s, transform 0.1s;
+}
+.modelosStarBtn:hover { color: #f59e0b; transform: scale(1.15); }
+.modelosStarBtnOn { color: #f59e0b; }

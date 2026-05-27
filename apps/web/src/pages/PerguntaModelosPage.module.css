@@ -90,19 +90,7 @@
   margin: 0.25rem 0;
 }
 
-.group {
-  margin-bottom: 1.5rem;
-}
-
-.groupTitle {
-  font-size: 0.72rem;
-  font-weight: 700;
-  color: var(--mm-primary, #6366f1);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0 0 0.5rem;
-}
-
+/* ── Flat list (LILO) ── */
 .list {
   list-style: none;
   margin: 0;
@@ -113,57 +101,72 @@
 }
 
 .item {
+  position: relative;
   background: var(--mm-card, #fff);
   border: 1px solid var(--mm-border, #e2e8f0);
   border-radius: 8px;
-  padding: 0.65rem 0.9rem;
+  padding: 0.65rem 2.5rem 0.65rem 0.9rem;
+}
+
+.itemTop {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+.itemCat {
+  font-size: 0.67rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--mm-primary, #6366f1);
+  background: var(--mm-primary-light, #ede9fe);
+  padding: 0.08rem 0.4rem;
+  border-radius: 3px;
+}
+
+.itemStars {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  letter-spacing: 0.03em;
+  opacity: 0.9;
 }
 
 /* ── View mode ── */
-.viewBlock {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-}
-.viewMain {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 0.2rem;
-}
-
 .perguntaText {
   font-size: 0.875rem;
   color: var(--mm-text, #1e293b);
   line-height: 1.5;
+  margin: 0;
+  cursor: pointer;
 }
+.perguntaText:hover { color: var(--mm-primary, #6366f1); }
 
 .anotacoesText {
   font-size: 0.78rem;
   color: var(--mm-text-muted, #94a3b8);
   font-style: italic;
   line-height: 1.4;
+  margin: 0.15rem 0 0;
+  cursor: pointer;
 }
+.anotacoesText:hover { color: var(--mm-primary, #6366f1); }
 
-.itemActions {
-  flex-shrink: 0;
-  display: flex;
-  gap: 0.2rem;
-  align-self: flex-start;
+.deleteFloatBtn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.55rem;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  line-height: 1;
 }
-
-.actionBtn {
-  padding: 0.2rem 0.45rem !important;
-  font-size: 0.82rem !important;
-}
-
-.deleteBtn {
-  color: #dc2626 !important;
-}
-.deleteBtn:hover {
-  background: #fef2f2 !important;
-}
+.deleteFloatBtn:hover { color: #ef4444; background: #fee2e2; }
 
 /* ── Edit mode ── */
 .editBlock {
@@ -177,12 +180,6 @@
   box-sizing: border-box;
   resize: vertical;
   font-family: inherit;
-}
-
-.editActions {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.1rem;
 }
 
 .editStarRow {
@@ -210,9 +207,16 @@
 .starBtn:hover { color: #f59e0b; transform: scale(1.15); }
 .starBtnOn { color: #f59e0b; }
 
-.viewStars {
-  font-size: 0.78rem;
-  color: #f59e0b;
-  letter-spacing: 0.05em;
+.editActions {
+  display: flex;
+  gap: 0.5rem;
   margin-top: 0.1rem;
+  align-items: center;
+}
+
+.deleteBtn {
+  color: #dc2626 !important;
+}
+.deleteBtn:hover {
+  background: #fef2f2 !important;
 }
