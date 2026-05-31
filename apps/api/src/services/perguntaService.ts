@@ -13,10 +13,10 @@ import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function buildCategoriasPayload(categories: MemoContextCategory[]): string[] {
+function buildCategoriasPayload(categories: MemoContextCategory[]): { nome: string; descricao: string | null }[] {
   return categories
     .filter((c) => c.isActive === 1)
-    .map((c) => c.name);
+    .map((c) => ({ nome: c.name, descricao: c.description ?? null }));
 }
 
 function normCat(s: string): string {
