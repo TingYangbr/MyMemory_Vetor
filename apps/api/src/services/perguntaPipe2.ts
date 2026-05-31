@@ -390,17 +390,30 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
  * Retorna os valores já envolvidos em %...% para ILIKE.
  */
 function parseDateVariants(isoDate: string): string[] {
-  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
-  if (!match) return [`%${isoDate}%`];
-  const [, yyyy, mm, dd] = match;
   const MESES = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
-  const mes = MESES[parseInt(mm, 10) - 1] ?? mm;
-  const d = parseInt(dd, 10);
-  return [
-    `%${dd}/${mm}/${yyyy}%`,
-    `%${isoDate}%`,
-    `%${d} de ${mes} de ${yyyy}%`,
-  ];
+  const matchFull = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate);
+  if (matchFull) {
+    const [, yyyy, mm, dd] = matchFull;
+    const mes = MESES[parseInt(mm, 10) - 1] ?? mm;
+    const d = parseInt(dd, 10);
+    return [
+      `%${dd}/${mm}/${yyyy}%`,
+      `%${isoDate}%`,
+      `%${d} de ${mes} de ${yyyy}%`,
+    ];
+  }
+  const matchMonth = /^(\d{4})-(\d{2})$/.exec(isoDate);
+  if (matchMonth) {
+    const [, yyyy, mm] = matchMonth;
+    const mes = MESES[parseInt(mm, 10) - 1] ?? mm;
+    return [
+      `%/${mm}/${yyyy}%`,
+      `%${yyyy}-${mm}%`,
+      `%${yyyy}/${mm}%`,
+      `% de ${mes} de ${yyyy}%`,
+    ];
+  }
+  return [`%${isoDate}%`];
 }
 
 /**
@@ -506,7 +519,8 @@ function bindTemplateParams(
     let val = Object.prototype.hasOwnProperty.call(paramMap, key) ? paramMap[key] : null;
     if (val === "") val = null; // LLMs às vezes retornam "" para "sem valor" — trata como null
     const def = defByName.get(key);
-    const cast = SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text";
+    const isLikeParam = /LIKE/i.test(def?.operadorSql ?? "");
+    const cast = isLikeParam ? "text" : (SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text");
 
     if (token.inContext) {
       // Token está dentro de "IN (...)" ou "NOT IN (...)" — expande lista para múltiplos placeholders

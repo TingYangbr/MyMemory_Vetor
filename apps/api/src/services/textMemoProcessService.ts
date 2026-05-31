@@ -194,6 +194,7 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
     "- Se não houver padrão semelhante para o campo, mantenha o texto original extraído.",
     "- Se um campo não for identificado no texto, retorne o campo com string vazia.",
     "- Não inventar campos fora da lista.",
+    "- Campos de data devem ser gravados SEMPRE no formato ISO: AAAA-MM-DD (ex: 2026-06-30). Nunca use DD/MM/AAAA, MM/DD/AAAA ou qualquer outro formato.",
     "",
     "SAIDA ESPERADA (EM UMA UNICA RESPOSTA JSON): categoria + subcategorias + palavras_chave + dados_especificos.campos.",
     "",
