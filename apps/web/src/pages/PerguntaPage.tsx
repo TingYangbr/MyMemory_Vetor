@@ -1110,12 +1110,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 </button>
               ) : null}
             </div>
-            {!busy ? (
+            {!busy && pergunta.trim() ? (
               <button
                 type="button"
                 className={styles.perguntarBtn}
                 onClick={() => void enviar()}
-                disabled={!pergunta.trim()}
               >
                 Perguntar →
               </button>
