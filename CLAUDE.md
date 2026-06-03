@@ -94,6 +94,12 @@ Exports key types used by both API and Web: `UserIaUseLevel`, `MemoMediaTypeDb`,
 
 **Schema changes**: Create a migration, fill `up()`/`down()`, run locally, commit — it auto-applies on next API start/deploy.
 
+**Category access rules**:
+- **Who can USE categories**: any authenticated group member can read and assign categories from (a) categories with no group (`groupId IS NULL`, global) and (b) categories belonging to a group they are a member of.
+- **Who can EDIT categories**: only the group owner or a system admin. Regular members have read-only access.
+- **Owner scope**: a group owner can only create/edit/delete categories that belong to their own group. They cannot modify global categories or another group's categories (that requires admin).
+- **Implementation**: `GET /api/memo-context/structure` is open to any authenticated user; write routes (`POST/PATCH/DELETE`) require `userHasMemoContextAccess` (admin or owner). `loadCategoryContext` always loads globals + the specific group's categories so the LLM sees the full available list.
+
 ## Naming & Language Conventions
 
 - Variable/field names are in **Portuguese** (`dadosEspecificosJson`, `iaUseTexto`, `mediaMetadata`).
