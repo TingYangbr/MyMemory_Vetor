@@ -31,13 +31,20 @@ export async function loadCategoryContext(
     await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
   }
   let [catRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name FROM categories
-     WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1
-       AND (mediaType IS NULL OR mediaType = 'text')
-     ORDER BY id ASC`,
-    [groupId]
+    groupId != null
+      ? `SELECT id, name FROM categories
+         WHERE groupId = ? AND isActive = 1
+           AND (mediaType IS NULL OR mediaType = 'text')
+         ORDER BY id ASC`
+      /* Sem grupo ativo: retorna globais + categorias de todos os grupos do usuário. */
+      : `SELECT id, name FROM categories
+         WHERE (groupId IS NULL OR groupId IN (SELECT groupId FROM group_members WHERE userId = ?))
+           AND isActive = 1
+           AND (mediaType IS NULL OR mediaType = 'text')
+         ORDER BY id ASC`,
+    [groupId != null ? groupId : userId]
   );
-  /** Sem categorias do grupo: usar categorias globais (`groupId` NULL). */
+  /** Sem categorias do grupo específico: cair para globais. */
   if (!catRows.length && groupId != null) {
     const [globalRows] = await pool.query<RowDataPacket[]>(
       `SELECT id, name FROM categories
@@ -46,22 +53,6 @@ export async function loadCategoryContext(
        ORDER BY id ASC`
     );
     catRows = globalRows;
-  }
-  /**
-   * Usuário sem grupo ativo (groupId = null) e sem categorias globais:
-   * busca categorias do primeiro grupo do qual o usuário é membro.
-   * Cobre o caso de usuário que nunca selecionou workspace de grupo.
-   */
-  if (!catRows.length && groupId == null) {
-    const [memberGroupRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, name FROM categories
-       WHERE groupId IN (SELECT groupId FROM group_members WHERE userId = ?)
-         AND isActive = 1
-         AND (mediaType IS NULL OR mediaType = 'text')
-       ORDER BY id ASC`,
-      [userId]
-    );
-    catRows = memberGroupRows;
   }
   if (!catRows.length) return [];
   const ids = catRows.map((r) => r.id as number);
