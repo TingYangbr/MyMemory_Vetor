@@ -92,12 +92,26 @@ const plugin: FastifyPluginAsync = async (app) => {
     const parsed = updateSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
 
-    // Só o criador pode editar
     const [existing] = await pool.query<RowDataPacket[]>(
-      `SELECT id FROM pergunta_modelos WHERE id = ? AND userid = ?`,
-      [id, userId]
+      `SELECT id, userid, groupid FROM pergunta_modelos WHERE id = ?`,
+      [id]
     );
     if (!(existing as unknown[]).length) return reply.code(404).send({ error: "not_found" });
+
+    const row = (existing as Record<string, unknown>[])[0] as { id: number; userId: number; groupId: number | null };
+    if (row.userId !== userId) {
+      if (row.groupId != null) {
+        // Membros do grupo podem editar perguntas salvas do grupo
+        const isAdmin = await getUserIsAdmin(userId);
+        try {
+          await assertUserWorkspaceGroupAccess(userId, row.groupId, isAdmin);
+        } catch {
+          return reply.code(403).send({ error: "forbidden" });
+        }
+      } else {
+        return reply.code(403).send({ error: "forbidden" });
+      }
+    }
 
     const { pergunta, category, anotacoes, estrelas } = parsed.data;
     const sets: string[] = ["updatedat = NOW()"];
@@ -106,10 +120,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (category !== undefined) { sets.push("category = ?"); vals.push(category); }
     if (anotacoes !== undefined) { sets.push("anotacoes = ?"); vals.push(anotacoes); }
     if (estrelas !== undefined) { sets.push("estrelas = ?"); vals.push(estrelas); }
-    vals.push(id, userId);
+    vals.push(id);
 
     const [rows] = await pool.query<RowDataPacket[]>(
-      `UPDATE pergunta_modelos SET ${sets.join(", ")} WHERE id = ? AND userid = ?
+      `UPDATE pergunta_modelos SET ${sets.join(", ")} WHERE id = ?
        RETURNING id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat`,
       vals
     );
@@ -124,10 +138,27 @@ const plugin: FastifyPluginAsync = async (app) => {
     const id = parseInt((req.params as { id: string }).id, 10);
     if (isNaN(id)) return reply.code(400).send({ error: "invalid_id" });
 
-    await pool.query(
-      `DELETE FROM pergunta_modelos WHERE id = ? AND userid = ?`,
-      [id, userId]
+    const [existing] = await pool.query<RowDataPacket[]>(
+      `SELECT userid, groupid FROM pergunta_modelos WHERE id = ?`,
+      [id]
     );
+    if (!(existing as unknown[]).length) return reply.send({ ok: true }); // já deletado
+
+    const row = (existing as Record<string, unknown>[])[0] as { userId: number; groupId: number | null };
+    if (row.userId !== userId) {
+      if (row.groupId != null) {
+        const isAdmin = await getUserIsAdmin(userId);
+        try {
+          await assertUserWorkspaceGroupAccess(userId, row.groupId, isAdmin);
+        } catch {
+          return reply.code(403).send({ error: "forbidden" });
+        }
+      } else {
+        return reply.code(403).send({ error: "forbidden" });
+      }
+    }
+
+    await pool.query(`DELETE FROM pergunta_modelos WHERE id = ?`, [id]);
     return reply.send({ ok: true });
   });
 };
