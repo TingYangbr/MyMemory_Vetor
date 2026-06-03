@@ -257,7 +257,28 @@
 .perguntarBtn:hover:not(:disabled) { background: #0f766e; }
 .perguntarBtn:disabled { opacity: 0.4; cursor: default; }
 
-/* ── Mic — quadrado, alinhado com a linha do textarea ── */
+/* ── Mic ── */
+.micWrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.micCancelBtn {
+  background: none;
+  border: none;
+  font-size: 0.65rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.1s, background 0.1s;
+}
+.micCancelBtn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+
 .micBtn {
   display: inline-flex;
   align-items: center;

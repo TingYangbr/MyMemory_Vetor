@@ -1063,23 +1063,33 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               rows={3}
               disabled={busy}
             />
-            <button
-              type="button"
-              className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
-              onClick={() => {
-                if (micState === "listening") { stopListening(); return; }
-                setPergunta("");
-                void startListening();
-              }}
-              title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
-              disabled={busy}
-            >
-              {micState === "listening" ? "⏸" : "🎤"}
-            </button>
+            <div className={styles.micWrap}>
+              <button
+                type="button"
+                className={`${styles.micBtn} ${micState === "listening" ? styles.micBtnActive : ""}`}
+                onClick={() => {
+                  if (micState === "listening") { stopListening(); return; }
+                  setPergunta("");
+                  void startListening();
+                }}
+                title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
+                disabled={busy}
+              >
+                {micState === "listening" ? "⏸" : "🎤"}
+              </button>
+              {micState !== "idle" ? (
+                <button
+                  type="button"
+                  className={styles.micCancelBtn}
+                  onClick={cancelar}
+                  title="Cancelar"
+                >✕</button>
+              ) : null}
+            </div>
           </div>
           <div className={styles.inputActions}>
             <div className={styles.inputActionsLeft}>
-              {(micState !== "idle" || busy) ? (
+              {busy ? (
                 <button
                   type="button"
                   className={styles.cancelarBtn}
@@ -1099,7 +1109,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ↺ Nova sessão
                 </button>
               ) : null}
-              {!busy ? (
+              {!busy && micState === "idle" ? (
                 <button
                   type="button"
                   className={styles.carregarModeloBtn}
