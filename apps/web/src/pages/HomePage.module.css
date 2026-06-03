@@ -263,6 +263,9 @@
   transition: color 0.15s;
   white-space: nowrap;
   letter-spacing: -0.01em;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
 }
 
 .tab:hover {
@@ -284,6 +287,17 @@
 }
 
 .tabIcon:hover {
+  color: var(--mm-accent, #0d9488);
+}
+
+.tabIconCatalogar {
+  color: var(--mm-accent, #0d9488);
+  opacity: 0.75;
+}
+
+.tabIconCatalogar:hover,
+.tabIconCatalogar.tabActive {
+  opacity: 1;
   color: var(--mm-accent, #0d9488);
 }
 

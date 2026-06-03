@@ -16,7 +16,7 @@ import { dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
-import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
+import { assertUserCanAccessGroup, assertUserWorkspaceGroupAccess } from "./memoContextService.js";
 import { getMaxUploadBytesForUser } from "./mediaLimitsService.js";
 import { uploadsAbsolutePath } from "../paths.js";
 import { upsertMemoChunks } from "../lib/openaiEmbedding.js";
@@ -1278,10 +1278,29 @@ export async function softDeleteMemoForUser(
   userId: number,
   isAdmin: boolean
 ): Promise<void> {
-  await assertMemoAuthorCanModify(memoId, userId, isAdmin);
+  const [rows] = await pool.query<MemoRow[]>(
+    `SELECT id, userId, groupId FROM memos WHERE id = ? AND isActive = 1`,
+    [memoId]
+  );
+  const m = rows[0];
+  if (!m) throw new Error("not_found");
+
+  if (m.userId !== userId && !isAdmin) {
+    // Owner do grupo pode deletar memos do grupo
+    if (m.groupId != null) {
+      try {
+        await assertUserCanAccessGroup(userId, m.groupId, false);
+      } catch {
+        throw new Error("forbidden");
+      }
+    } else {
+      throw new Error("forbidden");
+    }
+  }
+
   const [res] = await pool.execute<ResultSetHeader>(
-    `UPDATE memos SET isActive = 0 WHERE id = ? AND userId = ? AND isActive = 1`,
-    [memoId, userId]
+    `UPDATE memos SET isActive = 0 WHERE id = ? AND isActive = 1`,
+    [memoId]
   );
   if (res.affectedRows === 0) {
     throw new Error("not_found");
