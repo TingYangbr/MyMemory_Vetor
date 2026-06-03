@@ -47,6 +47,22 @@ export async function loadCategoryContext(
     );
     catRows = globalRows;
   }
+  /**
+   * Usuário sem grupo ativo (groupId = null) e sem categorias globais:
+   * busca categorias do primeiro grupo do qual o usuário é membro.
+   * Cobre o caso de usuário que nunca selecionou workspace de grupo.
+   */
+  if (!catRows.length && groupId == null) {
+    const [memberGroupRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, name FROM categories
+       WHERE groupId IN (SELECT groupId FROM group_members WHERE userId = ?)
+         AND isActive = 1
+         AND (mediaType IS NULL OR mediaType = 'text')
+       ORDER BY id ASC`,
+      [userId]
+    );
+    catRows = memberGroupRows;
+  }
   if (!catRows.length) return [];
   const ids = catRows.map((r) => r.id as number);
   const ph = ids.map(() => "?").join(",");
