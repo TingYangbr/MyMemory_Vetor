@@ -16,19 +16,22 @@ export function useCategoryOptions(groupId: number | null): CategoryOption[] {
   const [options, setOptions] = useState<CategoryOption[]>([]);
 
   useEffect(() => {
-    const qs = groupId != null ? `?groupId=${groupId}` : "";
-    void apiGetOptional<{ categories: CatRow[] }>(`/api/memo-context/structure${qs}`).then((r) => {
-      if (!r.ok) return;
-      const cats = extractActive(r.data);
-      // Mirror the processor fallback: if the group has no categories, use globals (groupId=null).
-      if (cats.length === 0 && groupId != null) {
-        void apiGetOptional<{ categories: CatRow[] }>("/api/memo-context/structure").then((r2) => {
-          if (r2.ok) setOptions(extractActive(r2.data));
-        });
-      } else {
-        setOptions(cats);
-      }
-    });
+    if (groupId != null) {
+      // Carrega grupo + globais em paralelo e mescla (sem duplicatas por id)
+      void Promise.all([
+        apiGetOptional<{ categories: CatRow[] }>(`/api/memo-context/structure?groupId=${groupId}`),
+        apiGetOptional<{ categories: CatRow[] }>("/api/memo-context/structure"),
+      ]).then(([groupResult, globalResult]) => {
+        const groupCats = groupResult.ok ? extractActive(groupResult.data) : [];
+        const globalCats = globalResult.ok ? extractActive(globalResult.data) : [];
+        const seen = new Set(groupCats.map((c) => c.id));
+        setOptions([...groupCats, ...globalCats.filter((c) => !seen.has(c.id))]);
+      });
+    } else {
+      void apiGetOptional<{ categories: CatRow[] }>("/api/memo-context/structure").then((r) => {
+        if (r.ok) setOptions(extractActive(r.data));
+      });
+    }
   }, [groupId]);
 
   return options;

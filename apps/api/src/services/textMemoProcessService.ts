@@ -30,13 +30,14 @@ export async function loadCategoryContext(
   if (groupId != null) {
     await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
   }
-  let [catRows] = await pool.query<RowDataPacket[]>(
+  /* Sempre carrega globais (groupId IS NULL) + categorias do grupo do usuário. */
+  const [catRows] = await pool.query<RowDataPacket[]>(
     groupId != null
       ? `SELECT id, name FROM categories
-         WHERE groupId = ? AND isActive = 1
+         WHERE (groupId IS NULL OR groupId = ?)
+           AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
          ORDER BY id ASC`
-      /* Sem grupo ativo: retorna globais + categorias de todos os grupos do usuário. */
       : `SELECT id, name FROM categories
          WHERE (groupId IS NULL OR groupId IN (SELECT groupId FROM group_members WHERE userId = ?))
            AND isActive = 1
@@ -44,16 +45,6 @@ export async function loadCategoryContext(
          ORDER BY id ASC`,
     [groupId != null ? groupId : userId]
   );
-  /** Sem categorias do grupo específico: cair para globais. */
-  if (!catRows.length && groupId != null) {
-    const [globalRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, name FROM categories
-       WHERE groupId IS NULL AND isActive = 1
-         AND (mediaType IS NULL OR mediaType = 'text')
-       ORDER BY id ASC`
-    );
-    catRows = globalRows;
-  }
   if (!catRows.length) return [];
   const ids = catRows.map((r) => r.id as number);
   const ph = ids.map(() => "?").join(",");

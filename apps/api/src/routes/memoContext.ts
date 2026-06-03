@@ -59,7 +59,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (userId === null) {
       return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
     }
-    if (!(await userHasMemoContextAccess(userId))) {
+    // Leitura (GET): qualquer usuário autenticado pode acessar — os handlers internos
+    // validam acesso por grupo via assertMemoContextReadScope / assertUserWorkspaceGroupAccess.
+    // Escrita (POST/PATCH/DELETE): exige ser admin, owner de grupo ou dono de assinatura.
+    if (req.method !== "GET" && !(await userHasMemoContextAccess(userId))) {
       return reply.code(403).send({ error: "memo_context_forbidden" });
     }
     (req as ReqWithUser).mymUid = userId;
