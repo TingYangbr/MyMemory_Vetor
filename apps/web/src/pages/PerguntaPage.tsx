@@ -1077,12 +1077,13 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               >
                 {micState === "listening" ? "⏸" : "🎤"}
               </button>
-              {micState !== "idle" ? (
+              {(micState !== "idle" || pergunta.trim()) ? (
                 <button
                   type="button"
                   className={styles.micCancelBtn}
-                  onClick={cancelar}
-                  title="Cancelar"
+                  onClick={() => { setPergunta(""); if (micState !== "idle") cancelar(); }}
+                  title="Limpar texto"
+                  disabled={busy}
                 >✕</button>
               ) : null}
             </div>

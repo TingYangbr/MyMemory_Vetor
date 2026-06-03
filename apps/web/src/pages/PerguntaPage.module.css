@@ -268,16 +268,19 @@
 
 .micCancelBtn {
   background: none;
-  border: none;
-  font-size: 0.65rem;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  font-size: 0.78rem;
+  font-weight: 600;
   color: var(--mm-text-muted, #94a3b8);
   cursor: pointer;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
-  line-height: 1;
-  transition: color 0.1s, background 0.1s;
+  padding: 0.15rem 0.55rem;
+  border-radius: 4px;
+  line-height: 1.4;
+  width: 44px;
+  transition: color 0.1s, background 0.1s, border-color 0.1s;
 }
-.micCancelBtn:hover { color: #ef4444; background: rgba(239,68,68,0.08); }
+.micCancelBtn:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,0.06); }
+.micCancelBtn:disabled { opacity: 0.4; cursor: default; }
 
 .micBtn {
   display: inline-flex;
