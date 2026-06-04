@@ -1522,7 +1522,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   style={{ fontSize: "0.75rem", padding: "0.1rem 0.4rem", opacity: 0.7 }}
                   title="Editar perguntas salvas"
                   onClick={() => { setModeloSelectOpen(false); navigate("/perguntas-salvas"); }}
-                >✏ Editar</button>
+                ><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden style={{display:"inline",verticalAlign:"middle",marginRight:"3px"}}><path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v10"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4 5.4-5.4z"/></svg>Editar</button>
                 <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
               </div>
             </div>
@@ -1615,7 +1615,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                             className={styles.modeloItemEditBtn}
                             title="Editar"
                             onClick={(e) => { e.stopPropagation(); setEditingModalModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null }); }}
-                          >✏</button>
+                          ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v10"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4 5.4-5.4z"/></svg></button>
                           {m.anotacoes ? (
                             <button
                               type="button"

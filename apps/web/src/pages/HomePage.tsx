@@ -29,28 +29,31 @@ function getInitialTab(params: URLSearchParams): HomeTab {
 
 function IconPerguntar() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="9" cy="7" r="4"/>
+      <path d="M3 21v-1a7 7 0 0 1 10.5-6.1"/>
+      <path d="M17.5 13a2.5 2.5 0 0 1 2.5 2.5c0 1.1-.7 2.04-1.7 2.4L18 19"/>
+      <circle cx="18" cy="21" r=".75" fill="currentColor" stroke="none"/>
     </svg>
   );
 }
 
 function IconBuscar() {
   return (
-    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <line x1="12" y1="3" x2="12" y2="15" />
-      <polyline points="8 11 12 15 16 11" />
-      <line x1="4" y1="20" x2="20" y2="20" />
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <circle cx="10.5" cy="14.5" r="2.5"/>
+      <line x1="12.5" y1="16.5" x2="15" y2="19"/>
     </svg>
   );
 }
 
 function IconCatalogar() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
-      <line x1="12" y1="11" x2="12" y2="17"/>
-      <polyline points="9 14 12 17 15 14"/>
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+      <rect x="2" y="2" width="20" height="20" rx="4" fill="currentColor"/>
+      <path d="M12 16.5V7.5M8.5 11l3.5-3.5 3.5 3.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
   );
 }
