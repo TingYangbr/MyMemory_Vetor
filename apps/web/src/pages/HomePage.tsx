@@ -411,11 +411,11 @@ export default function HomePage() {
               className={`${styles.tab} ${styles.tabIcon} ${styles.tabIconCatalogar} ${tab === "registrar" ? styles.tabActive : ""}`}
               onClick={() => handleTabChange("registrar")}
               aria-selected={tab === "registrar"}
-              aria-label="Catalogar memo"
               role="tab"
               title="Catalogar novo memo"
             >
               <IconCatalogar />
+              Catalogar
             </button>
           </div>
 
