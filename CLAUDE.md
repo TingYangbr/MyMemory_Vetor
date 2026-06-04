@@ -100,6 +100,43 @@ Exports key types used by both API and Web: `UserIaUseLevel`, `MemoMediaTypeDb`,
 - **Owner scope**: a group owner can only create/edit/delete categories that belong to their own group. They cannot modify global categories or another group's categories (that requires admin).
 - **Implementation**: `GET /api/memo-context/structure` is open to any authenticated user; write routes (`POST/PATCH/DELETE`) require `userHasMemoContextAccess` (admin or owner). `loadCategoryContext` always loads globals + the specific group's categories so the LLM sees the full available list.
 
+## Deploy & Atualização de Produção
+
+O deploy é **totalmente automático** via GitHub Actions — nenhuma ação manual no servidor é necessária.
+
+### Fluxo padrão
+
+```
+1. Desenvolver e commitar no branch master (local)
+2. git push origin master
+3. Merge master → production:
+     git checkout production
+     git merge master
+     git push origin production
+4. GitHub Actions dispara automaticamente (.github/workflows/deploy.yml):
+     - Builda imagens Docker (API + Web)
+     - Push para registry.mymemory.com.br
+     - SSH no servidor: docker compose pull + docker compose up -d
+```
+
+### Acompanhar o deploy
+
+GitHub → repositório → aba **Actions** → workflow "Build & Deploy".
+
+### Estrutura de branches
+
+| Branch | Propósito |
+|---|---|
+| `master` | desenvolvimento local, staging |
+| `production` | dispara deploy automático no servidor |
+
+### Infraestrutura
+
+- Servidor acessado via SSH (credenciais em GitHub Secrets: `SSH_HOST`, `SSH_USER`, `SSH_PRIVATE_KEY`)
+- Registry privado Docker: `registry.mymemory.com.br`
+- Containers gerenciados por `docker-compose.prod.yml`
+- Migrations SQL aplicadas automaticamente na inicialização da API
+
 ## Naming & Language Conventions
 
 - Variable/field names are in **Portuguese** (`dadosEspecificosJson`, `iaUseTexto`, `mediaMetadata`).
