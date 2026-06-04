@@ -57,14 +57,6 @@ export async function upsertPromptConfig(
  * Lança erro se nenhum texto estiver configurado.
  */
 export async function getActiveSystemPrompt(chave: string, categoryId?: number | null): Promise<string> {
-  if (categoryId) {
-    const [catRows] = await pool.query<RowDataPacket[]>(
-      `SELECT texto FROM llm_prompt_category_overrides WHERE prompt_chave = $1 AND category_id = $2 LIMIT 1`,
-      [chave, categoryId]
-    );
-    const catText = catRows[0]?.texto != null ? String(catRows[0].texto).trim() : null;
-    if (catText) return catText;
-  }
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT texto_padrao, texto_atual FROM llm_prompt_configs WHERE chave = $1 LIMIT 1`,
     [chave]
@@ -72,13 +64,25 @@ export async function getActiveSystemPrompt(chave: string, categoryId?: number |
   const row = rows[0];
   const atual = row?.texto_atual != null ? String(row.texto_atual).trim() : null;
   const padrao = row?.texto_padrao != null ? String(row.texto_padrao).trim() : null;
-  const effective = (atual || null) ?? (padrao || null);
-  if (!effective) {
+  const basePrompt = (atual || null) ?? (padrao || null);
+  if (!basePrompt) {
     throw new Error(
       "Uso de IA requer configuração mínima, não foi encontrada nenhuma preparação, contactar administrador"
     );
   }
-  return effective;
+
+  if (categoryId) {
+    const [catRows] = await pool.query<RowDataPacket[]>(
+      `SELECT texto FROM llm_prompt_category_overrides WHERE prompt_chave = $1 AND category_id = $2 LIMIT 1`,
+      [chave, categoryId]
+    );
+    const catText = catRows[0]?.texto != null ? String(catRows[0].texto).trim() : null;
+    if (catText) {
+      return catText.includes("{{base_prompt}}") ? catText.replace(/\{\{base_prompt\}\}/g, basePrompt) : catText;
+    }
+  }
+
+  return basePrompt;
 }
 
 // ── Category overrides ────────────────────────────────────────────────────────
