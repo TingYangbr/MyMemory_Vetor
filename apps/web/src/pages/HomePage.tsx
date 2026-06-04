@@ -29,7 +29,7 @@ function getInitialTab(params: URLSearchParams): HomeTab {
 
 function IconPerguntar() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <circle cx="9" cy="7" r="4"/>
       <path d="M3 21v-1a7 7 0 0 1 10.5-6.1"/>
       <path d="M17.5 13a2.5 2.5 0 0 1 2.5 2.5c0 1.1-.7 2.04-1.7 2.4L18 19"/>
@@ -40,7 +40,7 @@ function IconPerguntar() {
 
 function IconBuscar() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
       <polyline points="14 2 14 8 20 8"/>
       <circle cx="10.5" cy="14.5" r="2.5"/>
@@ -51,7 +51,7 @@ function IconBuscar() {
 
 function IconCatalogar() {
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
+    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
       <rect x="2" y="2" width="20" height="20" rx="4" fill="currentColor"/>
       <path d="M12 16.5V7.5M8.5 11l3.5-3.5 3.5 3.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
     </svg>
