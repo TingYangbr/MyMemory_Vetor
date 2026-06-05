@@ -880,7 +880,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
   function isSemResposta(r: PerguntaResponse & { perguntaTexto: string }): boolean {
     const noMemos = r.resposta.dados_usados.length === 0;
-    const noRows = (r.resposta.dados_estruturados?.totalLinhas ?? 0) === 0;
+    const de = r.resposta.dados_estruturados;
+    const noRows = Array.isArray(de)
+      ? de.every((d) => d.totalLinhas === 0)
+      : (de?.totalLinhas ?? 0) === 0;
     if (r.classificacao.pipe === "semantica") return noMemos;
     if (r.classificacao.pipe === "estruturada") return noRows;
     return noMemos && noRows; // hibrida
@@ -1344,7 +1347,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ) : null}
                   <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
                   {r.resposta.dados_estruturados ? (
-                    <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
+                    Array.isArray(r.resposta.dados_estruturados)
+                      ? r.resposta.dados_estruturados.map((d, idx) => (
+                          <TabelaEstruturada key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
+                        ))
+                      : <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />

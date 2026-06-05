@@ -1093,10 +1093,19 @@ async function gerarRespostaEstruturada(input: {
     confianca_estimada: typeof parsed.confianca_estimada === "number"
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
-    dados_estruturados: {
-      ...input.agregado,
-      linhas: input.agregado.linhas.slice(0, LIMITE_LINHAS_LLM),
-    },
+    dados_estruturados: (() => {
+      const comLinhas = input.porQuery.filter((r) => r.linhas.length > 0);
+      if (comLinhas.length <= 1) {
+        const r = comLinhas[0] ?? input.porQuery[0];
+        return r ? { colunas: r.colunas, linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas } : input.agregado;
+      }
+      return comLinhas.map((r) => ({
+        nome: r.query_id,
+        colunas: r.colunas,
+        linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
+        totalLinhas: r.totalLinhas,
+      }));
+    })(),
   };
 
   return { resposta, costUsd };

@@ -1057,6 +1057,7 @@ export interface PerguntaResultadoEstruturado {
   colunas: string[];
   linhas: Record<string, unknown>[];
   totalLinhas: number;
+  nome?: string;
 }
 
 export interface PerguntaResposta {
@@ -1065,7 +1066,7 @@ export interface PerguntaResposta {
   dados_usados: PerguntaMemoUsado[];
   limitacoes: string[];
   confianca_estimada: number;
-  dados_estruturados?: PerguntaResultadoEstruturado | null;
+  dados_estruturados?: PerguntaResultadoEstruturado | PerguntaResultadoEstruturado[] | null;
 }
 
 export interface PerguntaFiltros {
