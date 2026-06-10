@@ -1378,7 +1378,7 @@ export default function MemoContextPage() {
               >
                 <option value="">— Selecione o grupo —</option>
                 {groupOptionsForClone.map((g) => (
-                  <option key={g.id} value={String(g.id)}>{g.name}</option>
+                  <option key={g.id} value={String(g.id)}>[{g.id}] {g.name}</option>
                 ))}
               </select>
             </div>
