@@ -8,6 +8,13 @@ function normEmail(raw: string): string {
   return raw.trim().toLowerCase();
 }
 
+function toIso(v: unknown): string {
+  if (v instanceof Date) return v.toISOString();
+  if (v == null) return "";
+  const d = new Date(String(v));
+  return isNaN(d.getTime()) ? String(v) : d.toISOString();
+}
+
 export interface UserInviteRow {
   id: number;
   email: string;
@@ -36,9 +43,9 @@ export async function listUserInvites(): Promise<UserInviteRow[]> {
     id: Number(r.id),
     email: String(r.email),
     status: String(r.status),
-    createdAt: String(r.createdat),
-    expiresAt: String(r.expiresat),
-    acceptedAt: r.acceptedat != null ? String(r.acceptedat) : null,
+    createdAt: toIso(r.createdat),
+    expiresAt: toIso(r.expiresat),
+    acceptedAt: r.acceptedat != null ? toIso(r.acceptedat) : null,
   }));
 }
 
