@@ -65,11 +65,16 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     let structure;
     try {
-      structure = await loadMemoContextStructure(userId, groupId, null);
-      // Fallback: se o contexto do grupo não tiver categorias, tenta as globais (groupId = null)
-      if (!structure.categories.length && groupId != null) {
-        const global = await loadMemoContextStructure(userId, null, null);
-        if (global.categories.length) structure = { ...structure, categories: global.categories };
+      if (groupId == null) {
+        // Usuário individual sem grupo: sem acesso a categorias — só busca semântica
+        structure = { categories: [], capabilities: { canEditStructure: false } };
+      } else {
+        structure = await loadMemoContextStructure(userId, groupId, null);
+        // Fallback: grupo sem categorias próprias acessa as globais
+        if (!structure.categories.length) {
+          const global = await loadMemoContextStructure(userId, null, null);
+          if (global.categories.length) structure = { ...structure, categories: global.categories };
+        }
       }
     } catch {
       structure = { categories: [], capabilities: { canEditStructure: false } };

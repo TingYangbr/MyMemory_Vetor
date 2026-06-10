@@ -52,6 +52,7 @@ import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
 import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
+import adminMemoContextCloneRoutes from "./routes/adminMemoContextClone.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -165,6 +166,7 @@ await app.register(adminPromptConfigsRoutes);
 await app.register(adminAiConfigRoutes);
 await app.register(adminDbConnectionsRoutes);
 await app.register(adminUserInvitesRoutes);
+await app.register(adminMemoContextCloneRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

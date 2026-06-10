@@ -139,6 +139,47 @@ export default function MemoContextPage() {
 
   const [expandedCategoryIds, setExpandedCategoryIds] = useState<Set<number>>(() => new Set());
 
+  // ── Clone modal ─────────────────────────────────────────────────────────────
+  const [cloneModalOpen, setCloneModalOpen] = useState(false);
+  const [cloneGlobalCats, setCloneGlobalCats] = useState<MemoContextCategory[]>([]);
+  const [cloneCatsLoading, setCloneCatsLoading] = useState(false);
+  const [cloneSelected, setCloneSelected] = useState<Set<number>>(new Set());
+  const [cloneTargetGroupId, setCloneTargetGroupId] = useState<number | null>(null);
+  const [cloneBusy, setCloneBusy] = useState(false);
+  const [cloneResult, setCloneResult] = useState<{ ok: boolean; msg: string } | null>(null);
+
+  const openCloneModal = () => {
+    setCloneSelected(new Set());
+    setCloneTargetGroupId(null);
+    setCloneResult(null);
+    setCloneCatsLoading(true);
+    setCloneModalOpen(true);
+    apiGet<{ categories: MemoContextCategory[] }>(structureQueryPath(null, null))
+      .then((r) => setCloneGlobalCats(sortStructureForDisplay(r.categories)))
+      .catch(() => setCloneGlobalCats([]))
+      .finally(() => setCloneCatsLoading(false));
+  };
+
+  const submitClone = () => {
+    if (cloneSelected.size === 0 || cloneTargetGroupId == null) return;
+    setCloneBusy(true);
+    setCloneResult(null);
+    apiPostJson<{ ok: boolean; cloned: { originalId: number; newId: number; name: string }[] }>(
+      "/api/admin/memo-context/clone-categories",
+      { categoryIds: Array.from(cloneSelected), targetGroupId: cloneTargetGroupId }
+    )
+      .then((r) => {
+        setCloneResult({ ok: true, msg: `${r.cloned.length} categoria(s) clonada(s) com sucesso.` });
+        void loadStructure();
+      })
+      .catch((e) => {
+        const raw = e instanceof Error ? e.message : String(e);
+        try { setCloneResult({ ok: false, msg: (JSON.parse(raw) as { message?: string }).message ?? raw }); }
+        catch { setCloneResult({ ok: false, msg: raw }); }
+      })
+      .finally(() => setCloneBusy(false));
+  };
+
   const sortedCategories = useMemo(() => sortStructureForDisplay(categories), [categories]);
 
   const toggleCategoryExpanded = useCallback((id: number) => {
@@ -219,6 +260,11 @@ export default function MemoContextPage() {
     for (const g of list) opts.push({ id: g.id, name: g.name });
     return opts;
   }, [editorMeta]);
+
+  const groupOptionsForClone = useMemo(
+    () => groupOptions.filter((g) => g.id !== null) as { id: number; name: string }[],
+    [groupOptions]
+  );
 
   const ownerLockedGroupAllowed = useMemo(() => {
     if (ownerGroupIdLocked == null) return true;
@@ -727,6 +773,15 @@ export default function MemoContextPage() {
           >
             + Nova categoria
           </button>
+          {editorMeta?.isAdmin ? (
+            <button
+              type="button"
+              className="mm-btn mm-btn--ghost"
+              onClick={openCloneModal}
+            >
+              Clonar categorias para grupo
+            </button>
+          ) : null}
         </div>
 
         {loadErr ? <p className="mm-error">{loadErr}</p> : null}
@@ -1291,6 +1346,108 @@ export default function MemoContextPage() {
               >
                 {modalSaveBusy ? "Salvando…" : "Salvar"}
               </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {cloneModalOpen ? (
+        <div
+          className="mm-modal-overlay"
+          role="presentation"
+          onClick={(e) => { if (e.target === e.currentTarget && !cloneBusy) { setCloneModalOpen(false); } }}
+        >
+          <div className="mm-modal" role="dialog" aria-modal="true" onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: "680px", width: "100%" }}>
+            <h3 className={styles.cardTitle}>Clonar categorias globais para grupo</h3>
+            <p className="mm-muted" style={{ marginBottom: "1rem", fontSize: "0.875rem" }}>
+              Selecione as categorias globais a clonar e o grupo destino. As queries serão copiadas sem conexão BD (configure depois no grupo destino).
+            </p>
+
+            {/* Seletor de grupo destino */}
+            <div style={{ marginBottom: "1rem" }}>
+              <label htmlFor="clone-group" style={{ display: "block", fontWeight: 600, marginBottom: "0.3rem", fontSize: "0.875rem" }}>
+                Grupo destino
+              </label>
+              <select
+                id="clone-group"
+                className="mm-field"
+                value={cloneTargetGroupId === null ? "" : String(cloneTargetGroupId)}
+                onChange={(e) => setCloneTargetGroupId(e.target.value === "" ? null : Number(e.target.value))}
+                disabled={cloneBusy}
+              >
+                <option value="">— Selecione o grupo —</option>
+                {groupOptionsForClone.map((g) => (
+                  <option key={g.id} value={String(g.id)}>{g.name}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tabela de categorias globais */}
+            {cloneCatsLoading ? (
+              <p className="mm-muted">Carregando categorias…</p>
+            ) : cloneGlobalCats.length === 0 ? (
+              <p className="mm-muted">Nenhuma categoria global encontrada.</p>
+            ) : (
+              <div style={{ overflowX: "auto", marginBottom: "1rem" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                  <thead>
+                    <tr>
+                      <th style={{ padding: "0.4rem 0.6rem", textAlign: "left", borderBottom: "2px solid var(--mm-border, #e0e0e0)" }}>
+                        <input
+                          type="checkbox"
+                          checked={cloneSelected.size === cloneGlobalCats.length && cloneGlobalCats.length > 0}
+                          onChange={(e) => setCloneSelected(e.target.checked ? new Set(cloneGlobalCats.map((c) => c.id)) : new Set())}
+                          title="Selecionar todas"
+                        />
+                      </th>
+                      <th style={{ padding: "0.4rem 0.6rem", textAlign: "left", borderBottom: "2px solid var(--mm-border, #e0e0e0)" }}>Nome</th>
+                      <th style={{ padding: "0.4rem 0.6rem", textAlign: "left", borderBottom: "2px solid var(--mm-border, #e0e0e0)" }}>Mídia</th>
+                      <th style={{ padding: "0.4rem 0.6rem", textAlign: "right", borderBottom: "2px solid var(--mm-border, #e0e0e0)" }}>Campos</th>
+                      <th style={{ padding: "0.4rem 0.6rem", textAlign: "right", borderBottom: "2px solid var(--mm-border, #e0e0e0)" }}>Queries</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {cloneGlobalCats.map((cat) => (
+                      <tr key={cat.id} style={{ cursor: "pointer" }} onClick={() => setCloneSelected((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(cat.id)) next.delete(cat.id); else next.add(cat.id);
+                        return next;
+                      })}>
+                        <td style={{ padding: "0.35rem 0.6rem" }}>
+                          <input type="checkbox" checked={cloneSelected.has(cat.id)} onChange={() => {}} onClick={(e) => e.stopPropagation()} readOnly />
+                        </td>
+                        <td style={{ padding: "0.35rem 0.6rem", fontWeight: cloneSelected.has(cat.id) ? 600 : undefined }}>{cat.name}</td>
+                        <td style={{ padding: "0.35rem 0.6rem", color: "var(--mm-muted, #666)" }}>{mediaLabel(cat.mediaType ?? null)}</td>
+                        <td style={{ padding: "0.35rem 0.6rem", textAlign: "right" }}>{cat.campos.length}</td>
+                        <td style={{ padding: "0.35rem 0.6rem", textAlign: "right" }}>{(cat.queries ?? []).length}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {cloneResult ? (
+              <p style={{ marginBottom: "0.75rem", color: cloneResult.ok ? "var(--color-success, green)" : "var(--color-danger, #c00)", fontWeight: 600 }}>
+                {cloneResult.msg}
+              </p>
+            ) : null}
+
+            <div style={{ display: "flex", gap: "0.75rem", justifyContent: "flex-end" }}>
+              <button type="button" className="mm-btn mm-btn--ghost" disabled={cloneBusy} onClick={() => setCloneModalOpen(false)}>
+                {cloneResult?.ok ? "Fechar" : "Cancelar"}
+              </button>
+              {!cloneResult?.ok ? (
+                <button
+                  type="button"
+                  className="mm-btn mm-btn--primary"
+                  disabled={cloneBusy || cloneSelected.size === 0 || cloneTargetGroupId == null}
+                  onClick={submitClone}
+                >
+                  {cloneBusy ? "Clonando…" : `Clonar ${cloneSelected.size > 0 ? `(${cloneSelected.size})` : "selecionadas"}`}
+                </button>
+              ) : null}
             </div>
           </div>
         </div>
