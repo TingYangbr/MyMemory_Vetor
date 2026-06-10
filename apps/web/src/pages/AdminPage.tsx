@@ -31,7 +31,7 @@ import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPu
 import Header from "../components/Header";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd";
+type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "convites_usuarios";
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -545,6 +545,15 @@ export default function AdminPage() {
   const [dbConnTestResults, setDbConnTestResults] = useState<Record<number, DbConnectionTestResult>>({});
   const [dbConnTesting, setDbConnTesting] = useState<Set<number>>(new Set());
 
+  // ── Aba Convites de Usuários ─────────────────────────────────────────────
+  const [userInvites, setUserInvites] = useState<{ id: number; email: string; status: string; createdAt: string; expiresAt: string; acceptedAt: string | null }[]>([]);
+  const [userInvitesLoading, setUserInvitesLoading] = useState(false);
+  const [userInvitesErr, setUserInvitesErr] = useState<string | null>(null);
+  const [userInviteEmail, setUserInviteEmail] = useState("");
+  const [userInviteSending, setUserInviteSending] = useState(false);
+  const [userInviteSendOk, setUserInviteSendOk] = useState<string | null>(null);
+  const [userInviteSendErr, setUserInviteSendErr] = useState<string | null>(null);
+
   const loadCostReport = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
     setCostErr(null);
@@ -973,6 +982,16 @@ export default function AdminPage() {
     if (me?.role === "admin" && tab === "conexoes_bd") void loadDbConns();
   }, [me?.role, tab, loadDbConns]);
 
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "convites_usuarios") return;
+    setUserInvitesLoading(true);
+    setUserInvitesErr(null);
+    apiGet<{ invites: typeof userInvites }>("/api/admin/user-invites")
+      .then((r) => setUserInvites(r.invites ?? []))
+      .catch((e) => setUserInvitesErr(e instanceof Error ? e.message : "Falha ao carregar convites."))
+      .finally(() => setUserInvitesLoading(false));
+  }, [me?.role, tab]);
+
   function startEditDbConn(c: DbConnection) {
     setDbConnEditing(c.id);
     setDbConnForm({ ...c, password: "" });
@@ -1212,6 +1231,15 @@ export default function AdminPage() {
             onClick={() => setTab("conexoes_bd")}
           >
             Conexões BD
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "convites_usuarios"}
+            className={`${styles.tab} ${tab === "convites_usuarios" ? styles.tabActive : ""}`}
+            onClick={() => setTab("convites_usuarios")}
+          >
+            Convites de usuários
           </button>
         </div>
 
@@ -2381,6 +2409,98 @@ export default function AdminPage() {
                       );
                     })
                 )}
+              </div>
+            )}
+          </div>
+        ) : null}
+        {tab === "convites_usuarios" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.sectionTitle}>Convites de usuários</h2>
+            <p className="mm-muted" style={{ marginBottom: "1.5rem" }}>
+              Envie um convite por e-mail para uma pessoa criar conta pessoal no MyMemory. O status é atualizado automaticamente quando o cadastro é concluído.
+            </p>
+
+            <div style={{ display: "flex", gap: "0.75rem", alignItems: "flex-end", marginBottom: "1.5rem", flexWrap: "wrap" }}>
+              <div style={{ flex: "1 1 260px" }}>
+                <label className={styles.tableToolbarLabel} htmlFor="ui-email" style={{ display: "block", marginBottom: "0.35rem" }}>E-mail do convidado</label>
+                <input
+                  id="ui-email"
+                  type="email"
+                  className="mm-field"
+                  value={userInviteEmail}
+                  onChange={(e) => { setUserInviteEmail(e.target.value); setUserInviteSendOk(null); setUserInviteSendErr(null); }}
+                  placeholder="nome@exemplo.com"
+                  disabled={userInviteSending}
+                />
+              </div>
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                disabled={userInviteSending || !userInviteEmail.trim()}
+                onClick={() => {
+                  if (!userInviteEmail.trim()) return;
+                  setUserInviteSending(true);
+                  setUserInviteSendOk(null);
+                  setUserInviteSendErr(null);
+                  apiPostJson<{ inviteId: number; emailSendFailed?: boolean; message?: string }>(
+                    "/api/admin/user-invites",
+                    { email: userInviteEmail.trim() }
+                  )
+                    .then((r) => {
+                      setUserInviteEmail("");
+                      setUserInviteSendOk(r.emailSendFailed ? (r.message ?? "Convite registrado, mas o e-mail não foi enviado.") : "Convite enviado com sucesso.");
+                      return apiGet<{ invites: typeof userInvites }>("/api/admin/user-invites").then((d) => setUserInvites(d.invites ?? []));
+                    })
+                    .catch((e) => {
+                      const raw = e instanceof Error ? e.message : String(e);
+                      try { setUserInviteSendErr((JSON.parse(raw) as { message?: string }).message ?? raw); } catch { setUserInviteSendErr(raw); }
+                    })
+                    .finally(() => setUserInviteSending(false));
+                }}
+              >
+                {userInviteSending ? "Enviando…" : "Enviar convite"}
+              </button>
+            </div>
+
+            {userInviteSendOk ? <p style={{ color: "var(--color-success, green)", marginBottom: "1rem" }}>{userInviteSendOk}</p> : null}
+            {userInviteSendErr ? <p className="mm-error" style={{ marginBottom: "1rem" }}>{userInviteSendErr}</p> : null}
+            {userInvitesErr ? <p className="mm-error" style={{ marginBottom: "1rem" }}>{userInvitesErr}</p> : null}
+
+            {userInvitesLoading ? (
+              <p className="mm-muted">A carregar…</p>
+            ) : userInvites.length === 0 ? (
+              <p className="mm-muted">Nenhum convite enviado ainda.</p>
+            ) : (
+              <div style={{ overflowX: "auto" }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>E-mail</th>
+                      <th>Status</th>
+                      <th>Enviado em</th>
+                      <th>Expira em</th>
+                      <th>Aceito em</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {userInvites.map((inv) => (
+                      <tr key={inv.id}>
+                        <td>{inv.email}</td>
+                        <td>
+                          <span style={{
+                            fontWeight: 600,
+                            color: inv.status === "accepted" ? "var(--color-success, green)" : inv.status === "expired" ? "var(--color-muted, #888)" : "var(--color-warning, #b45309)",
+                          }}>
+                            {inv.status === "accepted" ? "Aceito" : inv.status === "expired" ? "Expirado" : "Pendente"}
+                          </span>
+                        </td>
+                        <td>{new Date(inv.createdAt).toLocaleString("pt-BR")}</td>
+                        <td>{new Date(inv.expiresAt).toLocaleString("pt-BR")}</td>
+                        <td>{inv.acceptedAt ? new Date(inv.acceptedAt).toLocaleString("pt-BR") : "—"}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
           </div>

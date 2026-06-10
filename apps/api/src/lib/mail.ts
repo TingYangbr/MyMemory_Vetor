@@ -116,6 +116,39 @@ export async function sendGroupInviteEmail(
   console.info("[mail] Convite de grupo aceito pelo Resend (id=%s) → %s", id ?? "?", to);
 }
 
+export async function sendUserInviteEmail(
+  to: string,
+  opts: { registerUrl: string }
+): Promise<void> {
+  const { registerUrl } = opts;
+  const html = `
+    <p>Olá,</p>
+    <p>Um administrador do <strong>MyMemory</strong> convidou você para criar uma conta pessoal na plataforma.</p>
+    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
+      <tr>
+        <td style="border:2px solid #4F46E5;border-radius:8px;padding:16px 20px;background:#F5F5FF">
+          <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#1F2937">Criar minha conta</p>
+          <p style="margin:0 0 12px 0;font-size:14px;color:#374151">Escolha seu plano individual e conclua o cadastro. O convite expira em 14 dias.</p>
+          <a href="${registerUrl}" style="display:inline-block;background:#4F46E5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">Criar conta →</a>
+        </td>
+      </tr>
+    </table>
+    <p style="margin-top:20px;font-size:13px;color:#6B7280">Se não esperava este convite, pode ignorar este e-mail.</p>
+  `;
+  const text = `Olá,\n\nUm administrador do MyMemory convidou você para criar uma conta pessoal.\n\nAcesse o link abaixo para escolher seu plano e concluir o cadastro (válido por 14 dias):\n${registerUrl}\n\nSe não esperava este convite, pode ignorar este e-mail.`;
+  const client = getResend();
+  const { data, error } = await client.emails.send({
+    from: config.emailFrom,
+    to: [to],
+    subject: "Convite para criar sua conta — MyMemory",
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend: ${formatResendError(error)}`);
+  const id = data && typeof data === "object" && "id" in data ? String((data as { id: string }).id) : null;
+  console.info("[mail] Convite de usuário aceito pelo Resend (id=%s) → %s", id ?? "?", to);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

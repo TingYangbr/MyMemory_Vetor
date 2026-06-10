@@ -50,6 +50,10 @@ export default function SelectPlanPage() {
     }
     return "";
   }, [searchParams]);
+  const inviteTokenSuffix = useMemo(() => {
+    const t = searchParams.get("inviteToken")?.trim();
+    return t ? `&inviteToken=${encodeURIComponent(t)}` : "";
+  }, [searchParams]);
   const [plans, setPlans] = useState<IndividualPlanOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -79,7 +83,7 @@ export default function SelectPlanPage() {
   const sorted = useMemo(() => sortPlansByPrice(plans), [plans]);
 
   function choosePlan(planId: number) {
-    navigate(`/cadastro?planId=${encodeURIComponent(String(planId))}${nextSuffix}`);
+    navigate(`/cadastro?planId=${encodeURIComponent(String(planId))}${nextSuffix}${inviteTokenSuffix}`);
   }
 
   return (

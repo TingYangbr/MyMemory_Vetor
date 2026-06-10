@@ -37,6 +37,7 @@ import { PerguntaModelosAnotacoes1700000000121 } from "./migrations/170000000012
 import { UpdateClassificacaoVendaFaturamento1700000000122 } from "./migrations/1700000000122-UpdateClassificacaoVendaFaturamento.js";
 import { UpdatePipe2MultiMedida1700000000123 } from "./migrations/1700000000123-UpdatePipe2MultiMedida.js";
 import { PerguntaModelosEstrelas1700000000124 } from "./migrations/1700000000124-PerguntaModelosEstrelas.js";
+import { UserInvites1700000000125 } from "./migrations/1700000000125-UserInvites.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -50,6 +51,7 @@ import adminSystemConfigRoutes from "./routes/adminSystemConfig.js";
 import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
 import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
+import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -95,6 +97,7 @@ assertMediaStorageEnv();
       UpdateClassificacaoVendaFaturamento1700000000122,
       UpdatePipe2MultiMedida1700000000123,
       PerguntaModelosEstrelas1700000000124,
+      UserInvites1700000000125,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -161,6 +164,7 @@ await app.register(adminSystemConfigRoutes);
 await app.register(adminPromptConfigsRoutes);
 await app.register(adminAiConfigRoutes);
 await app.register(adminDbConnectionsRoutes);
+await app.register(adminUserInvitesRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

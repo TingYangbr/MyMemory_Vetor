@@ -20,6 +20,10 @@ export default function RegisterPage() {
     ? `/select-plan?next=${encodeURIComponent(nextForApi)}`
     : "/select-plan";
   const loginHref = nextForApi ? `/login?next=${encodeURIComponent(nextForApi)}` : "/login";
+  const inviteToken = useMemo(() => {
+    const t = searchParams.get("inviteToken")?.trim();
+    return t || undefined;
+  }, [searchParams]);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -82,13 +86,14 @@ export default function RegisterPage() {
     }
     setBusy(true);
     try {
-      const body: { email: string; password: string; planId: number; name?: string; next?: string } = {
+      const body: { email: string; password: string; planId: number; name?: string; next?: string; inviteToken?: string } = {
         email,
         password,
         planId,
       };
       if (name.trim()) body.name = name.trim();
       if (nextForApi) body.next = nextForApi;
+      if (inviteToken) body.inviteToken = inviteToken;
       const res = await apiPostJson<{ message?: string; emailSendFailed?: boolean }>(
         "/api/auth/register",
         body

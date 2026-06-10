@@ -8,6 +8,7 @@ import { pool } from "../db.js";
 import { hashOpaqueToken, newOpaqueToken } from "../lib/authTokens.js";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/mail.js";
 import { listActiveIndividualPlansPublic } from "../services/subscriptionPlanAdminService.js";
+import { markUserInviteAccepted } from "../services/userInviteAdminService.js";
 
 const emailIn = z.string().trim().email();
 const passwordIn = z.string().min(8, "Senha: no mínimo 8 caracteres.");
@@ -18,6 +19,7 @@ const registerBody = z.object({
   name: z.string().min(2, "Nome: mínimo 2 caracteres.").max(120),
   planId: z.coerce.number().int().positive(),
   next: z.string().max(512).optional(),
+  inviteToken: z.string().optional(),
 });
 
 const loginBody = z.object({
@@ -246,6 +248,14 @@ const plugin: FastifyPluginAsync = async (app) => {
       );
 
       await conn.commit();
+
+      if (parsed.data.inviteToken) {
+        try {
+          await markUserInviteAccepted(parsed.data.inviteToken, email, userId);
+        } catch (e) {
+          app.log.warn({ err: e }, "markUserInviteAccepted non-fatal");
+        }
+      }
 
       const nextAfterVerify = safeAuthNextParam(parsed.data.next);
       let verifyUrl = `${config.publicWebUrl}/verificar-email?token=${encodeURIComponent(raw)}`;
