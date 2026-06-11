@@ -267,8 +267,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     try {
       [rows] = await pool.query<RowDataPacket[]>(sqlFullPrefs, [userId]);
     } catch (err) {
-      if (isUnknownColumnErr(err, "ttsRate")) {
-        app.log.warn({ err }, "Coluna users.ttsRate em falta — execute migration UserTtsRate");
+      if (isUnknownColumnErr(err, "ttsRate") || isUnknownColumnErr(err, "ttsrate")) {
+        app.log.warn({ err }, "Coluna users.ttsrate em falta — execute migration UserTtsRate");
         const sqlFullPrefsNo126 = `SELECT u.id, u.name, u.email, u.role, u.emailVerified, u.lastWorkspaceGroupId,
             ${SQL_ME_PREFS_NO126},
             ${SQL_ME_MEMO_CTX}
@@ -548,15 +548,15 @@ const plugin: FastifyPluginAsync = async (app) => {
       vals.push(d.imageOcrVisionMinConfidence);
     }
     if (d.ttsRate !== undefined) {
-      sets.push('"ttsRate" = ?');
+      sets.push('ttsrate = ?');
       vals.push(d.ttsRate);
     }
     vals.push(userId);
     try {
       await pool.query(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, vals);
     } catch (err) {
-      if (isUnknownColumnErr(err, "ttsRate")) {
-        // Coluna ttsRate ainda não adicionada — retry sem ela
+      if (isUnknownColumnErr(err, "ttsRate") || isUnknownColumnErr(err, "ttsrate")) {
+        // Coluna ttsrate ainda não adicionada — retry sem ela
         const setsNo126 = sets.filter((s) => !s.includes("ttsRate"));
         const valsNo126 = [...vals];
         if (setsNo126.length < sets.length) valsNo126.splice(sets.indexOf('"ttsRate" = ?'), 1);
@@ -582,7 +582,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       const [prows] = await pool.query<RowDataPacket[]>(
         `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
                 iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl,
-                imageOcrVisionMinConfidence, "ttsRate"
+                imageOcrVisionMinConfidence, ttsrate
          FROM users WHERE id = ? LIMIT 1`,
         [userId]
       );
@@ -594,7 +594,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       const body: PatchMePreferencesResponse = { ok: true, preferences };
       return body;
     } catch (err) {
-      if (isUnknownColumnErr(err, "ttsRate")) {
+      if (isUnknownColumnErr(err, "ttsRate") || isUnknownColumnErr(err, "ttsrate")) {
         const [prows2] = await pool.query<RowDataPacket[]>(
           `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
                   iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl,

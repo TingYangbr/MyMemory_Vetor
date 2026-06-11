@@ -15,6 +15,7 @@ const COL: Record<string, string> = {
   iausetexto: "iaUseTexto", iauseimagem: "iaUseImagem", iausevideo: "iaUseVideo",
   iauseaudio: "iaUseAudio", iausedocumento: "iaUseDocumento", iauseurl: "iaUseUrl",
   imageocrvisionminconfidence: "imageOcrVisionMinConfidence",
+  ttsrate: "ttsRate",
   createdat: "createdAt", updatedat: "updatedAt",
   lastsignedin: "lastSignedIn", lastloginat: "lastLoginAt",
   passwordhash: "passwordHash", emailverified: "emailVerified",
