@@ -38,6 +38,8 @@ import { UpdateClassificacaoVendaFaturamento1700000000122 } from "./migrations/1
 import { UpdatePipe2MultiMedida1700000000123 } from "./migrations/1700000000123-UpdatePipe2MultiMedida.js";
 import { PerguntaModelosEstrelas1700000000124 } from "./migrations/1700000000124-PerguntaModelosEstrelas.js";
 import { UserInvites1700000000125 } from "./migrations/1700000000125-UserInvites.js";
+import { UserTtsRate1700000000126 } from "./migrations/1700000000126-UserTtsRate.js";
+import { FixTtsRateColumnCase1700000000127 } from "./migrations/1700000000127-FixTtsRateColumnCase.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -99,6 +101,8 @@ assertMediaStorageEnv();
       UpdatePipe2MultiMedida1700000000123,
       PerguntaModelosEstrelas1700000000124,
       UserInvites1700000000125,
+      UserTtsRate1700000000126,
+      FixTtsRateColumnCase1700000000127,
     ],
   });
   const ds = await AppDataSource.initialize();
