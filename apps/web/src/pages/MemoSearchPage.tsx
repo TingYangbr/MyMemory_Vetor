@@ -1249,6 +1249,7 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
       }
       const u = new SpeechSynthesisUtterance(texts[idx]);
       u.lang = "pt-BR";
+      u.rate = me?.ttsRate ?? 1.0;
       u.onend = () => {
         idx++;
         next();

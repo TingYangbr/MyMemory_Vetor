@@ -57,6 +57,8 @@ export interface UserMemoPreferences {
    * a API extrai o texto de novo com LLM visão antes do resumo (custo extra só nesse caso).
    */
   imageOcrVisionMinConfidence: number | null;
+  /** Velocidade de narração por voz (SpeechSynthesisUtterance.rate). `null` = padrão (1.0). Faixa: 0.5–2.0. */
+  ttsRate: number | null;
 }
 
 export interface PatchMePreferencesResponse {
@@ -418,6 +420,8 @@ export interface MeResponse {
   iaUseUrl?: UserIaUseLevel;
   /** Ver `UserMemoPreferences.imageOcrVisionMinConfidence`. */
   imageOcrVisionMinConfidence?: number | null;
+  /** Ver `UserMemoPreferences.ttsRate`. */
+  ttsRate?: number | null;
 }
 
 /** Métrica usada / limite para barras de progresso (`GET /api/me/usage`). */

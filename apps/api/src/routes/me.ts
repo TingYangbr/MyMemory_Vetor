@@ -36,12 +36,21 @@ const SQL_ME_MEMO_CTX = `(
 
 const SQL_ME_PREFS_CORE = `u.soundEnabled, u.confirmEnabled,
         u.allowFreeSpecificFieldsWithoutCategoryMatch,
-        u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl`;
+        u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl,
+        u.ttsRate`;
 const SQL_ME_PREFS_CORE_NO024 = `u.soundEnabled, u.confirmEnabled,
-        u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl`;
+        u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl,
+        u.ttsRate`;
 const SQL_ME_PREFS = `${SQL_ME_PREFS_CORE},
         u.imageOcrVisionMinConfidence`;
 const SQL_ME_PREFS_NO024 = `${SQL_ME_PREFS_CORE_NO024},
+        u.imageOcrVisionMinConfidence`;
+
+/* Variantes sem ttsRate — fallback enquanto migration 126 não foi aplicada */
+const SQL_ME_PREFS_CORE_NO126 = `u.soundEnabled, u.confirmEnabled,
+        u.allowFreeSpecificFieldsWithoutCategoryMatch,
+        u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl`;
+const SQL_ME_PREFS_NO126 = `${SQL_ME_PREFS_CORE_NO126},
         u.imageOcrVisionMinConfidence`;
 
 const iaUseEnum = z.enum(["semIA", "basico", "completo"]);
@@ -58,6 +67,7 @@ const patchMePreferencesBody = z
     iaUseDocumento: iaUseEnum.optional(),
     iaUseUrl: iaUseEnum.optional(),
     imageOcrVisionMinConfidence: z.union([z.null(), z.number().int().min(1).max(100)]).optional(),
+    ttsRate: z.union([z.null(), z.number().min(0.5).max(2.0)]).optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "Informe ao menos um campo." });
 
@@ -74,6 +84,13 @@ function normalizeImageOcrVisionMinConfidence(v: unknown): number | null {
   return Math.floor(n);
 }
 
+function normalizeTtsRate(v: unknown): number | null {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0.5 || n > 2.0) return null;
+  return Math.round(n * 10) / 10;
+}
+
 function rowToUserMemoPreferences(u: RowDataPacket): UserMemoPreferences {
   return {
     confirmEnabled: u.confirmEnabled === 1 || u.confirmEnabled === true,
@@ -88,11 +105,13 @@ function rowToUserMemoPreferences(u: RowDataPacket): UserMemoPreferences {
     iaUseDocumento: normalizeIaUse(u.iaUseDocumento),
     iaUseUrl: normalizeIaUse(u.iaUseUrl),
     imageOcrVisionMinConfidence: normalizeImageOcrVisionMinConfidence(u.imageOcrVisionMinConfidence),
+    ttsRate: normalizeTtsRate(u.ttsRate),
   };
 }
 
 function attachMemoPrefsToMe(body: MeResponse, u: RowDataPacket, includeExtendedPrefs: boolean): void {
   body.soundEnabled = u.soundEnabled === 1 || u.soundEnabled === true;
+  body.ttsRate = normalizeTtsRate(u.ttsRate);
   if (!includeExtendedPrefs) return;
   body.confirmEnabled = u.confirmEnabled === 1 || u.confirmEnabled === true;
   body.allowFreeSpecificFieldsWithoutCategoryMatch =
@@ -248,7 +267,27 @@ const plugin: FastifyPluginAsync = async (app) => {
     try {
       [rows] = await pool.query<RowDataPacket[]>(sqlFullPrefs, [userId]);
     } catch (err) {
-      if (isUnknownColumnErr(err, "allowFreeSpecificFieldsWithoutCategoryMatch")) {
+      if (isUnknownColumnErr(err, "ttsRate")) {
+        app.log.warn({ err }, "Coluna users.ttsRate em falta — execute migration UserTtsRate");
+        const sqlFullPrefsNo126 = `SELECT u.id, u.name, u.email, u.role, u.emailVerified, u.lastWorkspaceGroupId,
+            ${SQL_ME_PREFS_NO126},
+            ${SQL_ME_MEMO_CTX}
+           FROM users u WHERE u.id = ? LIMIT 1`;
+        try {
+          [rows] = await pool.query<RowDataPacket[]>(sqlFullPrefsNo126, [userId]);
+        } catch (err2) {
+          if (isUnknownColumnErr(err2, "lastWorkspaceGroupId")) {
+            const sqlFallbackNo126 = `SELECT u.id, u.name, u.email, u.role, u.emailVerified,
+                ${SQL_ME_PREFS_NO126},
+                ${SQL_ME_MEMO_CTX}
+               FROM users u WHERE u.id = ? LIMIT 1`;
+            [rows] = await pool.query<RowDataPacket[]>(sqlFallbackNo126, [userId]);
+            hasLastWorkspaceCol = false;
+          } else {
+            throw err2;
+          }
+        }
+      } else if (isUnknownColumnErr(err, "allowFreeSpecificFieldsWithoutCategoryMatch")) {
         app.log.warn(
           { err },
           "Coluna allowFreeSpecificFieldsWithoutCategoryMatch em falta — execute docs/migrations/024_free_specific_fields_without_match.sql"
@@ -508,11 +547,23 @@ const plugin: FastifyPluginAsync = async (app) => {
       sets.push("imageOcrVisionMinConfidence = ?");
       vals.push(d.imageOcrVisionMinConfidence);
     }
+    if (d.ttsRate !== undefined) {
+      sets.push('"ttsRate" = ?');
+      vals.push(d.ttsRate);
+    }
     vals.push(userId);
     try {
       await pool.query(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, vals);
     } catch (err) {
-      if (
+      if (isUnknownColumnErr(err, "ttsRate")) {
+        // Coluna ttsRate ainda não adicionada — retry sem ela
+        const setsNo126 = sets.filter((s) => !s.includes("ttsRate"));
+        const valsNo126 = [...vals];
+        if (setsNo126.length < sets.length) valsNo126.splice(sets.indexOf('"ttsRate" = ?'), 1);
+        if (setsNo126.length > 0) {
+          await pool.query(`UPDATE users SET ${setsNo126.join(", ")} WHERE id = ?`, valsNo126);
+        }
+      } else if (
         isUnknownColumnErr(err, "confirmEnabled") ||
         isUnknownColumnErr(err, "iaUseTexto") ||
         isUnknownColumnErr(err, "imageOcrVisionMinConfidence") ||
@@ -523,14 +574,15 @@ const plugin: FastifyPluginAsync = async (app) => {
           message:
             "Execute docs/migrations/008_user_memo_preferences.sql, docs/migrations/018_user_image_ocr_vision_min_confidence.sql e docs/migrations/024_free_specific_fields_without_match.sql no banco de dados.",
         });
+      } else {
+        throw err;
       }
-      throw err;
     }
     try {
       const [prows] = await pool.query<RowDataPacket[]>(
         `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
                 iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl,
-                imageOcrVisionMinConfidence
+                imageOcrVisionMinConfidence, "ttsRate"
          FROM users WHERE id = ? LIMIT 1`,
         [userId]
       );
@@ -542,10 +594,11 @@ const plugin: FastifyPluginAsync = async (app) => {
       const body: PatchMePreferencesResponse = { ok: true, preferences };
       return body;
     } catch (err) {
-      if (isUnknownColumnErr(err, "imageOcrVisionMinConfidence")) {
+      if (isUnknownColumnErr(err, "ttsRate")) {
         const [prows2] = await pool.query<RowDataPacket[]>(
           `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
-                  iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl
+                  iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl,
+                  imageOcrVisionMinConfidence
            FROM users WHERE id = ? LIMIT 1`,
           [userId]
         );
@@ -553,8 +606,23 @@ const plugin: FastifyPluginAsync = async (app) => {
         if (!pu2) {
           return reply.code(404).send({ error: "user_not_found", message: "Usuário não encontrado." });
         }
+        const preferences = rowToUserMemoPreferences({ ...pu2, ttsRate: null });
+        const body: PatchMePreferencesResponse = { ok: true, preferences };
+        return body;
+      }
+      if (isUnknownColumnErr(err, "imageOcrVisionMinConfidence")) {
+        const [prows3] = await pool.query<RowDataPacket[]>(
+          `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
+                  iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl
+           FROM users WHERE id = ? LIMIT 1`,
+          [userId]
+        );
+        const pu3 = prows3[0];
+        if (!pu3) {
+          return reply.code(404).send({ error: "user_not_found", message: "Usuário não encontrado." });
+        }
         const preferences: UserMemoPreferences = {
-          ...rowToUserMemoPreferences({ ...pu2, imageOcrVisionMinConfidence: null }),
+          ...rowToUserMemoPreferences({ ...pu3, imageOcrVisionMinConfidence: null, ttsRate: null }),
         };
         const body: PatchMePreferencesResponse = { ok: true, preferences };
         return body;
@@ -578,6 +646,7 @@ const plugin: FastifyPluginAsync = async (app) => {
           iaUseDocumento: "basico",
           iaUseUrl: "basico",
           imageOcrVisionMinConfidence: null,
+          ttsRate: null,
         };
         const body: PatchMePreferencesResponse = { ok: true, preferences };
         return body;

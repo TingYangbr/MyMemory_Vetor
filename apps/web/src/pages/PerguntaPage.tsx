@@ -772,6 +772,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     const ttsText = normalizeTtsText(stripMarkdown(text).replace(/\n+/g, " "));
     const u = new SpeechSynthesisUtterance(ttsText);
     u.lang = "pt-BR";
+    u.rate = me?.ttsRate ?? 1.0;
     u.onend = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
     u.onerror = () => { ttsBusyRef.current = null; setTtsBusyPergunta(null); };
     ttsTimeoutRef.current = setTimeout(() => {
@@ -1185,8 +1186,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             {respostas.map((r, i) => (
               <article key={i} className={styles.card} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
                 <div className={styles.cardPergunta}>
-                  <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
-                  <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
+                  <div className={styles.cardPerguntaMain}>
+                    <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
+                    <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
+                  </div>
                   <div className={styles.refazerArea}>
                     {r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2) ? (
                       (() => {

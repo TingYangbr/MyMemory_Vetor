@@ -332,11 +332,17 @@
 
 .cardPergunta {
   display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
+  flex-direction: column;
+  gap: 0.45rem;
   padding: 0.9rem 1rem;
   background: var(--mm-surface-alt, #f1f5f9);
   border-bottom: 1px solid var(--mm-border, #e2e8f0);
+}
+
+.cardPerguntaMain {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
 }
 
 /* ── Ampliar busca (Pipe 1 semântico) ── */
@@ -435,9 +441,8 @@
 
 /* ── Refazer ── */
 .refazerArea {
-  margin-left: auto;
   flex-shrink: 0;
-  align-self: center;
+  align-self: flex-end;
 }
 
 .refazerBtn {

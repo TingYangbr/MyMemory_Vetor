@@ -27,6 +27,7 @@ function prefsFromMe(me: MeResponse): UserMemoPreferences {
     iaUseDocumento: me.iaUseDocumento ?? "basico",
     iaUseUrl: me.iaUseUrl ?? "basico",
     imageOcrVisionMinConfidence: me.imageOcrVisionMinConfidence ?? null,
+    ttsRate: me.ttsRate ?? null,
   };
 }
 
@@ -193,7 +194,7 @@ export default function UserPreferencesPage() {
     try {
       const body: Partial<UserMemoPreferences> = hasPrefsColumns
         ? prefs
-        : { soundEnabled: prefs.soundEnabled };
+        : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate };
       const res = await apiPatchJson<PatchMePreferencesResponse>("/api/me/preferences", body);
       setPrefs(res.preferences);
       setOkMsg("Preferências guardadas.");
@@ -313,6 +314,30 @@ export default function UserPreferencesPage() {
                   </span>
                 </span>
               </label>
+              {prefs.soundEnabled ? (
+                <div className={styles.ttsRateRow}>
+                  <label className={styles.ttsRateLabel} htmlFor="pref-ttsRate">
+                    Velocidade de narração:{" "}
+                    <strong>{(prefs.ttsRate ?? 1.0).toFixed(1)}×</strong>
+                  </label>
+                  <input
+                    id="pref-ttsRate"
+                    type="range"
+                    min={0.5}
+                    max={2.0}
+                    step={0.1}
+                    className={styles.ttsRateSlider}
+                    disabled={saving}
+                    value={prefs.ttsRate ?? 1.0}
+                    onChange={(e) => updatePref("ttsRate", Number(e.target.value))}
+                  />
+                  <div className={styles.ttsRateMarks}>
+                    <span>0.5× (lento)</span>
+                    <span>1.0× (normal)</span>
+                    <span>2.0× (rápido)</span>
+                  </div>
+                </div>
+              ) : null}
               <div
                 className={`${styles.selectRow} ${hasPrefsColumns === false ? styles.disabledBlock : ""}`}
                 aria-disabled={hasPrefsColumns === false}

@@ -94,6 +94,7 @@ function resolveMemoPrefs(p: Partial<UserMemoPreferences> | null | undefined): M
     iaUseDocumento: "basico",
     iaUseUrl: "basico",
     imageOcrVisionMinConfidence: null,
+    ttsRate: null,
   };
   if (!p) return base;
   return {
@@ -108,6 +109,7 @@ function resolveMemoPrefs(p: Partial<UserMemoPreferences> | null | undefined): M
     iaUseDocumento: p.iaUseDocumento ?? base.iaUseDocumento,
     iaUseUrl: p.iaUseUrl ?? base.iaUseUrl,
     imageOcrVisionMinConfidence: p.imageOcrVisionMinConfidence ?? base.imageOcrVisionMinConfidence,
+    ttsRate: p.ttsRate ?? base.ttsRate,
   };
 }
 

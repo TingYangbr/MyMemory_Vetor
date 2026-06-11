@@ -126,6 +126,40 @@
   color: var(--mm-text);
 }
 
+.ttsRateRow {
+  margin: -0.2rem 0 0.85rem 1.65rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ttsRateLabel {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--mm-text);
+}
+
+.ttsRateSlider {
+  width: 100%;
+  max-width: 280px;
+  accent-color: var(--mm-accent, #6366f1);
+  cursor: pointer;
+}
+
+.ttsRateSlider:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.ttsRateMarks {
+  display: flex;
+  justify-content: space-between;
+  max-width: 280px;
+  font-size: 0.72rem;
+  color: var(--mm-muted);
+  user-select: none;
+}
+
 .actions {
   display: flex;
   flex-wrap: wrap;
