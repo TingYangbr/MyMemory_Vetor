@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MeResponse, PerguntaModelo } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPutJson } from "../api";
@@ -17,6 +17,10 @@ export default function PerguntaModelosPage() {
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [filterCat, setFilterCat] = useState<string | null>(null);
   const [showCatFilter, setShowCatFilter] = useState(false);
+  const [searchText, setSearchText] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const [sortAsc, setSortAsc] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -86,19 +90,50 @@ export default function PerguntaModelosPage() {
     [modelos]
   );
   const showFilterBtn = modelos.length > 5 && catOptions.length > 1;
-  const filteredModelos = filterCat ? modelos.filter((m) => m.category === filterCat) : modelos;
+
+  const filteredModelos = useMemo(() => {
+    let result = filterCat ? modelos.filter((m) => m.category === filterCat) : modelos;
+    if (searchText.trim()) {
+      const q = searchText.toLowerCase();
+      result = result.filter(
+        (m) => m.pergunta.toLowerCase().includes(q) || (m.anotacoes ?? "").toLowerCase().includes(q)
+      );
+    }
+    return sortAsc ? [...result].reverse() : result;
+  }, [modelos, filterCat, searchText, sortAsc]);
+
+  function toggleSearch() {
+    if (showSearch) {
+      setShowSearch(false);
+      setSearchText("");
+    } else {
+      setShowSearch(true);
+      setTimeout(() => searchInputRef.current?.focus(), 50);
+    }
+  }
 
   return (
     <div className={styles.shell}>
       <Header />
       <main className={styles.main}>
         <div className={styles.topBar}>
-          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
             <h1 className={styles.title}>Perguntas salvas</h1>
+            <button
+              type="button"
+              className={`${styles.iconBtn}${showSearch || searchText ? ` ${styles.iconBtnActive}` : ""}`}
+              title={showSearch ? "Fechar busca" : "Buscar por texto"}
+              onClick={toggleSearch}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              </svg>
+              {searchText && <span className={styles.filterDot} />}
+            </button>
             {showFilterBtn && (
               <button
                 type="button"
-                className={`${styles.filterBtn}${showCatFilter || filterCat ? ` ${styles.filterBtnActive}` : ""}`}
+                className={`${styles.iconBtn}${showCatFilter || filterCat ? ` ${styles.iconBtnActive}` : ""}`}
                 title="Filtrar por categoria"
                 onClick={() => setShowCatFilter((v) => !v)}
               >
@@ -109,12 +144,54 @@ export default function PerguntaModelosPage() {
               </button>
             )}
           </div>
-          <button
-            type="button"
-            className="mm-btn mm-btn--ghost"
-            onClick={() => navigate("/perguntar")}
-          >← Voltar</button>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <button
+              type="button"
+              className={`${styles.iconBtn}${sortAsc ? ` ${styles.iconBtnActive}` : ""}`}
+              title={sortAsc ? "Ordem: mais antigas primeiro — clique para inverter" : "Ordem: mais recentes primeiro — clique para inverter"}
+              onClick={() => setSortAsc((v) => !v)}
+            >
+              {sortAsc ? (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>
+                </svg>
+              ) : (
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              className="mm-btn mm-btn--ghost"
+              onClick={() => navigate("/perguntar")}
+            >← Voltar</button>
+          </div>
         </div>
+
+        {showSearch && (
+          <div className={styles.searchBar}>
+            <svg className={styles.searchBarIcon} width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              className={styles.searchInput}
+              placeholder="Buscar na pergunta ou anotações…"
+              value={searchText}
+              onChange={(e) => setSearchText(e.target.value)}
+            />
+            {searchText && (
+              <button
+                type="button"
+                className={styles.searchClearBtn}
+                onClick={() => setSearchText("")}
+                title="Limpar busca"
+              >×</button>
+            )}
+          </div>
+        )}
 
         {showFilterBtn && showCatFilter && (
           <div className={styles.catFilterBar}>
