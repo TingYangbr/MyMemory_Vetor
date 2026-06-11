@@ -557,9 +557,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (err) {
       if (isUnknownColumnErr(err, "ttsRate") || isUnknownColumnErr(err, "ttsrate")) {
         // Coluna ttsrate ainda não adicionada — retry sem ela
-        const setsNo126 = sets.filter((s) => !s.includes("ttsRate"));
+        const ttsIdx = sets.indexOf('ttsrate = ?');
+        const setsNo126 = sets.filter((s) => s !== 'ttsrate = ?');
         const valsNo126 = [...vals];
-        if (setsNo126.length < sets.length) valsNo126.splice(sets.indexOf('"ttsRate" = ?'), 1);
+        if (ttsIdx !== -1) valsNo126.splice(ttsIdx, 1);
         if (setsNo126.length > 0) {
           await pool.query(`UPDATE users SET ${setsNo126.join(", ")} WHERE id = ?`, valsNo126);
         }
