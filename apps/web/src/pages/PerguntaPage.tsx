@@ -410,6 +410,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [savingModalModelo, setSavingModalModelo] = useState(false);
   const [filterCat, setFilterCat] = useState<string | null>(null);
   const [showCatFilter, setShowCatFilter] = useState(false);
+  const [modalSearchText, setModalSearchText] = useState("");
+  const [modalShowSearch, setModalShowSearch] = useState(false);
+  const modalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
@@ -903,6 +906,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setEditingModalModelo(null);
     setFilterCat(null);
     setShowCatFilter(false);
+    setModalSearchText("");
+    setModalShowSearch(false);
     setModelosLoading(true);
     try {
       const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
@@ -965,10 +970,20 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }, [modelos]);
 
   const filteredModelos = useMemo(() => {
-    if (!filterCat) return modelos;
-    if (filterCat === "Sem categoria") return modelos.filter((m) => !m.category);
-    return modelos.filter((m) => m.category === filterCat);
-  }, [modelos, filterCat]);
+    let result = modelos;
+    if (filterCat) {
+      result = filterCat === "Sem categoria"
+        ? result.filter((m) => !m.category)
+        : result.filter((m) => m.category === filterCat);
+    }
+    if (modalSearchText.trim()) {
+      const q = modalSearchText.toLowerCase();
+      result = result.filter(
+        (m) => m.pergunta.toLowerCase().includes(q) || (m.anotacoes ?? "").toLowerCase().includes(q)
+      );
+    }
+    return result;
+  }, [modelos, filterCat, modalSearchText]);
 
   if (!ready) {
     if (embedded) return <p className={styles.muted}>Carregando…</p>;
@@ -1511,6 +1526,25 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             <div className={styles.modeloModalHeader}>
               <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
                 <span className={styles.modeloModalTitle}>Perguntas salvas</span>
+                <button
+                  type="button"
+                  className={`${styles.modeloFilterBtn}${modalShowSearch || modalSearchText ? ` ${styles.modeloFilterBtnActive}` : ""}`}
+                  title={modalShowSearch ? "Fechar busca" : "Buscar por texto"}
+                  onClick={() => {
+                    if (modalShowSearch) {
+                      setModalShowSearch(false);
+                      setModalSearchText("");
+                    } else {
+                      setModalShowSearch(true);
+                      setTimeout(() => modalSearchInputRef.current?.focus(), 50);
+                    }
+                  }}
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                  </svg>
+                  {modalSearchText && <span className={styles.modeloFilterDot} />}
+                </button>
                 {modeloCatOptions.length > 1 && (
                   <button
                     type="button"
@@ -1536,6 +1570,29 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 <button type="button" className={styles.modeloModalClose} onClick={() => setModeloSelectOpen(false)}>×</button>
               </div>
             </div>
+            {modalShowSearch && (
+              <div className={styles.modeloSearchBar}>
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: "var(--mm-text-muted,#94a3b8)", flexShrink: 0 }}>
+                  <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+                </svg>
+                <input
+                  ref={modalSearchInputRef}
+                  type="text"
+                  className={styles.modeloSearchInput}
+                  placeholder="Buscar na pergunta ou anotações…"
+                  value={modalSearchText}
+                  onChange={(e) => setModalSearchText(e.target.value)}
+                />
+                {modalSearchText && (
+                  <button
+                    type="button"
+                    className={styles.modeloSearchClear}
+                    onClick={() => setModalSearchText("")}
+                    title="Limpar"
+                  >×</button>
+                )}
+              </div>
+            )}
             {showCatFilter && modeloCatOptions.length > 1 && (
               <div className={styles.modeloCatFilterBar}>
                 <button

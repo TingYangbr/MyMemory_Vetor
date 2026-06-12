@@ -1352,6 +1352,36 @@
   border-radius: 50%;
   background: var(--mm-primary, #6366f1);
 }
+.modeloSearchBar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.85rem;
+  border-bottom: 1px solid var(--mm-primary, #6366f1);
+  background: var(--mm-hover-bg, #f8fafc);
+}
+.modeloSearchInput {
+  flex: 1;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.83rem;
+  color: var(--mm-text, #1e293b);
+  min-width: 0;
+}
+.modeloSearchInput::placeholder { color: var(--mm-text-muted, #94a3b8); }
+.modeloSearchClear {
+  background: none;
+  border: none;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  flex-shrink: 0;
+}
+.modeloSearchClear:hover { color: #ef4444; }
+
 .modeloCatFilterBar {
   display: flex;
   flex-wrap: wrap;
