@@ -235,52 +235,62 @@ export default function AdminSubscriptionsPage() {
                       <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.endDate)}</td>
                     </tr>
 
-                    {isGroup && isExpanded && (
-                      <tr>
-                        <td colSpan={12} style={{ padding: 0, background: "var(--mm-bg-alt, #f5f5f5)" }}>
-                          {membersState === "loading" ? (
-                            <div style={{ padding: "0.6rem 2rem", color: "var(--mm-text-muted)", fontSize: "0.875rem" }}>
-                              Carregando membros…
-                            </div>
-                          ) : membersState && typeof membersState === "object" && "error" in membersState ? (
-                            <div style={{ padding: "0.6rem 2rem", color: "var(--mm-danger, #c0392b)", fontSize: "0.875rem" }}>
-                              {membersState.error}
-                            </div>
-                          ) : Array.isArray(membersState) ? (
-                            <div style={{ padding: "0.5rem 2rem 0.75rem" }}>
-                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
-                                <thead>
-                                  <tr style={{ borderBottom: "1px solid var(--mm-border, #e2e2e2)" }}>
-                                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Membro</th>
-                                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Email</th>
-                                    <th style={{ whiteSpace: "nowrap", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Entrou em</th>
-                                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Memos</th>
-                                    <th style={{ textAlign: "right", whiteSpace: "nowrap", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Custo IA</th>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  {membersState.length === 0 ? (
-                                    <tr>
-                                      <td colSpan={5} style={{ padding: "0.5rem", color: "var(--mm-text-muted)" }}>
-                                        Nenhum membro neste grupo.
-                                      </td>
-                                    </tr>
-                                  ) : membersState.map((m) => (
-                                    <tr key={m.userId} style={{ borderBottom: "1px solid var(--mm-border, #e2e2e2)" }}>
-                                      <td style={{ padding: "0.3rem 0.5rem" }}>{m.userName ?? `userId ${m.userId}`}</td>
-                                      <td style={{ padding: "0.3rem 0.5rem", color: "var(--mm-text-muted)" }}>{m.userEmail ?? "—"}</td>
-                                      <td style={{ whiteSpace: "nowrap", padding: "0.3rem 0.5rem" }}>{fmtDate(m.joinedAt)}</td>
-                                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontVariantNumeric: "tabular-nums" }}>{m.memoCount}</td>
-                                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontVariantNumeric: "tabular-nums" }}>{fmtUsd(m.apiCostUsd)}</td>
-                                    </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                          ) : null}
+                    {isGroup && isExpanded && membersState === "loading" && (
+                      <tr style={{ background: "var(--mm-member-bg, #f3f4f6)" }}>
+                        <td colSpan={12} style={{ padding: "0.5rem 1rem", color: "var(--mm-text-muted)", fontSize: "0.875rem", borderLeft: "3px solid var(--mm-border, #cbd5e1)" }}>
+                          Carregando membros…
                         </td>
                       </tr>
                     )}
+
+                    {isGroup && isExpanded && membersState && typeof membersState === "object" && "error" in membersState && (
+                      <tr style={{ background: "var(--mm-member-bg, #f3f4f6)" }}>
+                        <td colSpan={12} style={{ padding: "0.5rem 1rem", color: "var(--mm-danger, #c0392b)", fontSize: "0.875rem", borderLeft: "3px solid var(--mm-danger, #c0392b)" }}>
+                          {membersState.error}
+                        </td>
+                      </tr>
+                    )}
+
+                    {isGroup && isExpanded && Array.isArray(membersState) && membersState.length === 0 && (
+                      <tr style={{ background: "var(--mm-member-bg, #f3f4f6)" }}>
+                        <td colSpan={12} style={{ padding: "0.5rem 1rem", color: "var(--mm-text-muted)", fontSize: "0.875rem", borderLeft: "3px solid var(--mm-border, #cbd5e1)" }}>
+                          Nenhum membro neste grupo.
+                        </td>
+                      </tr>
+                    )}
+
+                    {isGroup && isExpanded && Array.isArray(membersState) && membersState.map((m) => (
+                      <tr key={m.userId} style={{ background: "var(--mm-member-bg, #f3f4f6)", fontSize: "0.875rem" }}>
+                        {/* col 1 — ID: indicador de filho */}
+                        <td style={{ color: "var(--mm-text-muted)", paddingLeft: "1rem", borderLeft: "3px solid var(--mm-border, #cbd5e1)" }}>└</td>
+                        {/* col 2 — Tipo */}
+                        <td style={{ color: "var(--mm-text-muted)", fontStyle: "italic" }}>Membro</td>
+                        {/* col 3 — Status: vazio */}
+                        <td></td>
+                        {/* col 4 — Plano: vazio */}
+                        <td></td>
+                        {/* col 5 — Grupo/Proprietário → nome + email do membro */}
+                        <td>
+                          <span style={{ fontWeight: 500 }}>{m.userName ?? `userId ${m.userId}`}</span>
+                          <br />
+                          <span style={{ fontSize: "0.8rem", color: "var(--mm-text-muted)" }}>{m.userEmail ?? "—"}</span>
+                        </td>
+                        {/* col 6 — groupId: vazio */}
+                        <td></td>
+                        {/* col 7 — Código: vazio */}
+                        <td></td>
+                        {/* col 8 — Membros: vazio */}
+                        <td></td>
+                        {/* col 9 — Memos do membro neste grupo */}
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{m.memoCount}</td>
+                        {/* col 10 — Custo IA do membro neste grupo */}
+                        <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtUsd(m.apiCostUsd)}</td>
+                        {/* col 11 — Início → data que entrou no grupo */}
+                        <td style={{ whiteSpace: "nowrap" }}>{fmtDate(m.joinedAt)}</td>
+                        {/* col 12 — Vencimento: vazio */}
+                        <td></td>
+                      </tr>
+                    ))}
                   </Fragment>
                 );
               })}
