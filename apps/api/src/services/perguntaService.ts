@@ -6,6 +6,7 @@ import type {
   PerguntaResposta,
 } from "@mymemory/shared";
 import { invokeLLM, resetLlmPromptTraces } from "../lib/invokeLlm.js";
+import { withSpan } from "../lib/requestTimings.js";
 import { executarPipe1 } from "./perguntaPipe1.js";
 import { executarPipe2, type QueryDisponivel } from "./perguntaPipe2.js";
 import { executarPipe3 } from "./perguntaPipe3.js";
@@ -240,11 +241,11 @@ export async function perguntarMemory(input: {
       justificativa: `pipe forçado pelo usuário: ${input.forcePipe}`,
     };
   } else {
-    const r = await classificarPergunta({
+    const r = await withSpan("Classificação", () => classificarPergunta({
       pergunta: input.pergunta,
       categories: input.categories,
       historico: input.historico,
-    });
+    }));
     classificacao = r.classificacao;
     totalCost += r.costUsd;
   }

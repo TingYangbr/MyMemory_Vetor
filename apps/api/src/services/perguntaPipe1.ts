@@ -6,6 +6,7 @@ import type {
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { withSpan } from "../lib/requestTimings.js";
 import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
@@ -256,14 +257,14 @@ async function gerarRespostaSemantica(input: {
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
-  const rawHits = await fetchHitsWithMeta({
+  const rawHits = await withSpan("Busca semântica (embedding + pgvector)", () => fetchHitsWithMeta({
     pergunta: input.pergunta,
     userId: input.userId,
     groupId: input.groupId,
     filtros: input.filtros,
     topN: 50,
     escopoMemoIds: input.escopoMemoIds,
-  });
+  }));
 
   const memos = rankAndFilter(rawHits, {
     minSimilarity: input.thresholdInitial,
@@ -271,11 +272,11 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     topK: 10,
   });
 
-  const { resposta, costUsd } = await gerarRespostaSemantica({
+  const { resposta, costUsd } = await withSpan("Síntese da resposta (semântica)", () => gerarRespostaSemantica({
     pergunta: input.pergunta,
     memos,
     categoryId: input.categoryId,
-  });
+  }));
 
   return {
     resposta,

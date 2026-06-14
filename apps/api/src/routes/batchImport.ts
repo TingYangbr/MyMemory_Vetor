@@ -306,6 +306,7 @@ import {
 import { processTextMemoForReview } from "../services/textMemoProcessService.js";
 import { recognizeImageWithTesseract } from "../lib/imageOcr.js";
 import { createBatchMemoDirectly } from "../services/memoService.js";
+import { pool } from "../db.js";
 import type { BatchProcessResult, StorageProvider } from "@mymemory/shared";
 
 async function processBatchFileFromBuffer(input: {
@@ -387,6 +388,14 @@ async function processBatchFileFromBuffer(input: {
       originalFileName,
       storageProvider: provider,
     });
+
+    if (apiCost > 0) {
+      pool.query(
+        `INSERT INTO api_usage_logs (memoid, userid, operation, model, inputtokens, outputtokens, totaltokens, costusd)
+         VALUES (?, ?, 'batch_import', 'aggregate', 0, 0, 0, ?)`,
+        [result.id, input.userId, apiCost]
+      ).catch((e: unknown) => console.error("[batchImport] api_usage_logs INSERT failed:", e));
+    }
 
     return { originalFileName, ok: true, memoId: result.id };
   } catch (err) {

@@ -26,6 +26,7 @@ import MemoTextReviewPage from "./pages/MemoTextReviewPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import BatchImportPage from "./pages/BatchImportPage";
+import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
 
 export default function App() {
   return (
@@ -43,6 +44,7 @@ export default function App() {
       <Route path="/admin/cad-pipeline" element={<AdminCadPipelinePage />} />
       <Route path="/admin/system-config" element={<AdminSystemConfigPage />} />
       <Route path="/admin/llm-prompt" element={<AdminLlmPromptPage />} />
+      <Route path="/admin/assinaturas" element={<AdminSubscriptionsPage />} />
       <Route path="/estrutura-memo" element={<MemoContextPage />} />
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />

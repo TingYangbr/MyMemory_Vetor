@@ -81,6 +81,10 @@ const COL: Record<string, string> = {
   ym: "ym", cnt: "cnt", ok: "ok", ws: "ws",
   apicostusd: "apiCostUsd", dlcostusd: "dlCostUsd", dlcred: "dlCred",
   memoscount: "memosCount", chatscount: "chatsCount", totalcount: "totalCount",
+  // admin subscriptions route
+  membercount: "memberCount", memocount: "memoCount",
+  groupaccesscode: "groupAccessCode", planprice: "planPrice",
+  ownername: "ownerName", owneremail: "ownerEmail",
   // camponame alias
   camponame: "campoName",
 };

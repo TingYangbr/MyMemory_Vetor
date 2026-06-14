@@ -8,7 +8,10 @@ import { perguntarMemory } from "../services/perguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
 import { runWithStatusEmitter } from "../lib/requestStatus.js";
+import { runWithTimings, type TimingSpan } from "../lib/requestTimings.js";
+import { performance } from "node:perf_hooks";
 import { pool } from "../db.js";
+import { config } from "../config.js";
 import { openaiTranscribeAudio } from "../lib/openaiTranscription.js";
 
 const perguntaBodySchema = z.object({
@@ -97,8 +100,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     };
 
     let result;
+    let timings: TimingSpan[] = [];
     try {
-      result = await runWithStatusEmitter(
+      const t0 = performance.now();
+      const ran = await runWithTimings(() => runWithStatusEmitter(
         (msg) => sendEvent({ type: "status", message: msg }),
         () => perguntarMemory({
           userId,
@@ -119,7 +124,9 @@ const plugin: FastifyPluginAsync = async (app) => {
             : thresholds.initial,
           thresholdMin: thresholds.min,
         })
-      );
+      ));
+      result = ran.value;
+      timings = [{ label: "Total", durationMs: Math.round(performance.now() - t0) }, ...ran.timings];
     } catch (err) {
       req.log.error(err, "perguntarMemory failed");
       const msg = err instanceof Error ? err.message : "Erro interno";
@@ -151,6 +158,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       limiarUsado: result.limiarUsado,
       limiarMinimo: result.limiarMinimo,
       memosEncontrados: result.memosEncontrados,
+      timings,
       llmTrace: getAllLlmPromptTraces(),
     };
 
@@ -177,6 +185,17 @@ const plugin: FastifyPluginAsync = async (app) => {
     const filename = data.filename || "chunk.webm";
 
     const result = await openaiTranscribeAudio({ buffer, filename, mime });
+
+    if (result.costUsd > 0) {
+      pool.query(
+        `INSERT INTO api_usage_logs (memoid, userid, operation, model, inputtokens, outputtokens, totaltokens, costusd)
+         VALUES (NULL, ?, 'voice_transcription', ?, 0, 0, 0, ?)`,
+        [userId, config.openai.whisperModel, result.costUsd]
+      ).catch((err: unknown) => {
+        req.log.error(err, "[perguntas/transcribe] api_usage_logs INSERT failed");
+      });
+    }
+
     return reply.send({ text: result.text });
   });
 };

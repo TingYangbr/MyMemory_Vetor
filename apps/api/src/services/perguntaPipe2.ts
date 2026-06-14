@@ -10,6 +10,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { withSpan } from "../lib/requestTimings.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { setLastLlmPromptTrace } from "./llmPromptTraceStore.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
@@ -1131,13 +1132,13 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
 
   let totalCost = 0;
 
-  const { plano, costUsd: c1 } = await planejarConsultaEstruturada({
+  const { plano, costUsd: c1 } = await withSpan("Planejamento da consulta", () => planejarConsultaEstruturada({
     pergunta: input.pergunta,
     classificacao: input.classificacao,
     historico: input.historico,
     queriesDisponiveis: input.queriesDisponiveis,
     categoryId: input.categoryId,
-  });
+  }));
   totalCost += c1;
 
   // Queries executáveis = aquelas cujo query_id existe em queriesDisponiveis
@@ -1164,20 +1165,20 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   }
 
   const planoExec = { ...plano, queries: executableQueries };
-  const { agregado, porQuery } = await executarConsultasPlano({
+  const { agregado, porQuery } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
     plano: planoExec,
     queriesDisponiveis: input.queriesDisponiveis,
     userId: input.userId,
     groupId: input.groupId,
-  });
+  }));
 
-  const { resposta, costUsd: c2 } = await gerarRespostaEstruturada({
+  const { resposta, costUsd: c2 } = await withSpan("Síntese da resposta (estruturada)", () => gerarRespostaEstruturada({
     pergunta: input.pergunta,
     plano: planoExec,
     porQuery,
     agregado,
     categoryId: input.categoryId,
-  });
+  }));
   totalCost += c2;
 
   return { resposta, apiCost: totalCost, dadosEstruturados: agregado };

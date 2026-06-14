@@ -50,11 +50,13 @@ import adminSubscriptionPlansRoutes from "./routes/adminSubscriptionPlans.js";
 import adminLlmPromptRoutes from "./routes/adminLlmPrompt.js";
 import adminCadPipelineRoutes from "./routes/adminCadPipeline.js";
 import adminSystemConfigRoutes from "./routes/adminSystemConfig.js";
+import adminDiagnosticsRoutes from "./routes/adminDiagnostics.js";
 import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
 import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
 import adminMemoContextCloneRoutes from "./routes/adminMemoContextClone.js";
+import adminSubscriptionsRoutes from "./routes/adminSubscriptions.js";
 import groupsRoutes from "./routes/groups.js";
 import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
@@ -166,11 +168,13 @@ await app.register(adminCostReportRoutes);
 await app.register(adminLlmPromptRoutes);
 await app.register(adminCadPipelineRoutes);
 await app.register(adminSystemConfigRoutes);
+await app.register(adminDiagnosticsRoutes);
 await app.register(adminPromptConfigsRoutes);
 await app.register(adminAiConfigRoutes);
 await app.register(adminDbConnectionsRoutes);
 await app.register(adminUserInvitesRoutes);
 await app.register(adminMemoContextCloneRoutes);
+await app.register(adminSubscriptionsRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

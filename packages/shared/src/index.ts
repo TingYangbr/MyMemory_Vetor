@@ -1112,10 +1112,19 @@ export interface PerguntaLlmTraceEntry {
   messages: PerguntaLlmTraceMessage[];
 }
 
+export interface PerguntaTimingSpan {
+  /** Rótulo da etapa cronometrada (ex.: "Classificação", "Síntese da resposta"). */
+  label: string;
+  /** Duração da etapa em milissegundos. */
+  durationMs: number;
+}
+
 export interface PerguntaResponse {
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
   apiCost: number;
+  /** Tempo gasto por etapa do pipeline (diagnóstico de latência). O primeiro item é o total. */
+  timings?: PerguntaTimingSpan[];
   aguardaFase2?: boolean;
   /** Limiar inicial configurado (0-1) com que a busca semântica começou. */
   limiarInicial?: number;
@@ -1127,6 +1136,52 @@ export interface PerguntaResponse {
   memosEncontrados?: number;
   /** Trace de todas as chamadas LLM que geraram esta resposta (volátil, apenas na última pergunta). */
   llmTrace?: PerguntaLlmTraceEntry[];
+}
+
+// ── Assinaturas (Admin) ───────────────────────────────────────────────────────
+
+export interface SubscriptionAdminRow {
+  subscriptionId: number;
+  type: "individual" | "group";
+  status: "active" | "expired" | "canceled";
+  planName: string;
+  planPrice: number;
+  startDate: string;
+  endDate: string | null;
+  ownerId: number;
+  ownerName: string | null;
+  ownerEmail: string | null;
+  groupId: number | null;
+  groupName: string | null;
+  groupAccessCode: string | null;
+  memberCount: number;
+  memoCount: number;
+  apiCostUsd: number;
+}
+
+export interface SubscriptionsAdminResponse {
+  rows: SubscriptionAdminRow[];
+}
+
+// ── Diagnóstico de saúde (Admin) ─────────────────────────────────────────────
+
+export interface AdminDiagnosticCheck {
+  /** Identificador da verificação (ex.: "postgres", "embeddings", "chat"). */
+  id: string;
+  /** Rótulo legível. */
+  label: string;
+  /** true = passou; false = falhou. */
+  ok: boolean;
+  /** Latência da verificação em milissegundos. */
+  durationMs: number;
+  /** Detalhe adicional: provedor/modelo testado, ou mensagem de erro. */
+  detail?: string;
+}
+
+export interface AdminDiagnosticsResponse {
+  checks: AdminDiagnosticCheck[];
+  /** Carimbo de tempo ISO de quando o diagnóstico rodou. */
+  ranAt: string;
 }
 
 // ── Perguntas Modelo (salvas pelo usuário) ───────────────────────────────────

@@ -6,6 +6,7 @@ import type {
   PerguntaResposta,
 } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { withSpan } from "../lib/requestTimings.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
 import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
@@ -200,12 +201,12 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     executarPipe2(pipe2Input),
   ]);
 
-  const { resposta, costUsd: c3 } = await gerarRespostaHibrida({
+  const { resposta, costUsd: c3 } = await withSpan("Síntese da resposta (híbrida)", () => gerarRespostaHibrida({
     pergunta: input.pergunta,
     pipe1,
     pipe2,
     categoryId: input.categoryId,
-  });
+  }));
 
   return {
     resposta,

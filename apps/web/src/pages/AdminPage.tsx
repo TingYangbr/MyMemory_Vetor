@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import type {
   AdminCostReportMediaFilter,
   AdminCostReportResponse,
+  AdminDiagnosticsResponse,
   AdminPromptCategory,
   AdminPromptCategoryListResponse,
   AiConfigListResponse,
@@ -473,6 +474,9 @@ export default function AdminPage() {
   const [tab, setTab] = useState<AdminTab>("planos");
   const [plans, setPlans] = useState<SubscriptionPlanAdmin[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [diag, setDiag] = useState<AdminDiagnosticsResponse | null>(null);
+  const [diagLoading, setDiagLoading] = useState(false);
+  const [diagErr, setDiagErr] = useState<string | null>(null);
   const [purgeRows, setPurgeRows] = useState<SoftDeletedMemosMonthlyRow[]>([]);
   const [purgeLoading, setPurgeLoading] = useState(false);
   const [purgeErr, setPurgeErr] = useState<string | null>(null);
@@ -623,6 +627,19 @@ export default function AdminPage() {
   useEffect(() => {
     if (me?.role === "admin" && tab === "planos") loadPlans();
   }, [me?.role, tab, loadPlans]);
+
+  const runDiagnostics = useCallback(async () => {
+    setDiagLoading(true);
+    setDiagErr(null);
+    try {
+      const r = await apiGet<AdminDiagnosticsResponse>("/api/admin/diagnostics");
+      setDiag(r);
+    } catch (e) {
+      setDiagErr(e instanceof Error ? e.message : "Falha ao executar diagnóstico.");
+    } finally {
+      setDiagLoading(false);
+    }
+  }, []);
 
   const loadPurgeSummary = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
@@ -1325,7 +1342,62 @@ export default function AdminPage() {
               <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary">Último prompt LLM</Link>
               <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary">CAD/BIM pipeline</Link>
               <Link to="/admin/system-config" className="mm-btn mm-btn--primary">Configurações do sistema</Link>
+              <Link to="/admin/assinaturas" className="mm-btn mm-btn--primary">Assinaturas &amp; Grupos</Link>
             </div>
+
+            <hr style={{ margin: "1.25rem 0", border: "none", borderTop: "1px solid var(--mm-border, #e2e2e2)" }} />
+
+            <h2 className={styles.tableToolbarLabel} style={{ marginBottom: "0.5rem" }}>
+              Diagnóstico de saúde
+            </h2>
+            <p className="mm-muted" style={{ margin: "0 0 0.75rem" }}>
+              Testa as dependências usadas pela pergunta ao MyMemory (banco, embeddings e provedor de IA)
+              e mostra a latência de cada uma. Útil para isolar erros de rede e gargalos de tempo.
+            </p>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                onClick={() => void runDiagnostics()}
+                disabled={diagLoading}
+              >
+                {diagLoading ? "Executando…" : "Executar diagnóstico"}
+              </button>
+              {diag ? (
+                <span className="mm-muted" style={{ fontSize: "0.85rem" }}>
+                  Última execução: {new Date(diag.ranAt).toLocaleString()}
+                </span>
+              ) : null}
+            </div>
+
+            {diagErr ? (
+              <p style={{ color: "var(--mm-danger, #c0392b)", marginTop: "0.75rem" }}>{diagErr}</p>
+            ) : null}
+
+            {diag ? (
+              <table className={styles.table} style={{ marginTop: "0.75rem" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left" }}>Verificação</th>
+                    <th style={{ textAlign: "center" }}>Status</th>
+                    <th style={{ textAlign: "right" }}>Latência</th>
+                    <th style={{ textAlign: "left" }}>Detalhe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {diag.checks.map((c) => (
+                    <tr key={c.id}>
+                      <td>{c.label}</td>
+                      <td style={{ textAlign: "center", color: c.ok ? "var(--mm-success, #27ae60)" : "var(--mm-danger, #c0392b)", fontWeight: 600 }}>
+                        {c.ok ? "OK" : "FALHA"}
+                      </td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{c.durationMs} ms</td>
+                      <td style={{ wordBreak: "break-word" }}>{c.detail ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : null}
           </div>
         ) : null}
 

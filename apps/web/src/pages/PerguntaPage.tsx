@@ -1384,6 +1384,23 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       Custo de API: ${r.apiCost.toFixed(6)} — Créditos: {(r.apiCost * 100).toFixed(6)}
                     </p>
                   ) : null}
+                  {me?.showLlmTrace && r.timings && r.timings.length > 0 ? (
+                    <details className={styles.memosDetails}>
+                      <summary className={styles.memosSummary}>
+                        Tempo: {((r.timings[0]?.durationMs ?? 0) / 1000).toFixed(1)}s (ver etapas)
+                      </summary>
+                      <ul className={styles.memosList}>
+                        {r.timings.map((t, j) => (
+                          <li key={j} className={styles.memosItem} style={{ justifyContent: "space-between" }}>
+                            <span style={j === 0 ? { fontWeight: 600 } : undefined}>{t.label}</span>
+                            <span style={{ fontVariantNumeric: "tabular-nums", marginLeft: "0.75rem" }}>
+                              {(t.durationMs / 1000).toFixed(2)}s
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ) : null}
                   {r.resposta.dados_usados.length > 0 ? (
                     <details className={styles.memosDetails}>
                       <summary className={styles.memosSummary}>
