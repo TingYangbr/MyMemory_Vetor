@@ -8,24 +8,24 @@ import styles from "./AvisosPage.module.css";
 interface AvisoRow {
   id: number;
   descricao: string;
-  perguntaoriginal: string;
+  perguntaOriginal: string;
   pipe: "semantica" | "estruturada" | "hibrida";
-  frequenciatipo: "horas" | "diaria" | "semanal" | "mensal";
-  frequenciahoras: number | null;
-  canaldestino: string;
-  ultimaexecucao: string | null;
-  proximaexecucao: string | null;
+  frequenciaTipo: "horas" | "diaria" | "semanal" | "mensal";
+  frequenciaHoras: number | null;
+  canalDestino: string;
+  ultimaExecucao: string | null;
+  proximaExecucao: string | null;
   status: "ativo" | "pausado";
-  createdat: string;
+  createdAt: string;
   ultimoaviso: string | null;
 }
 
-function formatFreq(tipo: string, horas: number | null): string {
+function formatFreq(tipo: string | undefined, horas: number | null): string {
   if (tipo === "horas") return `A cada ${horas ?? "?"} hora${horas !== 1 ? "s" : ""}`;
   if (tipo === "diaria") return "Diário";
   if (tipo === "semanal") return "Semanal";
   if (tipo === "mensal") return "Mensal";
-  return tipo;
+  return tipo ?? "—";
 }
 
 function formatDate(iso: string | null): string {
@@ -153,21 +153,21 @@ export default function AvisosPage() {
 
                 <p className={styles.itemPergunta}>
                   <span className={styles.itemPerguntaLabel}>Pergunta: </span>
-                  {a.perguntaoriginal}
+                  {a.perguntaOriginal}
                 </p>
 
                 <div className={styles.itemInfoRow}>
                   <span className={styles.itemInfoChip}>
-                    <span aria-hidden>🔁</span> {formatFreq(a.frequenciatipo, a.frequenciahoras)}
+                    <span aria-hidden>🔁</span> {formatFreq(a.frequenciaTipo, a.frequenciaHoras)}
                   </span>
                   <span className={styles.itemInfoChip}>
-                    <span aria-hidden>📧</span> {a.canaldestino}
+                    <span aria-hidden>📧</span> {a.canalDestino}
                   </span>
                 </div>
 
                 <div className={styles.itemMeta}>
-                  <span>Última exec.: {formatDate(a.ultimaexecucao)}</span>
-                  <span>Próxima: {formatDate(a.proximaexecucao)}</span>
+                  <span>Última exec.: {formatDate(a.ultimaExecucao)}</span>
+                  <span>Próxima: {formatDate(a.proximaExecucao)}</span>
                   {a.ultimoaviso ? (
                     <span>Último aviso: {formatDate(a.ultimoaviso)}</span>
                   ) : null}
