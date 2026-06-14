@@ -40,6 +40,7 @@ import { PerguntaModelosEstrelas1700000000124 } from "./migrations/1700000000124
 import { UserInvites1700000000125 } from "./migrations/1700000000125-UserInvites.js";
 import { UserTtsRate1700000000126 } from "./migrations/1700000000126-UserTtsRate.js";
 import { FixTtsRateColumnCase1700000000127 } from "./migrations/1700000000127-FixTtsRateColumnCase.js";
+import { AddAvisos1700000000128 } from "./migrations/1700000000128-AddAvisos.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -62,6 +63,8 @@ import groupInvitesRoutes from "./routes/groupInvites.js";
 import memoContextRoutes from "./routes/memoContext.js";
 import perguntasRoutes from "./routes/perguntas.js";
 import perguntaModelosRoutes from "./routes/perguntaModelos.js";
+import avisosRoutes from "./routes/avisos.js";
+import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 import batchImportRoutes from "./routes/batchImport.js";
@@ -105,6 +108,7 @@ assertMediaStorageEnv();
       UserInvites1700000000125,
       UserTtsRate1700000000126,
       FixTtsRateColumnCase1700000000127,
+      AddAvisos1700000000128,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -160,6 +164,7 @@ await app.register(memoRoutes);
 await app.register(memoContextRoutes);
 await app.register(perguntasRoutes);
 await app.register(perguntaModelosRoutes);
+await app.register(avisosRoutes);
 await app.register(adminSubscriptionPlansRoutes);
 await app.register(adminMediaSettingsRoutes);
 await app.register(adminDocumentAiRoutes);
@@ -187,6 +192,8 @@ if (process.env.NODE_ENV !== "production") {
       "Se resendApiKeyConfigured for false, a API não chama o Resend. Confira .env na raiz do repo ou em apps/api/.",
   }));
 }
+
+iniciarAvisoScheduler();
 
 try {
   await app.listen({ port: config.port, host: "0.0.0.0" });

@@ -149,6 +149,43 @@ export async function sendUserInviteEmail(
   console.info("[mail] Convite de usuário aceito pelo Resend (id=%s) → %s", id ?? "?", to);
 }
 
+export async function sendAvisoAlert(opts: {
+  to: string;
+  descricao: string;
+  texto: string;
+  linkVisualizacao: string;
+}): Promise<void> {
+  const { to, descricao, texto, linkVisualizacao } = opts;
+  const html = `
+    <p>Olá,</p>
+    <p>O aviso <strong>${escapeHtml(descricao)}</strong> detectou uma alteração no MyMemory.</p>
+    <blockquote style="border-left:3px solid #4F46E5;margin:16px 0;padding:8px 16px;background:#F5F5FF;color:#1F2937">
+      ${escapeHtml(texto)}
+    </blockquote>
+    <p>
+      <a href="${linkVisualizacao}" style="display:inline-block;background:#4F46E5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">
+        Ver no MyMemory →
+      </a>
+    </p>
+    <p style="font-size:12px;color:#9CA3AF;margin-top:24px">
+      Você recebeu este e-mail pois tem um aviso ativo no MyMemory.
+      Acesse a plataforma para pausar ou excluir este aviso.
+    </p>
+  `;
+  const text = `${descricao}\n\n${texto}\n\nVer no MyMemory: ${linkVisualizacao}`;
+  const client = getResend();
+  const { data, error } = await client.emails.send({
+    from: config.emailFrom,
+    to: [to],
+    subject: `Aviso: ${descricao} — MyMemory`,
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend: ${formatResendError(error)}`);
+  const id = data && typeof data === "object" && "id" in data ? String((data as { id: string }).id) : null;
+  console.info("[mail] Aviso aceito pelo Resend (id=%s) → %s", id ?? "?", to);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

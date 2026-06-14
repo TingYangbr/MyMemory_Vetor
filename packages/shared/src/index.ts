@@ -1136,6 +1136,10 @@ export interface PerguntaResponse {
   memosEncontrados?: number;
   /** Trace de todas as chamadas LLM que geraram esta resposta (volátil, apenas na última pergunta). */
   llmTrace?: PerguntaLlmTraceEntry[];
+  /** Texto sugerido para criação de aviso: "Me avise quando…" */
+  sugestaoAviso?: string;
+  /** Snapshot do pipeline para re-execução automática pelo serviço de avisos. */
+  avisoSnapshot?: AvisoExecucaoSnapshot;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
@@ -1284,6 +1288,75 @@ export interface AdminPromptCategory {
 
 export interface AdminPromptCategoryListResponse {
   categories: AdminPromptCategory[];
+}
+
+// ── Avisos Inteligentes ───────────────────────────────────────────────────────
+
+export type FrequenciaTipo = "horas" | "diaria" | "semanal" | "mensal";
+export type CanalEnvio = "email" | "whatsapp";
+export type AvisoStatus = "ativo" | "pausado";
+
+export interface AvisoQueryParamSnapshot {
+  nome: string;
+  valor: unknown;
+  tipo: string;
+  operadorSugerido: string;
+  precisaNormalizacao: boolean;
+}
+
+export interface AvisoQuerySnapshot {
+  queryId: number;
+  nome: string;
+  conexaoId: number | null;
+  parametros: AvisoQueryParamSnapshot[];
+}
+
+export interface AvisoExecucaoSnapshot {
+  tipo: "semantica" | "estruturada" | "hibrida";
+  /** Limiar de similaridade — para pipe semântico/híbrido. */
+  limiar?: number;
+  /** Queries a re-executar — para pipe estruturado/híbrido. */
+  queries?: AvisoQuerySnapshot[];
+}
+
+export interface CriarAvisoInput {
+  descricao: string;
+  perguntaOriginal: string;
+  pipe: "semantica" | "estruturada" | "hibrida";
+  execucaoSnapshot: AvisoExecucaoSnapshot;
+  frequenciaTipo: FrequenciaTipo;
+  frequenciaHoras?: number | null;
+  canalDestino: string;
+  workspaceGroupId?: number | null;
+}
+
+export interface Aviso {
+  id: number;
+  userId: number;
+  groupId: number | null;
+  descricao: string;
+  perguntaOriginal: string;
+  pipe: "semantica" | "estruturada" | "hibrida";
+  execucaoSnapshotJson: AvisoExecucaoSnapshot;
+  frequenciaTipo: FrequenciaTipo;
+  frequenciaHoras: number | null;
+  canalEnvio: CanalEnvio;
+  canalDestino: string;
+  ultimoResultadoJson: unknown | null;
+  ultimaExecucao: string | null;
+  proximaExecucao: string | null;
+  status: AvisoStatus;
+  createdAt: string;
+  /** Últimos N históricos de aviso enviados (FIFO). */
+  historico?: AvisoHistorico[];
+}
+
+export interface AvisoHistorico {
+  id: number;
+  avisoId: number;
+  enviadoEm: string;
+  texto: string;
+  custoUsd: number;
 }
 
 // ── Importação em lote / armazenamento alternativo ao S3 ─────────────────────

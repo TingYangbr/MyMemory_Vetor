@@ -27,6 +27,7 @@ import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import BatchImportPage from "./pages/BatchImportPage";
 import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
+import AvisosPage from "./pages/AvisosPage";
 
 export default function App() {
   return (
@@ -49,6 +50,7 @@ export default function App() {
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />
       <Route path="/perguntas-salvas" element={<PerguntaModelosPage />} />
+      <Route path="/avisos" element={<AvisosPage />} />
       <Route path="/conta" element={<Navigate to="/conta/preferencias" replace />} />
       <Route path="/conta/preferencias" element={<UserPreferencesPage />} />
       <Route path="/revisao/memo-texto" element={<MemoTextReviewPage />} />

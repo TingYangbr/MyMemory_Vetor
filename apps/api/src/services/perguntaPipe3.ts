@@ -1,4 +1,5 @@
 import type {
+  AvisoQuerySnapshot,
   PerguntaCardHistorico,
   PerguntaClassificacao,
   PerguntaFiltros,
@@ -38,6 +39,7 @@ export interface Pipe3Result {
   limiarMinimo?: number;
   memosEncontrados?: number;
   aguardaFase2?: boolean;
+  queriesParaAviso?: AvisoQuerySnapshot[];
 }
 
 // ── Prompt ────────────────────────────────────────────────────────────────────
@@ -216,5 +218,6 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     limiarMinimo: pipe1.limiarMinimo,
     memosEncontrados: pipe1.memosEncontrados,
     aguardaFase2: pipe1.memosEncontrados === 0 && pipe2.dadosEstruturados.totalLinhas > 0,
+    queriesParaAviso: pipe2.queriesParaAviso,
   };
 }

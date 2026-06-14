@@ -319,6 +319,18 @@ export default function Header({
                 {me ? (
                   <li>
                     <Link
+                      to="/avisos"
+                      role="menuitem"
+                      className={styles.dropdownLink}
+                      onClick={() => setMenuOpen(false)}
+                    >
+                      <span aria-hidden>🔔</span> Meus Avisos
+                    </Link>
+                  </li>
+                ) : null}
+                {me ? (
+                  <li>
+                    <Link
                       to="/conta/preferencias"
                       role="menuitem"
                       className={styles.dropdownLink}

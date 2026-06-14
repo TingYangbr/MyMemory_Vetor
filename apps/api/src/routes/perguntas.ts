@@ -160,6 +160,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       memosEncontrados: result.memosEncontrados,
       timings,
       llmTrace: getAllLlmPromptTraces(),
+      sugestaoAviso: result.sugestaoAviso,
+      avisoSnapshot: result.avisoSnapshot,
     };
 
     sendEvent({ type: "result", data: body });

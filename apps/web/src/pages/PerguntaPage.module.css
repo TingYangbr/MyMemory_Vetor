@@ -1608,3 +1608,95 @@
   color: var(--mm-text-muted, #94a3b8);
   cursor: pointer;
 }
+
+/* ── Aviso Inteligente — banner de sugestão no card ── */
+.avisoSugestao {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--mm-border, #e2e8f0);
+  background: rgba(245, 158, 11, 0.05);
+  flex-wrap: wrap;
+}
+
+.avisoSugestaoIcon {
+  font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.avisoSugestaoText {
+  font-size: 0.83rem;
+  color: var(--mm-text-muted, #64748b);
+  flex: 1;
+  min-width: 0;
+}
+
+.avisoSugestaoCheck {
+  font-size: 0.88rem;
+  color: #16a34a;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avisoSugestaoBtn {
+  padding: 0.25rem 0.65rem;
+  border: 1.5px solid #d97706;
+  border-radius: 20px;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #d97706;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: background 0.12s, color 0.12s;
+}
+
+.avisoSugestaoBtn:hover {
+  background: rgba(217, 119, 6, 0.08);
+}
+
+.avisoLink {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mm-accent, #0d9488);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.avisoLink:hover { text-decoration: underline; }
+
+/* ── Aviso modal — seletor de frequência ── */
+.avisoFreqRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
+.freqChip {
+  padding: 0.22rem 0.6rem;
+  border: 1.5px solid var(--mm-border, #e2e8f0);
+  border-radius: 20px;
+  background: none;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--mm-text-muted, #64748b);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color 0.12s, color 0.12s, background 0.12s;
+}
+
+.freqChip:hover {
+  border-color: #d97706;
+  color: #d97706;
+}
+
+.freqChipActive {
+  border-color: #d97706;
+  background: rgba(217, 119, 6, 0.1);
+  color: #d97706;
+}

@@ -112,6 +112,19 @@ export async function apiDeleteJson<T>(path: string): Promise<T> {
   return parseJsonBody<T>(text, path);
 }
 
+export const avisos = {
+  criar: (data: Record<string, unknown>) =>
+    apiPostJson<{ aviso: Record<string, unknown> }>("/api/avisos", data),
+  listar: () =>
+    apiGet<{ avisos: Record<string, unknown>[] }>("/api/avisos"),
+  atualizar: (id: number, data: Record<string, unknown>) =>
+    apiPatchJson<{ ok: boolean }>(`/api/avisos/${id}`, data),
+  excluir: (id: number) =>
+    apiDeleteJson<{ ok: boolean }>(`/api/avisos/${id}`),
+  executar: (id: number) =>
+    apiPostJson<{ mudanca: boolean; custoUsd: number }>(`/api/avisos/${id}/executar`, {}),
+};
+
 export async function apiPostMultipart(
   path: string,
   form: FormData,

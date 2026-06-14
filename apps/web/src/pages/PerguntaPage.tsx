@@ -11,7 +11,7 @@ import type {
   PerguntaResponse,
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
+import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
@@ -415,6 +415,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const modalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
+  const [avisoModal, setAvisoModal] = useState<{
+    cardIdx: number;
+    descricao: string;
+    freqTipo: "horas" | "diaria" | "semanal" | "mensal";
+    freqHoras: number;
+    email: string;
+  } | null>(null);
+  const [avisoSaving, setAvisoSaving] = useState(false);
+  const [avisoSaveErr, setAvisoSaveErr] = useState<string | null>(null);
+  const [avisoSavedIdx, setAvisoSavedIdx] = useState<number | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
   const ttsBusyRef = useRef<string | null>(null);
   const ttsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -955,6 +965,32 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
 
+  async function ativarAviso() {
+    if (!avisoModal) return;
+    const r = respostas[avisoModal.cardIdx];
+    if (!r || !r.avisoSnapshot) return;
+    setAvisoSaving(true);
+    setAvisoSaveErr(null);
+    try {
+      await avisosApi.criar({
+        descricao: avisoModal.descricao,
+        perguntaOriginal: r.perguntaTexto,
+        pipe: r.classificacao.pipe,
+        execucaoSnapshot: r.avisoSnapshot as unknown as Record<string, unknown>,
+        frequenciaTipo: avisoModal.freqTipo,
+        frequenciaHoras: avisoModal.freqTipo === "horas" ? avisoModal.freqHoras : null,
+        canalDestino: avisoModal.email,
+        workspaceGroupId: workspaceGroupId ?? null,
+      });
+      setAvisoSavedIdx(avisoModal.cardIdx);
+      setAvisoModal(null);
+    } catch (e) {
+      setAvisoSaveErr(e instanceof Error ? e.message : "Erro ao ativar aviso.");
+    } finally {
+      setAvisoSaving(false);
+    }
+  }
+
   const modeloCatOptions = useMemo(() => {
     if (modelos.length <= 6) return [];
     const cats = new Set<string>();
@@ -1435,6 +1471,35 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     </button>
                   ) : null}
                 </div>
+                {r.sugestaoAviso && r.avisoSnapshot ? (
+                  avisoSavedIdx === i ? (
+                    <div className={styles.avisoSugestao}>
+                      <span className={styles.avisoSugestaoCheck}>✓</span>
+                      <span className={styles.avisoSugestaoText}>Aviso ativado.</span>
+                      <a href="/avisos" className={styles.avisoLink}>Meus Avisos →</a>
+                    </div>
+                  ) : (
+                    <div className={styles.avisoSugestao}>
+                      <span className={styles.avisoSugestaoIcon} aria-hidden>🔔</span>
+                      <span className={styles.avisoSugestaoText}>{r.sugestaoAviso}</span>
+                      <button
+                        type="button"
+                        className={styles.avisoSugestaoBtn}
+                        onClick={() => setAvisoModal({
+                          cardIdx: i,
+                          descricao: r.sugestaoAviso!.length > 500
+                            ? r.sugestaoAviso!.slice(0, 497) + "…"
+                            : r.sugestaoAviso!,
+                          freqTipo: "diaria",
+                          freqHoras: 1,
+                          email: me?.email ?? "",
+                        })}
+                      >
+                        Configurar aviso ▸
+                      </button>
+                    </div>
+                  )
+                ) : null}
               </article>
             ))}
           </div>
@@ -1725,6 +1790,77 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 ))}
               </ul>
             )}
+          </div>
+        </div>
+      ) : null}
+
+      {avisoModal ? (
+        <div className={styles.filterOverlay} onClick={() => { if (!avisoSaving) setAvisoModal(null); }}>
+          <div className={styles.filterModal} style={{ maxWidth: 420 }} onClick={(e) => e.stopPropagation()}>
+            <h3 className={styles.filterModalTitle}>Configurar aviso</h3>
+            <label className={styles.filterLabel}>
+              Descrição
+              <input
+                type="text"
+                className={styles.filterInput}
+                value={avisoModal.descricao}
+                maxLength={500}
+                onChange={(e) => setAvisoModal({ ...avisoModal, descricao: e.target.value })}
+              />
+            </label>
+            <div className={styles.filterLabel}>
+              Frequência
+              <div className={styles.avisoFreqRow}>
+                {([1, 2, 3, 6, 12] as const).map((h) => (
+                  <button
+                    key={h}
+                    type="button"
+                    className={`${styles.freqChip}${avisoModal.freqTipo === "horas" && avisoModal.freqHoras === h ? ` ${styles.freqChipActive}` : ""}`}
+                    onClick={() => setAvisoModal({ ...avisoModal, freqTipo: "horas", freqHoras: h })}
+                  >
+                    {h}h
+                  </button>
+                ))}
+                {(["diaria", "semanal", "mensal"] as const).map((t) => (
+                  <button
+                    key={t}
+                    type="button"
+                    className={`${styles.freqChip}${avisoModal.freqTipo === t ? ` ${styles.freqChipActive}` : ""}`}
+                    onClick={() => setAvisoModal({ ...avisoModal, freqTipo: t })}
+                  >
+                    {t === "diaria" ? "Diária" : t === "semanal" ? "Semanal" : "Mensal"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <label className={styles.filterLabel}>
+              E-mail
+              <input
+                type="email"
+                className={styles.filterInput}
+                value={avisoModal.email}
+                onChange={(e) => setAvisoModal({ ...avisoModal, email: e.target.value })}
+              />
+            </label>
+            {avisoSaveErr ? <p className="mm-error" style={{ margin: 0 }}>{avisoSaveErr}</p> : null}
+            <div className={styles.filterActions}>
+              <button
+                type="button"
+                className="mm-btn mm-btn--primary"
+                disabled={avisoSaving || !avisoModal.descricao.trim() || !avisoModal.email.trim()}
+                onClick={() => void ativarAviso()}
+              >
+                {avisoSaving ? "Ativando…" : "Ativar aviso"}
+              </button>
+              <button
+                type="button"
+                className="mm-btn"
+                disabled={avisoSaving}
+                onClick={() => setAvisoModal(null)}
+              >
+                Cancelar
+              </button>
+            </div>
           </div>
         </div>
       ) : null}

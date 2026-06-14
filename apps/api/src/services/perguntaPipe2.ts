@@ -1,4 +1,5 @@
 import type {
+  AvisoQuerySnapshot,
   PerguntaCardHistorico,
   PerguntaClassificacao,
   PerguntaFiltros,
@@ -53,9 +54,11 @@ export interface Pipe2Result {
   resposta: PerguntaResposta;
   apiCost: number;
   dadosEstruturados: PerguntaResultadoEstruturado;
+  /** Snapshot das queries executadas — usado para criar avisos automáticos. */
+  queriesParaAviso?: AvisoQuerySnapshot[];
 }
 
-interface PlanoParam {
+export interface PlanoParam {
   nome: string;
   termo_usuario: string;
   valor: unknown;
@@ -426,7 +429,7 @@ function parseDateVariants(isoDate: string): string[] {
  * formatos de data (DD/MM/YYYY, YYYY-MM-DD, "D de mês de YYYY") combinados com OR, cobrindo
  * todas as formas em que uma data pode estar armazenada em dadosEspecificosJson.
  */
-function bindTemplateParams(
+export function bindTemplateParams(
   sentencaSql: string,
   llmParams: PlanoParam[],
   paramDefs: QueryDisponivel["params"],
@@ -1181,5 +1184,23 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   }));
   totalCost += c2;
 
-  return { resposta, apiCost: totalCost, dadosEstruturados: agregado };
+  const queriesParaAviso: AvisoQuerySnapshot[] = planoExec.queries.map((task) => {
+    const template = input.queriesDisponiveis.find((q) => q.query_id === task.query_id);
+    return {
+      queryId: Number(task.query_id),
+      nome: template?.nome ?? task.query_id,
+      conexaoId: template?.conexaoId ?? null,
+      parametros: task.parametros
+        .filter((p) => !SYSTEM_PARAM_NAMES.has(p.nome.toLowerCase()))
+        .map((p) => ({
+          nome: p.nome,
+          valor: p.valor,
+          tipo: p.tipo,
+          operadorSugerido: p.operador_sugerido,
+          precisaNormalizacao: p.precisa_normalizacao,
+        })),
+    };
+  });
+
+  return { resposta, apiCost: totalCost, dadosEstruturados: agregado, queriesParaAviso };
 }

@@ -1,4 +1,5 @@
 import type {
+  AvisoExecucaoSnapshot,
   MemoContextCategory,
   PerguntaCardHistorico,
   PerguntaClassificacao,
@@ -11,6 +12,7 @@ import { executarPipe1 } from "./perguntaPipe1.js";
 import { executarPipe2, type QueryDisponivel } from "./perguntaPipe2.js";
 import { executarPipe3 } from "./perguntaPipe3.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
+import { gerarSugestaoAviso } from "./avisoService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -224,6 +226,8 @@ export async function perguntarMemory(input: {
   limiarUsado?: number;
   limiarMinimo?: number;
   memosEncontrados?: number;
+  sugestaoAviso?: string;
+  avisoSnapshot?: AvisoExecucaoSnapshot;
 }> {
   resetLlmPromptTraces();
   let totalCost = 0;
@@ -286,14 +290,18 @@ export async function perguntarMemory(input: {
       escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
       categoryId: firstCategoryId,
     });
+    const { texto: sugestaoAviso, custoUsd: sCost } = await gerarSugestaoAviso(input.pergunta, "semantica", []);
+    const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
     return {
       resposta: result.resposta,
       classificacao,
-      apiCost: totalCost + result.apiCost,
+      apiCost: totalCost + result.apiCost + sCost,
       limiarInicial: result.limiarInicial,
       limiarUsado: result.limiarUsado,
       limiarMinimo: result.limiarMinimo,
       memosEncontrados: result.memosEncontrados,
+      sugestaoAviso,
+      avisoSnapshot,
     };
   }
 
@@ -310,10 +318,15 @@ export async function perguntarMemory(input: {
       queriesDisponiveis,
       categoryId: firstCategoryId,
     });
+    const queriesUsadas = result.queriesParaAviso ?? [];
+    const { texto: sugestaoAviso, custoUsd: sCost } = await gerarSugestaoAviso(input.pergunta, "estruturada", queriesUsadas);
+    const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "estruturada", queries: queriesUsadas };
     return {
       resposta: result.resposta,
       classificacao,
-      apiCost: totalCost + result.apiCost,
+      apiCost: totalCost + result.apiCost + sCost,
+      sugestaoAviso,
+      avisoSnapshot,
     };
   }
 
@@ -336,14 +349,23 @@ export async function perguntarMemory(input: {
     escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
     categoryId: firstCategoryId,
   });
+  const queriesUsadas3 = result.queriesParaAviso ?? [];
+  const { texto: sugestaoAviso3, custoUsd: sCost3 } = await gerarSugestaoAviso(input.pergunta, "hibrida", queriesUsadas3);
+  const avisoSnapshot3: AvisoExecucaoSnapshot = {
+    tipo: "hibrida",
+    limiar: result.limiarUsado ?? thInitial,
+    queries: queriesUsadas3,
+  };
   return {
     resposta: result.resposta,
     classificacao,
-    apiCost: totalCost + result.apiCost,
+    apiCost: totalCost + result.apiCost + sCost3,
     aguardaFase2: result.aguardaFase2,
     limiarInicial: result.limiarInicial,
     limiarUsado: result.limiarUsado,
     limiarMinimo: result.limiarMinimo,
     memosEncontrados: result.memosEncontrados,
+    sugestaoAviso: sugestaoAviso3,
+    avisoSnapshot: avisoSnapshot3,
   };
 }

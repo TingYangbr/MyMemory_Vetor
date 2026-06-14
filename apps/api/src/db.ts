@@ -73,6 +73,19 @@ const COL: Record<string, string> = {
   // memo_chunks
   memo_id: "memo_id", chunk_idx: "chunk_idx", chunk_text: "chunk_text",
   haschunks: "hasChunks",
+  // avisos / aviso_historico
+  perguntaoriginal: "perguntaOriginal",
+  execucaosnapshotjson: "execucaoSnapshotJson",
+  frequenciatipo: "frequenciaTipo",
+  frequenciahoras: "frequenciaHoras",
+  canalenvio: "canalEnvio",
+  canaldestino: "canalDestino",
+  ultimoresultadojson: "ultimoResultadoJson",
+  ultimaexecucao: "ultimaExecucao",
+  proximaexecucao: "proximaExecucao",
+  avisoid: "avisoId",
+  enviadoem: "enviadoEm",
+  custousd: "custoUsd",
   // misc aliases used in queries
   planname: "planName", groupname: "groupName", isonwer: "isOwner",
   isowner: "isOwner", subscriptionowneremail: "subscriptionOwnerEmail",
