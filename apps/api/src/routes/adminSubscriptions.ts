@@ -107,6 +107,56 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     return { rows: result } satisfies SubscriptionsAdminResponse;
   });
+
+  app.get("/api/admin/subscriptions/:subscriptionId/members", async (req, reply) => {
+    const admin = await requireAdmin(req, reply);
+    if (admin == null) return;
+
+    const subscriptionId = Number((req.params as { subscriptionId: string }).subscriptionId);
+    if (!Number.isFinite(subscriptionId) || subscriptionId <= 0) {
+      return reply.code(400).send({ error: "invalid_id" });
+    }
+
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT
+         u.id                  AS ownerId,
+         u.name                AS ownerName,
+         u.email               AS ownerEmail,
+         gm.joinedat,
+         COALESCE(mm.cnt, 0)   AS memoCount,
+         COALESCE(ac.total, 0) AS apiCostUsd
+       FROM subscriptions s
+       INNER JOIN groups g ON g.subscriptionid = s.id
+       INNER JOIN group_members gm ON gm.groupid = g.id
+       INNER JOIN users u ON u.id = gm.userid
+       LEFT JOIN (
+         SELECT userid, groupid, COUNT(*) AS cnt
+         FROM memos
+         WHERE isactive = 1
+         GROUP BY userid, groupid
+       ) mm ON mm.userid = u.id AND mm.groupid = g.id
+       LEFT JOIN (
+         SELECT l.userid, m.groupid, SUM(l.costusd) AS total
+         FROM api_usage_logs l
+         LEFT JOIN memos m ON m.id = l.memoid
+         GROUP BY l.userid, m.groupid
+       ) ac ON ac.userid = u.id AND ac.groupid = g.id
+       WHERE s.id = ? AND s.type = 'group'
+       ORDER BY u.name`,
+      [subscriptionId]
+    );
+
+    const members = rows.map((r) => ({
+      userId: Number(r.ownerId),
+      userName: r.ownerName != null ? String(r.ownerName) : null,
+      userEmail: r.ownerEmail != null ? String(r.ownerEmail) : null,
+      joinedAt: r.joinedAt instanceof Date ? r.joinedAt.toISOString() : String(r.joinedAt ?? ""),
+      memoCount: Number(r.memoCount) || 0,
+      apiCostUsd: Number(r.apiCostUsd) || 0,
+    }));
+
+    return { members };
+  });
 };
 
 export default plugin;

@@ -1163,6 +1163,19 @@ export interface SubscriptionsAdminResponse {
   rows: SubscriptionAdminRow[];
 }
 
+export interface SubscriptionMemberRow {
+  userId: number;
+  userName: string | null;
+  userEmail: string | null;
+  joinedAt: string;
+  memoCount: number;
+  apiCostUsd: number;
+}
+
+export interface SubscriptionMembersResponse {
+  members: SubscriptionMemberRow[];
+}
+
 // ── Diagnóstico de saúde (Admin) ─────────────────────────────────────────────
 
 export interface AdminDiagnosticCheck {

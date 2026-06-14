@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import type { MeResponse, SubscriptionAdminRow, SubscriptionsAdminResponse } from "@mymemory/shared";
+import type {
+  MeResponse,
+  SubscriptionAdminRow,
+  SubscriptionsAdminResponse,
+  SubscriptionMemberRow,
+  SubscriptionMembersResponse,
+} from "@mymemory/shared";
 import { apiGet, apiGetOptional } from "../api";
 import Header from "../components/Header";
 import adminStyles from "./AdminPage.module.css";
@@ -17,7 +23,7 @@ const STATUS_COLOR: Record<string, string> = {
   canceled: "var(--mm-danger, #dc2626)",
 };
 
-function fmtDate(iso: string | null): string {
+function fmtDate(iso: string | null | undefined): string {
   if (!iso) return "—";
   try { return new Date(iso).toLocaleDateString("pt-BR"); } catch { return iso; }
 }
@@ -25,6 +31,8 @@ function fmtDate(iso: string | null): string {
 function fmtUsd(v: number): string {
   return `$${v.toFixed(4)}`;
 }
+
+type MembersState = SubscriptionMemberRow[] | "loading" | { error: string };
 
 export default function AdminSubscriptionsPage() {
   const navigate = useNavigate();
@@ -34,6 +42,8 @@ export default function AdminSubscriptionsPage() {
   const [filterType, setFilterType] = useState<"" | "individual" | "group">("");
   const [filterStatus, setFilterStatus] = useState<"" | "active" | "expired" | "canceled">("active");
   const [search, setSearch] = useState("");
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const [membersCache, setMembersCache] = useState<Record<number, MembersState>>({});
 
   useEffect(() => {
     void apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -47,6 +57,8 @@ export default function AdminSubscriptionsPage() {
   function load(status: string, type: string) {
     setLoading(true);
     setLoadErr(null);
+    setExpandedIds(new Set());
+    setMembersCache({});
     const qs = new URLSearchParams();
     if (status) qs.set("status", status);
     if (type) qs.set("type", type);
@@ -58,6 +70,29 @@ export default function AdminSubscriptionsPage() {
 
   function applyFilters() {
     load(filterStatus, filterType);
+  }
+
+  function fetchMembers(subscriptionId: number) {
+    setMembersCache((prev) => ({ ...prev, [subscriptionId]: "loading" }));
+    apiGet<SubscriptionMembersResponse>(`/api/admin/subscriptions/${subscriptionId}/members`)
+      .then((r) => setMembersCache((prev) => ({ ...prev, [subscriptionId]: r.members })))
+      .catch((e) => setMembersCache((prev) => ({
+        ...prev,
+        [subscriptionId]: { error: e instanceof Error ? e.message : "Erro ao carregar membros." },
+      })));
+  }
+
+  function toggleExpand(subscriptionId: number) {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(subscriptionId)) {
+        next.delete(subscriptionId);
+      } else {
+        next.add(subscriptionId);
+        if (!membersCache[subscriptionId]) fetchMembers(subscriptionId);
+      }
+      return next;
+    });
   }
 
   const q = search.trim().toLowerCase();
@@ -150,40 +185,105 @@ export default function AdminSubscriptionsPage() {
                 <tr><td colSpan={12} style={{ padding: "1rem", textAlign: "center", color: "var(--mm-text-muted)" }}>Carregando…</td></tr>
               ) : displayed.length === 0 ? (
                 <tr><td colSpan={12} style={{ padding: "1rem", textAlign: "center", color: "var(--mm-text-muted)" }}>Nenhuma assinatura encontrada.</td></tr>
-              ) : displayed.map((r) => (
-                <tr key={r.subscriptionId}>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{r.subscriptionId}</td>
-                  <td>{r.type === "group" ? "Grupo" : "Individual"}</td>
-                  <td style={{ color: STATUS_COLOR[r.status] ?? undefined, fontWeight: 600 }}>
-                    {STATUS_LABEL[r.status] ?? r.status}
-                  </td>
-                  <td>{r.planName}</td>
-                  <td>
-                    {r.type === "group" ? (
-                      <>
-                        <span style={{ fontWeight: 600 }}>{r.groupName ?? "—"}</span>
-                        <br />
-                        <span style={{ fontSize: "0.8rem", color: "var(--mm-text-muted)" }}>
-                          {r.ownerName ?? r.ownerEmail ?? `userId ${r.ownerId}`}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <span>{r.ownerName ?? "—"}</span>
-                        <br />
-                        <span style={{ fontSize: "0.8rem", color: "var(--mm-text-muted)" }}>{r.ownerEmail ?? `userId ${r.ownerId}`}</span>
-                      </>
+              ) : displayed.map((r) => {
+                const isGroup = r.type === "group";
+                const isExpanded = expandedIds.has(r.subscriptionId);
+                const membersState = membersCache[r.subscriptionId];
+                return (
+                  <Fragment key={r.subscriptionId}>
+                    <tr
+                      onClick={isGroup ? () => toggleExpand(r.subscriptionId) : undefined}
+                      style={{ cursor: isGroup ? "pointer" : undefined }}
+                      title={isGroup ? (isExpanded ? "Clique para recolher membros" : "Clique para ver membros") : undefined}
+                    >
+                      <td style={{ fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" }}>
+                        {isGroup && (
+                          <span style={{ marginRight: "0.35rem", fontSize: "0.7rem", color: "var(--mm-text-muted)" }}>
+                            {isExpanded ? "▼" : "▶"}
+                          </span>
+                        )}
+                        {r.subscriptionId}
+                      </td>
+                      <td>{isGroup ? "Grupo" : "Individual"}</td>
+                      <td style={{ color: STATUS_COLOR[r.status] ?? undefined, fontWeight: 600 }}>
+                        {STATUS_LABEL[r.status] ?? r.status}
+                      </td>
+                      <td>{r.planName}</td>
+                      <td>
+                        {isGroup ? (
+                          <>
+                            <span style={{ fontWeight: 600 }}>{r.groupName ?? "—"}</span>
+                            <br />
+                            <span style={{ fontSize: "0.8rem", color: "var(--mm-text-muted)" }}>
+                              {r.ownerName ?? r.ownerEmail ?? `userId ${r.ownerId}`}
+                            </span>
+                          </>
+                        ) : (
+                          <>
+                            <span>{r.ownerName ?? "—"}</span>
+                            <br />
+                            <span style={{ fontSize: "0.8rem", color: "var(--mm-text-muted)" }}>{r.ownerEmail ?? `userId ${r.ownerId}`}</span>
+                          </>
+                        )}
+                      </td>
+                      <td style={{ fontVariantNumeric: "tabular-nums" }}>{r.groupId ?? "—"}</td>
+                      <td><code style={{ fontSize: "0.8rem" }}>{r.groupAccessCode ?? "—"}</code></td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.memberCount}</td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.memoCount}</td>
+                      <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtUsd(r.apiCostUsd)}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.startDate)}</td>
+                      <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.endDate)}</td>
+                    </tr>
+
+                    {isGroup && isExpanded && (
+                      <tr>
+                        <td colSpan={12} style={{ padding: 0, background: "var(--mm-bg-alt, #f5f5f5)" }}>
+                          {membersState === "loading" ? (
+                            <div style={{ padding: "0.6rem 2rem", color: "var(--mm-text-muted)", fontSize: "0.875rem" }}>
+                              Carregando membros…
+                            </div>
+                          ) : membersState && typeof membersState === "object" && "error" in membersState ? (
+                            <div style={{ padding: "0.6rem 2rem", color: "var(--mm-danger, #c0392b)", fontSize: "0.875rem" }}>
+                              {membersState.error}
+                            </div>
+                          ) : Array.isArray(membersState) ? (
+                            <div style={{ padding: "0.5rem 2rem 0.75rem" }}>
+                              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.875rem" }}>
+                                <thead>
+                                  <tr style={{ borderBottom: "1px solid var(--mm-border, #e2e2e2)" }}>
+                                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Membro</th>
+                                    <th style={{ textAlign: "left", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Email</th>
+                                    <th style={{ whiteSpace: "nowrap", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Entrou em</th>
+                                    <th style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Memos</th>
+                                    <th style={{ textAlign: "right", whiteSpace: "nowrap", padding: "0.3rem 0.5rem", fontWeight: 600 }}>Custo IA</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {membersState.length === 0 ? (
+                                    <tr>
+                                      <td colSpan={5} style={{ padding: "0.5rem", color: "var(--mm-text-muted)" }}>
+                                        Nenhum membro neste grupo.
+                                      </td>
+                                    </tr>
+                                  ) : membersState.map((m) => (
+                                    <tr key={m.userId} style={{ borderBottom: "1px solid var(--mm-border, #e2e2e2)" }}>
+                                      <td style={{ padding: "0.3rem 0.5rem" }}>{m.userName ?? `userId ${m.userId}`}</td>
+                                      <td style={{ padding: "0.3rem 0.5rem", color: "var(--mm-text-muted)" }}>{m.userEmail ?? "—"}</td>
+                                      <td style={{ whiteSpace: "nowrap", padding: "0.3rem 0.5rem" }}>{fmtDate(m.joinedAt)}</td>
+                                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontVariantNumeric: "tabular-nums" }}>{m.memoCount}</td>
+                                      <td style={{ textAlign: "right", padding: "0.3rem 0.5rem", fontVariantNumeric: "tabular-nums" }}>{fmtUsd(m.apiCostUsd)}</td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : null}
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td style={{ fontVariantNumeric: "tabular-nums" }}>{r.groupId ?? "—"}</td>
-                  <td><code style={{ fontSize: "0.8rem" }}>{r.groupAccessCode ?? "—"}</code></td>
-                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.memberCount}</td>
-                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.memoCount}</td>
-                  <td style={{ textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{fmtUsd(r.apiCostUsd)}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.startDate)}</td>
-                  <td style={{ whiteSpace: "nowrap" }}>{fmtDate(r.endDate)}</td>
-                </tr>
-              ))}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -191,7 +291,8 @@ export default function AdminSubscriptionsPage() {
         {!loading && displayed.length > 0 ? (
           <p className="mm-muted" style={{ marginTop: "0.5rem", fontSize: "0.83rem" }}>
             {displayed.length} assinatura(s) exibida(s){q ? " (filtradas)" : ""}.
-            Custo IA = soma acumulada de <code>api_usage_logs</code> do proprietário no contexto desta assinatura (sem filtro de período).
+            Linhas de grupo são clicáveis para expandir membros.
+            Custo IA = soma acumulada de <code>api_usage_logs</code> no contexto desta assinatura (sem filtro de período).
           </p>
         ) : null}
       </main>
