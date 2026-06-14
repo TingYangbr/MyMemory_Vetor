@@ -9,8 +9,8 @@ export function iniciarAvisoScheduler(): void {
   if (schedulerStarted) return;
   schedulerStarted = true;
 
-  // Verifica avisos pendentes a cada 30 minutos
-  cron.schedule("*/30 * * * *", async () => {
+  // Verifica avisos pendentes a cada 15 minutos
+  cron.schedule("*/15 * * * *", async () => {
     try {
       const [rows] = await pool.query<RowDataPacket[]>(
         `SELECT id FROM avisos WHERE status = 'ativo' AND proximaexecucao <= NOW() ORDER BY proximaexecucao ASC LIMIT 50`
@@ -33,5 +33,5 @@ export function iniciarAvisoScheduler(): void {
     }
   });
 
-  console.info("[avisoScheduler] scheduler iniciado (a cada 30 min)");
+  console.info("[avisoScheduler] scheduler iniciado (a cada 15 min)");
 }
