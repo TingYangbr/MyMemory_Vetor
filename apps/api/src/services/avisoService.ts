@@ -49,7 +49,7 @@ async function fetchQueryTemplate(queryId: number): Promise<QueryTemplate | null
   const row = (rows as Record<string, unknown>[])[0];
 
   const [pRows] = await pool.query<RowDataPacket[]>(
-    `SELECT nome, tipo, obrigatorio, operadorsql, normalizar
+    `SELECT campo, tipo, obrigatorio, operadorsql, normalizar
      FROM queries_categoria_params WHERE queryid = ? AND isactive = 1 ORDER BY ordem ASC, id ASC`,
     [queryId]
   );
@@ -58,7 +58,7 @@ async function fetchQueryTemplate(queryId: number): Promise<QueryTemplate | null
     sentencaSql: row.sentencaSql as string,
     conexaoId: row.conexaoId as number | null,
     params: (pRows as Record<string, unknown>[]).map((p) => ({
-      nome: p.nome as string,
+      nome: p.campo as string,
       tipo: p.tipo as string,
       obrigatorio: Boolean(p.obrigatorio),
       operadorSql: p.operadorSql as string,
