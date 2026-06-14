@@ -49,7 +49,14 @@ const plugin: FastifyPluginAsync = async (app) => {
        frequenciaTipo, frequenciaHoras ?? null, canalDestino, proxima.toISOString()]
     );
 
-    return reply.code(201).send({ aviso: (rows as Record<string, unknown>[])[0] });
+    const aviso = (rows as Record<string, unknown>[])[0];
+    // Captura baseline imediatamente para que o primeiro check do scheduler compare
+    // contra o estado atual, não contra um estado futuro desconhecido.
+    void executarAviso(aviso.id as number).catch((err) =>
+      console.error("[avisos] erro ao capturar baseline:", err instanceof Error ? err.message : err)
+    );
+
+    return reply.code(201).send({ aviso });
   });
 
   // GET /api/avisos — listar do usuário
