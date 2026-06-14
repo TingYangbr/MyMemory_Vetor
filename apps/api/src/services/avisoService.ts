@@ -104,7 +104,7 @@ export async function gerarSugestaoAviso(
 
 // ── Re-execução e detecção de mudança ─────────────────────────────────────────
 
-async function reexecutarSnapshot(
+export async function reexecutarSnapshot(
   snapshot: AvisoExecucaoSnapshot,
   perguntaOriginal: string,
   userId: number,

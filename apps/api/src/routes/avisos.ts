@@ -3,7 +3,7 @@ import { z } from "zod";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
-import { calcularProximaExecucao, executarAviso } from "../services/avisoService.js";
+import { calcularProximaExecucao, executarAviso, reexecutarSnapshot } from "../services/avisoService.js";
 
 const criarSchema = z.object({
   descricao: z.string().min(1).max(500),
@@ -37,26 +37,35 @@ const plugin: FastifyPluginAsync = async (app) => {
     const groupId = workspaceGroupId ?? null;
     const proxima = calcularProximaExecucao(frequenciaTipo, frequenciaHoras);
 
+    // Captura o estado atual como baseline antes de gravar, para que o primeiro
+    // check do scheduler compare contra o momento da criação do aviso.
+    let baselineJson: string | null = null;
+    try {
+      const baseline = await reexecutarSnapshot(
+        execucaoSnapshot as unknown as import("@mymemory/shared").AvisoExecucaoSnapshot,
+        perguntaOriginal,
+        userId,
+        groupId
+      );
+      baselineJson = JSON.stringify(baseline);
+    } catch (err) {
+      console.error("[avisos] erro ao capturar baseline:", err instanceof Error ? err.message : err);
+    }
+
     const [rows] = await pool.query<RowDataPacket[]>(
       `INSERT INTO avisos
          (userid, groupid, descricao, perguntaoriginal, pipe, execucaosnapshotjson,
-          frequenciatipo, frequenciahoras, canalenvio, canaldestino, proximaexecucao)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'email', ?, ?)
+          frequenciatipo, frequenciahoras, canalenvio, canaldestino,
+          ultimoresultadojson, ultimaexecucao, proximaexecucao)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'email', ?, ?, NOW(), ?)
        RETURNING id, userid, groupid, descricao, perguntaoriginal, pipe, execucaosnapshotjson,
                  frequenciatipo, frequenciahoras, canalenvio, canaldestino,
                  ultimoresultadojson, ultimaexecucao, proximaexecucao, status, createdat`,
       [userId, groupId, descricao, perguntaOriginal, pipe, JSON.stringify(execucaoSnapshot),
-       frequenciaTipo, frequenciaHoras ?? null, canalDestino, proxima.toISOString()]
+       frequenciaTipo, frequenciaHoras ?? null, canalDestino, baselineJson, proxima.toISOString()]
     );
 
-    const aviso = (rows as Record<string, unknown>[])[0];
-    // Captura baseline imediatamente para que o primeiro check do scheduler compare
-    // contra o estado atual, não contra um estado futuro desconhecido.
-    void executarAviso(aviso.id as number).catch((err) =>
-      console.error("[avisos] erro ao capturar baseline:", err instanceof Error ? err.message : err)
-    );
-
-    return reply.code(201).send({ aviso });
+    return reply.code(201).send({ aviso: (rows as Record<string, unknown>[])[0] });
   });
 
   // GET /api/avisos — listar do usuário
