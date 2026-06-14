@@ -16,6 +16,7 @@ export function iniciarAvisoScheduler(): void {
         `SELECT id FROM avisos WHERE status = 'ativo' AND proximaexecucao <= NOW() ORDER BY proximaexecucao ASC LIMIT 50`
       );
       const avisos = rows as { id: number }[];
+      console.info(`[avisoScheduler] tick — ${avisos.length} aviso(s) pendente(s)`);
       if (!avisos.length) return;
 
       console.info(`[avisoScheduler] ${avisos.length} aviso(s) a executar`);
