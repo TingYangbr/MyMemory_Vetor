@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type {
   MeResponse,
   PatchMePreferencesResponse,
@@ -251,6 +251,9 @@ export default function UserPreferencesPage() {
           >
             Perguntas salvas
           </button>
+          <Link to="/avisos" className={styles.tabLink}>
+            🔔 Meus Avisos
+          </Link>
         </div>
 
         {tab === "prefs" ? (

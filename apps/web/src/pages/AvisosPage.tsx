@@ -8,6 +8,7 @@ import styles from "./AvisosPage.module.css";
 interface AvisoRow {
   id: number;
   descricao: string;
+  perguntaoriginal: string;
   pipe: "semantica" | "estruturada" | "hibrida";
   frequenciatipo: "horas" | "diaria" | "semanal" | "mensal";
   frequenciahoras: number | null;
@@ -146,19 +147,29 @@ export default function AvisosPage() {
                   >
                     {a.status === "ativo" ? "Ativo" : "Pausado"}
                   </span>
-                  <span className={styles.itemFreq}>
-                    {formatFreq(a.frequenciatipo, a.frequenciahoras)}
-                  </span>
                 </div>
 
                 <p className={styles.itemDescricao}>{a.descricao}</p>
 
+                <p className={styles.itemPergunta}>
+                  <span className={styles.itemPerguntaLabel}>Pergunta: </span>
+                  {a.perguntaoriginal}
+                </p>
+
+                <div className={styles.itemInfoRow}>
+                  <span className={styles.itemInfoChip}>
+                    <span aria-hidden>🔁</span> {formatFreq(a.frequenciatipo, a.frequenciahoras)}
+                  </span>
+                  <span className={styles.itemInfoChip}>
+                    <span aria-hidden>📧</span> {a.canaldestino}
+                  </span>
+                </div>
+
                 <div className={styles.itemMeta}>
-                  <span title="E-mail de destino">📧 {a.canaldestino}</span>
                   <span>Última exec.: {formatDate(a.ultimaexecucao)}</span>
                   <span>Próxima: {formatDate(a.proximaexecucao)}</span>
                   {a.ultimoaviso ? (
-                    <span>Último aviso enviado: {formatDate(a.ultimoaviso)}</span>
+                    <span>Último aviso: {formatDate(a.ultimoaviso)}</span>
                   ) : null}
                 </div>
 

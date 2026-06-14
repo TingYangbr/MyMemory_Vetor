@@ -111,12 +111,6 @@
 .statusAtivo { background: #dcfce7; color: #16a34a; }
 .statusPausado { background: #f1f5f9; color: #64748b; }
 
-.itemFreq {
-  font-size: 0.8rem;
-  color: var(--mm-text-muted, #64748b);
-  margin-left: auto;
-}
-
 /* ── Descrição ── */
 .itemDescricao {
   font-size: 0.95rem;
@@ -124,6 +118,49 @@
   margin: 0;
   font-weight: 500;
   line-height: 1.4;
+}
+
+/* ── Pergunta original ── */
+.itemPergunta {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--mm-text-muted, #64748b);
+  line-height: 1.45;
+  font-style: italic;
+  padding: 0.35rem 0.6rem;
+  background: var(--mm-surface-alt, #f8fafc);
+  border-left: 2px solid var(--mm-border, #e2e8f0);
+  border-radius: 0 4px 4px 0;
+}
+
+.itemPerguntaLabel {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--mm-text-muted, #94a3b8);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-right: 0.25rem;
+}
+
+/* ── Info chips (frequência + email) ── */
+.itemInfoRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.itemInfoChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mm-text, #1e293b);
+  background: var(--mm-surface-alt, #f1f5f9);
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 20px;
+  padding: 0.18rem 0.65rem;
 }
 
 /* ── Meta info ── */
