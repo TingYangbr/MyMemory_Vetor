@@ -26,6 +26,13 @@ export function iniciarAvisoScheduler(): void {
           console.info(`[avisoScheduler] aviso #${id} — mudança=${mudanca} custo=$${custoUsd.toFixed(6)}`);
         } catch (err) {
           console.error(`[avisoScheduler] erro ao executar aviso #${id}:`, err instanceof Error ? err.message : err);
+          // Avança proximaexecucao mesmo em caso de erro para não ficar preso em loop infinito
+          try {
+            await pool.query(
+              `UPDATE avisos SET proximaexecucao = NOW() + INTERVAL '1 hour', ultimaexecucao = NOW() WHERE id = $1`,
+              [id]
+            );
+          } catch { /* ignora */ }
         }
       }
     } catch (err) {
