@@ -424,7 +424,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   } | null>(null);
   const [avisoSaving, setAvisoSaving] = useState(false);
   const [avisoSaveErr, setAvisoSaveErr] = useState<string | null>(null);
-  const [avisoSavedIdx, setAvisoSavedIdx] = useState<number | null>(null);
+  const [avisoSavedPergunta, setAvisoSavedPergunta] = useState<string | null>(null);
   const [ttsBusyPergunta, setTtsBusyPergunta] = useState<string | null>(null);
   const ttsBusyRef = useRef<string | null>(null);
   const ttsTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -982,7 +982,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         canalDestino: avisoModal.email,
         workspaceGroupId: workspaceGroupId ?? null,
       });
-      setAvisoSavedIdx(avisoModal.cardIdx);
+      setAvisoSavedPergunta(r.perguntaTexto);
       setAvisoModal(null);
     } catch (e) {
       setAvisoSaveErr(e instanceof Error ? e.message : "Erro ao ativar aviso.");
@@ -1472,7 +1472,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ) : null}
                 </div>
                 {r.sugestaoAviso && r.avisoSnapshot ? (
-                  avisoSavedIdx === i ? (
+                  avisoSavedPergunta === r.perguntaTexto ? (
                     <div className={styles.avisoSugestao}>
                       <span className={styles.avisoSugestaoCheck}>✓</span>
                       <span className={styles.avisoSugestaoText}>Aviso ativado.</span>
