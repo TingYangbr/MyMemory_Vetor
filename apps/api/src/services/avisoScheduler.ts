@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
+import { config } from "../config.js";
 import { executarAviso } from "./avisoService.js";
 
 let schedulerStarted = false;
@@ -9,8 +10,11 @@ export function iniciarAvisoScheduler(): void {
   if (schedulerStarted) return;
   schedulerStarted = true;
 
-  // Verifica avisos pendentes a cada 15 minutos
-  cron.schedule("*/15 * * * *", async () => {
+  const intervalMin = config.avisos.schedulerIntervalMin;
+  const cronExpr = `*/${intervalMin} * * * *`;
+  console.info(`[avisoScheduler] scheduler iniciado (a cada ${intervalMin} min)`);
+
+  cron.schedule(cronExpr, async () => {
     try {
       const [rows] = await pool.query<RowDataPacket[]>(
         `SELECT id FROM avisos WHERE status = 'ativo' AND proximaexecucao <= NOW() ORDER BY proximaexecucao ASC LIMIT 50`
@@ -27,11 +31,11 @@ export function iniciarAvisoScheduler(): void {
           console.info(`[avisoScheduler] aviso #${id} — mudança=${mudanca} custo=$${custoUsd.toFixed(6)}`);
         } catch (err) {
           console.error(`[avisoScheduler] erro ao executar aviso #${id}:`, err instanceof Error ? err.message : err);
-          // Avança proximaexecucao 15 min para sair do ciclo atual sem atrasar muito
+          // Avança proximaexecucao para sair do ciclo atual sem atrasar muito
           try {
             await pool.query(
-              `UPDATE avisos SET proximaexecucao = NOW() + INTERVAL '15 minutes' WHERE id = ?`,
-              [id]
+              `UPDATE avisos SET proximaexecucao = NOW() + (? * INTERVAL '1 minute') WHERE id = ?`,
+              [config.avisos.retryOnErrorMin, id]
             );
           } catch { /* ignora */ }
         }
@@ -41,5 +45,4 @@ export function iniciarAvisoScheduler(): void {
     }
   });
 
-  console.info("[avisoScheduler] scheduler iniciado (a cada 15 min)");
 }

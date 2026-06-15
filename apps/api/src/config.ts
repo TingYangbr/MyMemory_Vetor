@@ -111,6 +111,13 @@ export const config = {
    */
   dwgConverterUrl: (process.env.DWG_CONVERTER_URL ?? "").trim().replace(/\/$/, ""),
 
+  avisos: {
+    /** Intervalo do cron em minutos (padrão 15). Ex.: AVISO_SCHEDULER_INTERVAL_MIN=1 para testes. */
+    schedulerIntervalMin: Number(process.env.AVISO_SCHEDULER_INTERVAL_MIN ?? 15),
+    /** Quantos minutos avançar proximaexecucao quando executarAviso falha (padrão 15). */
+    retryOnErrorMin: Number(process.env.AVISO_RETRY_ON_ERROR_MIN ?? 15),
+  },
+
   openai: {
     apiKey: (process.env.OPENAI_API_KEY ?? "").trim(),
     /** Base com `/v1` (ex.: https://api.openai.com/v1). */
