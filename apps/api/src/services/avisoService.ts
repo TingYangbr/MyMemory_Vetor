@@ -214,24 +214,45 @@ function gerarTextoAvisoTemplate(
   if (amostra.length > 0) {
     linhasTexto.push("\nRegistros atuais:");
     for (const row of amostra) {
-      linhasTexto.push("  " + colunas.map((c) => `${c}: ${row[c] ?? "—"}`).join(" | "));
+      linhasTexto.push("  " + colunas.map((c) => `${c}: ${(row as Record<string, unknown>)[c] ?? "—"}`).join(" | "));
     }
     if (atual.length > 5) linhasTexto.push(`  ... e mais ${atual.length - 5} registro(s).`);
+  }
+  const amostraAnteriorTexto = (anterior as Record<string, unknown>[]).slice(0, 5);
+  if (amostraAnteriorTexto.length > 0) {
+    const colsAnt = Object.keys(amostraAnteriorTexto[0]);
+    linhasTexto.push("\nRegistros anteriores:");
+    for (const row of amostraAnteriorTexto) {
+      linhasTexto.push("  " + colsAnt.map((c) => `${c}: ${row[c] ?? "—"}`).join(" | "));
+    }
+    if (anterior.length > 5) linhasTexto.push(`  ... e mais ${anterior.length - 5} registro(s).`);
   }
 
   // ── HTML ───────────────────────────────────────────────────────────────────
   const esc = (v: unknown) => String(v ?? "—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+  function buildTable(rows: Record<string, unknown>[], cols: string[], total: number, label: string, headerBg: string, borderColor: string): string {
+    const th = cols.map((c) => `<th style="padding:4px 10px;background:${headerBg};border:1px solid ${borderColor};text-align:left;font-size:12px">${esc(c)}</th>`).join("");
+    const trs = rows.map((row) => {
+      const tds = cols.map((c) => `<td style="padding:4px 10px;border:1px solid ${borderColor};font-size:13px">${esc(row[c])}</td>`).join("");
+      return `<tr>${tds}</tr>`;
+    }).join("");
+    const extra = total > 5 ? `<p style="margin:4px 0 0;font-size:12px;color:#6B7280">... e mais ${total - 5} registro(s).</p>` : "";
+    return `<p style="margin:12px 0 4px;font-weight:600;font-size:13px">${label} (${total})</p><table style="border-collapse:collapse;width:100%"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>${extra}`;
+  }
+
+  const amostraAnterior = (anterior as Record<string, unknown>[]).slice(0, 5);
+  const colsAnterior = amostraAnterior.length > 0 ? Object.keys(amostraAnterior[0]) : colunas;
+
   const htmlLinhas: string[] = [
     `<p style="margin:0 0 12px;font-weight:600">Agora são ${atual.length} registro(s), antes eram ${anterior.length}.</p>`,
   ];
+
   if (amostra.length > 0) {
-    const thCells = colunas.map((c) => `<th style="padding:4px 10px;background:#E0E7FF;border:1px solid #C7D2FE;text-align:left;font-size:12px">${esc(c)}</th>`).join("");
-    const rows = amostra.map((row) => {
-      const tds = colunas.map((c) => `<td style="padding:4px 10px;border:1px solid #C7D2FE;font-size:13px">${esc(row[c])}</td>`).join("");
-      return `<tr>${tds}</tr>`;
-    }).join("");
-    htmlLinhas.push(`<table style="border-collapse:collapse;width:100%"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`);
-    if (atual.length > 5) htmlLinhas.push(`<p style="margin:8px 0 0;font-size:12px;color:#6B7280">... e mais ${atual.length - 5} registro(s).</p>`);
+    htmlLinhas.push(buildTable(amostra, colunas, atual.length, "Registros atuais", "#E0E7FF", "#C7D2FE"));
+  }
+  if (amostraAnterior.length > 0) {
+    htmlLinhas.push(buildTable(amostraAnterior, colsAnterior, anterior.length, "Registros anteriores", "#F3F4F6", "#D1D5DB"));
   }
 
   return { texto: linhasTexto.join("\n"), textoHtml: htmlLinhas.join("") };
