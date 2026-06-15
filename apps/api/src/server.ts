@@ -41,6 +41,7 @@ import { UserInvites1700000000125 } from "./migrations/1700000000125-UserInvites
 import { UserTtsRate1700000000126 } from "./migrations/1700000000126-UserTtsRate.js";
 import { FixTtsRateColumnCase1700000000127 } from "./migrations/1700000000127-FixTtsRateColumnCase.js";
 import { AddAvisos1700000000128 } from "./migrations/1700000000128-AddAvisos.js";
+import { AvisoPromptConfigs1700000000129 } from "./migrations/1700000000129-AvisoPromptConfigs.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -109,6 +110,7 @@ assertMediaStorageEnv();
       UserTtsRate1700000000126,
       FixTtsRateColumnCase1700000000127,
       AddAvisos1700000000128,
+      AvisoPromptConfigs1700000000129,
     ],
   });
   const ds = await AppDataSource.initialize();
