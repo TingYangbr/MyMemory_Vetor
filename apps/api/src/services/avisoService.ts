@@ -82,26 +82,8 @@ function toPlanoParams(snapParams: AvisoQueryParamSnapshot[]): PlanoParam[] {
 
 // ── Geração de sugestão de aviso ───────────────────────────────────────────────
 
-export async function gerarSugestaoAviso(
-  pergunta: string,
-  pipe: "semantica" | "estruturada" | "hibrida",
-  queriesUsadas: Array<{ nome: string }> = []
-): Promise<{ texto: string; custoUsd: number }> {
-  if (pipe === "semantica" || queriesUsadas.length <= 1) {
-    return { texto: "Me avise quando a resposta desta pergunta mudar.", custoUsd: 0 };
-  }
-
-  const nomeQueries = queriesUsadas.map((q) => q.nome).join(", ");
-  const user = `Pergunta original: "${pergunta}"\nConsultas utilizadas: ${nomeQueries}\n\nGere uma frase curta em português no formato "Me avise quando [condição]", descrevendo o que está sendo monitorado. Retorne apenas a frase, sem aspas.`;
-  const systemPrompt = await getActiveSystemPrompt("avisos_sugestao_system");
-  const { text, costUsd } = await invokeLLM({
-    system: systemPrompt,
-    user,
-    temperature: 0.3,
-    source: "aviso_suggestion",
-  });
-
-  return { texto: text.trim() || "Me avise quando a resposta desta pergunta mudar.", custoUsd: costUsd };
+export function gerarSugestaoAviso(): { texto: string; custoUsd: number } {
+  return { texto: "Me avise quando a resposta desta pergunta mudar.", custoUsd: 0 };
 }
 
 // ── Re-execução e detecção de mudança ─────────────────────────────────────────

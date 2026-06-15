@@ -290,12 +290,12 @@ export async function perguntarMemory(input: {
       escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
       categoryId: firstCategoryId,
     });
-    const { texto: sugestaoAviso, custoUsd: sCost } = await gerarSugestaoAviso(input.pergunta, "semantica", []);
+    const { texto: sugestaoAviso } = gerarSugestaoAviso();
     const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
     return {
       resposta: result.resposta,
       classificacao,
-      apiCost: totalCost + result.apiCost + sCost,
+      apiCost: totalCost + result.apiCost,
       limiarInicial: result.limiarInicial,
       limiarUsado: result.limiarUsado,
       limiarMinimo: result.limiarMinimo,
@@ -319,12 +319,12 @@ export async function perguntarMemory(input: {
       categoryId: firstCategoryId,
     });
     const queriesUsadas = result.queriesParaAviso ?? [];
-    const { texto: sugestaoAviso, custoUsd: sCost } = await gerarSugestaoAviso(input.pergunta, "estruturada", queriesUsadas);
+    const { texto: sugestaoAviso } = gerarSugestaoAviso();
     const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "estruturada", queries: queriesUsadas };
     return {
       resposta: result.resposta,
       classificacao,
-      apiCost: totalCost + result.apiCost + sCost,
+      apiCost: totalCost + result.apiCost,
       sugestaoAviso,
       avisoSnapshot,
     };
@@ -350,7 +350,7 @@ export async function perguntarMemory(input: {
     categoryId: firstCategoryId,
   });
   const queriesUsadas3 = result.queriesParaAviso ?? [];
-  const { texto: sugestaoAviso3, custoUsd: sCost3 } = await gerarSugestaoAviso(input.pergunta, "hibrida", queriesUsadas3);
+  const { texto: sugestaoAviso3 } = gerarSugestaoAviso();
   const avisoSnapshot3: AvisoExecucaoSnapshot = {
     tipo: "hibrida",
     limiar: result.limiarUsado ?? thInitial,
@@ -359,7 +359,7 @@ export async function perguntarMemory(input: {
   return {
     resposta: result.resposta,
     classificacao,
-    apiCost: totalCost + result.apiCost + sCost3,
+    apiCost: totalCost + result.apiCost,
     aguardaFase2: result.aguardaFase2,
     limiarInicial: result.limiarInicial,
     limiarUsado: result.limiarUsado,
