@@ -171,91 +171,53 @@ function detectarMudanca(anterior: ResultadoExecucao, atual: ResultadoExecucao):
   return false;
 }
 
-async function gerarTextoAviso(
+// ── Busca conteúdo de memos para pipe semântica ────────────────────────────
+
+async function buscarConteudoMemos(memoIds: number[]): Promise<Record<string, unknown>[]> {
+  if (memoIds.length === 0) return [];
+  const placeholders = memoIds.map(() => "?").join(", ");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, mediatype, keywords, category, valor, LEFT(mediatext, 500) AS mediatext
+     FROM memos WHERE id IN (${placeholders}) AND isactive = 1`,
+    memoIds
+  );
+  return rows as Record<string, unknown>[];
+}
+
+// ── 6ª Chamada LLM: destaque de mudança ───────────────────────────────────
+
+async function gerarTextoDestaqueMudanca(
   descricao: string,
   perguntaOriginal: string,
   resultadoAnterior: ResultadoExecucao,
   resultadoAtual: ResultadoExecucao
 ): Promise<{ texto: string; custoUsd: number }> {
+  let anterior: unknown;
+  let atual: unknown;
+
+  if (resultadoAtual.queryResults !== undefined) {
+    anterior = resultadoAnterior.queryResults ?? {};
+    atual = resultadoAtual.queryResults ?? {};
+  } else {
+    anterior = await buscarConteudoMemos(resultadoAnterior.memoIds ?? []);
+    atual = await buscarConteudoMemos(resultadoAtual.memoIds ?? []);
+  }
+
   const user = JSON.stringify({
     descricao_aviso: descricao,
     pergunta_original: perguntaOriginal,
-    resultado_anterior: resultadoAnterior.queryResults ?? { memoIds: resultadoAnterior.memoIds },
-    resultado_atual: resultadoAtual.queryResults ?? { memoIds: resultadoAtual.memoIds },
+    resultado_anterior: anterior,
+    resultado_atual: atual,
   }, null, 2);
 
   const { text, costUsd } = await invokeLLM({
-    system: "Você gera avisos concisos em português sobre mudanças detectadas em monitoramentos automáticos. Seja direto e objetivo, máximo 3 frases.",
-    user: `Gere um aviso sobre a mudança detectada:\n${user}`,
+    system: "Você analisa mudanças em resultados de monitoramento automático e gera um aviso destacando o que mudou entre o resultado anterior e o atual. Responda em português, de forma concisa e direta, máximo 3 frases.",
+    user: `Gere um aviso destacando a mudança detectada:\n${user}`,
     temperature: 0.3,
-    source: "aviso_alert",
+    source: "aviso_destaque_mudanca",
   });
+
   return { texto: text.trim(), custoUsd: costUsd };
-}
-
-// ── Aviso template (pipe estruturado, 1 query) ────────────────────────────────
-
-function gerarTextoAvisoTemplate(
-  _descricao: string,
-  resultadoAnterior: ResultadoExecucao,
-  resultadoAtual: ResultadoExecucao
-): { texto: string; textoHtml: string } {
-  const queryIds = Object.keys(resultadoAtual.queryResults ?? {});
-  if (queryIds.length === 0) return { texto: "Alteração detectada.", textoHtml: "Alteração detectada." };
-
-  const qid = Number(queryIds[0]);
-  const anterior = (resultadoAnterior.queryResults ?? {})[qid] ?? [];
-  const atual = (resultadoAtual.queryResults ?? {})[qid] ?? [];
-  const amostra = (atual as Record<string, unknown>[]).slice(0, 5);
-  const colunas = amostra.length > 0 ? Object.keys(amostra[0]) : [];
-
-  // ── Texto plano ────────────────────────────────────────────────────────────
-  const linhasTexto = [`Agora são ${atual.length} registro(s), antes eram ${anterior.length}.`];
-  if (amostra.length > 0) {
-    linhasTexto.push("\nRegistros atuais:");
-    for (const row of amostra) {
-      linhasTexto.push("  " + colunas.map((c) => `${c}: ${(row as Record<string, unknown>)[c] ?? "—"}`).join(" | "));
-    }
-    if (atual.length > 5) linhasTexto.push(`  ... e mais ${atual.length - 5} registro(s).`);
-  }
-  const amostraAnteriorTexto = (anterior as Record<string, unknown>[]).slice(0, 5);
-  if (amostraAnteriorTexto.length > 0) {
-    const colsAnt = Object.keys(amostraAnteriorTexto[0]);
-    linhasTexto.push("\nRegistros anteriores:");
-    for (const row of amostraAnteriorTexto) {
-      linhasTexto.push("  " + colsAnt.map((c) => `${c}: ${row[c] ?? "—"}`).join(" | "));
-    }
-    if (anterior.length > 5) linhasTexto.push(`  ... e mais ${anterior.length - 5} registro(s).`);
-  }
-
-  // ── HTML ───────────────────────────────────────────────────────────────────
-  const esc = (v: unknown) => String(v ?? "—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-
-  function buildTable(rows: Record<string, unknown>[], cols: string[], total: number, label: string, headerBg: string, borderColor: string): string {
-    const th = cols.map((c) => `<th style="padding:4px 10px;background:${headerBg};border:1px solid ${borderColor};text-align:left;font-size:12px">${esc(c)}</th>`).join("");
-    const trs = rows.map((row) => {
-      const tds = cols.map((c) => `<td style="padding:4px 10px;border:1px solid ${borderColor};font-size:13px">${esc(row[c])}</td>`).join("");
-      return `<tr>${tds}</tr>`;
-    }).join("");
-    const extra = total > 5 ? `<p style="margin:4px 0 0;font-size:12px;color:#6B7280">... e mais ${total - 5} registro(s).</p>` : "";
-    return `<p style="margin:12px 0 4px;font-weight:600;font-size:13px">${label} (${total})</p><table style="border-collapse:collapse;width:100%"><thead><tr>${th}</tr></thead><tbody>${trs}</tbody></table>${extra}`;
-  }
-
-  const amostraAnterior = (anterior as Record<string, unknown>[]).slice(0, 5);
-  const colsAnterior = amostraAnterior.length > 0 ? Object.keys(amostraAnterior[0]) : colunas;
-
-  const htmlLinhas: string[] = [
-    `<p style="margin:0 0 12px;font-weight:600">Agora são ${atual.length} registro(s), antes eram ${anterior.length}.</p>`,
-  ];
-
-  if (amostra.length > 0) {
-    htmlLinhas.push(buildTable(amostra, colunas, atual.length, "Registros atuais", "#E0E7FF", "#C7D2FE"));
-  }
-  if (amostraAnterior.length > 0) {
-    htmlLinhas.push(buildTable(amostraAnterior, colsAnterior, anterior.length, "Registros anteriores", "#F3F4F6", "#D1D5DB"));
-  }
-
-  return { texto: linhasTexto.join("\n"), textoHtml: htmlLinhas.join("") };
 }
 
 // ── Próxima execução ───────────────────────────────────────────────────────────
@@ -287,7 +249,7 @@ const HISTORICO_FIFO_LIMIT = 3;
 
 export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean; custoUsd: number }> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, userid, groupid, descricao, perguntaoriginal, pipe,
+    `SELECT id, userid, groupid, descricao, perguntaoriginal,
             execucaosnapshotjson, canaldestino, canalenvio,
             ultimoresultadojson, frequenciatipo, frequenciahoras
      FROM avisos WHERE id = ? AND status = 'ativo'`,
@@ -301,7 +263,6 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
   const groupId = aviso.groupId as number | null;
   const descricao = aviso.descricao as string;
   const perguntaOriginal = aviso.perguntaOriginal as string;
-  const pipe = aviso.pipe as string;
   const canalEnvio = aviso.canalEnvio as string;
   const canalDestino = aviso.canalDestino as string;
   const ultimoResultado = aviso.ultimoResultadoJson as ResultadoExecucao | null;
@@ -326,24 +287,15 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
   const mudou = detectarMudanca(ultimoResultado, resultadoAtual);
 
   if (mudou) {
-    const ehSingle = pipe === "estruturada" && (snapshot.queries?.length ?? 0) <= 1;
-    let textoAviso: string;
-    let textoAvisoHtml: string | undefined;
-
-    if (ehSingle) {
-      const { texto, textoHtml } = gerarTextoAvisoTemplate(descricao, ultimoResultado, resultadoAtual);
-      textoAviso = texto;
-      textoAvisoHtml = textoHtml;
-    } else {
-      const { texto, custoUsd } = await gerarTextoAviso(descricao, perguntaOriginal, ultimoResultado, resultadoAtual);
-      textoAviso = texto;
-      totalCustoUsd += custoUsd;
-    }
+    const { texto: textoAviso, custoUsd } = await gerarTextoDestaqueMudanca(
+      descricao, perguntaOriginal, ultimoResultado, resultadoAtual
+    );
+    totalCustoUsd += custoUsd;
 
     // Envia e-mail (ou canal futuro)
     const linkVisualizacao = `${config.publicWebUrl}/avisos`;
     if (canalEnvio === "email") {
-      await sendAvisoAlert({ to: canalDestino, descricao, perguntaOriginal, texto: textoAviso, textoHtml: textoAvisoHtml, linkVisualizacao });
+      await sendAvisoAlert({ to: canalDestino, descricao, perguntaOriginal, texto: textoAviso, linkVisualizacao });
     }
 
     // Salva histórico com FIFO
