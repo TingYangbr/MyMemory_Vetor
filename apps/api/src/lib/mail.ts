@@ -154,19 +154,21 @@ export async function sendAvisoAlert(opts: {
   descricao: string;
   perguntaOriginal: string;
   texto: string;
+  textoHtml?: string;
   linkVisualizacao: string;
 }): Promise<void> {
-  const { to, descricao, perguntaOriginal, texto, linkVisualizacao } = opts;
+  const { to, descricao, perguntaOriginal, texto, textoHtml, linkVisualizacao } = opts;
+  const corpoHtml = textoHtml ?? escapeHtml(texto).replace(/\n/g, "<br>");
   const html = `
-    <p>Olá,</p>
-    <p>Detectada alteração na sua pergunta:</p>
-    <blockquote style="border-left:3px solid #9CA3AF;margin:8px 0 16px;padding:8px 16px;background:#F9FAFB;color:#374151;font-style:italic">
+    <p style="margin:0 0 8px;color:#374151;font-size:14px">Olá,</p>
+    <p style="margin:0 0 4px;color:#374151;font-size:14px">Detectada alteração na sua pergunta:</p>
+    <blockquote style="border-left:3px solid #9CA3AF;margin:8px 0 16px;padding:8px 16px;background:#F9FAFB;color:#374151;font-style:italic;font-size:14px">
       ${escapeHtml(perguntaOriginal)}
     </blockquote>
-    <div style="border-left:3px solid #4F46E5;margin:16px 0;padding:8px 16px;background:#F5F5FF;color:#1F2937;white-space:pre-wrap;font-size:14px">
-      ${escapeHtml(texto)}
+    <div style="border-left:3px solid #4F46E5;margin:16px 0;padding:8px 16px;background:#F5F5FF;color:#1F2937;font-size:14px;line-height:1.6">
+      ${corpoHtml}
     </div>
-    <p>
+    <p style="margin:20px 0">
       <a href="${linkVisualizacao}" style="display:inline-block;background:#4F46E5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">
         Ver no MyMemory →
       </a>

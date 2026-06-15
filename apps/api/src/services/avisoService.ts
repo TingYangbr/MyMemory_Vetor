@@ -199,32 +199,42 @@ function gerarTextoAvisoTemplate(
   _descricao: string,
   resultadoAnterior: ResultadoExecucao,
   resultadoAtual: ResultadoExecucao
-): string {
+): { texto: string; textoHtml: string } {
   const queryIds = Object.keys(resultadoAtual.queryResults ?? {});
-  if (queryIds.length === 0) return "Alteração detectada.";
+  if (queryIds.length === 0) return { texto: "Alteração detectada.", textoHtml: "Alteração detectada." };
 
   const qid = Number(queryIds[0]);
   const anterior = (resultadoAnterior.queryResults ?? {})[qid] ?? [];
   const atual = (resultadoAtual.queryResults ?? {})[qid] ?? [];
+  const amostra = (atual as Record<string, unknown>[]).slice(0, 5);
+  const colunas = amostra.length > 0 ? Object.keys(amostra[0]) : [];
 
-  const linhas = [`Agora são ${atual.length} registro(s), antes eram ${anterior.length}.`];
-
-  // Mostra até 5 registros atuais com seus campos
-  const amostra = atual.slice(0, 5);
+  // ── Texto plano ────────────────────────────────────────────────────────────
+  const linhasTexto = [`Agora são ${atual.length} registro(s), antes eram ${anterior.length}.`];
   if (amostra.length > 0) {
-    linhas.push("\nRegistros atuais:");
+    linhasTexto.push("\nRegistros atuais:");
     for (const row of amostra) {
-      const campos = Object.entries(row as Record<string, unknown>)
-        .map(([k, v]) => `${k}: ${v ?? "—"}`)
-        .join(" | ");
-      linhas.push(`• ${campos}`);
+      linhasTexto.push("  " + colunas.map((c) => `${c}: ${row[c] ?? "—"}`).join(" | "));
     }
-    if (atual.length > 5) {
-      linhas.push(`... e mais ${atual.length - 5} registro(s).`);
-    }
+    if (atual.length > 5) linhasTexto.push(`  ... e mais ${atual.length - 5} registro(s).`);
   }
 
-  return linhas.join("\n");
+  // ── HTML ───────────────────────────────────────────────────────────────────
+  const esc = (v: unknown) => String(v ?? "—").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+  const htmlLinhas: string[] = [
+    `<p style="margin:0 0 12px;font-weight:600">Agora são ${atual.length} registro(s), antes eram ${anterior.length}.</p>`,
+  ];
+  if (amostra.length > 0) {
+    const thCells = colunas.map((c) => `<th style="padding:4px 10px;background:#E0E7FF;border:1px solid #C7D2FE;text-align:left;font-size:12px">${esc(c)}</th>`).join("");
+    const rows = amostra.map((row) => {
+      const tds = colunas.map((c) => `<td style="padding:4px 10px;border:1px solid #C7D2FE;font-size:13px">${esc(row[c])}</td>`).join("");
+      return `<tr>${tds}</tr>`;
+    }).join("");
+    htmlLinhas.push(`<table style="border-collapse:collapse;width:100%"><thead><tr>${thCells}</tr></thead><tbody>${rows}</tbody></table>`);
+    if (atual.length > 5) htmlLinhas.push(`<p style="margin:8px 0 0;font-size:12px;color:#6B7280">... e mais ${atual.length - 5} registro(s).</p>`);
+  }
+
+  return { texto: linhasTexto.join("\n"), textoHtml: htmlLinhas.join("") };
 }
 
 // ── Próxima execução ───────────────────────────────────────────────────────────
@@ -297,9 +307,12 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
   if (mudou) {
     const ehSingle = pipe === "estruturada" && (snapshot.queries?.length ?? 0) <= 1;
     let textoAviso: string;
+    let textoAvisoHtml: string | undefined;
 
     if (ehSingle) {
-      textoAviso = gerarTextoAvisoTemplate(descricao, ultimoResultado, resultadoAtual);
+      const { texto, textoHtml } = gerarTextoAvisoTemplate(descricao, ultimoResultado, resultadoAtual);
+      textoAviso = texto;
+      textoAvisoHtml = textoHtml;
     } else {
       const { texto, custoUsd } = await gerarTextoAviso(descricao, perguntaOriginal, ultimoResultado, resultadoAtual);
       textoAviso = texto;
@@ -309,7 +322,7 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
     // Envia e-mail (ou canal futuro)
     const linkVisualizacao = `${config.publicWebUrl}/avisos`;
     if (canalEnvio === "email") {
-      await sendAvisoAlert({ to: canalDestino, descricao, perguntaOriginal, texto: textoAviso, linkVisualizacao });
+      await sendAvisoAlert({ to: canalDestino, descricao, perguntaOriginal, texto: textoAviso, textoHtml: textoAvisoHtml, linkVisualizacao });
     }
 
     // Salva histórico com FIFO
