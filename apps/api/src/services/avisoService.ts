@@ -154,6 +154,28 @@ export async function reexecutarSnapshot(
   return resultado;
 }
 
+// Normaliza um valor escalar: Date → ISO string, demais passam direto.
+function normVal(v: unknown): unknown {
+  if (v instanceof Date) return v.toISOString();
+  return v;
+}
+
+// Normaliza uma linha: ordena chaves e converte Dates.
+function normRow(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([k, v]) => [k, normVal(v)])
+  );
+}
+
+// Normaliza lista de linhas: normaliza cada linha e ordena o conjunto.
+function normRows(rows: Record<string, unknown>[]): string {
+  return JSON.stringify(
+    rows.map(normRow).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)))
+  );
+}
+
 function detectarMudanca(anterior: ResultadoExecucao, atual: ResultadoExecucao): boolean {
   if (anterior.memoIds !== undefined && atual.memoIds !== undefined) {
     const setAnterior = new Set(anterior.memoIds);
@@ -163,9 +185,15 @@ function detectarMudanca(anterior: ResultadoExecucao, atual: ResultadoExecucao):
   }
 
   if (anterior.queryResults !== undefined && atual.queryResults !== undefined) {
-    const hashAnt = crypto.createHash("sha256").update(JSON.stringify(anterior.queryResults)).digest("hex");
-    const hashAtu = crypto.createHash("sha256").update(JSON.stringify(atual.queryResults)).digest("hex");
-    if (hashAnt !== hashAtu) return true;
+    for (const qid of Object.keys(atual.queryResults)) {
+      const rowsAnt = (anterior.queryResults[Number(qid)] ?? []) as Record<string, unknown>[];
+      const rowsAtu = (atual.queryResults[Number(qid)] ?? []) as Record<string, unknown>[];
+      if (normRows(rowsAnt) !== normRows(rowsAtu)) return true;
+    }
+    // Verifica se algum queryId sumiu
+    for (const qid of Object.keys(anterior.queryResults)) {
+      if (!(Number(qid) in atual.queryResults)) return true;
+    }
   }
 
   return false;
