@@ -6,6 +6,7 @@ import { invokeLLM } from "../lib/invokeLlm.js";
 import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
 import { sendAvisoAlert } from "../lib/mail.js";
 import { bindTemplateParams, type PlanoParam } from "./perguntaPipe2.js";
+import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { config } from "../config.js";
 
@@ -92,8 +93,9 @@ export async function gerarSugestaoAviso(
 
   const nomeQueries = queriesUsadas.map((q) => q.nome).join(", ");
   const user = `Pergunta original: "${pergunta}"\nConsultas utilizadas: ${nomeQueries}\n\nGere uma frase curta em português no formato "Me avise quando [condição]", descrevendo o que está sendo monitorado. Retorne apenas a frase, sem aspas.`;
+  const systemPrompt = await getActiveSystemPrompt("avisos_sugestao_system");
   const { text, costUsd } = await invokeLLM({
-    system: "Você gera frases curtas de monitoramento para alertas automáticos.",
+    system: systemPrompt,
     user,
     temperature: 0.3,
     source: "aviso_suggestion",
@@ -239,8 +241,9 @@ async function gerarTextoDestaqueMudanca(
     resultado_atual: atual,
   }, null, 2);
 
+  const systemPrompt = await getActiveSystemPrompt("avisos_destaque_mudanca_system");
   const { text, costUsd } = await invokeLLM({
-    system: "Você analisa mudanças em resultados de monitoramento automático e gera um aviso destacando o que mudou entre o resultado anterior e o atual. Responda em português, de forma concisa e direta, máximo 3 frases.",
+    system: systemPrompt,
     user: `Gere um aviso destacando a mudança detectada:\n${user}`,
     temperature: 0.3,
     source: "aviso_destaque_mudanca",
