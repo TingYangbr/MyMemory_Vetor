@@ -196,7 +196,7 @@ async function gerarTextoAviso(
 // ── Aviso template (pipe estruturado, 1 query) ────────────────────────────────
 
 function gerarTextoAvisoTemplate(
-  descricao: string,
+  _descricao: string,
   resultadoAnterior: ResultadoExecucao,
   resultadoAtual: ResultadoExecucao
 ): string {
@@ -205,9 +205,9 @@ function gerarTextoAvisoTemplate(
     const qid = Number(queryIds[0]);
     const anterior = (resultadoAnterior.queryResults ?? {})[qid] ?? [];
     const atual = (resultadoAtual.queryResults ?? {})[qid] ?? [];
-    return `Aviso "${descricao}": alteração detectada. ${atual.length} registro(s) encontrado(s) (anterior: ${anterior.length}).`;
+    return `Alteração detectada: ${atual.length} registro(s) encontrado(s) (antes: ${anterior.length}).`;
   }
-  return `Aviso "${descricao}": alteração detectada.`;
+  return "Alteração detectada.";
 }
 
 // ── Próxima execução ───────────────────────────────────────────────────────────
