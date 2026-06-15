@@ -201,13 +201,30 @@ function gerarTextoAvisoTemplate(
   resultadoAtual: ResultadoExecucao
 ): string {
   const queryIds = Object.keys(resultadoAtual.queryResults ?? {});
-  if (queryIds.length > 0) {
-    const qid = Number(queryIds[0]);
-    const anterior = (resultadoAnterior.queryResults ?? {})[qid] ?? [];
-    const atual = (resultadoAtual.queryResults ?? {})[qid] ?? [];
-    return `Alteração detectada: ${atual.length} registro(s) encontrado(s) (antes: ${anterior.length}).`;
+  if (queryIds.length === 0) return "Alteração detectada.";
+
+  const qid = Number(queryIds[0]);
+  const anterior = (resultadoAnterior.queryResults ?? {})[qid] ?? [];
+  const atual = (resultadoAtual.queryResults ?? {})[qid] ?? [];
+
+  const linhas = [`Agora são ${atual.length} registro(s), antes eram ${anterior.length}.`];
+
+  // Mostra até 5 registros atuais com seus campos
+  const amostra = atual.slice(0, 5);
+  if (amostra.length > 0) {
+    linhas.push("\nRegistros atuais:");
+    for (const row of amostra) {
+      const campos = Object.entries(row as Record<string, unknown>)
+        .map(([k, v]) => `${k}: ${v ?? "—"}`)
+        .join(" | ");
+      linhas.push(`• ${campos}`);
+    }
+    if (atual.length > 5) {
+      linhas.push(`... e mais ${atual.length - 5} registro(s).`);
+    }
   }
-  return "Alteração detectada.";
+
+  return linhas.join("\n");
 }
 
 // ── Próxima execução ───────────────────────────────────────────────────────────
@@ -292,7 +309,7 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
     // Envia e-mail (ou canal futuro)
     const linkVisualizacao = `${config.publicWebUrl}/avisos`;
     if (canalEnvio === "email") {
-      await sendAvisoAlert({ to: canalDestino, descricao, texto: textoAviso, linkVisualizacao });
+      await sendAvisoAlert({ to: canalDestino, descricao, perguntaOriginal, texto: textoAviso, linkVisualizacao });
     }
 
     // Salva histórico com FIFO
