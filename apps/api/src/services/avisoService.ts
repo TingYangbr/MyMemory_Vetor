@@ -154,9 +154,10 @@ export async function reexecutarSnapshot(
   return resultado;
 }
 
-// Normaliza um valor escalar: Date → ISO string, demais passam direto.
+// Normaliza um valor escalar: Date → ISO string, floats → 6 casas decimais.
 function normVal(v: unknown): unknown {
   if (v instanceof Date) return v.toISOString();
+  if (typeof v === "number" && !Number.isInteger(v)) return parseFloat(v.toFixed(6));
   return v;
 }
 
