@@ -86,6 +86,7 @@ const COL: Record<string, string> = {
   avisoid: "avisoId",
   enviadoem: "enviadoEm",
   custousd: "custoUsd",
+  textorespostainicial: "textoRespostaInicial",
   // misc aliases used in queries
   planname: "planName", groupname: "groupName", isonwer: "isOwner",
   isowner: "isOwner", subscriptionowneremail: "subscriptionOwnerEmail",

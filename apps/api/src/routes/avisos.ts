@@ -57,23 +57,16 @@ const plugin: FastifyPluginAsync = async (app) => {
       `INSERT INTO avisos
          (userid, groupid, descricao, perguntaoriginal, pipe, execucaosnapshotjson,
           frequenciatipo, frequenciahoras, canalenvio, canaldestino,
-          ultimoresultadojson, ultimaexecucao, proximaexecucao)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'email', ?, ?, NOW(), ?)
+          ultimoresultadojson, ultimaexecucao, proximaexecucao, textorespostainicial)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'email', ?, ?, NOW(), ?, ?)
        RETURNING id, userid, groupid, descricao, perguntaoriginal, pipe, execucaosnapshotjson,
                  frequenciatipo, frequenciahoras, canalenvio, canaldestino,
-                 ultimoresultadojson, ultimaexecucao, proximaexecucao, status, createdat`,
+                 ultimoresultadojson, ultimaexecucao, proximaexecucao, status, createdat,
+                 textorespostainicial`,
       [userId, groupId, descricao, perguntaOriginal, pipe, JSON.stringify(execucaoSnapshot),
-       frequenciaTipo, frequenciaHoras ?? null, canalDestino, baselineJson, proxima.toISOString()]
+       frequenciaTipo, frequenciaHoras ?? null, canalDestino, baselineJson, proxima.toISOString(),
+       textoRespostaInicial ?? null]
     );
-
-    const avisoId = ((rows as Record<string, unknown>[])[0].id) as number;
-
-    if (textoRespostaInicial) {
-      await pool.query(
-        `INSERT INTO aviso_historico (avisoid, texto, custousd) VALUES (?, ?, 0)`,
-        [avisoId, textoRespostaInicial]
-      );
-    }
 
     return reply.code(201).send({ aviso: (rows as Record<string, unknown>[])[0] });
   });
@@ -87,6 +80,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       `SELECT a.id, a.userid, a.groupid, a.descricao, a.perguntaoriginal, a.pipe,
               a.frequenciatipo, a.frequenciahoras, a.canalenvio, a.canaldestino,
               a.ultimaexecucao, a.proximaexecucao, a.status, a.createdat,
+              a.textorespostainicial,
               h.enviadoem AS ultimoaviso, h.texto AS ultimoavisotexto
        FROM avisos a
        LEFT JOIN LATERAL (
