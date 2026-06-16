@@ -18,6 +18,7 @@ interface AvisoRow {
   status: "ativo" | "pausado";
   createdAt: string;
   ultimoaviso: string | null;
+  ultimoavisotexto: string | null;
 }
 
 function formatFreq(tipo: string | undefined, horas: number | null): string {
@@ -215,9 +216,9 @@ export default function AvisosPage() {
 
                 <button
                   type="button"
-                  className={`${styles.itemMetaBtn} ${!a.ultimoaviso ? styles.itemMetaBtnDisabled : ""}`}
-                  onClick={() => a.ultimoaviso && setModalAviso(a)}
-                  title={a.ultimoaviso ? "Ver último aviso enviado" : "Nenhum aviso enviado ainda"}
+                  className={`${styles.itemMetaBtn} ${!a.ultimoavisotexto ? styles.itemMetaBtnDisabled : ""}`}
+                  onClick={() => a.ultimoavisotexto && setModalAviso(a)}
+                  title={a.ultimoavisotexto ? "Ver último aviso enviado" : "Nenhum aviso enviado ainda"}
                 >
                   <IconClock />
                   <span>Ult. Verificação: {formatDate(a.ultimaExecucao)}</span>
@@ -273,7 +274,7 @@ export default function AvisosPage() {
         )}
       </main>
 
-      {modalAviso?.ultimoaviso && (
+      {modalAviso?.ultimoavisotexto && (
         <div
           className={styles.modalOverlay}
           onClick={() => setModalAviso(null)}
@@ -300,7 +301,7 @@ export default function AvisosPage() {
             </div>
 
             <div className={styles.modalContent}>
-              {renderAvisoText(modalAviso.ultimoaviso)}
+              {renderAvisoText(modalAviso.ultimoavisotexto!)}
             </div>
 
             <div className={styles.modalFooter}>

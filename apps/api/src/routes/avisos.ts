@@ -77,10 +77,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       `SELECT a.id, a.userid, a.groupid, a.descricao, a.perguntaoriginal, a.pipe,
               a.frequenciatipo, a.frequenciahoras, a.canalenvio, a.canaldestino,
               a.ultimaexecucao, a.proximaexecucao, a.status, a.createdat,
-              h.enviadoem AS ultimoaviso
+              h.enviadoem AS ultimoaviso, h.texto AS ultimoavisotexto
        FROM avisos a
        LEFT JOIN LATERAL (
-         SELECT enviadoem FROM aviso_historico WHERE avisoid = a.id ORDER BY enviadoem DESC LIMIT 1
+         SELECT enviadoem, texto FROM aviso_historico WHERE avisoid = a.id ORDER BY enviadoem DESC LIMIT 1
        ) h ON TRUE
        WHERE a.userid = ?
        ORDER BY a.createdat DESC`,
