@@ -14,6 +14,7 @@ const criarSchema = z.object({
   frequenciaHoras: z.number().int().min(1).max(12).nullable().optional(),
   canalDestino: z.string().email(),
   workspaceGroupId: z.number().int().positive().nullable().optional(),
+  textoRespostaInicial: z.string().max(20000).nullable().optional(),
 });
 
 const patchSchema = z.object({
@@ -33,7 +34,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const parsed = criarSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
 
-    const { descricao, perguntaOriginal, pipe, execucaoSnapshot, frequenciaTipo, frequenciaHoras, canalDestino, workspaceGroupId } = parsed.data;
+    const { descricao, perguntaOriginal, pipe, execucaoSnapshot, frequenciaTipo, frequenciaHoras, canalDestino, workspaceGroupId, textoRespostaInicial } = parsed.data;
     const groupId = workspaceGroupId ?? null;
     const proxima = calcularProximaExecucao(frequenciaTipo, frequenciaHoras);
 
@@ -64,6 +65,15 @@ const plugin: FastifyPluginAsync = async (app) => {
       [userId, groupId, descricao, perguntaOriginal, pipe, JSON.stringify(execucaoSnapshot),
        frequenciaTipo, frequenciaHoras ?? null, canalDestino, baselineJson, proxima.toISOString()]
     );
+
+    const avisoId = ((rows as Record<string, unknown>[])[0].id) as number;
+
+    if (textoRespostaInicial) {
+      await pool.query(
+        `INSERT INTO aviso_historico (avisoid, texto, custousd) VALUES (?, ?, 0)`,
+        [avisoId, textoRespostaInicial]
+      );
+    }
 
     return reply.code(201).send({ aviso: (rows as Record<string, unknown>[])[0] });
   });

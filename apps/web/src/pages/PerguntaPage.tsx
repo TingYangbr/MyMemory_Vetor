@@ -981,6 +981,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         frequenciaHoras: avisoModal.freqTipo === "horas" ? avisoModal.freqHoras : null,
         canalDestino: avisoModal.email,
         workspaceGroupId: workspaceGroupId ?? null,
+        textoRespostaInicial: r.resposta.resposta ?? null,
       });
       setAvisoSavedPergunta(r.perguntaTexto);
       setAvisoModal(null);
