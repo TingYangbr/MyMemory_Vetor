@@ -175,6 +175,11 @@
   text-decoration: underline;
 }
 
+.itemMetaBtnDisabled {
+  cursor: default;
+  pointer-events: none;
+}
+
 .itemMetaSep {
   opacity: 0.35;
 }
@@ -254,149 +259,109 @@
 .modalBox {
   background: var(--mm-surface, #ffffff);
   border-radius: 1rem;
-  padding: 1.5rem;
   width: 100%;
-  max-width: 460px;
+  max-width: 480px;
+  max-height: 80vh;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
 }
 
-.modalPerguntaWrap {
+/* ── Cabeçalho do modal ── */
+.modalHeader {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-surface-alt, #f8fafc);
+  flex-shrink: 0;
+}
+
+.modalHeaderIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(99, 102, 241, 0.1);
+  color: #6366f1;
+  flex-shrink: 0;
+}
+
+.modalHeaderText {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.1rem;
+  flex: 1;
 }
 
-.modalPerguntaLabel {
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--mm-text-muted, #94a3b8);
-}
-
-.modalPergunta {
-  margin: 0;
-  font-size: 1rem;
+.modalHeaderTitle {
+  font-size: 0.88rem;
   font-weight: 700;
   color: var(--mm-text, #1e293b);
-  line-height: 1.5;
 }
 
-.modalDescricao {
-  margin: 0;
-  font-size: 0.8rem;
+.modalHeaderDate {
+  font-size: 0.75rem;
   color: var(--mm-text-muted, #94a3b8);
-  font-style: italic;
-  line-height: 1.4;
 }
 
-.modalInfoRow {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 0.4rem;
+.modalCloseBtn {
+  background: none;
+  border: none;
+  font-size: 0.9rem;
+  color: var(--mm-text-muted, #94a3b8);
+  cursor: pointer;
+  padding: 0.25rem 0.4rem;
+  border-radius: 0.3rem;
+  line-height: 1;
+  transition: background 0.1s, color 0.1s;
 }
 
-.modalInfoChip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  font-size: 0.82rem;
-  font-weight: 600;
+.modalCloseBtn:hover {
+  background: var(--mm-border, #e2e8f0);
   color: var(--mm-text, #1e293b);
-  background: var(--mm-surface-alt, #f1f5f9);
-  border: 1px solid var(--mm-border, #e2e8f0);
-  border-radius: 20px;
-  padding: 0.22rem 0.7rem;
 }
 
-.modalInfoPara {
-  font-size: 0.8rem;
-  color: var(--mm-text-muted, #94a3b8);
+/* ── Conteúdo do aviso ── */
+.modalContent {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  font-size: 0.9rem;
+  color: var(--mm-text, #1e293b);
+  line-height: 1.7;
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.modalMeta {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  font-size: 0.8rem;
-  color: var(--mm-text-muted, #64748b);
-  padding: 0.5rem 0.65rem;
-  background: var(--mm-surface-alt, #f8fafc);
-  border-radius: 0.4rem;
-  border: 1px solid var(--mm-border, #e2e8f0);
+.avisoLine {
+  display: inline;
 }
 
-.modalMetaItem {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-}
-
-.modalMetaSep {
-  opacity: 0.35;
-}
-
-.modalActions {
-  display: flex;
-  gap: 0.5rem;
-  padding-top: 0.5rem;
+/* ── Rodapé do modal ── */
+.modalFooter {
+  padding: 0.85rem 1.25rem;
   border-top: 1px solid var(--mm-border, #e2e8f0);
+  display: flex;
+  justify-content: flex-end;
+  flex-shrink: 0;
 }
 
 .modalActionBtn {
-  flex: 1;
   background: none;
   border: 1px solid var(--mm-border, #e2e8f0);
   border-radius: 0.4rem;
   color: var(--mm-text, #1e293b);
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 1.25rem;
   font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.12s;
-  text-align: center;
 }
 
-.modalActionBtn:hover:not(:disabled) { background: var(--mm-surface-alt, #f1f5f9); }
-.modalActionBtn:disabled { opacity: 0.6; cursor: default; }
-
-.modalActionBtnDelete {
-  flex: 1;
-  background: none;
-  border: 1px solid #fca5a5;
-  border-radius: 0.4rem;
-  color: #dc2626;
-  padding: 0.5rem 0.75rem;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.12s;
-  text-align: center;
-}
-
-.modalActionBtnDelete:hover { background: #fef2f2; }
-
-.modalActionBtnDanger {
-  flex: 1;
-  background: #dc2626;
-  border: none;
-  border-radius: 0.4rem;
-  color: #fff;
-  padding: 0.5rem 0.75rem;
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.12s;
-  text-align: center;
-}
-
-.modalActionBtnDanger:hover:not(:disabled) { background: #b91c1c; }
-.modalActionBtnDanger:disabled { opacity: 0.6; cursor: default; }
+.modalActionBtn:hover { background: var(--mm-surface-alt, #f1f5f9); }
