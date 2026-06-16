@@ -283,10 +283,12 @@ export function bindParamsMssql(
       // pois mssql envia parâmetros como NVarChar e CHAR = NVarChar não faz padding automático.
       // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
       if (isLikeContext && llmOpOverride !== "LIKE") {
+        // CAST para NVARCHAR(MAX) necessário: RTRIM não aceita TEXT no SQL Server.
+        // RTRIM remove espaços de padding de colunas CHAR(n).
         if (/\bNOT\s+LIKE\s*$/i.test(result)) {
-          result = result.replace(/(\S+)\s+NOT\s+LIKE\s*$/i, "RTRIM($1) <> ");
+          result = result.replace(/(\S+)\s+NOT\s+LIKE\s*$/i, "RTRIM(CAST($1 AS NVARCHAR(MAX))) <> ");
         } else if (/\bLIKE\s*$/i.test(result)) {
-          result = result.replace(/(\S+)\s+LIKE\s*$/i, "RTRIM($1) = ");
+          result = result.replace(/(\S+)\s+LIKE\s*$/i, "RTRIM(CAST($1 AS NVARCHAR(MAX))) = ");
         }
       }
 
