@@ -43,6 +43,7 @@ import { FixTtsRateColumnCase1700000000127 } from "./migrations/1700000000127-Fi
 import { AddAvisos1700000000128 } from "./migrations/1700000000128-AddAvisos.js";
 import { AvisoPromptConfigs1700000000129 } from "./migrations/1700000000129-AvisoPromptConfigs.js";
 import { AvisoTextoInicial1700000000130 } from "./migrations/1700000000130-AvisoTextoInicial.js";
+import { DbConnectionGroupId1700000000131 } from "./migrations/1700000000131-DbConnectionGroupId.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -57,6 +58,7 @@ import adminDiagnosticsRoutes from "./routes/adminDiagnostics.js";
 import adminPromptConfigsRoutes from "./routes/adminPromptConfigs.js";
 import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
+import groupDbConnectionsRoutes from "./routes/groupDbConnections.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
 import adminMemoContextCloneRoutes from "./routes/adminMemoContextClone.js";
 import adminSubscriptionsRoutes from "./routes/adminSubscriptions.js";
@@ -113,6 +115,7 @@ assertMediaStorageEnv();
       AddAvisos1700000000128,
       AvisoPromptConfigs1700000000129,
       AvisoTextoInicial1700000000130,
+      DbConnectionGroupId1700000000131,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -181,6 +184,7 @@ await app.register(adminDiagnosticsRoutes);
 await app.register(adminPromptConfigsRoutes);
 await app.register(adminAiConfigRoutes);
 await app.register(adminDbConnectionsRoutes);
+await app.register(groupDbConnectionsRoutes);
 await app.register(adminUserInvitesRoutes);
 await app.register(adminMemoContextCloneRoutes);
 await app.register(adminSubscriptionsRoutes);

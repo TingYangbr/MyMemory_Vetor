@@ -336,7 +336,11 @@ export default function MemoContextPage() {
   };
 
   const loadDbConnOptions = () => {
-    apiGet<DbConnectionListResponse>("/api/admin/db-connections")
+    const isAdmin = editorMeta?.isAdmin ?? false;
+    const url = !isAdmin && scopeGroupId
+      ? `/api/groups/${scopeGroupId}/db-connections`
+      : "/api/admin/db-connections";
+    apiGet<DbConnectionListResponse>(url)
       .then((r) => setDbConnOptions(r.connections.filter((c) => c.isActive === 1)))
       .catch(() => setDbConnOptions([]));
   };
@@ -404,8 +408,12 @@ export default function MemoContextPage() {
     setSyntaxBusy(true);
     setSyntaxResult(null);
     try {
+      const isAdmin = editorMeta?.isAdmin ?? false;
+      const syntaxUrl = !isAdmin && scopeGroupId
+        ? `/api/groups/${scopeGroupId}/db-connections/${modalQueryConexaoId}/syntax-check`
+        : `/api/admin/db-connections/${modalQueryConexaoId}/syntax-check`;
       const res = await apiPostJson<{ ok: boolean; message: string }>(
-        `/api/admin/db-connections/${modalQueryConexaoId}/syntax-check`,
+        syntaxUrl,
         { sentencaSql: modalQuerySentencaSql }
       );
       setSyntaxResult(res);

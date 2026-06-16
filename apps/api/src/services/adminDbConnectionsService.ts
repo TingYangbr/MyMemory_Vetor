@@ -4,10 +4,20 @@ import type { DbConnection } from "@mymemory/shared";
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
-export async function listDbConnections(): Promise<DbConnection[]> {
+export async function listDbConnections(options?: { groupId?: number | null }): Promise<DbConnection[]> {
+  if (options && "groupId" in options) {
+    const gid = options.groupId;
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, nome, descricao, host, port, database, username,
+              encrypt, trustServerCertificate, isActive, groupId, createdAt, updatedAt
+       FROM db_connections WHERE groupid = ? AND isactive = 1 ORDER BY nome ASC`,
+      [gid]
+    );
+    return rows as DbConnection[];
+  }
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, nome, descricao, host, port, database, username,
-            encrypt, trustServerCertificate, isActive, createdAt, updatedAt
+            encrypt, trustServerCertificate, isActive, groupId, createdAt, updatedAt
      FROM db_connections ORDER BY nome ASC`
   );
   return rows as DbConnection[];
@@ -33,10 +43,11 @@ export async function createDbConnection(input: {
   password: string;
   encrypt: number;
   trustServerCertificate: number;
+  groupId?: number | null;
 }): Promise<number> {
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO db_connections (nome, descricao, host, port, database, username, password, encrypt, trustservercertificate, isactive)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    `INSERT INTO db_connections (nome, descricao, host, port, database, username, password, encrypt, trustservercertificate, isactive, groupid)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id`,
     [
       input.nome.trim(),
       input.descricao?.trim() ?? null,
@@ -47,6 +58,7 @@ export async function createDbConnection(input: {
       input.password,
       input.encrypt,
       input.trustServerCertificate,
+      input.groupId ?? null,
     ]
   );
   return rows[0].id;
@@ -65,6 +77,7 @@ export async function updateDbConnection(
     encrypt?: number;
     trustServerCertificate?: number;
     isActive?: number;
+    groupId?: number | null;
   }
 ): Promise<void> {
   const sets: string[] = [];
@@ -80,6 +93,7 @@ export async function updateDbConnection(
   if (patch.encrypt !== undefined)                { sets.push("encrypt = ?");                vals.push(patch.encrypt); }
   if (patch.trustServerCertificate !== undefined) { sets.push("trustservercertificate = ?"); vals.push(patch.trustServerCertificate); }
   if (patch.isActive !== undefined)               { sets.push("isactive = ?");               vals.push(patch.isActive); }
+  if ("groupId" in patch)                         { sets.push("groupid = ?");                vals.push(patch.groupId ?? null); }
 
   if (sets.length === 0) return;
   sets.push("updatedat = NOW()");
@@ -89,6 +103,14 @@ export async function updateDbConnection(
 
 export async function softDeleteDbConnection(id: number): Promise<void> {
   await updateDbConnection(id, { isActive: 0 });
+}
+
+export async function assertConnectionBelongsToGroup(connectionId: number, groupId: number): Promise<void> {
+  const [rows] = await pool.query<{ id: number }[]>(
+    `SELECT id FROM db_connections WHERE id = ? AND groupid = ? LIMIT 1`,
+    [connectionId, groupId]
+  );
+  if (!rows[0]) throw Object.assign(new Error("not_found_or_forbidden"), { code: "not_found_or_forbidden" });
 }
 
 // ── Test connection (mssql) ───────────────────────────────────────────────────

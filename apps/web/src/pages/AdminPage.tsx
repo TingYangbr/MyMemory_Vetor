@@ -535,19 +535,20 @@ export default function AdminPage() {
   const [catOverrideDeleting, setCatOverrideDeleting] = useState<Set<string>>(new Set());
 
   // ── Aba Conexões BD ──────────────────────────────────────────────────────
-  const emptyDbConn = (): Partial<DbConnection> & { password: string } => ({
+  const emptyDbConn = (): Partial<DbConnection> & { password: string; groupId: number | null } => ({
     nome: "", descricao: null, host: "", port: 1433, database: "",
-    username: "", password: "", encrypt: 0, trustServerCertificate: 1,
+    username: "", password: "", encrypt: 0, trustServerCertificate: 1, groupId: null,
   });
   const [dbConns, setDbConns] = useState<DbConnection[]>([]);
   const [dbConnsLoading, setDbConnsLoading] = useState(false);
   const [dbConnsErr, setDbConnsErr] = useState<string | null>(null);
-  const [dbConnForm, setDbConnForm] = useState<Partial<DbConnection> & { password: string }>(emptyDbConn());
+  const [dbConnForm, setDbConnForm] = useState<Partial<DbConnection> & { password: string; groupId: number | null }>(emptyDbConn());
   const [dbConnEditing, setDbConnEditing] = useState<number | null>(null);
   const [dbConnSaving, setDbConnSaving] = useState(false);
   const [dbConnSaveOk, setDbConnSaveOk] = useState(false);
   const [dbConnTestResults, setDbConnTestResults] = useState<Record<number, DbConnectionTestResult>>({});
   const [dbConnTesting, setDbConnTesting] = useState<Set<number>>(new Set());
+  const [dbConnGroups, setDbConnGroups] = useState<MemoContextGroupOption[]>([]);
 
   // ── Aba Convites de Usuários ─────────────────────────────────────────────
   const [userInvites, setUserInvites] = useState<{ id: number; email: string; status: string; createdAt: string; expiresAt: string; acceptedAt: string | null }[]>([]);
@@ -989,8 +990,13 @@ export default function AdminPage() {
     if (me?.role !== "admin") return Promise.resolve();
     setDbConnsLoading(true);
     setDbConnsErr(null);
-    return apiGet<DbConnectionListResponse>("/api/admin/db-connections")
-      .then((r) => setDbConns(r.connections))
+    return Promise.all([
+      apiGet<DbConnectionListResponse>("/api/admin/db-connections")
+        .then((r) => setDbConns(r.connections)),
+      apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
+        .then((r) => setDbConnGroups(r.groups))
+        .catch(() => {}),
+    ])
       .catch((e) => setDbConnsErr(e instanceof Error ? e.message : "Falha ao carregar conexões."))
       .finally(() => setDbConnsLoading(false));
   }, [me?.role]);
@@ -1011,7 +1017,7 @@ export default function AdminPage() {
 
   function startEditDbConn(c: DbConnection) {
     setDbConnEditing(c.id);
-    setDbConnForm({ ...c, password: "" });
+    setDbConnForm({ ...c, password: "", groupId: c.groupId ?? null });
     setDbConnSaveOk(false);
   }
 
@@ -1037,6 +1043,7 @@ export default function AdminPage() {
           password: dbConnForm.password,
           encrypt: dbConnForm.encrypt ?? 0,
           trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+          groupId: dbConnForm.groupId ?? null,
         });
       } else {
         await apiPutJson(`/api/admin/db-connections/${dbConnEditing}`, {
@@ -1049,6 +1056,7 @@ export default function AdminPage() {
           ...(dbConnForm.password ? { password: dbConnForm.password } : {}),
           encrypt: dbConnForm.encrypt ?? 0,
           trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+          groupId: dbConnForm.groupId ?? null,
         });
       }
       setDbConnSaveOk(true);
@@ -2409,6 +2417,17 @@ export default function AdminPage() {
                   <span>{dbConnEditing != null ? "Senha (vazio = manter)" : "Senha *"}</span>
                   <input className="mm-field" type="password" value={dbConnForm.password} onChange={(e) => setDbConnForm((p) => ({ ...p, password: e.target.value }))} autoComplete="new-password" />
                 </label>
+                <label className={styles.dbConnField}>
+                  <span>Grupo (owner)</span>
+                  <select
+                    className="mm-field"
+                    value={dbConnForm.groupId ?? ""}
+                    onChange={(e) => setDbConnForm((p) => ({ ...p, groupId: e.target.value === "" ? null : Number(e.target.value) }))}
+                  >
+                    <option value="">— Sem grupo (admin only) —</option>
+                    {dbConnGroups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                  </select>
+                </label>
                 <label className={styles.dbConnField} style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem", maxWidth: "fit-content" }}>
                   <input type="checkbox" checked={dbConnForm.encrypt === 1} onChange={(e) => setDbConnForm((p) => ({ ...p, encrypt: e.target.checked ? 1 : 0 }))} />
                   <span>Criptografar conexão</span>
@@ -2459,6 +2478,13 @@ export default function AdminPage() {
                           <div className={styles.dbConnRowInfo}>
                             <strong>{c.nome}</strong>
                             <span className="mm-muted">{c.host}:{c.port} / {c.database} — usuário: {c.username}</span>
+                            {c.groupId ? (
+                              <span style={{ fontSize: "0.78rem", color: "#6366f1", fontWeight: 600 }}>
+                                Grupo: {dbConnGroups.find((g) => g.id === c.groupId)?.name ?? `#${c.groupId}`}
+                              </span>
+                            ) : (
+                              <span style={{ fontSize: "0.78rem", color: "#94a3b8" }}>Admin only (sem grupo)</span>
+                            )}
                             {c.descricao ? <span className="mm-muted" style={{ fontStyle: "italic" }}>{c.descricao}</span> : null}
                           </div>
                           <div className={styles.dbConnRowActions}>

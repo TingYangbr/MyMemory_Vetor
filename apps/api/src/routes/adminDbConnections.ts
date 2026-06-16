@@ -20,6 +20,7 @@ const createBody = z.object({
   password:              z.string().min(1).max(1000),
   encrypt:               z.number().int().min(0).max(1).default(0),
   trustServerCertificate: z.number().int().min(0).max(1).default(1),
+  groupId:               z.number().int().positive().nullable().optional(),
 });
 
 const updateBody = z.object({
@@ -33,6 +34,7 @@ const updateBody = z.object({
   encrypt:               z.number().int().min(0).max(1).optional(),
   trustServerCertificate: z.number().int().min(0).max(1).optional(),
   isActive:              z.number().int().min(0).max(1).optional(),
+  groupId:               z.number().int().positive().nullable().optional(),
 });
 
 const plugin: FastifyPluginAsync = async (app) => {
@@ -48,7 +50,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (admin == null) return;
     const parsed = createBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
-    const id = await createDbConnection(parsed.data);
+    const id = await createDbConnection({ ...parsed.data, groupId: parsed.data.groupId ?? null });
     return reply.code(201).send({ id });
   });
 
@@ -59,7 +61,9 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (!id.success) return reply.code(400).send({ error: "invalid_id" });
     const parsed = updateBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
-    await updateDbConnection(id.data, parsed.data);
+    const patch = { ...parsed.data };
+    if ("groupId" in parsed.data) Object.assign(patch, { groupId: parsed.data.groupId ?? null });
+    await updateDbConnection(id.data, patch);
     return { ok: true };
   });
 

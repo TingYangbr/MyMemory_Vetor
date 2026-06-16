@@ -669,6 +669,7 @@ export interface DbConnection {
   encrypt: number;
   trustServerCertificate: number;
   isActive: number;
+  groupId?: number | null;
   createdAt: string;
   updatedAt: string;
 }
