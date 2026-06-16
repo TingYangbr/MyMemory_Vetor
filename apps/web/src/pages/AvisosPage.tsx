@@ -236,23 +236,25 @@ export default function AvisosPage() {
 
                 {(() => {
                   const hasText = !!(a.ultimoavisotexto ?? a.textoRespostaInicial);
+                  const dataUltAviso = a.ultimoaviso ?? (a.textoRespostaInicial ? a.createdAt : null);
                   return (
-                    <button
-                      type="button"
-                      className={`${styles.itemMetaBtn} ${hasText ? styles.itemMetaBtnClickable : styles.itemMetaBtnDisabled}`}
-                      onClick={() => hasText && setModalAviso(a)}
-                      title={hasText ? "Ver resposta" : "Nenhuma resposta disponível"}
-                    >
-                      <IconClock />
-                      <span>Ult. Verificação: {formatDate(a.ultimaExecucao)}</span>
+                    <div className={styles.itemMetaRow}>
+                      <button
+                        type="button"
+                        className={`${styles.itemMetaUltAviso} ${hasText ? styles.itemMetaBtnClickable : styles.itemMetaBtnDisabled}`}
+                        onClick={() => hasText && setModalAviso(a)}
+                        title={hasText ? "Ver resposta" : "Nenhuma resposta disponível"}
+                      >
+                        <IconEye />
+                        <span>Ult. Aviso: {formatDate(dataUltAviso)}</span>
+                      </button>
                       {a.proximaExecucao && (
-                        <>
-                          <span className={styles.itemMetaSep}>·</span>
-                          <span>Próxima: {formatDate(a.proximaExecucao)}</span>
-                        </>
+                        <span className={styles.itemMetaProxima}>
+                          <IconClock />
+                          <span>Próxima verificação: {formatDate(a.proximaExecucao)}</span>
+                        </span>
                       )}
-                      {hasText && <IconEye />}
-                    </button>
+                    </div>
                   );
                 })()}
 

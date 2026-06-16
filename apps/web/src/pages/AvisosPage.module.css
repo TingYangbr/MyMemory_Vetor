@@ -146,27 +146,50 @@
   gap: 0.3rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: var(--mm-text, #1e293b);
-  background: var(--mm-surface-alt, #f1f5f9);
-  border: 1px solid var(--mm-border, #e2e8f0);
   border-radius: 20px;
   padding: 0.18rem 0.65rem;
 }
 
-/* ── Meta ── */
-.itemMetaBtn {
+.itemInfoChip:first-child {
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.25);
+  color: #6366f1;
+}
+
+.itemInfoChip:last-child {
+  background: rgba(14, 165, 233, 0.1);
+  border: 1px solid rgba(14, 165, 233, 0.25);
+  color: #0284c7;
+}
+
+/* ── Meta row ── */
+.itemMetaRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem 1rem;
+}
+
+.itemMetaUltAviso {
   display: inline-flex;
   align-items: center;
   gap: 0.3rem;
   background: none;
   border: none;
-  padding: 0.1rem 0;
+  padding: 0;
   font: inherit;
   font-size: 0.78rem;
   color: var(--mm-text-muted, #64748b);
   text-align: left;
-  flex-wrap: wrap;
   cursor: default;
+}
+
+.itemMetaProxima {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.78rem;
+  color: var(--mm-text-muted, #64748b);
 }
 
 .itemMetaBtnClickable {
@@ -184,10 +207,6 @@
 .itemMetaBtnDisabled {
   cursor: default;
   pointer-events: none;
-}
-
-.itemMetaSep {
-  opacity: 0.35;
 }
 
 /* ── Ações — botões iguais ── */
