@@ -92,6 +92,25 @@ function IconMsgAviso() {
   );
 }
 
+function IconRespostaInicial() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <circle cx="12" cy="16" r="0.5" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconEye() {
+  return (
+    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 function PipeLabel({ pipe }: { pipe: string }) {
   const label =
     pipe === "semantica" ? "Semântico" :
@@ -215,26 +234,32 @@ export default function AvisosPage() {
                   </span>
                 </div>
 
-                <button
-                  type="button"
-                  className={`${styles.itemMetaBtn} ${!(a.ultimoavisotexto ?? a.textoRespostaInicial) ? styles.itemMetaBtnDisabled : ""}`}
-                  onClick={() => (a.ultimoavisotexto ?? a.textoRespostaInicial) && setModalAviso(a)}
-                  title={(a.ultimoavisotexto ?? a.textoRespostaInicial) ? "Ver resposta atual" : "Nenhuma resposta disponível"}
-                >
-                  <IconClock />
-                  <span>Ult. Verificação: {formatDate(a.ultimaExecucao)}</span>
-                  {a.proximaExecucao && (
-                    <>
-                      <span className={styles.itemMetaSep}>·</span>
-                      <span>Próxima: {formatDate(a.proximaExecucao)}</span>
-                    </>
-                  )}
-                </button>
+                {(() => {
+                  const hasText = !!(a.ultimoavisotexto ?? a.textoRespostaInicial);
+                  return (
+                    <button
+                      type="button"
+                      className={`${styles.itemMetaBtn} ${hasText ? styles.itemMetaBtnClickable : styles.itemMetaBtnDisabled}`}
+                      onClick={() => hasText && setModalAviso(a)}
+                      title={hasText ? "Ver resposta" : "Nenhuma resposta disponível"}
+                    >
+                      <IconClock />
+                      <span>Ult. Verificação: {formatDate(a.ultimaExecucao)}</span>
+                      {a.proximaExecucao && (
+                        <>
+                          <span className={styles.itemMetaSep}>·</span>
+                          <span>Próxima: {formatDate(a.proximaExecucao)}</span>
+                        </>
+                      )}
+                      {hasText && <IconEye />}
+                    </button>
+                  );
+                })()}
 
                 <div className={styles.itemActions}>
                   <button
                     type="button"
-                    className={styles.actionBtn}
+                    className={a.status === "pausado" ? styles.actionBtnReativar : styles.actionBtn}
                     disabled={actingId === a.id}
                     onClick={() => void toggleStatus(a)}
                   >
@@ -281,14 +306,18 @@ export default function AvisosPage() {
           onClick={() => setModalAviso(null)}
         >
           <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
-            <div className={styles.modalHeader}>
+            <div className={`${styles.modalHeader} ${!modalAviso.ultimoavisotexto ? styles.modalHeaderInicial : ""}`}>
               <span className={styles.modalHeaderIcon}>
-                <IconMsgAviso />
+                {modalAviso.ultimoavisotexto ? <IconMsgAviso /> : <IconRespostaInicial />}
               </span>
               <div className={styles.modalHeaderText}>
-                <span className={styles.modalHeaderTitle}>Aviso enviado</span>
+                <span className={styles.modalHeaderTitle}>
+                  {modalAviso.ultimoavisotexto ? "Aviso enviado" : "Resposta quando ativado"}
+                </span>
                 <span className={styles.modalHeaderDate}>
-                  {formatDate(modalAviso.ultimaExecucao)}
+                  {modalAviso.ultimoavisotexto
+                    ? formatDate(modalAviso.ultimoaviso)
+                    : formatDate(modalAviso.createdAt)}
                 </span>
               </div>
               <button
