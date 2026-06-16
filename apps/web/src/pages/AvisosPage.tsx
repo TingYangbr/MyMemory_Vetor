@@ -35,6 +35,33 @@ function formatDate(iso: string | null): string {
   return d.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
 }
 
+function IconRepeat() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M17 2l4 4-4 4" /><path d="M3 11V9a4 4 0 0 1 4-4h14" />
+      <path d="M7 22l-4-4 4-4" /><path d="M21 13v2a4 4 0 0 1-4 4H3" />
+    </svg>
+  );
+}
+
+function IconEmail() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+    </svg>
+  );
+}
+
+function IconClock() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <circle cx="12" cy="12" r="10" />
+      <polyline points="12 6 12 12 16 14" />
+    </svg>
+  );
+}
+
 function PipeLabel({ pipe }: { pipe: string }) {
   const label =
     pipe === "semantica" ? "Semântico" :
@@ -55,6 +82,7 @@ export default function AvisosPage() {
   const [error, setError] = useState<string | null>(null);
   const [actingId, setActingId] = useState<number | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [modalAviso, setModalAviso] = useState<AvisoRow | null>(null);
 
   useEffect(() => {
     apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -84,13 +112,13 @@ export default function AvisosPage() {
       await avisosApi.atualizar(aviso.id, {
         status: aviso.status === "ativo" ? "pausado" : "ativo",
       });
+      const newStatus = aviso.status === "ativo" ? "pausado" : "ativo";
       setAvisos((prev) =>
-        prev.map((a) =>
-          a.id === aviso.id
-            ? { ...a, status: a.status === "ativo" ? "pausado" : "ativo" }
-            : a
-        )
+        prev.map((a) => a.id === aviso.id ? { ...a, status: newStatus } : a)
       );
+      if (modalAviso?.id === aviso.id) {
+        setModalAviso((prev) => prev ? { ...prev, status: newStatus } : null);
+      }
     } catch { /* silencia */ } finally {
       setActingId(null);
     }
@@ -101,10 +129,21 @@ export default function AvisosPage() {
     try {
       await avisosApi.excluir(id);
       setAvisos((prev) => prev.filter((a) => a.id !== id));
+      if (modalAviso?.id === id) setModalAviso(null);
     } catch { /* silencia */ } finally {
       setActingId(null);
       setConfirmDeleteId(null);
     }
+  }
+
+  function openModal(a: AvisoRow) {
+    setConfirmDeleteId(null);
+    setModalAviso(a);
+  }
+
+  function closeModal() {
+    setModalAviso(null);
+    setConfirmDeleteId(null);
   }
 
   return (
@@ -142,56 +181,54 @@ export default function AvisosPage() {
               >
                 <div className={styles.itemHeader}>
                   <PipeLabel pipe={a.pipe} />
-                  <span
-                    className={`${styles.statusBadge} ${a.status === "ativo" ? styles.statusAtivo : styles.statusPausado}`}
-                  >
+                  <span className={`${styles.statusBadge} ${a.status === "ativo" ? styles.statusAtivo : styles.statusPausado}`}>
                     {a.status === "ativo" ? "Ativo" : "Pausado"}
                   </span>
                 </div>
 
-                <p className={styles.itemDescricao}>{a.descricao}</p>
+                <p className={styles.itemPergunta}>{a.perguntaOriginal}</p>
 
-                <p className={styles.itemPergunta}>
-                  <span className={styles.itemPerguntaLabel}>Pergunta: </span>
-                  {a.perguntaOriginal}
-                </p>
+                <p className={styles.itemDescricao}>{a.descricao}</p>
 
                 <div className={styles.itemInfoRow}>
                   <span className={styles.itemInfoChip}>
-                    <span aria-hidden>🔁</span> {formatFreq(a.frequenciaTipo, a.frequenciaHoras)}
+                    <IconRepeat /> {formatFreq(a.frequenciaTipo, a.frequenciaHoras)}
                   </span>
                   <span className={styles.itemInfoChip}>
-                    <span aria-hidden>📧</span> {a.canalDestino}
+                    <IconEmail /> {a.canalDestino}
                   </span>
                 </div>
 
-                <div className={styles.itemMeta}>
-                  <span>Última exec.: {formatDate(a.ultimaExecucao)}</span>
-                  <span>Próxima: {formatDate(a.proximaExecucao)}</span>
-                  {a.ultimoaviso ? (
-                    <span>Último aviso: {formatDate(a.ultimoaviso)}</span>
-                  ) : null}
-                </div>
+                <button
+                  type="button"
+                  className={styles.itemMetaBtn}
+                  onClick={() => openModal(a)}
+                >
+                  <IconClock />
+                  <span>Ult. Verificação: {formatDate(a.ultimaExecucao)}</span>
+                  {a.proximaExecucao && (
+                    <>
+                      <span className={styles.itemMetaSep}>·</span>
+                      <span>Próxima: {formatDate(a.proximaExecucao)}</span>
+                    </>
+                  )}
+                </button>
 
                 <div className={styles.itemActions}>
                   <button
                     type="button"
-                    className={`mm-btn${a.status === "pausado" ? " mm-btn--primary" : ""}`}
+                    className={styles.actionBtn}
                     disabled={actingId === a.id}
                     onClick={() => void toggleStatus(a)}
                   >
-                    {actingId === a.id
-                      ? "…"
-                      : a.status === "ativo"
-                      ? "Pausar"
-                      : "Reativar"}
+                    {actingId === a.id ? "…" : a.status === "ativo" ? "Pausar" : "Reativar"}
                   </button>
 
                   {confirmDeleteId === a.id ? (
                     <>
                       <button
                         type="button"
-                        className={styles.deleteConfirmBtn}
+                        className={styles.actionBtnDanger}
                         disabled={actingId === a.id}
                         onClick={() => void excluir(a.id)}
                       >
@@ -199,7 +236,7 @@ export default function AvisosPage() {
                       </button>
                       <button
                         type="button"
-                        className="mm-btn"
+                        className={styles.actionBtn}
                         onClick={() => setConfirmDeleteId(null)}
                       >
                         Cancelar
@@ -208,7 +245,7 @@ export default function AvisosPage() {
                   ) : (
                     <button
                       type="button"
-                      className={styles.deleteBtn}
+                      className={styles.actionBtnDelete}
                       onClick={() => setConfirmDeleteId(a.id)}
                     >
                       Excluir
@@ -220,6 +257,76 @@ export default function AvisosPage() {
           </ul>
         )}
       </main>
+
+      {modalAviso && (
+        <div className={styles.modalOverlay} onClick={closeModal}>
+          <div className={styles.modalBox} onClick={(e) => e.stopPropagation()}>
+            <div className={styles.modalPerguntaWrap}>
+              <span className={styles.modalPerguntaLabel}>Pergunta:</span>
+              <p className={styles.modalPergunta}>{modalAviso.perguntaOriginal}</p>
+            </div>
+
+            <p className={styles.modalDescricao}>{modalAviso.descricao}</p>
+
+            <div className={styles.modalInfoRow}>
+              <span className={styles.modalInfoChip}>
+                <IconRepeat /> {formatFreq(modalAviso.frequenciaTipo, modalAviso.frequenciaHoras)}
+              </span>
+              <span className={styles.modalInfoPara}>para</span>
+              <span className={styles.modalInfoChip}>
+                <IconEmail /> {modalAviso.canalDestino}
+              </span>
+            </div>
+
+            <div className={styles.modalMeta}>
+              <span className={styles.modalMetaItem}>
+                <IconClock /> Ult. Verificação: {formatDate(modalAviso.ultimaExecucao)}
+              </span>
+              <span className={styles.modalMetaSep}>·</span>
+              <span>Próxima: {formatDate(modalAviso.proximaExecucao)}</span>
+            </div>
+
+            <div className={styles.modalActions}>
+              <button
+                type="button"
+                className={styles.modalActionBtn}
+                disabled={actingId === modalAviso.id}
+                onClick={() => void toggleStatus(modalAviso)}
+              >
+                {actingId === modalAviso.id ? "…" : modalAviso.status === "ativo" ? "Pausar" : "Reativar"}
+              </button>
+
+              {confirmDeleteId === modalAviso.id ? (
+                <>
+                  <button
+                    type="button"
+                    className={styles.modalActionBtnDanger}
+                    disabled={actingId === modalAviso.id}
+                    onClick={() => void excluir(modalAviso.id)}
+                  >
+                    {actingId === modalAviso.id ? "…" : "Confirmar exclusão"}
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.modalActionBtn}
+                    onClick={() => setConfirmDeleteId(null)}
+                  >
+                    Cancelar
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  className={styles.modalActionBtnDelete}
+                  onClick={() => setConfirmDeleteId(modalAviso.id)}
+                >
+                  Excluir
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
