@@ -128,6 +128,7 @@ export default function MemoContextPage() {
 
   const [modalSaveError, setModalSaveError] = useState<string | null>(null);
   const [modalSaveBusy, setModalSaveBusy] = useState(false);
+  const [saveOkMsg, setSaveOkMsg] = useState<string | null>(null);
 
   const [pendingAutoParams, setPendingAutoParams] = useState<{
     campo: string;
@@ -634,6 +635,8 @@ export default function MemoContextPage() {
       setModal("none");
       resetModalState();
       await loadStructure();
+      setSaveOkMsg("Salvo com sucesso.");
+      setTimeout(() => setSaveOkMsg(null), 3000);
     } catch (e) {
       setModalSaveError(e instanceof Error ? e.message : "Falha ao salvar.");
     } finally {
@@ -1376,6 +1379,18 @@ export default function MemoContextPage() {
               </button>
             </div>
           </div>
+        </div>
+      ) : null}
+
+      {saveOkMsg ? (
+        <div style={{
+          position: "fixed", bottom: "1.5rem", right: "1.5rem",
+          background: "#16a34a", color: "#fff",
+          padding: "0.6rem 1.1rem", borderRadius: "0.5rem",
+          fontSize: "0.9rem", fontWeight: 500,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.18)", zIndex: 9999,
+        }}>
+          {saveOkMsg}
         </div>
       ) : null}
 
