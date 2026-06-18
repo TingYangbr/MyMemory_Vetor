@@ -64,9 +64,11 @@ const COL: Record<string, string> = {
   tokenhash: "tokenHash",
   // categories / sub_categories / queries / db_connections
   categoryid: "categoryId", normalizedterms: "normalizedTerms",
+  resolucaonomeabrev: "resolucaoNomeAbrev",
   queryid: "queryId", sentencasql: "sentencaSql", operadorsql: "operadorSql",
   conexaoid: "conexaoId",
   trustservercertificate: "trustServerCertificate",
+  isprincipal: "isPrincipal",
   // dados_especificos
   id_categoria: "id_Categoria", dadooriginal: "dadoOriginal",
   dadopadronizado: "dadoPadronizado",
