@@ -26,6 +26,7 @@ const createBody = z.object({
   password:               z.string().min(1).max(1000),
   encrypt:                z.number().int().min(0).max(1).default(0),
   trustServerCertificate: z.number().int().min(0).max(1).default(1),
+  isPrincipal:            z.number().int().min(0).max(1).default(0),
 });
 
 const updateBody = z.object({
@@ -38,6 +39,7 @@ const updateBody = z.object({
   password:               z.string().max(1000).optional(),
   encrypt:                z.number().int().min(0).max(1).optional(),
   trustServerCertificate: z.number().int().min(0).max(1).optional(),
+  isPrincipal:            z.number().int().min(0).max(1).optional(),
 });
 
 /** Returns userId if the request is from an admin or an owner of the group; sends error otherwise. */

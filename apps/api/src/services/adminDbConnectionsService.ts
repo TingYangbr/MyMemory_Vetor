@@ -9,7 +9,7 @@ export async function listDbConnections(options?: { groupId?: number | null }): 
     const gid = options.groupId;
     const [rows] = await pool.query<RowDataPacket[]>(
       `SELECT id, nome, descricao, host, port, database, username,
-              encrypt, trustServerCertificate, isActive, groupId, createdAt, updatedAt
+              encrypt, trustServerCertificate, isPrincipal, isActive, groupId, createdAt, updatedAt
        FROM db_connections WHERE groupid = ? AND isactive = 1 ORDER BY nome ASC`,
       [gid]
     );
@@ -43,11 +43,12 @@ export async function createDbConnection(input: {
   password: string;
   encrypt: number;
   trustServerCertificate: number;
+  isPrincipal?: number;
   groupId?: number | null;
 }): Promise<number> {
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO db_connections (nome, descricao, host, port, database, username, password, encrypt, trustservercertificate, isactive, groupid)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id`,
+    `INSERT INTO db_connections (nome, descricao, host, port, database, username, password, encrypt, trustservercertificate, isPrincipal, isactive, groupid)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?) RETURNING id`,
     [
       input.nome.trim(),
       input.descricao?.trim() ?? null,
@@ -58,6 +59,7 @@ export async function createDbConnection(input: {
       input.password,
       input.encrypt,
       input.trustServerCertificate,
+      input.isPrincipal ?? 0,
       input.groupId ?? null,
     ]
   );
@@ -76,6 +78,7 @@ export async function updateDbConnection(
     password?: string;
     encrypt?: number;
     trustServerCertificate?: number;
+    isPrincipal?: number;
     isActive?: number;
     groupId?: number | null;
   }
@@ -92,6 +95,7 @@ export async function updateDbConnection(
   if (patch.password !== undefined && patch.password !== "") { sets.push("password = ?"); vals.push(patch.password); }
   if (patch.encrypt !== undefined)                { sets.push("encrypt = ?");                vals.push(patch.encrypt); }
   if (patch.trustServerCertificate !== undefined) { sets.push("trustservercertificate = ?"); vals.push(patch.trustServerCertificate); }
+  if (patch.isPrincipal !== undefined)            { sets.push("isPrincipal = ?");            vals.push(patch.isPrincipal); }
   if (patch.isActive !== undefined)               { sets.push("isactive = ?");               vals.push(patch.isActive); }
   if ("groupId" in patch)                         { sets.push("groupid = ?");                vals.push(patch.groupId ?? null); }
 

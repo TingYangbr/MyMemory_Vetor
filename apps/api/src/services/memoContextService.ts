@@ -279,7 +279,7 @@ export async function loadMemoContextStructure(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryId, name, description, normalizedTerms, isActive, createdAt, updatedAt
+      `SELECT id, categoryId, name, description, normalizedTerms, resolucaoNomeAbrev, isActive, createdAt, updatedAt
        FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -350,6 +350,7 @@ export async function loadMemoContextStructure(
         name: r.name as string,
         description: (r.description as string) ?? null,
         normalizedTerms: (r.normalizedTerms as string) ?? null,
+        resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
@@ -557,12 +558,12 @@ export async function updateSubcategory(
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; normalizedTerms?: string | null }
+  input: { name: string; description?: string | null; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO categorycampos (categoryid, name, description, normalizedterms, isactive) VALUES (?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.name.trim(), input.description?.trim() ?? null, input.normalizedTerms?.trim() ?? null]
+    `INSERT INTO categorycampos (categoryid, name, description, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.name.trim(), input.description?.trim() ?? null, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
   );
   return rows[0].id;
 }
@@ -570,7 +571,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; normalizedTerms?: string | null; isActive?: number }
+  patch: { name?: string; description?: string | null; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -597,6 +598,10 @@ export async function updateCampo(
   if (patch.normalizedTerms !== undefined) {
     sets.push("normalizedterms = ?");
     vals.push(patch.normalizedTerms?.trim() ?? null);
+  }
+  if (patch.resolucaoNomeAbrev !== undefined) {
+    sets.push("resolucaoNomeAbrev = ?");
+    vals.push(patch.resolucaoNomeAbrev ? 1 : 0);
   }
   if (patch.isActive !== undefined) {
     sets.push("isactive = ?");

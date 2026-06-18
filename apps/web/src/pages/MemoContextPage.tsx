@@ -105,6 +105,7 @@ export default function MemoContextPage() {
   const [modalDesc, setModalDesc] = useState("");
   const [modalMedia, setModalMedia] = useState<MemoContextMediaType | "">("");
   const [modalNormalizedTerms, setModalNormalizedTerms] = useState("");
+  const [modalResolucaoNomeAbrev, setModalResolucaoNomeAbrev] = useState(false);
 
   // Query modal state
   const [modalQueryId, setModalQueryId] = useState<number | null>(null);
@@ -322,6 +323,7 @@ export default function MemoContextPage() {
     setModalName("");
     setModalDesc("");
     setModalNormalizedTerms("");
+    setModalResolucaoNomeAbrev(false);
     setModal("campo");
   };
 
@@ -332,6 +334,7 @@ export default function MemoContextPage() {
     setModalName(campo.name);
     setModalDesc(campo.description ?? "");
     setModalNormalizedTerms(campo.normalizedTerms ?? "");
+    setModalResolucaoNomeAbrev(campo.resolucaoNomeAbrev ?? false);
     setModal("campoEdit");
   };
 
@@ -570,12 +573,14 @@ export default function MemoContextPage() {
           name,
           description: modalDesc.trim() || null,
           normalizedTerms: modalNormalizedTerms.trim() || null,
+          resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
       } else if (modal === "campoEdit" && modalCampoId != null) {
         await apiPatchJson(`/api/memo-context/campos/${modalCampoId}`, {
           name,
           description: modalDesc.trim() || null,
           normalizedTerms: modalNormalizedTerms.trim() || null,
+          resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
       } else if (modal === "query" && modalCategoryId != null) {
         const { id: newQueryId } = await apiPostJson<{ id: number }>(
@@ -1142,19 +1147,34 @@ export default function MemoContextPage() {
               </>
             )}
             {(modal === "campo" || modal === "campoEdit") ? (
-              <div className={styles.modalField}>
-                <label htmlFor="mod-terms">Termos padronizados (vírgula)</label>
-                <input
-                  id="mod-terms"
-                  className="mm-field"
-                  value={modalNormalizedTerms}
-                  onChange={(e) => setModalNormalizedTerms(e.target.value)}
-                  placeholder="Ex.: pago, pendente, cancelado"
-                />
-                <p className={styles.fieldHelpSmall}>
-                  Opcional. A IA tentará aproximar o valor extraído para um destes padrões.
-                </p>
-              </div>
+              <>
+                <div className={styles.modalField}>
+                  <label htmlFor="mod-terms">Termos padronizados (vírgula)</label>
+                  <input
+                    id="mod-terms"
+                    className="mm-field"
+                    value={modalNormalizedTerms}
+                    onChange={(e) => setModalNormalizedTerms(e.target.value)}
+                    placeholder="Ex.: pago, pendente, cancelado"
+                  />
+                  <p className={styles.fieldHelpSmall}>
+                    Opcional. A IA tentará aproximar o valor extraído para um destes padrões.
+                  </p>
+                </div>
+                <div className={styles.modalField}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                    <input
+                      type="checkbox"
+                      checked={modalResolucaoNomeAbrev}
+                      onChange={(e) => setModalResolucaoNomeAbrev(e.target.checked)}
+                    />
+                    Resolução Nome/Abrev (ERP)
+                  </label>
+                  <p className={styles.fieldHelpSmall}>
+                    Se marcado, o valor extraído pela IA é substituído pela abreviatura canônica da view <code>Nome_vs_Abrev</code> do ERP via conexão principal do grupo.
+                  </p>
+                </div>
+              </>
             ) : null}
 
             {/* Campos: query */}

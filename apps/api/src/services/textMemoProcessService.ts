@@ -6,6 +6,7 @@ import { fetchAndExtractPlainTextFromUrl } from "../lib/urlFetchText.js";
 import { openaiChatJson } from "../lib/openaiChat.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
+import { resolveNomeAbrev } from "./entityResolutionService.js";
 import {
   ABSOLUTE_CAP,
   clampTextToMax,
@@ -19,7 +20,7 @@ type CatCtx = {
   id: number;
   name: string;
   subcategories: { name: string }[];
-  campos: { name: string; normalizedTerms: string[] }[];
+  campos: { name: string; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[];
 };
 
 export async function loadCategoryContext(
@@ -55,7 +56,7 @@ export async function loadCategoryContext(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name, normalizedTerms FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name, normalizedTerms, resolucaoNomeAbrev FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
@@ -67,7 +68,7 @@ export async function loadCategoryContext(
     campoRows = rows;
   }
   const subs = new Map<number, { name: string }[]>();
-  const camps = new Map<number, { name: string; normalizedTerms: string[] }[]>();
+  const camps = new Map<number, { name: string; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[]>();
   for (const id of ids) {
     subs.set(id, []);
     camps.set(id, []);
@@ -84,6 +85,7 @@ export async function loadCategoryContext(
       list.push({
         name: String(r.name),
         normalizedTerms: parseNormalizedTerms(r.normalizedTerms),
+        resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
       });
   }
   return catRows.map((r) => ({
@@ -517,6 +519,17 @@ Regras: ${summaryRule}`;
         selectedCat,
         allowFreeSpecificFieldsWithoutCategoryMatch
       );
+      if (selectedCat && input.groupId != null) {
+        for (const campo of selectedCat.campos) {
+          if (campo.resolucaoNomeAbrev) {
+            const raw = camposObj.normalized[campo.name];
+            if (raw && typeof raw === "string") {
+              const abrev = await resolveNomeAbrev(input.groupId, raw);
+              if (abrev) camposObj.normalized[campo.name] = abrev;
+            }
+          }
+        }
+      }
       const dadosEspecificosJson =
         Object.keys(camposObj.normalized).length > 0 ? JSON.stringify(camposObj.normalized) : null;
       const dadosEspecificosOriginaisJson =
@@ -612,6 +625,17 @@ ${forLlm.slice(0, 12_000)}`;
       cat,
       allowFreeSpecificFieldsWithoutCategoryMatch
     );
+    if (cat && input.groupId != null) {
+      for (const campo of cat.campos) {
+        if (campo.resolucaoNomeAbrev) {
+          const raw = camposNormalizados.normalized[campo.name];
+          if (raw && typeof raw === "string") {
+            const abrev = await resolveNomeAbrev(input.groupId, raw);
+            if (abrev) camposNormalizados.normalized[campo.name] = abrev;
+          }
+        }
+      }
+    }
     const dadosEspecificosJson =
       Object.keys(camposNormalizados.normalized).length > 0
         ? JSON.stringify(camposNormalizados.normalized)

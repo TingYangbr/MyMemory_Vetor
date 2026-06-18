@@ -190,6 +190,7 @@ export default function GroupOwnerPanelPage() {
           password: dbConnForm.password,
           encrypt: dbConnForm.encrypt ?? 0,
           trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+          isPrincipal: dbConnForm.isPrincipal ?? 0,
         });
       } else {
         await apiPutJson(`/api/groups/${groupId}/db-connections/${dbConnEditing}`, {
@@ -202,6 +203,7 @@ export default function GroupOwnerPanelPage() {
           ...(dbConnForm.password ? { password: dbConnForm.password } : {}),
           encrypt: dbConnForm.encrypt ?? 0,
           trustServerCertificate: dbConnForm.trustServerCertificate ?? 1,
+          isPrincipal: dbConnForm.isPrincipal ?? 0,
         });
       }
       setDbConnSaveOk(true);
@@ -884,6 +886,10 @@ export default function GroupOwnerPanelPage() {
                     <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
                       <input type="checkbox" checked={dbConnForm.trustServerCertificate === 1} onChange={(e) => setDbConnForm((p) => ({ ...p, trustServerCertificate: e.target.checked ? 1 : 0 }))} />
                       <span style={{ fontSize: "0.85rem" }}>Confiar no certificado</span>
+                    </label>
+                    <label style={{ display: "flex", flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
+                      <input type="checkbox" checked={dbConnForm.isPrincipal === 1} onChange={(e) => setDbConnForm((p) => ({ ...p, isPrincipal: e.target.checked ? 1 : 0 }))} />
+                      <span style={{ fontSize: "0.85rem" }}>Conexão principal (resolução Nome/Abrev)</span>
                     </label>
                   </div>
                   <div style={{ display: "flex", gap: "0.5rem", marginTop: "0.75rem" }}>

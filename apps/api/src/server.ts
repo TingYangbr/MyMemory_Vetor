@@ -44,6 +44,8 @@ import { AddAvisos1700000000128 } from "./migrations/1700000000128-AddAvisos.js"
 import { AvisoPromptConfigs1700000000129 } from "./migrations/1700000000129-AvisoPromptConfigs.js";
 import { AvisoTextoInicial1700000000130 } from "./migrations/1700000000130-AvisoTextoInicial.js";
 import { DbConnectionGroupId1700000000131 } from "./migrations/1700000000131-DbConnectionGroupId.js";
+import { CampoResolucaoNomeAbrev1700000000132 } from "./migrations/1700000000132-CampoResolucaoNomeAbrev.js";
+import { DbConnectionIsPrincipal1700000000133 } from "./migrations/1700000000133-DbConnectionIsPrincipal.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -116,6 +118,8 @@ assertMediaStorageEnv();
       AvisoPromptConfigs1700000000129,
       AvisoTextoInicial1700000000130,
       DbConnectionGroupId1700000000131,
+      CampoResolucaoNomeAbrev1700000000132,
+      DbConnectionIsPrincipal1700000000133,
     ],
   });
   const ds = await AppDataSource.initialize();
