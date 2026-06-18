@@ -4,7 +4,7 @@ export class CampoResolucaoNomeAbrev1700000000132 implements MigrationInterface 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
       ALTER TABLE categorycampos
-      ADD COLUMN IF NOT EXISTS resolucaoNomeAbrev TINYINT(1) NOT NULL DEFAULT 0
+      ADD COLUMN IF NOT EXISTS resolucaoNomeAbrev SMALLINT NOT NULL DEFAULT 0
     `);
   }
 
