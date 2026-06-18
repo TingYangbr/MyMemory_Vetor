@@ -242,12 +242,14 @@ const plugin: FastifyPluginAsync = async (app) => {
     name: z.string().min(1).max(255),
     description: z.string().max(16_000).nullable().optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
+    resolucaoNomeAbrev: z.boolean().optional(),
   });
 
   const patchCampoBody = z.object({
     name: z.string().min(1).max(255).optional(),
     description: z.string().max(16_000).nullable().optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
+    resolucaoNomeAbrev: z.boolean().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
   });
 
