@@ -614,6 +614,8 @@ export interface MemoContextCampo {
   description: string | null;
   /** Termos padronizados para o valor deste campo (separados por vírgula no editor). */
   normalizedTerms: string | null;
+  /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
+  resolucaoNomeAbrev: boolean;
   isActive: number;
   createdAt: string;
   updatedAt: string;
@@ -669,6 +671,8 @@ export interface DbConnection {
   encrypt: number;
   trustServerCertificate: number;
   isActive: number;
+  /** Conexão principal do grupo — usada para resolução de entidades (Nome_vs_Abrev). */
+  isPrincipal: number;
   groupId?: number | null;
   createdAt: string;
   updatedAt: string;
