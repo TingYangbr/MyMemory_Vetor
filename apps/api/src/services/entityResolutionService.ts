@@ -2,7 +2,7 @@ import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 
-const NOME_VS_ABREV_VIEW = "Nome_vs_Abrev";
+const NOME_VS_ABREV_VIEW = "ia_Nome_vs_Abrev";
 
 async function getPrincipalConnectionId(groupId: number): Promise<number | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -29,7 +29,10 @@ export async function resolveNomeAbrev(
 ): Promise<string | null> {
   if (!extractedName?.trim()) return null;
   const conexaoId = await getPrincipalConnectionId(groupId);
-  if (!conexaoId) return null;
+  if (!conexaoId) {
+    console.warn(`[entityResolution] Nenhuma conexão ERP ativa encontrada para groupId=${groupId}. Configure uma conexão no painel do grupo.`);
+    return null;
+  }
   try {
     const result = await executeQueryMssql(
       conexaoId,
@@ -40,8 +43,14 @@ export async function resolveNomeAbrev(
       { nome: extractedName.trim() }
     );
     const abrev = result.linhas[0]?.Nome_Fantasia;
-    return typeof abrev === "string" && abrev.trim() ? abrev.trim() : null;
-  } catch {
+    if (typeof abrev === "string" && abrev.trim()) {
+      console.info(`[entityResolution] "${extractedName}" → "${abrev.trim()}" (conexão ${conexaoId})`);
+      return abrev.trim();
+    }
+    console.warn(`[entityResolution] Nenhum resultado na view ${NOME_VS_ABREV_VIEW} para "${extractedName}" (conexão ${conexaoId})`);
+    return null;
+  } catch (err) {
+    console.error(`[entityResolution] Erro ao resolver "${extractedName}" na conexão ${conexaoId}:`, err instanceof Error ? err.message : String(err));
     return null;
   }
 }
