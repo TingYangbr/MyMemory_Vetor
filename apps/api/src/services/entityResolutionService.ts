@@ -37,9 +37,9 @@ export async function resolveNomeAbrev(
     const result = await executeQueryMssql(
       conexaoId,
       `SELECT TOP 1 Nome_Fantasia FROM ${NOME_VS_ABREV_VIEW}
-       WHERE Razao_Social LIKE '%' + @nome + '%'
-          OR Nome_Fantasia LIKE '%' + @nome + '%'
-       ORDER BY CASE WHEN Nome_Fantasia = @nome THEN 0 ELSE 1 END`,
+       WHERE Razao_Social COLLATE SQL_Latin1_General_CP1_CI_AI LIKE '%' + @nome + '%'
+          OR Nome_Fantasia COLLATE SQL_Latin1_General_CP1_CI_AI LIKE '%' + @nome + '%'
+       ORDER BY CASE WHEN Nome_Fantasia COLLATE SQL_Latin1_General_CP1_CI_AI = @nome THEN 0 ELSE 1 END`,
       { nome: extractedName.trim() }
     );
     const abrev = result.linhas[0]?.Nome_Fantasia;
