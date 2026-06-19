@@ -279,7 +279,7 @@ export async function loadMemoContextStructure(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryId, name, description, normalizedTerms, resolucaoNomeAbrev, isActive, createdAt, updatedAt
+      `SELECT id, categoryId, name, description, tipo, normalizedTerms, resolucaoNomeAbrev, isActive, createdAt, updatedAt
        FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -349,6 +349,7 @@ export async function loadMemoContextStructure(
         categoryId: cid,
         name: r.name as string,
         description: (r.description as string) ?? null,
+        tipo: ((r.tipo as string) || "text") as import("@mymemory/shared").MemoContextCampoTipo,
         normalizedTerms: (r.normalizedTerms as string) ?? null,
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         isActive: r.isActive as number,
@@ -558,12 +559,13 @@ export async function updateSubcategory(
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
+  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
+  const tipo = input.tipo && ["text", "date", "number"].includes(input.tipo) ? input.tipo : "text";
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO categorycampos (categoryid, name, description, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.name.trim(), input.description?.trim() ?? null, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
+    `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
   );
   return rows[0].id;
 }
@@ -571,7 +573,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
+  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -603,6 +605,10 @@ export async function updateCampo(
     sets.push("resolucaoNomeAbrev = ?");
     vals.push(patch.resolucaoNomeAbrev ? 1 : 0);
   }
+  if (patch.tipo !== undefined && ["text", "date", "number"].includes(patch.tipo)) {
+    sets.push("tipo = ?");
+    vals.push(patch.tipo);
+  }
   if (patch.isActive !== undefined) {
     sets.push("isactive = ?");
     vals.push(patch.isActive);
@@ -622,6 +628,19 @@ export async function softDeleteSubcategory(userId: number, subCategoryId: numbe
 
 export async function softDeleteCampo(userId: number, campoId: number): Promise<void> {
   await updateCampo(userId, campoId, { isActive: 0 });
+}
+
+export async function syntaxCheckPostgres(
+  sentencaSql: string
+): Promise<{ ok: boolean; message: string }> {
+  const sql = sentencaSql.replace(/:([a-zA-Z][a-zA-Z0-9_]*)/g, "NULL");
+  try {
+    await pool.query(`EXPLAIN (ANALYZE false, COSTS false, VERBOSE false) ${sql}`);
+    return { ok: true, message: "Sintaxe válida." };
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    return { ok: false, message: msg };
+  }
 }
 
 export async function createQueryCategoria(

@@ -601,6 +601,13 @@
   color: var(--mm-text-secondary);
 }
 
+@media (max-width: 599px) {
+  .catMeta {
+    flex: 0 0 100%;
+    order: 4;
+  }
+}
+
 .lineActions {
   display: inline-flex;
   align-items: center;
