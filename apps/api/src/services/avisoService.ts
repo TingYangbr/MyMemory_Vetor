@@ -331,10 +331,12 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
 
     // Registra custo na tabela de usage
     if (totalCustoUsd > 0) {
-      await pool.query(
+      pool.query(
         `INSERT INTO api_usage_logs (userid, operation, model, costusd) VALUES (?, 'Monitoring Alert', 'aggregate', ?)`,
         [userId, totalCustoUsd]
-      );
+      ).catch((err: unknown) => {
+        console.error("[avisoService] api_usage_logs INSERT failed:", err instanceof Error ? err.message : err);
+      });
     }
   } else {
     await pool.query(

@@ -6,7 +6,7 @@ import type {
   PerguntaFiltros,
   PerguntaResposta,
 } from "@mymemory/shared";
-import { invokeLLM, resetLlmPromptTraces } from "../lib/invokeLlm.js";
+import { invokeLLM } from "../lib/invokeLlm.js";
 import { withSpan } from "../lib/requestTimings.js";
 import { executarPipe1 } from "./perguntaPipe1.js";
 import { executarPipe2, type QueryDisponivel } from "./perguntaPipe2.js";
@@ -229,7 +229,6 @@ export async function perguntarMemory(input: {
   sugestaoAviso?: string;
   avisoSnapshot?: AvisoExecucaoSnapshot;
 }> {
-  resetLlmPromptTraces();
   let totalCost = 0;
 
   // Classificação (ou pipe forçado)
