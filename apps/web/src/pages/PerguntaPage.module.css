@@ -1654,8 +1654,15 @@
   transition: background 0.12s, color 0.12s;
 }
 
-.avisoSugestaoBtn:hover {
+.avisoSugestaoBtn:hover:not(:disabled) {
   background: rgba(217, 119, 6, 0.08);
+}
+
+.avisoSugestaoBtn:disabled {
+  border-color: #ccc;
+  color: #aaa;
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .avisoLink {
