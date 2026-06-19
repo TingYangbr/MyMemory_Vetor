@@ -563,8 +563,9 @@ export function bindTemplateParams(
           result += `unaccent(${token.colExpr}) ILIKE ?::text`;
           values.push(`%${stripped}%`);
         } else {
-          // Padrão: match exato sem wildcards. LLM deve enviar "LIKE" explicitamente para busca parcial.
-          result += `unaccent(${token.colExpr}) = ?::text`;
+          // ILIKE sem wildcard = match exato case-insensitive + accent-insensitive.
+          // "=" seria case-sensitive e quebraria "DIGUINHO" vs "Diguinho".
+          result += `unaccent(${token.colExpr}) ILIKE ?::text`;
           values.push(stripped);
         }
         pos = token.end;
