@@ -633,7 +633,7 @@ export async function softDeleteCampo(userId: number, campoId: number): Promise<
 export async function syntaxCheckPostgres(
   sentencaSql: string
 ): Promise<{ ok: boolean; message: string }> {
-  const sql = sentencaSql.replace(/:([a-zA-Z][a-zA-Z0-9_]*)/g, "NULL");
+  const sql = sentencaSql.replace(/(?<!:):([a-zA-Z][a-zA-Z0-9_]*)/g, "NULL");
   try {
     await pool.query(`EXPLAIN (ANALYZE false, COSTS false, VERBOSE false) ${sql}`);
     return { ok: true, message: "Sintaxe válida." };
