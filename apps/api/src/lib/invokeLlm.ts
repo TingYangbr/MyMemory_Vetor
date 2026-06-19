@@ -1,6 +1,6 @@
 import { chatIa } from "./aiProviderFactory.js";
 import { setLastLlmPromptTrace } from "../services/llmPromptTraceStore.js";
-export { resetLlmPromptTraces, getAllLlmPromptTraces } from "../services/llmPromptTraceStore.js";
+export { resetLlmPromptTraces, getAllLlmPromptTraces, runWithTraces } from "../services/llmPromptTraceStore.js";
 
 /**
  * Chamada LLM unificada para os pipes de perguntas e sinónimos.

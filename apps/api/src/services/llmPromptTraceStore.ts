@@ -1,3 +1,5 @@
+import { AsyncLocalStorage } from "node:async_hooks";
+
 export type LlmPromptRole = "system" | "user" | "assistant";
 
 export interface LlmPromptTraceMessage {
@@ -13,7 +15,7 @@ export interface LlmPromptTrace {
   messages: LlmPromptTraceMessage[];
 }
 
-let traces: LlmPromptTrace[] = [];
+const traceStorage = new AsyncLocalStorage<LlmPromptTrace[]>();
 
 function normalizeContent(v: unknown): string {
   if (typeof v === "string") return v;
@@ -53,18 +55,30 @@ function buildTrace(input: {
   return { createdAt: new Date().toISOString(), provider: input.provider, model: input.model, source: input.source, messages };
 }
 
+export async function runWithTraces<T>(fn: () => Promise<T>): Promise<{ value: T; traces: LlmPromptTrace[] }> {
+  const traces: LlmPromptTrace[] = [];
+  const value = await traceStorage.run(traces, fn);
+  return { value, traces };
+}
+
+/** @deprecated Não é mais necessário — cada runWithTraces cria contexto isolado. Mantido por compatibilidade. */
 export function resetLlmPromptTraces(): void {
-  traces = [];
+  const store = traceStorage.getStore();
+  if (store) store.length = 0;
 }
 
 export function setLastLlmPromptTrace(input: Parameters<typeof buildTrace>[0]): void {
-  traces.push(buildTrace(input));
+  const store = traceStorage.getStore();
+  if (store) store.push(buildTrace(input));
 }
 
 export function getAllLlmPromptTraces(): LlmPromptTrace[] {
-  return [...traces];
+  const store = traceStorage.getStore();
+  return store ? [...store] : [];
 }
 
 export function getLastLlmPromptTrace(): LlmPromptTrace | null {
-  return traces.length > 0 ? traces[traces.length - 1]! : null;
+  const store = traceStorage.getStore();
+  if (!store || store.length === 0) return null;
+  return store[store.length - 1]!;
 }
