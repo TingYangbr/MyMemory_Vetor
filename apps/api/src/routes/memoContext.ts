@@ -20,6 +20,7 @@ import {
   softDeleteQueryCategoria,
   softDeleteQueryCategoriaParam,
   softDeleteSubcategory,
+  syntaxCheckPostgres,
   updateCampo,
   updateCategory,
   updateQueryCategoria,
@@ -238,9 +239,12 @@ const plugin: FastifyPluginAsync = async (app) => {
     isActive: z.number().int().min(0).max(1).optional(),
   });
 
+  const campoTipoEnum = z.enum(["text", "date", "number"]);
+
   const createCampoBody = z.object({
     name: z.string().min(1).max(255),
     description: z.string().max(16_000).nullable().optional(),
+    tipo: campoTipoEnum.optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
   });
@@ -248,6 +252,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   const patchCampoBody = z.object({
     name: z.string().min(1).max(255).optional(),
     description: z.string().max(16_000).nullable().optional(),
+    tipo: campoTipoEnum.optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
@@ -447,6 +452,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (e) {
       return mapErr(reply, e);
     }
+  });
+
+  // ── Verificação de sintaxe PostgreSQL interno ─────────────────────────────
+  app.post("/api/memo-context/syntax-check", async (req, reply) => {
+    const body = z.object({ sentencaSql: z.string().min(1) }).safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    return syntaxCheckPostgres(body.data.sentencaSql);
   });
 
   // ── Lista de Memos por Categoria ─────────────────────────────────────────
