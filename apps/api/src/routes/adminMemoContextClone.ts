@@ -82,7 +82,7 @@ const plugin: FastifyPluginAsync = async (app) => {
           );
         }
 
-        // Clona queries (conexaoid = NULL intencionalmente)
+        // Clona queries com conexaoid=NULL: cada grupo configura sua própria conexão ERP
         const [queryRows] = await conn.query<RowDataPacket[]>(
           `SELECT id, nome, descricao, sentencasql FROM queries_categoria WHERE categoryid = ? AND isactive = 1`,
           [catId]
