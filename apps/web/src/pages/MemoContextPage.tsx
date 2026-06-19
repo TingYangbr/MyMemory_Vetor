@@ -1277,9 +1277,37 @@ export default function MemoContextPage() {
                     onChange={(e) => setModalQueryConexaoId(e.target.value === "" ? null : Number(e.target.value))}
                   >
                     <option value="">— PostgreSQL interno (padrão) —</option>
-                    {dbConnOptions.map((c) => (
-                      <option key={c.id} value={c.id}>{c.nome} ({c.host}:{c.port}/{c.database})</option>
-                    ))}
+                    {(() => {
+                      // Template global (sem grupo): só mostra conexões globais
+                      if (scopeGroupId == null) {
+                        return dbConnOptions
+                          .filter((c) => c.groupId == null)
+                          .map((c) => (
+                            <option key={c.id} value={c.id}>{c.nome} ({c.host}:{c.port}/{c.database})</option>
+                          ));
+                      }
+                      // Categoria de grupo: separa conexões do grupo das globais
+                      const grupo = dbConnOptions.filter((c) => c.groupId != null);
+                      const global = dbConnOptions.filter((c) => c.groupId == null);
+                      return (
+                        <>
+                          {grupo.length > 0 && (
+                            <optgroup label="Deste grupo">
+                              {grupo.map((c) => (
+                                <option key={c.id} value={c.id}>{c.nome} ({c.host}:{c.port}/{c.database})</option>
+                              ))}
+                            </optgroup>
+                          )}
+                          {global.length > 0 && (
+                            <optgroup label="Globais (admin)">
+                              {global.map((c) => (
+                                <option key={c.id} value={c.id}>{c.nome} ({c.host}:{c.port}/{c.database})</option>
+                              ))}
+                            </optgroup>
+                          )}
+                        </>
+                      );
+                    })()}
                   </select>
                   <p className={styles.fieldHelpSmall}>
                     Deixe em branco para usar o banco interno. Selecione uma conexão SQL Server para executar o query externamente.

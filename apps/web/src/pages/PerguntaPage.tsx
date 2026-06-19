@@ -1486,6 +1486,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       <button
                         type="button"
                         className={styles.avisoSugestaoBtn}
+                        disabled={r.classificacao.contexto !== "nova"}
+                        title={r.classificacao.contexto !== "nova" ? "Aviso não disponível para perguntas de continuidade — crie um aviso a partir de uma pergunta independente." : undefined}
                         onClick={() => setAvisoModal({
                           cardIdx: i,
                           descricao: r.sugestaoAviso!.length > 500
