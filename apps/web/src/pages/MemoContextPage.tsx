@@ -105,6 +105,7 @@ export default function MemoContextPage() {
   const [modalDesc, setModalDesc] = useState("");
   const [modalMedia, setModalMedia] = useState<MemoContextMediaType | "">("");
   const [modalNormalizedTerms, setModalNormalizedTerms] = useState("");
+  const [modalCampoTipo, setModalCampoTipo] = useState<"text" | "date" | "number">("text");
   const [modalResolucaoNomeAbrev, setModalResolucaoNomeAbrev] = useState(false);
 
   // Query modal state
@@ -324,6 +325,7 @@ export default function MemoContextPage() {
     setModalName("");
     setModalDesc("");
     setModalNormalizedTerms("");
+    setModalCampoTipo("text");
     setModalResolucaoNomeAbrev(false);
     setModal("campo");
   };
@@ -335,6 +337,7 @@ export default function MemoContextPage() {
     setModalName(campo.name);
     setModalDesc(campo.description ?? "");
     setModalNormalizedTerms(campo.normalizedTerms ?? "");
+    setModalCampoTipo((campo.tipo ?? "text") as "text" | "date" | "number");
     setModalResolucaoNomeAbrev(campo.resolucaoNomeAbrev ?? false);
     setModal("campoEdit");
   };
@@ -414,17 +417,18 @@ export default function MemoContextPage() {
   };
 
   const checkSyntax = async () => {
-    if (!modalQueryConexaoId) {
-      setSyntaxResult({ ok: false, message: "Verificação disponível apenas para conexões SQL Server externas." });
-      return;
-    }
     setSyntaxBusy(true);
     setSyntaxResult(null);
     try {
-      const isAdmin = editorMeta?.isAdmin ?? false;
-      const syntaxUrl = !isAdmin && scopeGroupId
-        ? `/api/groups/${scopeGroupId}/db-connections/${modalQueryConexaoId}/syntax-check`
-        : `/api/admin/db-connections/${modalQueryConexaoId}/syntax-check`;
+      let syntaxUrl: string;
+      if (!modalQueryConexaoId) {
+        syntaxUrl = "/api/memo-context/syntax-check";
+      } else {
+        const isAdmin = editorMeta?.isAdmin ?? false;
+        syntaxUrl = !isAdmin && scopeGroupId
+          ? `/api/groups/${scopeGroupId}/db-connections/${modalQueryConexaoId}/syntax-check`
+          : `/api/admin/db-connections/${modalQueryConexaoId}/syntax-check`;
+      }
       const res = await apiPostJson<{ ok: boolean; message: string }>(
         syntaxUrl,
         { sentencaSql: modalQuerySentencaSql }
@@ -465,12 +469,23 @@ export default function MemoContextPage() {
       "  )",
     ];
 
+    let paramOrdem = 2;
     for (const campo of activeCampos) {
       const p = toParamName(campo.name);
       if (!p) continue;
-      whereParts.push(
-        `  AND (:${p} IS NULL OR m.dadosespecificosjson::jsonb->>'${campo.name}' ILIKE :${p})`
-      );
+      const jsonExpr = `m.dadosespecificosjson::jsonb->>'${campo.name}'`;
+      whereParts.push(`  AND (:${p} IS NULL OR ${jsonExpr} ILIKE :${p})`);
+      if (campo.tipo === "date") {
+        whereParts.push(
+          `  AND (:${p}_ini IS NULL OR mymemory_parse_date(${jsonExpr}) >= :${p}_ini)`,
+          `  AND (:${p}_fin IS NULL OR mymemory_parse_date(${jsonExpr}) <= :${p}_fin)`
+        );
+      } else if (campo.tipo === "number") {
+        whereParts.push(
+          `  AND (:${p}_ini IS NULL OR (${jsonExpr})::numeric >= :${p}_ini)`,
+          `  AND (:${p}_fin IS NULL OR (${jsonExpr})::numeric <= :${p}_fin)`
+        );
+      }
     }
 
     const campoSelects = activeCampos
@@ -500,7 +515,7 @@ export default function MemoContextPage() {
       { campo: "groupId", tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 0 },
       { campo: "userId",  tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 1 },
     ];
-    activeCampos.forEach((campo, i) => {
+    activeCampos.forEach((campo) => {
       const p = toParamName(campo.name);
       if (!p) return;
       params.push({
@@ -509,8 +524,19 @@ export default function MemoContextPage() {
         obrigatorio: 0,
         operadorSql: "LIKE",
         normalizar: campo.normalizedTerms ? 1 : 0,
-        ordem: i + 2,
+        ordem: paramOrdem++,
       });
+      if (campo.tipo === "date") {
+        params.push(
+          { campo: `${p}_ini`, tipo: "date", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: paramOrdem++ },
+          { campo: `${p}_fin`, tipo: "date", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: paramOrdem++ }
+        );
+      } else if (campo.tipo === "number") {
+        params.push(
+          { campo: `${p}_ini`, tipo: "number", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: paramOrdem++ },
+          { campo: `${p}_fin`, tipo: "number", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: paramOrdem++ }
+        );
+      }
     });
 
     setModalQueryNome(`Query padrão — ${cat.name}`);
@@ -582,6 +608,7 @@ export default function MemoContextPage() {
         await apiPostJson(`/api/memo-context/categories/${modalCategoryId}/campos`, {
           name,
           description: modalDesc.trim() || null,
+          tipo: modalCampoTipo,
           normalizedTerms: modalNormalizedTerms.trim() || null,
           resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
@@ -589,6 +616,7 @@ export default function MemoContextPage() {
         await apiPatchJson(`/api/memo-context/campos/${modalCampoId}`, {
           name,
           description: modalDesc.trim() || null,
+          tipo: modalCampoTipo,
           normalizedTerms: modalNormalizedTerms.trim() || null,
           resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
@@ -1160,6 +1188,19 @@ export default function MemoContextPage() {
             )}
             {(modal === "campo" || modal === "campoEdit") ? (
               <>
+                <div className={styles.modalField}>
+                  <label htmlFor="mod-campo-tipo">Tipo do campo</label>
+                  <select
+                    id="mod-campo-tipo"
+                    className="mm-field"
+                    value={modalCampoTipo}
+                    onChange={(e) => setModalCampoTipo(e.target.value as "text" | "date" | "number")}
+                  >
+                    <option value="text">Texto — filtro por conteúdo (ILIKE)</option>
+                    <option value="date">Data — intervalo com mymemory_parse_date</option>
+                    <option value="number">Número — intervalo numérico</option>
+                  </select>
+                </div>
                 <div className={styles.modalField}>
                   <label htmlFor="mod-terms">Termos padronizados (vírgula)</label>
                   <input

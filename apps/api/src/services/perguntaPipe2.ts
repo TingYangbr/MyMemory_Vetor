@@ -973,7 +973,19 @@ async function executarConsultasPlano(input: {
         }
       }
 
-      const [rows] = await pool.query<RowDataPacket[]>(finalSql, values);
+      let rows: RowDataPacket[];
+      try {
+        [rows] = await pool.query<RowDataPacket[]>(finalSql, values);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (/invalid input syntax for type date/i.test(msg)) {
+          throw new Error(
+            `Campo de data com valor inválido na query "${template.nome}". ` +
+            `Substitua cast direto como (campo)::date por mymemory_parse_date(campo) no template SQL para tratar campos vazios.`
+          );
+        }
+        throw err;
+      }
       linhas = rows as Record<string, unknown>[];
       colunasQuery = linhas.length > 0 ? Object.keys(linhas[0]) : [];
       sqlParts.push(finalSql);

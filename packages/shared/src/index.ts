@@ -607,11 +607,15 @@ export interface MemoContextSubcategory {
   updatedAt: string;
 }
 
+export type MemoContextCampoTipo = "text" | "date" | "number";
+
 export interface MemoContextCampo {
   id: number;
   categoryId: number;
   name: string;
   description: string | null;
+  /** Tipo do campo: text (ILIKE), date (range com mymemory_parse_date), number (range numérico). */
+  tipo: MemoContextCampoTipo;
   /** Termos padronizados para o valor deste campo (separados por vírgula no editor). */
   normalizedTerms: string | null;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
