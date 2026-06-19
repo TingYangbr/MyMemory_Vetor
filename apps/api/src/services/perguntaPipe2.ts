@@ -503,9 +503,11 @@ export function bindTemplateParams(
     const key = token.name.toLowerCase();
     const def = defByName.get(key);
     const isDate = def?.tipo === "date" || def?.tipo === "data";
-    if (!/LIKE/i.test(def?.operadorSql ?? "") || paramMap[key] == null) continue;
+    if (paramMap[key] == null) continue;
     const before = sentencaSql.slice(0, token.start);
     const colInfo = extractColBeforeLike(before);
+    // Processa expansão se operadorSql tem LIKE OU se o SQL tem ILIKE antes do placeholder
+    if (!/LIKE/i.test(def?.operadorSql ?? "") && !colInfo) continue;
     if (colInfo) {
       token.colExpr = colInfo.colExpr;
       token.colStart = colInfo.colStart;
@@ -524,7 +526,9 @@ export function bindTemplateParams(
     if (val === "") val = null; // LLMs às vezes retornam "" para "sem valor" — trata como null
     const def = defByName.get(key);
     const isLikeParam = /LIKE/i.test(def?.operadorSql ?? "");
-    const cast = isLikeParam ? "text" : (SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text");
+    // Garante cast text mesmo quando operadorSql não tem LIKE mas o SQL usa ILIKE antes do placeholder
+    const isSqlLikeCtx = /\bI?LIKE\s*$/i.test(sentencaSql.slice(0, token.start));
+    const cast = (isLikeParam || isSqlLikeCtx) ? "text" : (SYSTEM_PARAM_CAST[key] ?? TIPO_PG_CAST[def?.tipo ?? ""] ?? "text");
 
     if (token.inContext) {
       // Token está dentro de "IN (...)" ou "NOT IN (...)" — expande lista para múltiplos placeholders

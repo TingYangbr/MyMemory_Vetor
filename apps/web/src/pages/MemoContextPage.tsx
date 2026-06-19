@@ -354,29 +354,38 @@ export default function MemoContextPage() {
     const SYSTEM_PARAMS = new Set(["userid", "groupid", "categoryid"]);
     // Match :param (PostgreSQL) and @param (MSSQL), excluding @@system variables
     const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)|(?<!@)@([a-zA-Z][a-zA-Z0-9_]*)/g;
-    const seen = new Set<string>();
-    const extracted: typeof pendingAutoParams = [];
-    let ordem = 0;
+
+    // Coleta todas as ocorrências de cada param para pegar o operador real.
+    // A primeira ocorrência quase sempre é o ":param IS NULL" (before termina em "("),
+    // onde nenhum operador é detectado — o operador real está na ocorrência seguinte.
+    const paramOps = new Map<string, string[]>(); // mantém ordem de primeira aparição
     let m: RegExpExecArray | null;
     while ((m = re.exec(sql)) !== null) {
       const name = (m[1] ?? m[2]).toLowerCase();
-      if (SYSTEM_PARAMS.has(name) || seen.has(name)) continue;
-      seen.add(name);
+      if (SYSTEM_PARAMS.has(name)) continue;
       const before = sql.slice(0, m.index).trimEnd();
-      let operadorSql: string = "=";
-      if (/\bNOT\s+IN\s*\(\s*$/i.test(before))        operadorSql = "NOT IN";
-      else if (/\bIN\s*\(\s*$/i.test(before))          operadorSql = "IN";
-      else if (/\bI?LIKE\s+$/i.test(before))           operadorSql = "LIKE";
-      else if (/>=\s*$/.test(before))                  operadorSql = ">=";
-      else if (/<=\s*$/.test(before))                  operadorSql = "<=";
-      else if (/[<>!]=?\s*$/.test(before) && !/>=$/.test(before) && !/<=$/.test(before)) {
-        if (/!=\s*$|<>\s*$/.test(before)) operadorSql = "!=";
-        else if (/>\s*$/.test(before))    operadorSql = ">";
-        else if (/<\s*$/.test(before))    operadorSql = "<";
-      }
+      let op = "=";
+      if (/\bNOT\s+IN\s*\(\s*$/i.test(before))        op = "NOT IN";
+      else if (/\bIN\s*\(\s*$/i.test(before))          op = "IN";
+      else if (/\bI?LIKE$/i.test(before))               op = "LIKE";
+      else if (/>=\s*$/.test(before))                  op = ">=";
+      else if (/<=\s*$/.test(before))                  op = "<=";
+      else if (/!=\s*$|<>\s*$/.test(before))           op = "!=";
+      else if (/>\s*$/.test(before))                   op = ">";
+      else if (/<\s*$/.test(before))                   op = "<";
+      if (!paramOps.has(name)) paramOps.set(name, []);
+      paramOps.get(name)!.push(op);
+    }
+
+    const extracted: typeof pendingAutoParams = [];
+    let ordem = 0;
+    for (const [name, ops] of paramOps) {
+      // Prefere o primeiro operador não-"=" encontrado (o operador real da condição)
+      const operadorSql = ops.find((o) => o !== "=") ?? "=";
       let tipo: QueryCategoriaParamTipo = "string";
-      if (/^(id$|.*_id$|userid|groupid)/.test(name))              tipo = "number";
+      if (/^(id$|.*_id$|userid|groupid)/.test(name))               tipo = "number";
       else if (/data|date|lancamento|vencimento|emissao/.test(name)) tipo = "date";
+      else if (operadorSql === "IN" || operadorSql === "NOT IN")     tipo = "lista_texto";
       extracted.push({ campo: name, tipo, obrigatorio: 0, operadorSql, normalizar: 0, ordem: ordem++ });
     }
     setPendingAutoParams(extracted);

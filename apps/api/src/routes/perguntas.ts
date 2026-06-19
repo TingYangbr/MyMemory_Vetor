@@ -6,7 +6,8 @@ import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.j
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
-import { getAllLlmPromptTraces } from "../lib/invokeLlm.js";
+import { runWithTraces } from "../lib/invokeLlm.js";
+import type { LlmPromptTrace } from "../services/llmPromptTraceStore.js";
 import { runWithStatusEmitter } from "../lib/requestStatus.js";
 import { runWithTimings, type TimingSpan } from "../lib/requestTimings.js";
 import { performance } from "node:perf_hooks";
@@ -101,9 +102,10 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     let result;
     let timings: TimingSpan[] = [];
+    let llmTrace: LlmPromptTrace[] = [];
     try {
       const t0 = performance.now();
-      const ran = await runWithTimings(() => runWithStatusEmitter(
+      const { value: ran, traces } = await runWithTraces(() => runWithTimings(() => runWithStatusEmitter(
         (msg) => sendEvent({ type: "status", message: msg }),
         () => perguntarMemory({
           userId,
@@ -124,9 +126,10 @@ const plugin: FastifyPluginAsync = async (app) => {
             : thresholds.initial,
           thresholdMin: thresholds.min,
         })
-      ));
+      )));
       result = ran.value;
       timings = [{ label: "Total", durationMs: Math.round(performance.now() - t0) }, ...ran.timings];
+      llmTrace = traces;
     } catch (err) {
       req.log.error(err, "perguntarMemory failed");
       const msg = err instanceof Error ? err.message : "Erro interno";
@@ -159,7 +162,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       limiarMinimo: result.limiarMinimo,
       memosEncontrados: result.memosEncontrados,
       timings,
-      llmTrace: getAllLlmPromptTraces(),
+      llmTrace,
       sugestaoAviso: result.sugestaoAviso,
       avisoSnapshot: result.avisoSnapshot,
     };
