@@ -47,6 +47,8 @@ import { DbConnectionGroupId1700000000131 } from "./migrations/1700000000131-DbC
 import { CampoResolucaoNomeAbrev1700000000132 } from "./migrations/1700000000132-CampoResolucaoNomeAbrev.js";
 import { DbConnectionIsPrincipal1700000000133 } from "./migrations/1700000000133-DbConnectionIsPrincipal.js";
 import { CampoTipo1700000000134 } from "./migrations/1700000000134-CampoTipo.js";
+import { NormalizeFieldLabelsToAscii1700000000135 } from "./migrations/1700000000135-NormalizeFieldLabelsToAscii.js";
+import { FixAcentosSentencaSql1700000000136 } from "./migrations/1700000000136-FixAcentosSentencaSql.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -122,6 +124,8 @@ assertMediaStorageEnv();
       CampoResolucaoNomeAbrev1700000000132,
       DbConnectionIsPrincipal1700000000133,
       CampoTipo1700000000134,
+      NormalizeFieldLabelsToAscii1700000000135,
+      FixAcentosSentencaSql1700000000136,
     ],
   });
   const ds = await AppDataSource.initialize();
