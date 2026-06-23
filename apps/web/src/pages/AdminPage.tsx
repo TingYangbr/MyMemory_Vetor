@@ -760,11 +760,11 @@ export default function AdminPage() {
           }
           return next;
         });
-        // open first group by default
+        // open all groups by default
         if (r.configs.length > 0) {
           setExpandedGroups((prev) => {
             if (prev.size > 0) return prev;
-            return new Set([r.configs[0]!.grupo]);
+            return new Set(r.configs.map((c) => c.grupo));
           });
         }
       })
