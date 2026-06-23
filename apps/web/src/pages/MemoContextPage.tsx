@@ -1173,6 +1173,9 @@ export default function MemoContextPage() {
                 <div className={styles.modalField}>
                   <label htmlFor="mod-name">Nome</label>
                   <input id="mod-name" className="mm-field" value={modalName} onChange={(e) => setModalName(e.target.value)} />
+                  {(modal === "campo" || modal === "campoEdit") && /\p{Mn}/u.test(modalName.normalize("NFD")) && (
+                    <p className={styles.fieldWarn}>Evite acentos em nomes de campos. Use: {modalName.normalize("NFD").replace(/\p{Mn}/gu, "")}</p>
+                  )}
                 </div>
                 <div className={styles.modalField}>
                   <label htmlFor="mod-desc">Descrição</label>
