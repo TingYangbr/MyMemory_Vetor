@@ -1,5 +1,7 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { createClient } from "webdav";
+import type { FileStat } from "webdav";
 import type {
   BatchFileSituacao,
   BatchFileVerifyResult,
@@ -62,6 +64,73 @@ function assertPathAllowed(filePath: string): void {
       `Caminho fora da whitelist permitida: ${filePath}. Configure BATCH_ALLOWED_LOCAL_PATHS.`
     );
   }
+}
+
+// ── Whitelist WEBDAV ──────────────────────────────────────────────────────────
+
+function getAllowedWebDavUrls(): string[] {
+  const raw = (process.env.BATCH_ALLOWED_WEBDAV_URLS ?? "").trim();
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((u) => u.trim().replace(/\/$/, ""))
+    .filter(Boolean);
+}
+
+function assertWebDavUrlAllowed(url: string): void {
+  const allowed = getAllowedWebDavUrls();
+  if (!allowed.length) {
+    throw new Error("Acesso WebDAV desativado. Configure BATCH_ALLOWED_WEBDAV_URLS no .env.");
+  }
+  const normalized = url.replace(/\/$/, "");
+  const ok = allowed.some((base) => normalized === base || normalized.startsWith(base + "/"));
+  if (!ok) {
+    throw new Error(`URL WebDAV fora da whitelist: ${url}. Configure BATCH_ALLOWED_WEBDAV_URLS.`);
+  }
+}
+
+export async function scanWebDavFolder(
+  baseUrl: string,
+  maxDepth = 2
+): Promise<BatchFileDescriptor[]> {
+  assertWebDavUrlAllowed(baseUrl);
+
+  const client = createClient(baseUrl);
+  const results: BatchFileDescriptor[] = [];
+
+  async function walk(dir: string, depth: number): Promise<void> {
+    if (depth > maxDepth) return;
+    let items: FileStat[];
+    try {
+      items = (await client.getDirectoryContents(dir)) as FileStat[];
+    } catch {
+      return;
+    }
+    for (const item of items) {
+      if (item.type === "directory") {
+        await walk(item.filename, depth + 1);
+      } else if (item.type === "file") {
+        const ext = path.extname(item.filename).toLowerCase();
+        if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
+        results.push({
+          originalFileName: item.basename,
+          fullPath: item.filename,
+          sizeBytes: item.size ?? 0,
+          ext,
+        });
+        if (results.length >= MAX_FILES_PER_BATCH * 2) return;
+      }
+    }
+  }
+
+  await walk("/", 0);
+  return results.slice(0, MAX_FILES_PER_BATCH * 2);
+}
+
+export async function downloadWebDavFile(baseUrl: string, remotePath: string): Promise<Buffer> {
+  const client = createClient(baseUrl);
+  const data = await client.getFileContents(remotePath, { format: "binary" });
+  return Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
 }
 
 // ── Placeholder semIA ─────────────────────────────────────────────────────────

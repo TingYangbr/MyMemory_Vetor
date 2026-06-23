@@ -1371,7 +1371,7 @@ export interface AvisoHistorico {
 
 // ── Importação em lote / armazenamento alternativo ao S3 ─────────────────────
 
-export type StorageProvider = "S3" | "ONEDRIVE" | "GOOGLE_DRIVE" | "LOCAL" | "REDE" | "URL";
+export type StorageProvider = "S3" | "ONEDRIVE" | "GOOGLE_DRIVE" | "LOCAL" | "REDE" | "URL" | "WEBDAV";
 
 export const STORAGE_PROVIDER_LABELS: Record<StorageProvider, string> = {
   S3: "S3 / Nuvem",
@@ -1380,6 +1380,7 @@ export const STORAGE_PROVIDER_LABELS: Record<StorageProvider, string> = {
   LOCAL: "Disco Local",
   REDE: "Rede Local",
   URL: "URL Externa",
+  WEBDAV: "WebDAV",
 };
 
 export const SEMIA_PLACEHOLDER_PREFIX = "PENDENTE_EDICAO_SEM_IA";

@@ -16,6 +16,7 @@ type IaLevel = "semIA" | "basico" | "completo";
 const PROVIDER_OPTIONS: { value: StorageProvider; label: string; hint: string }[] = [
   { value: "LOCAL",        label: "Disco Local",    hint: "Pasta no servidor (ex.: C:\\Documentos)" },
   { value: "REDE",         label: "Rede Local",     hint: "Caminho UNC (ex.: \\\\servidor\\pasta)" },
+  { value: "WEBDAV",       label: "WebDAV",         hint: "URL do servidor WebDAV (ex.: http://192.168.1.10:19401)" },
   { value: "ONEDRIVE",     label: "OneDrive",       hint: "Selecione os arquivos do OneDrive" },
   { value: "GOOGLE_DRIVE", label: "Google Drive",   hint: "Selecione os arquivos do Google Drive" },
   { value: "URL",          label: "URL Externa",    hint: "Disponível em breve" },
@@ -27,7 +28,7 @@ const IA_OPTIONS: { value: IaLevel; label: string; desc: string }[] = [
   { value: "completo", label: "Completo",  desc: "Campos estruturados" },
 ];
 
-const LOCAL_PROVIDERS: StorageProvider[] = ["LOCAL", "REDE"];
+const LOCAL_PROVIDERS: StorageProvider[] = ["LOCAL", "REDE", "WEBDAV"];
 const UPLOAD_PROVIDERS: StorageProvider[] = ["ONEDRIVE", "GOOGLE_DRIVE"];
 
 function situacaoBadgeClass(s: BatchFileVerifyResult["situacao"]): string {

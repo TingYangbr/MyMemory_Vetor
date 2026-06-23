@@ -6,14 +6,20 @@ import {
   verifyBatchFiles,
   processBatchFile,
   scanLocalFolder,
+  scanWebDavFolder,
+  downloadWebDavFile,
   estimateBatchCredits,
 } from "../services/batchImportService.js";
+
+function isWebDavUrl(p: string): boolean {
+  return p.startsWith("http://") || p.startsWith("https://");
+}
 import type { BatchProcessResponse } from "@mymemory/shared";
 
-const PROVIDER_VALUES = ["S3", "ONEDRIVE", "GOOGLE_DRIVE", "LOCAL", "REDE", "URL"] as const;
+const PROVIDER_VALUES = ["S3", "ONEDRIVE", "GOOGLE_DRIVE", "LOCAL", "REDE", "URL", "WEBDAV"] as const;
 
 const verifyLocalBody = z.object({
-  provider: z.enum(["LOCAL", "REDE"]),
+  provider: z.enum(["LOCAL", "REDE", "WEBDAV"]),
   folderPath: z.string().min(1),
   iaLevel: z.enum(["semIA", "basico", "completo"]).default("semIA"),
   groupId: z.number().int().positive().nullable().optional(),
@@ -30,7 +36,7 @@ const verifyUrlBody = z.object({
 });
 
 const processLocalBody = z.object({
-  provider: z.enum(["LOCAL", "REDE"]),
+  provider: z.enum(["LOCAL", "REDE", "WEBDAV"]),
   folderPath: z.string().min(1),
   iaLevel: z.enum(["semIA", "basico", "completo"]).default("semIA"),
   groupId: z.number().int().positive().nullable().optional(),
@@ -59,7 +65,9 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     let scanned: { originalFileName: string; fullPath: string; sizeBytes: number }[];
     try {
-      scanned = await scanLocalFolder(folderPath);
+      scanned = isWebDavUrl(folderPath)
+        ? await scanWebDavFolder(folderPath)
+        : await scanLocalFolder(folderPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return reply.code(400).send({ error: "scan_error", message: msg });
@@ -156,9 +164,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     const { provider, folderPath, iaLevel, groupId, onlyFileNames } = parsed.data;
     const groupIdVal = groupId ?? null;
 
+    const webdav = isWebDavUrl(folderPath);
+
     let scanned: { originalFileName: string; fullPath: string; sizeBytes: number }[];
     try {
-      scanned = await scanLocalFolder(folderPath);
+      scanned = webdav
+        ? await scanWebDavFolder(folderPath)
+        : await scanLocalFolder(folderPath);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       return reply.code(400).send({ error: "scan_error", message: msg });
@@ -176,17 +188,38 @@ const plugin: FastifyPluginAsync = async (app) => {
     let totalErrors = 0;
 
     for (const file of toProcess) {
-      const result = await processBatchFile({
-        userId,
-        groupId: groupIdVal,
-        isAdmin,
-        originalFileName: file.originalFileName,
-        fullPath: file.fullPath,
-        sizeBytes: file.sizeBytes,
-        provider,
-        iaLevel,
-        folder: folderPath,
-      });
+      let result;
+      if (webdav) {
+        try {
+          const buffer = await downloadWebDavFile(folderPath, file.fullPath);
+          result = await processBatchFileFromBuffer({
+            userId,
+            groupId: groupIdVal,
+            isAdmin,
+            originalFileName: file.originalFileName,
+            buffer,
+            sizeBytes: file.sizeBytes,
+            provider,
+            iaLevel,
+            externalFileRef: `${folderPath.replace(/\/$/, "")}${file.fullPath}`,
+          });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          result = { originalFileName: file.originalFileName, ok: false as const, error: msg };
+        }
+      } else {
+        result = await processBatchFile({
+          userId,
+          groupId: groupIdVal,
+          isAdmin,
+          originalFileName: file.originalFileName,
+          fullPath: file.fullPath,
+          sizeBytes: file.sizeBytes,
+          provider,
+          iaLevel,
+          folder: folderPath,
+        });
+      }
       results.push(result);
       if (result.ok) totalCreated++;
       else totalErrors++;
