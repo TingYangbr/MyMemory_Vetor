@@ -134,10 +134,13 @@ const plugin: FastifyPluginAsync = async (app) => {
       req.log.error(err, "perguntarMemory failed");
       const msg = err instanceof Error ? err.message : "Erro interno";
       const isNetwork = /fetch failed|ECONNREFUSED|ETIMEDOUT|socket hang up/i.test(msg);
+      const isOverloaded = /overloaded_error|_http_529|_http_429|_http_503/i.test(msg);
       sendEvent({
         type: "error",
         message: isNetwork
           ? "Não foi possível contatar o serviço de IA. Tente novamente em instantes."
+          : isOverloaded
+          ? "Os servidores de IA estão temporariamente sobrecarregados. Tente novamente em alguns segundos ou minutos."
           : `Erro ao processar a pergunta: ${msg}`,
       });
       raw.end();
