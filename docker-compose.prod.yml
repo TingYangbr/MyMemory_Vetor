@@ -59,6 +59,7 @@ services:
       S3_ENDPOINT: ${S3_ENDPOINT:-}
 
       BATCH_ALLOWED_LOCAL_PATHS: ${BATCH_ALLOWED_LOCAL_PATHS:-}
+      BATCH_ALLOWED_WEBDAV_URLS: ${BATCH_ALLOWED_WEBDAV_URLS:-}
 
     volumes:
       - uploads_data:/data/uploads
