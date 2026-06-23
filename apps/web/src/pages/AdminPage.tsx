@@ -1857,7 +1857,7 @@ export default function AdminPage() {
                                           .filter((cat) => !overridesForChave.some((ov) => ov.category_id === cat.id))
                                           .map((cat) => (
                                             <option key={cat.id} value={cat.id}>
-                                              {cat.name}{cat.groupName ? ` — ${cat.groupName}` : ""}
+                                              {cat.groupName ? `${cat.groupName} #${cat.groupId} — ` : ""}{cat.name}
                                             </option>
                                           ))}
                                       </select>
