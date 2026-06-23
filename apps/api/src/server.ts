@@ -51,6 +51,7 @@ import { NormalizeFieldLabelsToAscii1700000000135 } from "./migrations/170000000
 import { FixAcentosSentencaSql1700000000136 } from "./migrations/1700000000136-FixAcentosSentencaSql.js";
 import { FixNumericJsonValues1700000000137 } from "./migrations/1700000000137-FixNumericJsonValues.js";
 import { UpdateClassificacaoVerbosListagem1700000000138 } from "./migrations/1700000000138-UpdateClassificacaoVerbosListagem.js";
+import { ImovelPlanejamentoOverride1700000000139 } from "./migrations/1700000000139-ImovelPlanejamentoOverride.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -130,6 +131,7 @@ assertMediaStorageEnv();
       FixAcentosSentencaSql1700000000136,
       FixNumericJsonValues1700000000137,
       UpdateClassificacaoVerbosListagem1700000000138,
+      ImovelPlanejamentoOverride1700000000139,
     ],
   });
   const ds = await AppDataSource.initialize();
