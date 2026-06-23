@@ -201,7 +201,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             sizeBytes: file.sizeBytes,
             provider,
             iaLevel,
-            externalFileRef: `${folderPath.replace(/\/$/, "")}${file.fullPath}`,
+            externalFileRef: `${new URL(folderPath).origin}${file.fullPath}`,
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

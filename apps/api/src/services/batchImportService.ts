@@ -68,34 +68,43 @@ function assertPathAllowed(filePath: string): void {
 
 // ── Whitelist WEBDAV ──────────────────────────────────────────────────────────
 
+function parseWebDavUrl(input: string): { origin: string; startPath: string } {
+  try {
+    const u = new URL(input);
+    return { origin: u.origin, startPath: u.pathname || "/" };
+  } catch {
+    return { origin: input.replace(/\/$/, ""), startPath: "/" };
+  }
+}
+
 function getAllowedWebDavUrls(): string[] {
   const raw = (process.env.BATCH_ALLOWED_WEBDAV_URLS ?? "").trim();
   if (!raw) return [];
   return raw
     .split(",")
-    .map((u) => u.trim().replace(/\/$/, ""))
+    .map((u) => parseWebDavUrl(u.trim()).origin)
     .filter(Boolean);
 }
 
-function assertWebDavUrlAllowed(url: string): void {
+function assertWebDavUrlAllowed(inputUrl: string): void {
   const allowed = getAllowedWebDavUrls();
   if (!allowed.length) {
     throw new Error("Acesso WebDAV desativado. Configure BATCH_ALLOWED_WEBDAV_URLS no .env.");
   }
-  const normalized = url.replace(/\/$/, "");
-  const ok = allowed.some((base) => normalized === base || normalized.startsWith(base + "/"));
-  if (!ok) {
-    throw new Error(`URL WebDAV fora da whitelist: ${url}. Configure BATCH_ALLOWED_WEBDAV_URLS.`);
+  const { origin } = parseWebDavUrl(inputUrl);
+  if (!allowed.includes(origin)) {
+    throw new Error(`URL WebDAV fora da whitelist: ${inputUrl}. Configure BATCH_ALLOWED_WEBDAV_URLS.`);
   }
 }
 
 export async function scanWebDavFolder(
-  baseUrl: string,
+  inputUrl: string,
   maxDepth = 2
 ): Promise<BatchFileDescriptor[]> {
-  assertWebDavUrlAllowed(baseUrl);
+  assertWebDavUrlAllowed(inputUrl);
 
-  const client = createClient(baseUrl);
+  const { origin, startPath } = parseWebDavUrl(inputUrl);
+  const client = createClient(origin);
   const results: BatchFileDescriptor[] = [];
 
   async function walk(dir: string, depth: number): Promise<void> {
@@ -123,12 +132,13 @@ export async function scanWebDavFolder(
     }
   }
 
-  await walk("/", 0);
+  await walk(startPath, 0);
   return results.slice(0, MAX_FILES_PER_BATCH * 2);
 }
 
-export async function downloadWebDavFile(baseUrl: string, remotePath: string): Promise<Buffer> {
-  const client = createClient(baseUrl);
+export async function downloadWebDavFile(inputUrl: string, remotePath: string): Promise<Buffer> {
+  const { origin } = parseWebDavUrl(inputUrl);
+  const client = createClient(origin);
   const data = await client.getFileContents(remotePath, { format: "binary" });
   return Buffer.isBuffer(data) ? data : Buffer.from(data as ArrayBuffer);
 }
