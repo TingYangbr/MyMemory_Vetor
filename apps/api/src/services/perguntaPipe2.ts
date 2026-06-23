@@ -139,6 +139,18 @@ const SYSTEM_PARAM_CAST: Record<string, string> = { userid: "int", groupid: "int
 
 // ── Utilities ─────────────────────────────────────────────────────────────────
 
+// Garante que valores de parâmetros numéricos sejam números puros.
+// O LLM às vezes retorna "1 suite" ou "3 quartos" em vez de 1 ou 3.
+function coerceNumericParam(val: unknown): number | null {
+  if (val === null || val === undefined) return null;
+  if (typeof val === "number") return Number.isFinite(val) ? val : null;
+  const str = String(val).trim();
+  const match = /^-?(\d+([.,]\d+)?)/.exec(str);
+  if (!match) return null;
+  const n = parseFloat(match[1].replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
 function safeParseJson<T>(raw: string, fallback: T): T {
   try {
     const t = raw.trim();
@@ -442,13 +454,16 @@ export function bindTemplateParams(
   };
   // operador_sugerido por param: "=" suprime wrap com % mesmo que paramDef tenha operadorSql LIKE
   const llmOpMap = new Map<string, string>();
+  const defByName = new Map(paramDefs.map((p) => [p.nome.toLowerCase(), p]));
   for (const p of llmParams) {
     if (p.nome) {
-      paramMap[p.nome.toLowerCase()] = p.valor ?? null;
-      if (p.operador_sugerido) llmOpMap.set(p.nome.toLowerCase(), p.operador_sugerido);
+      const key = p.nome.toLowerCase();
+      const def = defByName.get(key);
+      const isNumeric = /^(number|numeric|numero)$/i.test(def?.tipo ?? p.tipo ?? "");
+      paramMap[key] = isNumeric ? coerceNumericParam(p.valor) : (p.valor ?? null);
+      if (p.operador_sugerido) llmOpMap.set(key, p.operador_sugerido);
     }
   }
-  const defByName = new Map(paramDefs.map((p) => [p.nome.toLowerCase(), p]));
 
   // Coleta todos os tokens :paramName da esquerda para a direita (preserva ordem dos values[])
   interface Token {
@@ -931,8 +946,11 @@ async function executarConsultasPlano(input: {
       const operadorOverrides: Record<string, string> = {};
       for (const p of parametrosResolvidos) {
         if (p.nome) {
-          paramValues[p.nome.toLowerCase()] = p.valor ?? null;
-          if (p.operador_sugerido) operadorOverrides[p.nome.toLowerCase()] = p.operador_sugerido;
+          const key = p.nome.toLowerCase();
+          const paramDef = template.params.find((d) => d.nome.toLowerCase() === key);
+          const isNumeric = /^(number|numeric|numero)$/i.test(paramDef?.tipo ?? p.tipo ?? "");
+          paramValues[key] = isNumeric ? coerceNumericParam(p.valor) : (p.valor ?? null);
+          if (p.operador_sugerido) operadorOverrides[key] = p.operador_sugerido;
         }
       }
       let sqlToExecute = template.sentencaSql;
