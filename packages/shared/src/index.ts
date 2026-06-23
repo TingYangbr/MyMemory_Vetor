@@ -1293,6 +1293,7 @@ export interface AdminPromptCategory {
   id: number;
   name: string;
   groupId: number | null;
+  groupName: string | null;
 }
 
 export interface AdminPromptCategoryListResponse {

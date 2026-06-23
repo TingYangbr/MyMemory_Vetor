@@ -26,13 +26,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     const admin = await requireAdmin(req, reply);
     if (admin == null) return;
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, name, groupid AS "groupId" FROM categories WHERE isactive = 1 ORDER BY name ASC`
+      `SELECT c.id, c.name, c.groupid AS "groupId", g.name AS "groupName"
+       FROM categories c
+       LEFT JOIN groups g ON g.id = c.groupid
+       WHERE c.isactive = 1
+       ORDER BY g.name ASC NULLS FIRST, c.name ASC`
     );
     return {
       categories: rows.map((r) => ({
         id: r.id as number,
         name: String(r.name),
         groupId: r.groupId != null ? (r.groupId as number) : null,
+        groupName: r.groupName != null ? String(r.groupName) : null,
       })),
     };
   });

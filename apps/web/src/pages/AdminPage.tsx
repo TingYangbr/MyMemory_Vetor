@@ -1856,7 +1856,9 @@ export default function AdminPage() {
                                         {catAvailable
                                           .filter((cat) => !overridesForChave.some((ov) => ov.category_id === cat.id))
                                           .map((cat) => (
-                                            <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                            <option key={cat.id} value={cat.id}>
+                                              {cat.name}{cat.groupName ? ` — ${cat.groupName}` : ""}
+                                            </option>
                                           ))}
                                       </select>
                                       <textarea
