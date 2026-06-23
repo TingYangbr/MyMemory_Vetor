@@ -25,3 +25,6 @@ Desktop.ini
 
 # Uploads locais (API)
 apps/api/uploads/
+"diag_reuniao.mjs" 
+"*.sql" 
+"*_b64.txt" 
