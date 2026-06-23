@@ -14,17 +14,25 @@ export class NormalizeFieldLabelsToAscii1700000000135 implements MigrationInterf
       return s.normalize("NFD").replace(/\p{Mn}/gu, "");
     }
 
-    // Coleta todos os nomes distintos de campos (categorycampos + dadosespecificos)
+    // Coleta todos os nomes distintos de campos de todas as fontes possíveis
     const campoRows = (await queryRunner.query(
       `SELECT DISTINCT name FROM categorycampos`
     )) as { name: string }[];
     const labelRows = (await queryRunner.query(
       `SELECT DISTINCT label FROM dadosespecificos`
     )) as { label: string }[];
+    // Varre as chaves reais do JSON dos memos — fonte autoritativa mesmo quando
+    // categorycampos já foi atualizado para ASCII antes da migration rodar.
+    const jsonKeyRows = (await queryRunner.query(`
+      SELECT DISTINCT jsonb_object_keys(dadosespecificosjson::jsonb) AS key
+      FROM memos
+      WHERE dadosespecificosjson IS NOT NULL AND dadosespecificosjson != ''
+    `)) as { key: string }[];
 
     const allNames = new Set<string>([
       ...campoRows.map((r) => r.name),
       ...labelRows.map((r) => r.label),
+      ...jsonKeyRows.map((r) => r.key),
     ]);
 
     // Filtra apenas nomes que mudam após normalização
