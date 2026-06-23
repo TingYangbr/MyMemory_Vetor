@@ -697,6 +697,12 @@
   color: var(--mm-text-secondary);
 }
 
+.fieldWarn {
+  margin: 0.35rem 0 0;
+  font-size: 0.72rem;
+  color: #c97c00;
+}
+
 /* ── Queries SQL ───────────────────────────────────────────── */
 
 .queryEmpty {

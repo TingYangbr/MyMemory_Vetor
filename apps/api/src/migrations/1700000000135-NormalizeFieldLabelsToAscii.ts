@@ -15,16 +15,16 @@ export class NormalizeFieldLabelsToAscii1700000000135 implements MigrationInterf
     }
 
     // Coleta todos os nomes distintos de campos (categorycampos + dadosespecificos)
-    const campoRows = await queryRunner.query<{ name: string }[]>(
+    const campoRows = (await queryRunner.query(
       `SELECT DISTINCT name FROM categorycampos`
-    );
-    const labelRows = await queryRunner.query<{ label: string }[]>(
+    )) as { name: string }[];
+    const labelRows = (await queryRunner.query(
       `SELECT DISTINCT label FROM dadosespecificos`
-    );
+    )) as { label: string }[];
 
     const allNames = new Set<string>([
-      ...campoRows.map((r: { name: string }) => r.name),
-      ...labelRows.map((r: { label: string }) => r.label),
+      ...campoRows.map((r) => r.name),
+      ...labelRows.map((r) => r.label),
     ]);
 
     // Filtra apenas nomes que mudam após normalização
