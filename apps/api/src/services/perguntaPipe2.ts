@@ -476,7 +476,7 @@ export function bindTemplateParams(
     inContext?: "in" | "notin"; // token está dentro de "IN (...)" ou "NOT IN (...)" → expandir lista
   }
   const tokens: Token[] = [];
-  const re = /(?<!:):([a-zA-Z][a-zA-Z0-9_]*)/g;
+  const re = /(?<!:):([a-zA-Z\p{L}][a-zA-Z0-9_\p{L}]*)/gu;
   let m: RegExpExecArray | null;
   while ((m = re.exec(sentencaSql)) !== null) {
     tokens.push({ start: m.index, end: m.index + m[0].length, name: m[1] });
