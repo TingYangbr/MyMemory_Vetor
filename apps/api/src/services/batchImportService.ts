@@ -31,7 +31,7 @@ const MAX_FILE_SIZE_DEFAULT = 100 * 1024 * 1024; // 100 MB
 const SUPPORTED_EXTENSIONS = new Set([
   ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
   ".odt", ".ods", ".odp", ".txt", ".csv", ".rtf", ".html", ".htm",
-  ".msg", ".eml", ".dwg",
+  ".md", ".msg", ".eml", ".dwg",
   ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif",
   ".mp3", ".wav", ".ogg", ".oga", ".opus", ".m4a", ".flac", ".aac", ".wma",
   ".mp4", ".webm", ".avi", ".mov", ".mkv", ".m4v",
