@@ -664,6 +664,39 @@
 
 .memoTrecho { font-style: italic; color: var(--mm-text, #1e293b); }
 
+/* ── Tabela: célula ID com ícone de tipo de arquivo ── */
+.tabelaIdCell {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.tableFileBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 5px;
+  min-height: 22px;
+  border: 0.5px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-bg-card, #fff);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--mm-text-muted, #64748b);
+  line-height: 1;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+.tableFileBtn:hover {
+  background: var(--mm-primary-10, #ccfbf1);
+  border-color: var(--mm-primary, #0d9488);
+  color: var(--mm-primary, #0d9488);
+}
+.tableFileBtn:disabled { opacity: 0.5; cursor: default; }
+
+.tableTagPdf  { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: #a32d2d; }
+.tableTagDoc  { font-size: 9px; font-weight: 700; letter-spacing: 0.05em; color: #185fa5; }
+.tableTagText { font-size: 10px; font-weight: 700; color: var(--mm-text-muted, #64748b); }
+.tableTagGlyph { display: inline-flex; align-items: center; }
+
 /* ── Memo card modal ── */
 .memoCardOverlay {
   position: fixed;

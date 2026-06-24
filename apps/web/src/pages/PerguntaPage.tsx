@@ -117,6 +117,72 @@ function IconRepoIn({ className }: { className?: string }) {
   );
 }
 
+function MediaTypeIcon({ mediaType, fileUrl, displayName }: {
+  mediaType?: string | null;
+  fileUrl?: string | null;
+  displayName?: string | null;
+}) {
+  const mt = mediaType ?? "";
+  if (mt === "document") {
+    const s = (fileUrl ?? "") + "|" + (displayName ?? "");
+    const m = s.match(/\.(pdf|docx?|msg|eml)\b/i);
+    const ext = m ? m[1]!.toLowerCase() : "";
+    if (ext === "pdf") return <span className={styles.tableTagPdf}>PDF</span>;
+    if (ext === "doc" || ext === "docx") return <span className={styles.tableTagDoc}>DOC</span>;
+    if (ext === "msg" || ext === "eml") return (
+      <span className={styles.tableTagGlyph}>
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+          <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+          <path d="M3 7l9 5.5L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      </span>
+    );
+    return <span className={styles.tableTagDoc}>DOC</span>;
+  }
+  if (mt === "audio") return (
+    <span className={styles.tableTagGlyph}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M11 5L6 9H3v6h3l5 4V5z" fill="currentColor"/>
+        <path d="M15.5 9.5a3 3 0 010 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    </span>
+  );
+  if (mt === "image") return (
+    <span className={styles.tableTagGlyph}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="3" y="5" width="18" height="14" rx="2" stroke="currentColor" strokeWidth="2"/>
+        <circle cx="8.5" cy="10" r="1.5" fill="currentColor"/>
+        <path d="M21 15l-5-5-4 4-3-3-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </span>
+  );
+  if (mt === "video") return (
+    <span className={styles.tableTagGlyph}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <rect x="2" y="7" width="15" height="10" rx="2" stroke="currentColor" strokeWidth="2"/>
+        <path d="M17 10l4-2v8l-4-2v-4z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+      </svg>
+    </span>
+  );
+  if (mt === "url") return (
+    <span className={styles.tableTagGlyph}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+        <path d="M2 12h20M12 2a15 15 0 010 20M12 2a15 15 0 000 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+      </svg>
+    </span>
+  );
+  if (mt === "text") return <span className={styles.tableTagText}>T</span>;
+  return (
+    <span className={styles.tableTagGlyph}>
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+        <polyline points="14 2 14 8 20 8" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+      </svg>
+    </span>
+  );
+}
+
 function formatNumericCell(num: number, colName: string): string {
   const col = colName.toLowerCase().replace(/[_\s]+/g, " ");
   if (/\b(dias?|prazos?|atrasos?)\b/.test(col))
@@ -128,10 +194,12 @@ function formatNumericCell(num: number, colName: string): string {
   return num.toLocaleString("pt-BR");
 }
 
-function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
+function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
+  onOpenMemoFile?: (id: number) => void;
   loadingCardId?: number | null;
+  loadingFileId?: number | null;
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
 
@@ -170,19 +238,37 @@ function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
                     return String(val);
                   })();
                   const isLong = display.length > 80;
-                  if (col === "id" && onOpenMemo && val != null) {
+                  if (col === "id" && val != null) {
                     const id = Number(val);
+                    const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
+                    const rowUrl = String(linha["mediaFileUrl"] ?? linha["mediafileurl"] ?? "");
+                    const rowName = String(linha["attachmentDisplayName"] ?? linha["attachmentdisplayname"] ?? "");
                     return (
                       <td key={col} className={styles.tabelaTd}>
-                        <button
-                          type="button"
-                          className={styles.memoIdBtn}
-                          onClick={() => onOpenMemo(id)}
-                          disabled={loadingCardId === id}
-                          title="Abrir memo"
-                        >
-                          {loadingCardId === id ? "…" : `#${id}`}
-                        </button>
+                        <span className={styles.tabelaIdCell}>
+                          {onOpenMemoFile ? (
+                            <button
+                              type="button"
+                              className={styles.tableFileBtn}
+                              onClick={() => onOpenMemoFile(id)}
+                              disabled={loadingFileId === id}
+                              title={`Abrir arquivo — memo #${id}`}
+                            >
+                              {loadingFileId === id ? "…" : <MediaTypeIcon mediaType={rowMt} fileUrl={rowUrl} displayName={rowName} />}
+                            </button>
+                          ) : null}
+                          {onOpenMemo ? (
+                            <button
+                              type="button"
+                              className={styles.memoIdBtn}
+                              onClick={() => onOpenMemo(id)}
+                              disabled={loadingCardId === id}
+                              title="Ver detalhes do memo"
+                            >
+                              {loadingCardId === id ? "…" : `#${id}`}
+                            </button>
+                          ) : null}
+                        </span>
                       </td>
                     );
                   }
@@ -211,10 +297,12 @@ function TabelaEstruturada({ dados, onOpenMemo, loadingCardId }: {
   );
 }
 
-function TabelaSemantica({ dados_usados, onOpenMemo, loadingCardId }: {
+function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados_usados: import("@mymemory/shared").PerguntaMemoUsado[];
   onOpenMemo?: (id: number) => void;
+  onOpenMemoFile?: (id: number) => void;
   loadingCardId?: number | null;
+  loadingFileId?: number | null;
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
 
@@ -262,17 +350,30 @@ function TabelaSemantica({ dados_usados, onOpenMemo, loadingCardId }: {
             {dados_usados.map((d, i) => (
               <tr key={i} className={styles.tabelaTr}>
                 <td className={styles.tabelaTd}>
-                  {onOpenMemo ? (
-                    <button
-                      type="button"
-                      className={styles.memoIdBtn}
-                      onClick={() => onOpenMemo(d.memo_id)}
-                      disabled={loadingCardId === d.memo_id}
-                      title="Abrir memo"
-                    >
-                      {loadingCardId === d.memo_id ? "…" : `#${d.memo_id}`}
-                    </button>
-                  ) : `#${d.memo_id}`}
+                  <span className={styles.tabelaIdCell}>
+                    {onOpenMemoFile ? (
+                      <button
+                        type="button"
+                        className={styles.tableFileBtn}
+                        onClick={() => onOpenMemoFile(d.memo_id)}
+                        disabled={loadingFileId === d.memo_id}
+                        title={`Abrir arquivo — memo #${d.memo_id}`}
+                      >
+                        {loadingFileId === d.memo_id ? "…" : <MediaTypeIcon mediaType={d.mediaType} />}
+                      </button>
+                    ) : null}
+                    {onOpenMemo ? (
+                      <button
+                        type="button"
+                        className={styles.memoIdBtn}
+                        onClick={() => onOpenMemo(d.memo_id)}
+                        disabled={loadingCardId === d.memo_id}
+                        title="Ver detalhes do memo"
+                      >
+                        {loadingCardId === d.memo_id ? "…" : `#${d.memo_id}`}
+                      </button>
+                    ) : `#${d.memo_id}`}
+                  </span>
                 </td>
                 {renderCell(d.mediaType ?? "—")}
                 {renderCell(d.mediatext ?? "—")}
@@ -392,6 +493,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
   const [filePreviewMemo, setFilePreviewMemo] = useState<MemoRecentCard | null>(null);
   const [loadingCardId, setLoadingCardId] = useState<number | null>(null);
+  const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
   const [memoEditMode, setMemoEditMode] = useState(false);
   const [editText, setEditText] = useState("");
   const [editKeywords, setEditKeywords] = useState("");
@@ -766,6 +868,19 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       /* silencioso — memo pode não estar mais acessível */
     } finally {
       setLoadingCardId(null);
+    }
+  }
+
+  async function openMemoFileDirect(id: number) {
+    if (loadingFileId === id) return;
+    setLoadingFileId(id);
+    try {
+      const card = await apiGet<MemoRecentCard>(`/api/memos/${id}/card`);
+      setFilePreviewMemo(card);
+    } catch {
+      /* silencioso */
+    } finally {
+      setLoadingFileId(null);
     }
   }
 
@@ -1404,12 +1519,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
-                          <TabelaEstruturada key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
+                          <TabelaEstruturada key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                         ))
-                      : <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
+                      : <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
-                    <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} loadingCardId={loadingCardId} />
+                    <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
                   {r.resposta.limitacoes.length > 0 ? (
                     <ul className={styles.limitacoes}>
