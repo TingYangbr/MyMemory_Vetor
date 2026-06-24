@@ -1,13 +1,14 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type {
   BatchFileVerifyResult,
   BatchVerifyResponse,
   BatchProcessResponse,
   StorageProvider,
+  MeResponse,
 } from "@mymemory/shared";
 import { BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
-import { apiPostJson, apiPostMultipart } from "../api";
+import { apiGet, apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
 import styles from "./BatchImportPage.module.css";
 
@@ -44,9 +45,17 @@ function formatBytes(n: number): string {
 }
 
 export default function BatchImportPage() {
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [provider, setProvider] = useState<StorageProvider>("LOCAL");
   const [folderPath, setFolderPath] = useState("");
   const [iaLevel, setIaLevel] = useState<IaLevel>("semIA");
+
+  useEffect(() => {
+    apiGet<MeResponse>("/api/me").then(setMe).catch(() => {});
+  }, []);
+
+  const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
+  const workspaceLabel = workspaceGroupId != null ? me?.groupLabel ?? "Grupo" : "Pessoal";
 
   const [verifyResult, setVerifyResult] = useState<BatchVerifyResponse | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -81,7 +90,7 @@ export default function BatchImportPage() {
       if (isLocal) {
         const result = await apiPostJson<BatchVerifyResponse>(
           "/api/memos/batch/verify/local",
-          { provider, folderPath: folderPath.trim(), iaLevel }
+          { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId }
         );
         setVerifyResult(result);
       } else if (isUpload) {
@@ -112,7 +121,7 @@ export default function BatchImportPage() {
       if (isLocal) {
         const result = await apiPostJson<BatchProcessResponse>(
           "/api/memos/batch/process/local",
-          { provider, folderPath: folderPath.trim(), iaLevel, onlyFileNames: readyFiles.map(f => f.originalFileName) }
+          { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId, onlyFileNames: readyFiles.map(f => f.originalFileName) }
         );
         setProcessResult(result);
       } else if (isUpload) {
@@ -149,7 +158,12 @@ export default function BatchImportPage() {
               Registre arquivos externos sem copiá-los para a nuvem.
             </p>
           </div>
-          <Link to="/" className={styles.backLink}>← Início</Link>
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+            <Link to="/" className={styles.backLink}>← Início</Link>
+            <span style={{ fontSize: "0.78rem", color: "var(--text-muted, #888)" }}>
+              Destino: <strong>{workspaceLabel}</strong>
+            </span>
+          </div>
         </div>
 
         {/* ── Card de configuração ── */}
