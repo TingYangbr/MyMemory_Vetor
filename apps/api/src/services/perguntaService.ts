@@ -264,6 +264,28 @@ export async function perguntarMemory(input: {
     if (match) classificacao.categorias = [match];
   }
 
+  // Guarda estruturada: sem categoria identificada não há queries disponíveis e o resultado
+  // seria sempre vazio. Retorna mensagem clara em vez de silêncio — o frontend pode oferecer
+  // ao usuário a opção de tentar a busca semântica.
+  if (
+    (classificacao.pipe === "estruturada" || classificacao.pipe === "hibrida") &&
+    classificacao.categorias.length === 0
+  ) {
+    const resposta: import("@mymemory/shared").PerguntaResposta = {
+      resposta:
+        "Não encontrei dados estruturados para essa pergunta. O módulo ou categoria relacionada pode não estar disponível no sistema. Deseja tentar uma busca nos registros de texto?",
+      tipo_resposta: "estruturada",
+      dados_usados: [],
+      limitacoes: ["Nenhuma categoria identificada para consulta estruturada."],
+      confianca_estimada: 0,
+    };
+    return {
+      resposta,
+      classificacao,
+      apiCost: totalCost,
+    };
+  }
+
   const thInitial = input.thresholdInitial ?? 0.7;
   const thMin = input.thresholdMin ?? 0.3;
 
