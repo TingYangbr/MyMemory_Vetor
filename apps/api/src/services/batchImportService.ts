@@ -237,35 +237,69 @@ export async function scanLocalFolder(
 
 // ── Verificação de duplicidade ────────────────────────────────────────────────
 
+interface DuplicateInfo {
+  kind: "none" | "exact" | "suspect";
+  createdAt?: Date | string;
+  email?: string | null;
+}
+
+function formatDupDate(d: Date | string | undefined): string {
+  if (!d) return "?";
+  const dt = d instanceof Date ? d : new Date(d);
+  const dd = String(dt.getDate()).padStart(2, "0");
+  const mm = String(dt.getMonth() + 1).padStart(2, "0");
+  const hh = String(dt.getHours()).padStart(2, "0");
+  const min = String(dt.getMinutes()).padStart(2, "0");
+  return `${dd}-${mm}-${dt.getFullYear()} ${hh}:${min}`;
+}
+
 async function checkDuplicate(
   userId: number,
+  groupId: number | null,
   originalFileName: string
-): Promise<"none" | "exact" | "suspect"> {
+): Promise<DuplicateInfo> {
   const basename = path.basename(originalFileName);
 
-  const [exactRows] = await pool.query<RowDataPacket[]>(
-    `SELECT COUNT(*) AS cnt FROM memos
-     WHERE userid = ? AND original_file_name = ? AND isactive = 1`,
-    [userId, originalFileName]
-  );
-  if (Number(exactRows[0]?.cnt) > 0) return "exact";
-
-  if (originalFileName !== basename) {
-    const [suspectRows] = await pool.query<RowDataPacket[]>(
-      `SELECT COUNT(*) AS cnt FROM memos
-       WHERE userid = ? AND original_file_name = ? AND isactive = 1`,
-      [userId, basename]
-    );
-    if (Number(suspectRows[0]?.cnt) > 0) return "suspect";
+  async function queryDup(fileName: string): Promise<{ createdat: Date; email: string | null } | null> {
+    let rows: RowDataPacket[];
+    if (groupId != null) {
+      // Em grupo: qualquer membro que já importou o mesmo arquivo
+      [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT m.createdat, u.email
+         FROM memos m LEFT JOIN users u ON u.id = m.userid
+         WHERE m.groupid = ? AND m.original_file_name = ? AND m.isactive = 1
+         LIMIT 1`,
+        [groupId, fileName]
+      );
+    } else {
+      // Pessoal: só memos do próprio usuário sem grupo
+      [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT m.createdat, u.email
+         FROM memos m LEFT JOIN users u ON u.id = m.userid
+         WHERE m.userid = ? AND m.groupid IS NULL AND m.original_file_name = ? AND m.isactive = 1
+         LIMIT 1`,
+        [userId, fileName]
+      );
+    }
+    return rows.length > 0 ? (rows[0] as { createdat: Date; email: string | null }) : null;
   }
 
-  return "none";
+  const exact = await queryDup(originalFileName);
+  if (exact) return { kind: "exact", createdAt: exact.createdat, email: exact.email };
+
+  if (originalFileName !== basename) {
+    const suspect = await queryDup(basename);
+    if (suspect) return { kind: "suspect", createdAt: suspect.createdat, email: suspect.email };
+  }
+
+  return { kind: "none" };
 }
 
 // ── Verificação de lote ───────────────────────────────────────────────────────
 
 export interface BatchVerifyInput {
   userId: number;
+  groupId?: number | null;
   files: { originalFileName: string; fullPath: string; sizeBytes: number }[];
   provider: StorageProvider;
   maxFileSizeBytes?: number;
@@ -275,6 +309,7 @@ export async function verifyBatchFiles(
   input: BatchVerifyInput
 ): Promise<BatchVerifyResponse> {
   const maxSize = input.maxFileSizeBytes ?? MAX_FILE_SIZE_DEFAULT;
+  const groupId = input.groupId ?? null;
   const results: BatchFileVerifyResult[] = [];
 
   for (const file of input.files.slice(0, MAX_FILES_PER_BATCH * 2)) {
@@ -293,13 +328,13 @@ export async function verifyBatchFiles(
       mediaType = classifyFile(mime, file.originalFileName);
     } else {
       mediaType = classifyFile(mime, file.originalFileName);
-      const dup = await checkDuplicate(input.userId, file.originalFileName);
-      if (dup === "exact") {
+      const dup = await checkDuplicate(input.userId, groupId, file.originalFileName);
+      if (dup.kind === "exact") {
         situacao = "ja_cadastrado";
-        motivo = "Arquivo já cadastrado com este nome";
-      } else if (dup === "suspect") {
+        motivo = `Já cadastrado em ${formatDupDate(dup.createdAt)} por ${dup.email ?? "?"}`;
+      } else if (dup.kind === "suspect") {
         situacao = "suspeito_duplicidade";
-        motivo = "Existe memo com nome de arquivo semelhante";
+        motivo = `Semelhante cadastrado em ${formatDupDate(dup.createdAt)} por ${dup.email ?? "?"}`;
       } else {
         if (input.provider === "LOCAL" || input.provider === "REDE") {
           try {

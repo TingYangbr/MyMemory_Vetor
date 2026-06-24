@@ -75,6 +75,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const result = await verifyBatchFiles({
       userId,
+      groupId: groupIdVal,
       files: scanned,
       provider,
       maxFileSizeBytes,
