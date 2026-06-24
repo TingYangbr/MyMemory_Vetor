@@ -53,6 +53,7 @@ import { FixNumericJsonValues1700000000137 } from "./migrations/1700000000137-Fi
 import { UpdateClassificacaoVerbosListagem1700000000138 } from "./migrations/1700000000138-UpdateClassificacaoVerbosListagem.js";
 import { ImovelPlanejamentoOverride1700000000139 } from "./migrations/1700000000139-ImovelPlanejamentoOverride.js";
 import { UpdateClassificacaoListagemCriterioConcreto1700000000140 } from "./migrations/1700000000140-UpdateClassificacaoListagemCriterioConcreto.js";
+import { UpdateClassificacaoListagemConceitual1700000000141 } from "./migrations/1700000000141-UpdateClassificacaoListagemConceitual.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -134,6 +135,7 @@ assertMediaStorageEnv();
       UpdateClassificacaoVerbosListagem1700000000138,
       ImovelPlanejamentoOverride1700000000139,
       UpdateClassificacaoListagemCriterioConcreto1700000000140,
+      UpdateClassificacaoListagemConceitual1700000000141,
     ],
   });
   const ds = await AppDataSource.initialize();
