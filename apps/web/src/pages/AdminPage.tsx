@@ -1351,6 +1351,7 @@ export default function AdminPage() {
               <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary">CAD/BIM pipeline</Link>
               <Link to="/admin/system-config" className="mm-btn mm-btn--primary">Configurações do sistema</Link>
               <Link to="/admin/assinaturas" className="mm-btn mm-btn--primary">Assinaturas &amp; Grupos</Link>
+              <Link to="/admin/storage" className="mm-btn mm-btn--primary">Storage por Grupo</Link>
             </div>
 
             <hr style={{ margin: "1.25rem 0", border: "none", borderTop: "1px solid var(--mm-border, #e2e2e2)" }} />
