@@ -64,6 +64,10 @@ export default function BatchImportPage() {
     apiGet<MeResponse>("/api/me").then(setMe).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (me) setIaLevel(me.iaUseDocumento ?? me.iaUseTexto ?? "semIA");
+  }, [me]);
+
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const workspaceLabel = workspaceGroupId != null ? me?.groupLabel ?? "Grupo" : "Pessoal";
 
