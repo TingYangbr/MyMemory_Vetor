@@ -929,6 +929,8 @@ interface MemoRow extends RowDataPacket {
   usedApiCred?: unknown;
   hasChunks?: unknown;
   category?: string | null;
+  storage_provider?: string | null;
+  original_file_name?: string | null;
 }
 
 function primaryMediaFileUrl(
@@ -971,7 +973,8 @@ async function assertMemoAuthorCanModify(
   const [rows] = await pool.query<MemoRow[]>(
     `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
             mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
-            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category
+            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category,
+            storage_provider, original_file_name
      FROM memos WHERE id = ? AND isActive = 1`,
     [memoId]
   );
@@ -1005,6 +1008,9 @@ export async function getMemoForAuthorEdit(input: {
     hasFile: Boolean(m.mediaAudioUrl || m.mediaImageUrl || m.mediaVideoUrl || m.mediaDocumentUrl),
     mediaFileUrl: primaryMediaFileUrl(m),
     category: typeof m.category === "string" ? m.category.trim() || null : null,
+    storageProvider: m.storage_provider ?? null,
+    externalFileRef: primaryMediaFileUrl(m) ?? m.mediaWebUrl ?? null,
+    originalFileName: m.original_file_name ?? null,
   };
 }
 
