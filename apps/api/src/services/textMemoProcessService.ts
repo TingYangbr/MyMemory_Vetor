@@ -31,14 +31,15 @@ export async function loadCategoryContext(
   if (groupId != null) {
     await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
   }
-  /* Sempre carrega globais (groupId IS NULL) + categorias do grupo do usuário. */
+  /* Sempre carrega globais (groupId IS NULL) + categorias do grupo do usuário.
+     Categorias do grupo têm prioridade sobre globais de mesmo nome (ORDER BY groupId IS NULL). */
   const [catRows] = await pool.query<RowDataPacket[]>(
     groupId != null
       ? `SELECT id, name FROM categories
          WHERE (groupId IS NULL OR groupId = ?)
            AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
-         ORDER BY id ASC`
+         ORDER BY CASE WHEN groupId IS NULL THEN 1 ELSE 0 END, id ASC`
       : `SELECT id, name FROM categories
          WHERE (groupId IS NULL OR groupId IN (SELECT groupId FROM group_members WHERE userId = ?))
            AND isActive = 1
@@ -47,7 +48,15 @@ export async function loadCategoryContext(
     [groupId != null ? groupId : userId]
   );
   if (!catRows.length) return [];
-  const ids = catRows.map((r) => r.id as number);
+  // Deduplica por nome: mantém a primeira ocorrência (grupo específico tem prioridade sobre global).
+  const seenNames = new Set<string>();
+  const dedupedCatRows = catRows.filter((r) => {
+    const n = String(r.name).toLowerCase();
+    if (seenNames.has(n)) return false;
+    seenNames.add(n);
+    return true;
+  });
+  const ids = dedupedCatRows.map((r) => r.id as number);
   const ph = ids.map(() => "?").join(",");
   const [subRows] = await pool.query<RowDataPacket[]>(
     `SELECT categoryId, name FROM subcategories WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
@@ -89,7 +98,7 @@ export async function loadCategoryContext(
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
       });
   }
-  return catRows.map((r) => ({
+  return dedupedCatRows.map((r) => ({
     id: r.id as number,
     name: String(r.name),
     subcategories: subs.get(r.id as number) ?? [],
@@ -601,10 +610,20 @@ Regras: ${summaryRule}`;
     ? "se houver campos solicitados: chaves = nomes exatos dos campos solicitados; se não houver, extraia campos livres chave→valor"
     : "chaves = nomes exatos dos campos solicitados, valores = texto extraído ou \"\""})
 }`;
+    const campoInstructions = cat?.campos.length
+      ? cat.campos.map((c) => {
+          const desc = c.description ? `: ${c.description}` : "";
+          const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
+          return `- "${c.name}"${desc}${terms}`;
+        }).join("\n")
+      : allowFreeSpecificFieldsWithoutCategoryMatch
+        ? "(catálogo vazio — extraia campos livres chave→valor)"
+        : "(nenhum — use {})";
     const user2 = `Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
 Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subNames.length ? subNames.join(", ") : "(nenhuma — deixe lista vazia)"}
-Campos a preencher (chaves do objeto campos): ${campoNames.length ? campoNames.join(", ") : allowFreeSpecificFieldsWithoutCategoryMatch ? "(catálogo vazio — extraia campos livres chave→valor)" : "(nenhum — use {})"}
-Guia de padronização dos campos: ${campoGuide || "(sem padrões definidos)"}
+
+CAMPOS A PREENCHER — use os nomes de campo EXATAMENTE como indicado e siga a instrução de cada campo:
+${campoInstructions}
 
 RESUMO PT-BR:
 ${resumo}
