@@ -83,7 +83,8 @@ export default function BatchImportPage() {
         if (def) {
           const base = def.url.replace(/\/$/, "");
           const prefix = def.pathPrefix?.trim() ?? "";
-          setFolderPath(prefix ? `${base}${prefix}` : base);
+          const sep = prefix && !prefix.startsWith("/") ? "/" : "";
+          setFolderPath(prefix ? `${base}${sep}${prefix}` : base);
         }
       })
       .catch(() => {});
@@ -230,26 +231,33 @@ export default function BatchImportPage() {
                     className={styles.select}
                     value={selectedWebdavId ?? ""}
                     onChange={e => {
-                      const id = Number(e.target.value);
-                      setSelectedWebdavId(id);
-                      const cfg = webdavConfigs.find(c => c.id === id);
-                      if (cfg) {
-                        const base = cfg.url.replace(/\/$/, "");
-                        const prefix = cfg.pathPrefix?.trim() ?? "";
-                        setFolderPath(prefix ? `${base}${prefix}` : base);
+                      const val = e.target.value;
+                      if (val === "") {
+                        setSelectedWebdavId(null);
+                        setFolderPath("");
+                      } else {
+                        const id = Number(val);
+                        setSelectedWebdavId(id);
+                        const cfg = webdavConfigs.find(c => c.id === id);
+                        if (cfg) {
+                          const base = cfg.url.replace(/\/$/, "");
+                          const prefix = cfg.pathPrefix?.trim() ?? "";
+                          const sep = prefix && !prefix.startsWith("/") ? "/" : "";
+                          setFolderPath(prefix ? `${base}${sep}${prefix}` : base);
+                        }
                       }
                       setVerifyResult(null);
                       setProcessResult(null);
                     }}
                   >
+                    <option value="">— Digitar manualmente —</option>
                     {webdavConfigs.map(c => (
                       <option key={c.id} value={c.id}>{c.label}</option>
                     ))}
                   </select>
-                  <input type="hidden" value={folderPath} />
                 </>
               )}
-              {isLocal && (provider !== "WEBDAV" || webdavConfigs.length === 0) && (
+              {isLocal && (
                 <>
                   <label className={styles.label} htmlFor="folderPath">Caminho da pasta</label>
                   <div className={styles.inputWithHint}>
@@ -259,7 +267,7 @@ export default function BatchImportPage() {
                       className={styles.input}
                       placeholder={currentHint}
                       value={folderPath}
-                      onChange={e => setFolderPath(e.target.value)}
+                      onChange={e => { setFolderPath(e.target.value); setVerifyResult(null); setProcessResult(null); }}
                     />
                   </div>
                 </>

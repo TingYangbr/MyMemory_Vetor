@@ -25,6 +25,10 @@ Desktop.ini
 
 # Uploads locais (API)
 apps/api/uploads/
+
+# Geração de documentos (temp)
+_docgen/
+_doc_edit/
 "diag_reuniao.mjs" 
 "*.sql" 
 "*_b64.txt" 
