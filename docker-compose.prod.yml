@@ -60,6 +60,7 @@ services:
 
       BATCH_ALLOWED_LOCAL_PATHS: ${BATCH_ALLOWED_LOCAL_PATHS:-}
       BATCH_ALLOWED_WEBDAV_URLS: ${BATCH_ALLOWED_WEBDAV_URLS:-}
+      STORAGE_ENCRYPTION_KEY: ${STORAGE_ENCRYPTION_KEY:-}
 
     volumes:
       - uploads_data:/data/uploads

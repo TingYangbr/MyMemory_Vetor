@@ -244,16 +244,28 @@ function publicMediaPath(userId: number, storedName: string): string {
   return `/media/${userId}/${storedName}`;
 }
 
-/** Grava buffer no S3 ou disco local; retorna URL pública/relativa usada em `memos.media*Url`. */
+/** Grava buffer no WebDAV do grupo (se configurado), S3 ou disco local; retorna URL usada em `memos.media*Url`. */
 export async function storeMemoBinaryAndGetUrl(input: {
   userId: number;
   buffer: Buffer;
   mime: string;
   originalName: string;
+  groupId?: number | null;
 }): Promise<{ mediaUrl: string; storedName: string }> {
   const id = crypto.randomUUID();
   const base = safeBasename(input.originalName);
   const storedName = `${id}-${base}`;
+
+  // WebDAV — só se groupId fornecido e houver config padrão ativa
+  if (input.groupId != null) {
+    const { resolveGroupStorageDefault, pushFileToWebDav } = await import("./groupStorageService.js");
+    const webdavCfg = await resolveGroupStorageDefault(input.groupId, null);
+    if (webdavCfg?.tipo === "WEBDAV") {
+      const mediaUrl = await pushFileToWebDav(webdavCfg, input.buffer, storedName);
+      return { mediaUrl, storedName };
+    }
+  }
+
   if (config.mediaStorage === "s3") {
     const { uploadMemoFileToS3 } = await import("./s3MediaStorage.js");
     const mediaUrl = await uploadMemoFileToS3({
@@ -378,6 +390,7 @@ export async function createMemoFromUpload(input: {
   }
   const { mediaUrl: rel } = await storeMemoBinaryAndGetUrl({
     userId: input.userId,
+    groupId: input.groupId,
     buffer: input.buffer,
     mime: input.mime,
     originalName: input.originalName,

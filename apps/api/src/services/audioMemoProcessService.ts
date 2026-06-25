@@ -53,6 +53,7 @@ export async function processAudioMemoForReview(input: {
 
   const { mediaUrl, storedName } = await storeMemoBinaryAndGetUrl({
     userId: input.userId,
+    groupId: input.groupId,
     buffer: input.buffer,
     mime: input.mime,
     originalName: input.originalName,
