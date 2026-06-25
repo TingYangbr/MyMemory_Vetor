@@ -56,6 +56,7 @@ import { UpdateClassificacaoListagemCriterioConcreto1700000000140 } from "./migr
 import { UpdateClassificacaoListagemConceitual1700000000141 } from "./migrations/1700000000141-UpdateClassificacaoListagemConceitual.js";
 import { RevertClassificacaoTextoAtual1700000000142 } from "./migrations/1700000000142-RevertClassificacaoTextoAtual.js";
 import { UpdateClassificacaoDominioPorBem1700000000143 } from "./migrations/1700000000143-UpdateClassificacaoDominioPorBem.js";
+import { GroupStorageConfigs1700000000144 } from "./migrations/1700000000144-GroupStorageConfigs.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -84,6 +85,7 @@ import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 import batchImportRoutes from "./routes/batchImport.js";
+import groupStorageConfigsRoutes from "./routes/groupStorageConfigsRoutes.js";
 
 assertMediaStorageEnv();
 
@@ -140,6 +142,7 @@ assertMediaStorageEnv();
       UpdateClassificacaoListagemConceitual1700000000141,
       RevertClassificacaoTextoAtual1700000000142,
       UpdateClassificacaoDominioPorBem1700000000143,
+      GroupStorageConfigs1700000000144,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -212,6 +215,7 @@ await app.register(groupDbConnectionsRoutes);
 await app.register(adminUserInvitesRoutes);
 await app.register(adminMemoContextCloneRoutes);
 await app.register(adminSubscriptionsRoutes);
+await app.register(groupStorageConfigsRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 

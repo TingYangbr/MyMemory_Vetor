@@ -12,6 +12,14 @@ import { apiGet, apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
 import styles from "./BatchImportPage.module.css";
 
+interface StorageConfigOption {
+  id: number;
+  label: string;
+  url: string;
+  pathPrefix: string | null;
+  isDefault: boolean;
+}
+
 type IaLevel = "semIA" | "basico" | "completo";
 
 const PROVIDER_OPTIONS: { value: StorageProvider; label: string; hint: string }[] = [
@@ -49,6 +57,8 @@ export default function BatchImportPage() {
   const [provider, setProvider] = useState<StorageProvider>("LOCAL");
   const [folderPath, setFolderPath] = useState("");
   const [iaLevel, setIaLevel] = useState<IaLevel>("semIA");
+  const [webdavConfigs, setWebdavConfigs] = useState<StorageConfigOption[]>([]);
+  const [selectedWebdavId, setSelectedWebdavId] = useState<number | null>(null);
 
   useEffect(() => {
     apiGet<MeResponse>("/api/me").then(setMe).catch(() => {});
@@ -56,6 +66,28 @@ export default function BatchImportPage() {
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const workspaceLabel = workspaceGroupId != null ? me?.groupLabel ?? "Grupo" : "Pessoal";
+
+  // Carrega configs WebDAV do grupo ativo quando WEBDAV é selecionado
+  useEffect(() => {
+    if (provider !== "WEBDAV" || workspaceGroupId == null) {
+      setWebdavConfigs([]);
+      setSelectedWebdavId(null);
+      return;
+    }
+    apiGet<{ configs: StorageConfigOption[] }>(`/api/groups/${workspaceGroupId}/storage-configs`)
+      .then(res => {
+        const webdav = res.configs;
+        setWebdavConfigs(webdav);
+        const def = webdav.find(c => c.isDefault) ?? webdav[0] ?? null;
+        setSelectedWebdavId(def?.id ?? null);
+        if (def) {
+          const base = def.url.replace(/\/$/, "");
+          const prefix = def.pathPrefix?.trim() ?? "";
+          setFolderPath(prefix ? `${base}${prefix}` : base);
+        }
+      })
+      .catch(() => {});
+  }, [provider, workspaceGroupId]);
 
   const [verifyResult, setVerifyResult] = useState<BatchVerifyResponse | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
@@ -190,7 +222,34 @@ export default function BatchImportPage() {
             </div>
 
             <div className={styles.fieldGroupFlex}>
-              {isLocal && (
+              {isLocal && provider === "WEBDAV" && webdavConfigs.length > 0 && (
+                <>
+                  <label className={styles.label} htmlFor="webdavConfig">Servidor WebDAV</label>
+                  <select
+                    id="webdavConfig"
+                    className={styles.select}
+                    value={selectedWebdavId ?? ""}
+                    onChange={e => {
+                      const id = Number(e.target.value);
+                      setSelectedWebdavId(id);
+                      const cfg = webdavConfigs.find(c => c.id === id);
+                      if (cfg) {
+                        const base = cfg.url.replace(/\/$/, "");
+                        const prefix = cfg.pathPrefix?.trim() ?? "";
+                        setFolderPath(prefix ? `${base}${prefix}` : base);
+                      }
+                      setVerifyResult(null);
+                      setProcessResult(null);
+                    }}
+                  >
+                    {webdavConfigs.map(c => (
+                      <option key={c.id} value={c.id}>{c.label}</option>
+                    ))}
+                  </select>
+                  <input type="hidden" value={folderPath} />
+                </>
+              )}
+              {isLocal && (provider !== "WEBDAV" || webdavConfigs.length === 0) && (
                 <>
                   <label className={styles.label} htmlFor="folderPath">Caminho da pasta</label>
                   <div className={styles.inputWithHint}>
