@@ -379,6 +379,12 @@ export interface MemoAuthorEditResponse {
   mediaFileUrl: string | null;
   /** Categoria gravada na coluna memos.category. */
   category?: string | null;
+  /** Provedor de storage onde o arquivo está armazenado (S3, WEBDAV, LOCAL, etc.). */
+  storageProvider?: string | null;
+  /** URL ou caminho externo do arquivo original. */
+  externalFileRef?: string | null;
+  /** Nome original do arquivo (batch import). */
+  originalFileName?: string | null;
 }
 
 export interface PatchMemoResponse {

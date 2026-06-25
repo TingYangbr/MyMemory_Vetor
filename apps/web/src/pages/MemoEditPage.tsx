@@ -81,6 +81,7 @@ export default function MemoEditPage() {
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
   const [credMult, setCredMult] = useState(100);
+  const [showStorageModal, setShowStorageModal] = useState(false);
 
   const loadMemo = useCallback(() => {
     if (!validId) {
@@ -217,7 +218,32 @@ export default function MemoEditPage() {
               ) : null}
             </p>
           </div>
+          {memo.storageProvider && (
+            <button
+              type="button"
+              className={styles.storageBadge}
+              onClick={() => setShowStorageModal(true)}
+              title="Ver local de armazenamento"
+            >
+              {memo.storageProvider}
+            </button>
+          )}
         </header>
+
+        {showStorageModal && (
+          <div className={styles.modalOverlay} onClick={() => setShowStorageModal(false)}>
+            <div className={styles.modalBox} onClick={e => e.stopPropagation()}>
+              <h3 className={styles.modalTitle}>Armazenamento do arquivo</h3>
+              <dl className={styles.modalDl}>
+                <dt>Provedor</dt>
+                <dd>{memo.storageProvider ?? "—"}</dd>
+                {memo.originalFileName && <><dt>Arquivo original</dt><dd>{memo.originalFileName}</dd></>}
+                {memo.externalFileRef && <><dt>Localização</dt><dd className={styles.modalUrl}>{memo.externalFileRef}</dd></>}
+              </dl>
+              <button type="button" className={styles.modalClose} onClick={() => setShowStorageModal(false)}>Fechar</button>
+            </div>
+          </div>
+        )}
 
       <section className={`${styles.panel} ${styles.gridFullWidth}`} style={{ marginBottom: "1.25rem" }}>
         <h2 className={styles.panelTitle}>Metadados do arquivo / registro</h2>
