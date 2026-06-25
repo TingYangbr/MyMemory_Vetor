@@ -233,8 +233,8 @@ export async function pushFileToWebDav(
     : {};
   const client = createClient(cfg.url, clientOpts);
 
-  const prefix = (cfg.pathPrefix ?? "").trim().replace(/\/$/, "");
-  const remotePath = prefix ? `${prefix}/${storedName}` : `/${storedName}`;
+  const prefix = (cfg.pathPrefix ?? "").trim().replace(/^\//, "").replace(/\/$/, "");
+  const remotePath = prefix ? `/${prefix}/${storedName}` : `/${storedName}`;
 
   await client.putFileContents(remotePath, buffer, { overwrite: true });
 
