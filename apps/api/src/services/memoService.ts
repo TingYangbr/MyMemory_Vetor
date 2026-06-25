@@ -286,14 +286,19 @@ export async function storeMemoBinaryAndGetUrl(input: {
 export function assertMemoImageUrlBelongsToUser(url: string, userId: number): void {
   const u = url.trim();
   if (!u) throw new Error("invalid_image_url");
-  const needle = `/${userId}/`;
-  if (!u.includes(needle)) throw new Error("invalid_image_url");
-  const okPath =
-    u.includes("/media/") ||
-    u.includes("/memos/") ||
-    u.includes("amazonaws.com") ||
-    u.includes("digitaloceanspaces.com") ||
-    u.startsWith("/media/");
+
+  // URL externa (WebDAV ou storage de grupo) — gerada pelo backend no /process, acesso já
+  // validado por autenticação. S3 mantém checagem de userId; WebDAV usa controle por grupo.
+  if (u.startsWith("http://") || u.startsWith("https://")) {
+    const isCloud =
+      u.includes("amazonaws.com") || u.includes("digitaloceanspaces.com");
+    if (isCloud && !u.includes(`/${userId}/`)) throw new Error("invalid_image_url");
+    return;
+  }
+
+  // Storage local: exige /{userId}/ e prefixo /media/
+  if (!u.includes(`/${userId}/`)) throw new Error("invalid_image_url");
+  const okPath = u.includes("/media/") || u.includes("/memos/") || u.startsWith("/media/");
   if (!okPath) throw new Error("invalid_image_url");
 }
 
