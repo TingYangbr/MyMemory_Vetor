@@ -20,7 +20,7 @@ type CatCtx = {
   id: number;
   name: string;
   subcategories: { name: string }[];
-  campos: { name: string; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[];
+  campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[];
 };
 
 export async function loadCategoryContext(
@@ -56,7 +56,7 @@ export async function loadCategoryContext(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name, normalizedTerms, resolucaoNomeAbrev FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name, description, normalizedTerms, resolucaoNomeAbrev FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
@@ -68,7 +68,7 @@ export async function loadCategoryContext(
     campoRows = rows;
   }
   const subs = new Map<number, { name: string }[]>();
-  const camps = new Map<number, { name: string; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[]>();
+  const camps = new Map<number, { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[]>();
   for (const id of ids) {
     subs.set(id, []);
     camps.set(id, []);
@@ -84,6 +84,7 @@ export async function loadCategoryContext(
     if (list)
       list.push({
         name: String(r.name),
+        description: r.description ? String(r.description) : null,
         normalizedTerms: parseNormalizedTerms(r.normalizedTerms),
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
       });
@@ -148,8 +149,9 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
     if (c.campos.length) {
       campoLines.push(`Categoria: ${c.name} (ID ${c.id})`);
       for (const f of c.campos) {
+        const desc = f.description ? ` — ${f.description}` : "";
         const terms = f.normalizedTerms.length ? ` | padrões: ${f.normalizedTerms.join(", ")}` : "";
-        campoLines.push(`- ${f.name}${terms}`);
+        campoLines.push(`- ${f.name}${desc}${terms}`);
       }
       campoLines.push("");
     }
@@ -584,11 +586,11 @@ Regras: ${summaryRule}`;
     const campoNames = cat?.campos.map((c) => c.name) ?? [];
     const campoGuide =
       cat?.campos
-        .map((c) =>
-          c.normalizedTerms.length
-            ? `${c.name} (padrões: ${c.normalizedTerms.join(", ")})`
-            : `${c.name} (sem padrões)`
-        )
+        .map((c) => {
+          const desc = c.description ? ` — ${c.description}` : "";
+          const terms = c.normalizedTerms.length ? ` (padrões: ${c.normalizedTerms.join(", ")})` : "";
+          return `${c.name}${desc}${terms}`;
+        })
         .join("; ") ?? "";
 
     const sys2 = `Você analisa um memo já resumido. Responda APENAS JSON:

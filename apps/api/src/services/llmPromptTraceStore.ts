@@ -17,6 +17,9 @@ export interface LlmPromptTrace {
 
 const traceStorage = new AsyncLocalStorage<LlmPromptTrace[]>();
 
+// Último trace global — sobrevive entre requisições (perde-se ao reiniciar)
+let globalLastTrace: LlmPromptTrace | null = null;
+
 function normalizeContent(v: unknown): string {
   if (typeof v === "string") return v;
   if (v == null) return "";
@@ -68,8 +71,10 @@ export function resetLlmPromptTraces(): void {
 }
 
 export function setLastLlmPromptTrace(input: Parameters<typeof buildTrace>[0]): void {
+  const trace = buildTrace(input);
   const store = traceStorage.getStore();
-  if (store) store.push(buildTrace(input));
+  if (store) store.push(trace);
+  globalLastTrace = trace;
 }
 
 export function getAllLlmPromptTraces(): LlmPromptTrace[] {
@@ -79,6 +84,6 @@ export function getAllLlmPromptTraces(): LlmPromptTrace[] {
 
 export function getLastLlmPromptTrace(): LlmPromptTrace | null {
   const store = traceStorage.getStore();
-  if (!store || store.length === 0) return null;
-  return store[store.length - 1]!;
+  if (store && store.length > 0) return store[store.length - 1]!;
+  return globalLastTrace;
 }
