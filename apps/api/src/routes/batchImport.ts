@@ -192,7 +192,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       let result;
       if (webdav) {
         try {
-          const buffer = await downloadWebDavFile(folderPath, file.fullPath);
+          const webdavPath = new URL(file.fullPath).pathname;
+          const buffer = await downloadWebDavFile(folderPath, webdavPath);
           result = await processBatchFileFromBuffer({
             userId,
             groupId: groupIdVal,
@@ -202,7 +203,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             sizeBytes: file.sizeBytes,
             provider,
             iaLevel,
-            externalFileRef: `${new URL(folderPath).origin}${file.fullPath}`,
+            externalFileRef: file.fullPath,
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);

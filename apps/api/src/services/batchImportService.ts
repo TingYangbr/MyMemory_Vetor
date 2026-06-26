@@ -123,7 +123,7 @@ export async function scanWebDavFolder(
         if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
         results.push({
           originalFileName: item.basename,
-          fullPath: item.filename,
+          fullPath: `${origin}${item.filename}`,
           sizeBytes: item.size ?? 0,
           ext,
         });
