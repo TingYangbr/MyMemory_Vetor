@@ -286,7 +286,13 @@ export function bindParamsMssql(
       // RTRIM remove espaços finais de colunas CHAR(n) antes de comparar,
       // pois mssql envia parâmetros como NVarChar e CHAR = NVarChar não faz padding automático.
       // Só mantém LIKE com % quando LLM envia explicitamente operador_sugerido: "LIKE" (busca parcial).
-      if (isLikeContext && llmOpOverride !== "LIKE") {
+      if (isLikeContext && llmOpOverride === "LIKE") {
+        // Busca parcial: COLLATE CI_AI garante accent-insensitive (É = E, Ó = O),
+        // equivalente ao unaccent() usado nas queries Postgres.
+        if (/\bLIKE\s*$/i.test(result)) {
+          result = result.replace(/(\S+)\s+LIKE\s*$/i, "RTRIM(CAST($1 AS NVARCHAR(MAX))) COLLATE Latin1_General_CI_AI LIKE ");
+        }
+      } else if (isLikeContext && llmOpOverride !== "LIKE") {
         // CAST para NVARCHAR(MAX) necessário: RTRIM não aceita TEXT no SQL Server.
         // RTRIM remove espaços de padding de colunas CHAR(n).
         if (/\bNOT\s+LIKE\s*$/i.test(result)) {
