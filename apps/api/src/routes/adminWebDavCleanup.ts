@@ -66,13 +66,13 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     // 4. Busca todas as URLs de mídia de memos ativos do grupo
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT mediaImageUrl    AS url FROM memos WHERE groupid = ? AND isactive = TRUE AND mediaImageUrl    IS NOT NULL
+      `SELECT mediaImageUrl    AS url FROM memos WHERE groupid = ? AND isactive = 1 AND mediaImageUrl    IS NOT NULL
        UNION ALL
-       SELECT mediaAudioUrl    AS url FROM memos WHERE groupid = ? AND isactive = TRUE AND mediaAudioUrl    IS NOT NULL
+       SELECT mediaAudioUrl    AS url FROM memos WHERE groupid = ? AND isactive = 1 AND mediaAudioUrl    IS NOT NULL
        UNION ALL
-       SELECT mediaVideoUrl    AS url FROM memos WHERE groupid = ? AND isactive = TRUE AND mediaVideoUrl    IS NOT NULL
+       SELECT mediaVideoUrl    AS url FROM memos WHERE groupid = ? AND isactive = 1 AND mediaVideoUrl    IS NOT NULL
        UNION ALL
-       SELECT mediaDocumentUrl AS url FROM memos WHERE groupid = ? AND isactive = TRUE AND mediaDocumentUrl IS NOT NULL`,
+       SELECT mediaDocumentUrl AS url FROM memos WHERE groupid = ? AND isactive = 1 AND mediaDocumentUrl IS NOT NULL`,
       [groupId, groupId, groupId, groupId]
     );
 
