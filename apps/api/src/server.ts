@@ -86,6 +86,7 @@ import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 import batchImportRoutes from "./routes/batchImport.js";
 import groupStorageConfigsRoutes from "./routes/groupStorageConfigsRoutes.js";
+import adminWebDavCleanupRoutes from "./routes/adminWebDavCleanup.js";
 
 assertMediaStorageEnv();
 
@@ -216,6 +217,7 @@ await app.register(adminUserInvitesRoutes);
 await app.register(adminMemoContextCloneRoutes);
 await app.register(adminSubscriptionsRoutes);
 await app.register(groupStorageConfigsRoutes);
+await app.register(adminWebDavCleanupRoutes);
 
 app.get("/api/health", async () => ({ ok: true }));
 
