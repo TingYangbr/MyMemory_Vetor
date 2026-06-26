@@ -244,7 +244,7 @@ function publicMediaPath(userId: number, storedName: string): string {
   return `/media/${userId}/${storedName}`;
 }
 
-/** Grava buffer no WebDAV do grupo (se configurado), S3 ou disco local; retorna URL usada em `memos.media*Url`. */
+/** Grava buffer em S3 ou disco local (nunca WebDAV); retorna URL temporária usada durante a revisão. */
 export async function storeMemoBinaryAndGetUrl(input: {
   userId: number;
   buffer: Buffer;
@@ -255,16 +255,6 @@ export async function storeMemoBinaryAndGetUrl(input: {
   const id = crypto.randomUUID();
   const base = safeBasename(input.originalName);
   const storedName = `${id}-${base}`;
-
-  // WebDAV — só se groupId fornecido e houver config padrão ativa
-  if (input.groupId != null) {
-    const { resolveGroupStorageDefault, pushFileToWebDav } = await import("./groupStorageService.js");
-    const webdavCfg = await resolveGroupStorageDefault(input.groupId, null);
-    if (webdavCfg?.tipo === "WEBDAV") {
-      const mediaUrl = await pushFileToWebDav(webdavCfg, input.buffer, storedName);
-      return { mediaUrl, storedName };
-    }
-  }
 
   if (config.mediaStorage === "s3") {
     const { uploadMemoFileToS3 } = await import("./s3MediaStorage.js");
@@ -280,6 +270,45 @@ export async function storeMemoBinaryAndGetUrl(input: {
   const absPath = path.join(userDir, storedName);
   await fs.writeFile(absPath, input.buffer);
   return { mediaUrl: publicMediaPath(input.userId, storedName), storedName };
+}
+
+/**
+ * Se o grupo tiver WebDAV configurado como padrão, migra o arquivo da URL temporária
+ * (S3 ou local) para o WebDAV e deleta o arquivo temporário.
+ * Retorna a URL final a ser gravada no banco.
+ * O storedName é extraído do último segmento da URL — funciona para S3 e local.
+ */
+export async function finalizeMediaToWebDavIfNeeded(
+  tempUrl: string,
+  userId: number,
+  groupId: number | null
+): Promise<string> {
+  if (groupId == null) return tempUrl;
+
+  const { resolveGroupStorageDefault, pushFileToWebDav } = await import("./groupStorageService.js");
+  const webdavCfg = await resolveGroupStorageDefault(groupId, null);
+  if (!webdavCfg || webdavCfg.tipo !== "WEBDAV") return tempUrl;
+
+  const storedName = tempUrl.split("/").pop();
+  if (!storedName) return tempUrl;
+
+  let buffer: Buffer;
+  if (config.mediaStorage === "s3") {
+    const { downloadMemoObjectFromS3, deleteMemoObjectFromS3 } = await import("./s3MediaStorage.js");
+    const s3Key = `memos/${userId}/${storedName}`;
+    buffer = await downloadMemoObjectFromS3(s3Key);
+    const webdavUrl = await pushFileToWebDav(webdavCfg, buffer, storedName);
+    await deleteMemoObjectFromS3(s3Key);
+    return webdavUrl;
+  }
+
+  // Storage local
+  const userDir = await ensureUploadsDir(String(userId));
+  const absPath = path.join(userDir, storedName);
+  buffer = await fs.readFile(absPath);
+  const webdavUrl = await pushFileToWebDav(webdavCfg, buffer, storedName);
+  await fs.unlink(absPath).catch(() => {});
+  return webdavUrl;
 }
 
 /** Evita confirmar memo com URL de mídia de outro usuário (imagem, áudio, etc.). */
@@ -647,6 +676,7 @@ export async function createMemoImageReviewed(input: {
 }): Promise<MemoCreatedResponse> {
   assertMemoImageUrlBelongsToUser(input.mediaImageUrl, input.userId);
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
+  const mediaImageUrl = await finalizeMediaToWebDavIfNeeded(input.mediaImageUrl, input.userId, input.groupId);
   const meta = JSON.stringify({
     iaUseImagem: input.iaLevel,
     originalText: truncateOriginalTextForMeta(input.originalText),
@@ -671,7 +701,7 @@ export async function createMemoImageReviewed(input: {
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
-    input.mediaImageUrl.trim(),
+    mediaImageUrl.trim(),
     text,
     kw,
     dadosJson,
@@ -729,6 +759,7 @@ export async function createMemoAudioReviewed(input: {
 }): Promise<MemoCreatedResponse> {
   assertMemoAudioUrlBelongsToUser(input.mediaAudioUrl, input.userId);
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
+  const mediaAudioUrl = await finalizeMediaToWebDavIfNeeded(input.mediaAudioUrl, input.userId, input.groupId);
   const meta = JSON.stringify({
     iaUseAudio: input.iaLevel,
     originalText: truncateOriginalTextForMeta(input.originalText),
@@ -753,7 +784,7 @@ export async function createMemoAudioReviewed(input: {
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
-    input.mediaAudioUrl.trim(),
+    mediaAudioUrl.trim(),
     text,
     kw,
     dadosJson,
@@ -811,6 +842,7 @@ export async function createMemoVideoReviewed(input: {
 }): Promise<MemoCreatedResponse> {
   assertMemoImageUrlBelongsToUser(input.mediaVideoUrl, input.userId);
   await validateMemoWorkspaceGroup(input.userId, input.groupId, input.isAdmin);
+  const mediaVideoUrl = await finalizeMediaToWebDavIfNeeded(input.mediaVideoUrl, input.userId, input.groupId);
   const meta = JSON.stringify({
     iaUseVideo: input.iaLevel,
     originalText: truncateOriginalTextForMeta(input.originalText),
@@ -835,7 +867,7 @@ export async function createMemoVideoReviewed(input: {
   const [memoRows] = await pool.query<{ id: number }[]>(`${sql} RETURNING id`, [
     input.userId,
     input.groupId,
-    input.mediaVideoUrl.trim(),
+    mediaVideoUrl.trim(),
     text,
     kw,
     dadosJson,
