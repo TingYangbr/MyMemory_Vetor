@@ -19,6 +19,14 @@ interface StorageConfig {
 
 const EMPTY_FORM = { label: "", url: "", pathPrefix: "", username: "", password: "", isDefault: false };
 
+interface OrphanFile { remotePath: string; fullUrl: string; sizeBytes: number; }
+interface CleanupResult {
+  dryRun: boolean; webdavDir: string;
+  totalWebDavFiles: number; activeMemosUrls: number;
+  orphansFound: number; orphans?: OrphanFile[];
+  deleted?: number; errors?: { file: string; error: string }[];
+}
+
 export default function AdminStoragePage() {
   const [groups, setGroups] = useState<MemoContextGroupOption[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<number | null>(null);
@@ -31,6 +39,10 @@ export default function AdminStoragePage() {
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [testing, setTesting] = useState(false);
 
+  const [cleanupResult, setCleanupResult] = useState<CleanupResult | null>(null);
+  const [cleanupLoading, setCleanupLoading] = useState(false);
+  const [cleanupError, setCleanupError] = useState<string | null>(null);
+
   useEffect(() => {
     apiGet<MemoContextEditorMetaResponse>("/api/memo-context/editor-meta")
       .then(r => setGroups(r.allGroups ?? r.ownedGroups))
@@ -38,7 +50,7 @@ export default function AdminStoragePage() {
   }, []);
 
   useEffect(() => {
-    if (selectedGroupId == null) { setConfigs([]); return; }
+    if (selectedGroupId == null) { setConfigs([]); setCleanupResult(null); setCleanupError(null); return; }
     setLoadingConfigs(true);
     apiGet<{ configs: StorageConfig[] }>(`/api/admin/groups/${selectedGroupId}/storage-configs`)
       .then(r => setConfigs(r.configs))
@@ -96,6 +108,33 @@ export default function AdminStoragePage() {
       if (editingId === id) resetForm();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Erro ao remover.");
+    }
+  }
+
+  async function handleCleanupScan() {
+    if (selectedGroupId == null) return;
+    setCleanupLoading(true); setCleanupResult(null); setCleanupError(null);
+    try {
+      const r = await apiPostJson<CleanupResult>("/api/admin/storage/webdav-orphan-cleanup", { groupId: selectedGroupId, confirm: false });
+      setCleanupResult(r);
+    } catch (e) {
+      setCleanupError(e instanceof Error ? e.message : "Erro ao verificar.");
+    } finally {
+      setCleanupLoading(false);
+    }
+  }
+
+  async function handleCleanupDelete() {
+    if (selectedGroupId == null || !cleanupResult?.orphansFound) return;
+    if (!window.confirm(`Deletar ${cleanupResult.orphansFound} arquivo(s) órfão(s) do WebDAV? Esta ação não pode ser desfeita.`)) return;
+    setCleanupLoading(true); setCleanupError(null);
+    try {
+      const r = await apiPostJson<CleanupResult>("/api/admin/storage/webdav-orphan-cleanup", { groupId: selectedGroupId, confirm: true });
+      setCleanupResult(r);
+    } catch (e) {
+      setCleanupError(e instanceof Error ? e.message : "Erro ao deletar.");
+    } finally {
+      setCleanupLoading(false);
     }
   }
 
@@ -222,6 +261,65 @@ export default function AdminStoragePage() {
                   <button type="button" className="mm-btn" onClick={resetForm}>Cancelar</button>
                 )}
               </div>
+            </div>
+            {/* Limpeza de órfãos */}
+            <div className={styles.section}>
+              <h2 className={styles.sectionTitle}>Limpeza de Arquivos Órfãos</h2>
+              <p className={adminStyles.hint}>
+                Arquivos presentes no WebDAV que não estão vinculados a nenhum memo ativo do grupo.
+                Use <strong>Verificar</strong> primeiro para ver a lista antes de deletar.
+              </p>
+              <div className={styles.btnRow}>
+                <button type="button" className="mm-btn mm-btn--secondary" onClick={handleCleanupScan} disabled={cleanupLoading}>
+                  {cleanupLoading && !cleanupResult ? "Verificando…" : "Verificar órfãos"}
+                </button>
+                {cleanupResult?.dryRun && cleanupResult.orphansFound > 0 && (
+                  <button type="button" className={styles.btnDel} onClick={handleCleanupDelete} disabled={cleanupLoading}>
+                    {cleanupLoading ? "Deletando…" : `Deletar ${cleanupResult.orphansFound} arquivo(s)`}
+                  </button>
+                )}
+              </div>
+
+              {cleanupError && <p className={styles.error}>{cleanupError}</p>}
+
+              {cleanupResult && (
+                <div className={styles.cleanupResult}>
+                  {cleanupResult.dryRun ? (
+                    <>
+                      <p className={styles.cleanupSummary}>
+                        WebDAV: <strong>{cleanupResult.totalWebDavFiles}</strong> arquivo(s) &nbsp;|&nbsp;
+                        No banco: <strong>{cleanupResult.activeMemosUrls}</strong> &nbsp;|&nbsp;
+                        Órfãos: <strong>{cleanupResult.orphansFound}</strong>
+                      </p>
+                      {cleanupResult.orphansFound === 0 ? (
+                        <p className={styles.testOk}>✓ Nenhum arquivo órfão encontrado.</p>
+                      ) : (
+                        <div className={adminStyles.tableWrap}>
+                          <table className={`${adminStyles.table} ${styles.table}`}>
+                            <thead>
+                              <tr><th>Arquivo</th><th>Tamanho</th></tr>
+                            </thead>
+                            <tbody>
+                              {cleanupResult.orphans!.map(f => (
+                                <tr key={f.remotePath}>
+                                  <td className={styles.tdUrl}>{f.remotePath}</td>
+                                  <td>{f.sizeBytes > 0 ? `${(f.sizeBytes / 1024).toFixed(1)} KB` : "—"}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <p className={cleanupResult.errors?.length ? styles.error : styles.testOk}>
+                      {cleanupResult.errors?.length
+                        ? `⚠ ${cleanupResult.deleted} deletado(s), ${cleanupResult.errors.length} erro(s).`
+                        : `✓ ${cleanupResult.deleted} arquivo(s) deletado(s) com sucesso.`}
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </>
         )}

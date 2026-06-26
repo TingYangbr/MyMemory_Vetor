@@ -120,3 +120,13 @@
   font-size: 0.88rem;
   margin: 0.5rem 0 0;
 }
+
+.cleanupResult {
+  margin-top: 1rem;
+}
+
+.cleanupSummary {
+  font-size: 0.88rem;
+  margin: 0 0 0.75rem;
+  color: var(--text-muted, #555);
+}
