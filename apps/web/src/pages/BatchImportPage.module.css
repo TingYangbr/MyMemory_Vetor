@@ -355,6 +355,21 @@
   border-radius: 999px;
 }
 
+.filterToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  color: var(--text-secondary, #6b7280);
+  margin-left: 0.5rem;
+}
+
+.filterToggle input {
+  cursor: pointer;
+}
+
 .tableWrap {
   overflow-x: auto;
   border: 1px solid var(--mm-border);

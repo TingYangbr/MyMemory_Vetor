@@ -239,10 +239,12 @@ export async function scanLocalFolder(
 
 async function checkDuplicate(
   userId: number,
-  originalFileName: string
+  originalFileName: string,
+  fullPath?: string
 ): Promise<"none" | "exact" | "suspect"> {
   const basename = path.basename(originalFileName);
 
+  // Checagem por original_file_name (memos importados via batch)
   const [exactRows] = await pool.query<RowDataPacket[]>(
     `SELECT COUNT(*) AS cnt FROM memos
      WHERE userid = ? AND original_file_name = ? AND isactive = 1`,
@@ -257,6 +259,18 @@ async function checkDuplicate(
       [userId, basename]
     );
     if (Number(suspectRows[0]?.cnt) > 0) return "suspect";
+  }
+
+  // Checagem por URL de mídia — detecta memos criados via Catalogar (câmera/upload)
+  // que não gravam original_file_name mas gravam a URL WebDAV em media*Url
+  if (fullPath && (fullPath.startsWith("http://") || fullPath.startsWith("https://"))) {
+    const [urlRows] = await pool.query<RowDataPacket[]>(
+      `SELECT COUNT(*) AS cnt FROM memos
+       WHERE userid = ? AND isactive = 1
+         AND (mediaImageUrl = ? OR mediaAudioUrl = ? OR mediaVideoUrl = ? OR mediaDocumentUrl = ?)`,
+      [userId, fullPath, fullPath, fullPath, fullPath]
+    );
+    if (Number(urlRows[0]?.cnt) > 0) return "exact";
   }
 
   return "none";
@@ -293,7 +307,7 @@ export async function verifyBatchFiles(
       mediaType = classifyFile(mime, file.originalFileName);
     } else {
       mediaType = classifyFile(mime, file.originalFileName);
-      const dup = await checkDuplicate(input.userId, file.originalFileName);
+      const dup = await checkDuplicate(input.userId, file.originalFileName, file.fullPath);
       if (dup === "exact") {
         situacao = "ja_cadastrado";
         motivo = "Arquivo já cadastrado com este nome";

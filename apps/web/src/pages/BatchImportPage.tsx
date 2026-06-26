@@ -97,6 +97,7 @@ export default function BatchImportPage() {
   const [verifyResult, setVerifyResult] = useState<BatchVerifyResponse | null>(null);
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
+  const [hideJaCadastrado, setHideJaCadastrado] = useState(true);
 
   const [processResult, setProcessResult] = useState<BatchProcessResponse | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
@@ -353,9 +354,20 @@ export default function BatchImportPage() {
                 {verifyResult.files.filter(f => f.situacao === "suspeito_duplicidade").length > 0 && (
                   <span className={styles.countWarn}>{verifyResult.files.filter(f => f.situacao === "suspeito_duplicidade").length} suspeitos</span>
                 )}
-                {verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade").length > 0 && (
-                  <span className={styles.countErr}>{verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade").length} bloqueados</span>
+                {verifyResult.files.filter(f => f.situacao === "ja_cadastrado").length > 0 && (
+                  <span className={styles.countWarn}>{verifyResult.files.filter(f => f.situacao === "ja_cadastrado").length} já cadastrados</span>
                 )}
+                {verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade" && f.situacao !== "ja_cadastrado").length > 0 && (
+                  <span className={styles.countErr}>{verifyResult.files.filter(f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade" && f.situacao !== "ja_cadastrado").length} bloqueados</span>
+                )}
+                <label className={styles.filterToggle}>
+                  <input
+                    type="checkbox"
+                    checked={hideJaCadastrado}
+                    onChange={e => setHideJaCadastrado(e.target.checked)}
+                  />
+                  Ocultar já cadastrados
+                </label>
               </span>
             </div>
 
@@ -374,7 +386,7 @@ export default function BatchImportPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {verifyResult.files.map(f => (
+                    {verifyResult.files.filter(f => !(hideJaCadastrado && f.situacao === "ja_cadastrado")).map(f => (
                       <tr key={f.originalFileName}>
                         <td className={styles.nameCell} title={f.fullPath}>{f.originalFileName}</td>
                         <td>{f.mediaType ?? "—"}</td>
