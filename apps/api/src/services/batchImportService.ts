@@ -256,7 +256,8 @@ function formatDupDate(d: Date | string | undefined): string {
 async function checkDuplicate(
   userId: number,
   groupId: number | null,
-  originalFileName: string
+  originalFileName: string,
+  fullPath?: string
 ): Promise<DuplicateInfo> {
   const basename = path.basename(originalFileName);
 
@@ -290,6 +291,27 @@ async function checkDuplicate(
   if (originalFileName !== basename) {
     const suspect = await queryDup(basename);
     if (suspect) return { kind: "suspect", createdAt: suspect.createdat, email: suspect.email };
+  }
+
+  // Checagem por URL de mídia — detecta memos criados via Catalogar (câmera/upload)
+  // que não gravam original_file_name mas gravam a URL WebDAV em media*Url
+  if (fullPath && (fullPath.startsWith("http://") || fullPath.startsWith("https://"))) {
+    const scopeClause = groupId != null
+      ? "m.groupid = ?"
+      : "m.userid = ? AND m.groupid IS NULL";
+    const scopeParam = groupId != null ? groupId : userId;
+    const [urlRows] = await pool.query<RowDataPacket[]>(
+      `SELECT m.createdat, u.email
+       FROM memos m LEFT JOIN users u ON u.id = m.userid
+       WHERE ${scopeClause} AND m.isactive = 1
+         AND (m.mediaImageUrl = ? OR m.mediaAudioUrl = ? OR m.mediaVideoUrl = ? OR m.mediaDocumentUrl = ?)
+       LIMIT 1`,
+      [scopeParam, fullPath, fullPath, fullPath, fullPath]
+    );
+    if (urlRows.length > 0) {
+      const r = urlRows[0] as { createdat: Date; email: string | null };
+      return { kind: "exact", createdAt: r.createdat, email: r.email };
+    }
   }
 
   return { kind: "none" };
@@ -328,7 +350,7 @@ export async function verifyBatchFiles(
       mediaType = classifyFile(mime, file.originalFileName);
     } else {
       mediaType = classifyFile(mime, file.originalFileName);
-      const dup = await checkDuplicate(input.userId, groupId, file.originalFileName);
+      const dup = await checkDuplicate(input.userId, groupId, file.originalFileName, file.fullPath);
       if (dup.kind === "exact") {
         situacao = "ja_cadastrado";
         motivo = `Já cadastrado em ${formatDupDate(dup.createdAt)} por ${dup.email ?? "?"}`;
