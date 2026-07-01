@@ -210,27 +210,37 @@ interface DadosGrafico {
   rows: Array<Record<string, string | number>>;
 }
 
-/** Detecta colunas numéricas (exceto "id") e usa a primeira coluna não-numérica como eixo de categoria. */
+/**
+ * Detecta colunas numéricas (exceto "id") e usa a primeira coluna não-numérica como eixo de categoria.
+ * Quando TODAS as colunas são numéricas (ex.: ano + métricas, sem nenhuma coluna de texto), assume que a
+ * primeira coluna é a categoria — convenção comum em queries agregadas, onde o group_by vem primeiro no SELECT.
+ */
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
-  if (!dados.linhas.length) return null;
+  if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
     const vals = dados.linhas.map((l) => l[col]).filter((v) => v != null);
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
   if (numericCols.length === 0) return null;
-  const labelCol = dados.colunas.find((col) => !numericCols.includes(col));
-  if (!labelCol) return null; // todas as colunas são numéricas — sem eixo de categoria claro
+
+  let labelCol = dados.colunas.find((col) => !numericCols.includes(col));
+  let valueCols = numericCols;
+  if (!labelCol) {
+    labelCol = dados.colunas[0];
+    valueCols = numericCols.filter((col) => col !== labelCol);
+    if (valueCols.length === 0) return null;
+  }
 
   const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
     const row: Record<string, string | number> = { label: String(linha[labelCol] ?? "") };
-    for (const col of numericCols) {
+    for (const col of valueCols) {
       const v = linha[col];
       row[col] = v == null ? 0 : typeof v === "number" ? v : Number(v);
     }
     return row;
   });
-  return { valueCols: numericCols, rows };
+  return { valueCols, rows };
 }
 
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
