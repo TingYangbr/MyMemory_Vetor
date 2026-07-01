@@ -136,7 +136,7 @@ export default function Header({
     <header className={styles.header}>
       <div className={styles.row1}>
         <div className={styles.row1Left}>
-          <Link to="/" className={styles.brand} aria-label="myMemory — início">
+          <Link to="/" className={styles.brand} aria-label="proMemory — início">
             <span className={styles.logo}>
               <img
                 className={styles.logoImg}
@@ -147,7 +147,10 @@ export default function Header({
                 decoding="async"
               />
             </span>
-            <div className={styles.title}>myMemory</div>
+            <div className={styles.title}>
+              <span className={styles.titlePro}>pro</span>
+              <span className={styles.titleMemory}>Memory</span>
+            </div>
           </Link>
         </div>
         <div className={styles.row1Right}>

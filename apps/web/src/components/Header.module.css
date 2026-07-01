@@ -112,8 +112,15 @@ html[data-theme="dark"] .header {
   font-weight: 700;
   font-size: 1.375rem;
   letter-spacing: -0.03em;
-  color: var(--mm-primary);
   line-height: 1.15;
+}
+
+.titlePro {
+  color: var(--mm-muted);
+}
+
+.titleMemory {
+  color: var(--mm-success);
 }
 
 .version {
