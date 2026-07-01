@@ -20,11 +20,11 @@
   width: 100%;
   max-width: 480px;
   padding: 0.45rem 0.6rem;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--mm-border);
   border-radius: 4px;
   font-size: 0.9rem;
-  background: var(--bg, #fff);
-  color: var(--text, #111);
+  background: var(--mm-card);
+  color: var(--mm-text);
 }
 
 .table {
@@ -41,7 +41,7 @@
 }
 
 .rowEditing td {
-  background: var(--bg-subtle, #f5f7ff);
+  background: var(--mm-primary-faint);
 }
 
 .btnEdit,
@@ -50,17 +50,17 @@
   border-radius: 4px;
   font-size: 0.8rem;
   cursor: pointer;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--mm-border);
   background: transparent;
 }
 
 .btnEdit { margin-right: 4px; }
 
 .btnDel {
-  border-color: #c00;
-  color: #c00;
+  border-color: var(--mm-danger);
+  color: var(--mm-danger);
 }
-.btnDel:hover { background: #fff0f0; }
+.btnDel:hover { background: var(--mm-danger-bg); }
 
 .formGrid {
   display: grid;
@@ -80,11 +80,11 @@
 .field input {
   font-weight: 400;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border, #ccc);
+  border: 1px solid var(--mm-border);
   border-radius: 4px;
   font-size: 0.9rem;
-  background: var(--bg, #fff);
-  color: var(--text, #111);
+  background: var(--mm-card);
+  color: var(--mm-text);
 }
 
 .checkboxField {
@@ -104,19 +104,19 @@
 }
 
 .error {
-  color: #b00020;
+  color: var(--mm-danger);
   font-size: 0.88rem;
   margin: 0.5rem 0 0;
 }
 
 .testOk {
-  color: green;
+  color: var(--mm-success);
   font-size: 0.88rem;
   margin: 0.5rem 0 0;
 }
 
 .testErr {
-  color: #b00020;
+  color: var(--mm-danger);
   font-size: 0.88rem;
   margin: 0.5rem 0 0;
 }
@@ -128,5 +128,5 @@
 .cleanupSummary {
   font-size: 0.88rem;
   margin: 0 0 0.75rem;
-  color: var(--text-muted, #555);
+  color: var(--mm-muted);
 }

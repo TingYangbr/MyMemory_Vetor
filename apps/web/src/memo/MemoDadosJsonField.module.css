@@ -14,7 +14,7 @@
   min-height: 6.5rem;
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  border: 1px solid var(--mm-border, #d8dee6);
+  border: 1px solid var(--mm-border);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.82rem;
   line-height: 1.45;
@@ -26,21 +26,21 @@
 
 .mirror {
   z-index: 0;
-  background: #fff;
+  background: var(--mm-card);
   pointer-events: none;
-  color: var(--mm-text, #0f172a);
+  color: var(--mm-text);
 }
 
 .textarea {
   z-index: 1;
   resize: vertical;
   color: transparent;
-  caret-color: var(--mm-text, #0f172a);
+  caret-color: var(--mm-text);
   background: transparent;
 }
 
 .textarea:focus-visible {
-  outline: 2px solid var(--mm-accent, #14b8a6);
+  outline: 2px solid var(--mm-accent);
   outline-offset: 1px;
 }
 
@@ -50,12 +50,12 @@
 
 .hk {
   font-weight: 600;
-  color: #94a3b8;
+  color: var(--mm-muted);
 }
 
 .hv {
   font-weight: 700;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
 }
 
 .hn {
@@ -63,6 +63,6 @@
 }
 
 .ph {
-  color: var(--mm-muted, #64748b);
+  color: var(--mm-muted);
   opacity: 0.72;
 }

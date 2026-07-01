@@ -17,6 +17,22 @@
   --mm-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
   --mm-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 12px 24px rgba(15, 23, 42, 0.08);
   --mm-shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.12);
+  --mm-danger: #dc2626;
+  --mm-danger-hover: #b91c1c;
+  --mm-danger-bg: #fef2f2;
+  --mm-danger-border: #fecdd3;
+  --mm-warning: #b45309;
+  --mm-warning-bg: #fffbeb;
+  --mm-warning-border: #fde68a;
+  --mm-success: #15803d;
+  --mm-success-bg: #f0fdf4;
+  --mm-success-border: #bbf7d0;
+  --mm-info: #1d4ed8;
+  --mm-info-bg: #eff6ff;
+  --mm-info-border: #bfdbfe;
+  --mm-accent-alt: #6366f1;
+  --mm-accent-alt-bg: rgba(99, 102, 241, 0.12);
+  --mm-accent-alt-border: rgba(99, 102, 241, 0.3);
   --mm-font: "Plus Jakarta Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-family: var(--mm-font);
   line-height: 1.55;
@@ -45,6 +61,22 @@ html[data-theme="dark"] {
   --mm-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
   --mm-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.35);
   --mm-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  --mm-danger: #f87171;
+  --mm-danger-hover: #fca5a5;
+  --mm-danger-bg: rgba(239, 68, 68, 0.15);
+  --mm-danger-border: rgba(239, 68, 68, 0.35);
+  --mm-warning: #fbbf24;
+  --mm-warning-bg: rgba(245, 158, 11, 0.15);
+  --mm-warning-border: rgba(245, 158, 11, 0.35);
+  --mm-success: #4ade80;
+  --mm-success-bg: rgba(34, 197, 94, 0.15);
+  --mm-success-border: rgba(34, 197, 94, 0.35);
+  --mm-info: #60a5fa;
+  --mm-info-bg: rgba(59, 130, 246, 0.15);
+  --mm-info-border: rgba(59, 130, 246, 0.35);
+  --mm-accent-alt: #a5b4fc;
+  --mm-accent-alt-bg: rgba(165, 180, 252, 0.18);
+  --mm-accent-alt-border: rgba(165, 180, 252, 0.35);
   color: var(--mm-text);
   background-color: var(--mm-bg);
 }
@@ -100,8 +132,8 @@ button {
 
 .mm-btn:disabled {
   border-color: var(--mm-border);
-  background: #f8fafc;
-  color: #94a3b8;
+  background: var(--mm-bg);
+  color: var(--mm-muted);
   cursor: not-allowed;
   box-shadow: none;
 }
@@ -128,7 +160,7 @@ button {
 }
 
 .mm-btn--ghost:hover:not(:disabled) {
-  background: #f8fafc;
+  background: var(--mm-bg);
   border-color: var(--mm-border-muted);
 }
 
@@ -145,7 +177,7 @@ button {
   border-radius: var(--mm-radius);
   padding: 1.65rem 1.25rem;
   text-align: center;
-  background: linear-gradient(180deg, var(--mm-primary-faint) 0%, #fff 48%);
+  background: linear-gradient(180deg, var(--mm-primary-faint) 0%, var(--mm-card) 48%);
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -211,13 +243,13 @@ button {
 }
 
 .mm-error {
-  color: #be123c;
+  color: var(--mm-danger);
   font-size: 0.9rem;
   margin-top: 0.65rem;
   padding: 0.5rem 0.75rem;
-  background: #fff1f2;
+  background: var(--mm-danger-bg);
   border-radius: var(--mm-radius-sm);
-  border: 1px solid #fecdd3;
+  border: 1px solid var(--mm-danger-border);
 }
 
 .mm-field {
@@ -227,7 +259,7 @@ button {
   border-radius: var(--mm-radius-sm);
   font: inherit;
   color: var(--mm-text);
-  background: #fff;
+  background: var(--mm-card);
   transition:
     border-color 0.15s ease,
     box-shadow 0.15s ease;
@@ -240,7 +272,7 @@ button {
 }
 
 .mm-field::placeholder {
-  color: #94a3b8;
+  color: var(--mm-muted);
 }
 
 .mm-modal-overlay {
@@ -292,8 +324,8 @@ button {
 
 .mm-recording-pulse {
   animation: mm-pulse 1.4s ease-in-out infinite;
-  border-color: #f43f5e !important;
-  background: #fff1f2 !important;
+  border-color: var(--mm-danger) !important;
+  background: var(--mm-danger-bg) !important;
 }
 
 @keyframes mm-pulse {

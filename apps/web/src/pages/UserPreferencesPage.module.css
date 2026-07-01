@@ -39,11 +39,11 @@
   margin: 0 0 1rem;
   padding: 0.65rem 0.85rem;
   border-radius: var(--mm-radius-sm);
-  border: 1px solid #f59e0b;
-  background: #fffbeb;
+  border: 1px solid var(--mm-warning);
+  background: var(--mm-warning-bg);
   font-size: 0.85rem;
   line-height: 1.4;
-  color: #92400e;
+  color: var(--mm-warning);
 }
 
 .fieldset {
@@ -142,7 +142,7 @@
 .ttsRateSlider {
   width: 100%;
   max-width: 280px;
-  accent-color: var(--mm-accent, #6366f1);
+  accent-color: var(--mm-accent);
   cursor: pointer;
 }
 
@@ -170,13 +170,13 @@
 .error {
   margin: 0.75rem 0 0;
   font-size: 0.88rem;
-  color: #b91c1c;
+  color: var(--mm-danger-hover);
 }
 
 .ok {
   margin: 0.75rem 0 0;
   font-size: 0.88rem;
-  color: #047857;
+  color: var(--mm-success);
   font-weight: 600;
 }
 
@@ -192,7 +192,7 @@
   margin: 0 0 1.25rem;
   padding: 0.2rem;
   border-radius: var(--mm-radius-sm);
-  background: #f1f5f9;
+  background: var(--mm-bg);
   border: 1px solid var(--mm-border);
 }
 
@@ -212,11 +212,11 @@
 
 .tab:hover {
   color: var(--mm-text);
-  background: rgba(255, 255, 255, 0.6);
+  background: color-mix(in srgb, var(--mm-card) 60%, transparent);
 }
 
 .tabActive {
-  background: var(--mm-card, #fff);
+  background: var(--mm-card);
   color: var(--mm-text);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
 }
@@ -236,13 +236,13 @@
 
 .tabLink:hover {
   color: var(--mm-text);
-  background: rgba(255, 255, 255, 0.6);
+  background: color-mix(in srgb, var(--mm-card) 60%, transparent);
 }
 
 .usageCard {
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius);
-  background: var(--mm-card, #fff);
+  background: var(--mm-card);
   box-shadow: var(--mm-shadow);
   padding: 1.15rem 1.25rem 1.25rem;
 }
@@ -331,14 +331,14 @@
 .usageBar {
   height: 8px;
   border-radius: 999px;
-  background: #e0f2f1;
+  background: var(--mm-primary-soft);
   overflow: hidden;
 }
 
 .usageBarFill {
   height: 100%;
   border-radius: 999px;
-  background: #0d9488;
+  background: var(--mm-primary);
   transition: width 0.25s ease;
   min-width: 0;
 }
@@ -355,8 +355,8 @@
 .modelosList { list-style: none; margin: 1rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.6rem; }
 .modelosItem {
   position: relative;
-  background: var(--mm-card-bg, #fff);
-  border: 1px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 0.75rem 2.5rem 0.75rem 0.85rem;
 }
@@ -366,26 +366,26 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--mm-primary, #6366f1);
-  background: var(--mm-primary-light, #ede9fe);
+  color: var(--mm-primary);
+  background: var(--mm-primary-faint);
   padding: 0.1rem 0.45rem;
   border-radius: 3px;
 }
 .modelosGroup, .modelosPessoal {
   font-size: 0.68rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   border: 1px solid currentColor;
   padding: 0.1rem 0.4rem;
   border-radius: 3px;
 }
 .modelosText {
   font-size: 0.87rem;
-  color: var(--mm-text, #1e293b);
+  color: var(--mm-text);
   line-height: 1.5;
   margin: 0;
   cursor: pointer;
 }
-.modelosText:hover { color: var(--mm-primary, #6366f1); }
+.modelosText:hover { color: var(--mm-primary); }
 .modelosDeleteBtn {
   position: absolute;
   top: 0.55rem;
@@ -393,30 +393,30 @@
   background: none;
   border: none;
   font-size: 0.8rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   line-height: 1;
 }
-.modelosDeleteBtn:hover { color: #ef4444; background: #fee2e2; }
+.modelosDeleteBtn:hover { color: var(--mm-danger); background: var(--mm-danger-bg); }
 .modelosEdit { display: flex; flex-direction: column; gap: 0.4rem; }
 .modelosTextarea {
   width: 100%;
   font-size: 0.87rem;
   padding: 0.4rem 0.6rem;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   resize: vertical;
   font-family: inherit;
   line-height: 1.5;
-  background: var(--mm-input-bg, #f8fafc);
-  color: var(--mm-text, #1e293b);
+  background: var(--mm-bg);
+  color: var(--mm-text);
 }
 .modelosEditActions { display: flex; gap: 0.5rem; align-items: center; }
 .modelosSaveBtn {
   padding: 0.3rem 0.8rem;
-  background: var(--mm-primary, #6366f1);
+  background: var(--mm-primary);
   color: #fff;
   border: none;
   border-radius: 5px;
@@ -427,11 +427,11 @@
 .modelosCancelBtn {
   padding: 0.3rem 0.8rem;
   background: none;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   border-radius: 5px;
   font-size: 0.82rem;
   cursor: pointer;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
 }
 .modelosDeleteEditBtn {
   margin-left: auto;
@@ -440,15 +440,15 @@
   border: none;
   font-size: 1rem;
   cursor: pointer;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   border-radius: 4px;
   line-height: 1;
 }
-.modelosDeleteEditBtn:hover { color: #ef4444; background: #fee2e2; }
+.modelosDeleteEditBtn:hover { color: var(--mm-danger); background: var(--mm-danger-bg); }
 
 .modelosStars {
   font-size: 0.72rem;
-  color: #f59e0b;
+  color: var(--mm-warning);
   letter-spacing: 0.03em;
   opacity: 0.9;
 }
@@ -459,18 +459,18 @@
 }
 .modelosStarLabel {
   font-size: 0.76rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   margin-right: 0.3rem;
 }
 .modelosStarBtn {
   background: none;
   border: none;
   font-size: 1.1rem;
-  color: #d1d5db;
+  color: var(--mm-border-muted);
   cursor: pointer;
   padding: 0 0.04rem;
   line-height: 1;
   transition: color 0.1s, transform 0.1s;
 }
-.modelosStarBtn:hover { color: #f59e0b; transform: scale(1.15); }
-.modelosStarBtnOn { color: #f59e0b; }
+.modelosStarBtn:hover { color: var(--mm-warning); transform: scale(1.15); }
+.modelosStarBtnOn { color: var(--mm-warning); }

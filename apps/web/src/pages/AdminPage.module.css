@@ -208,8 +208,8 @@
 }
 
 .btnTrash:hover:not(:disabled) {
-  color: #dc2626;
-  background: rgba(220, 38, 38, 0.08);
+  color: var(--mm-danger);
+  background: color-mix(in srgb, var(--mm-danger) 8%, transparent);
 }
 
 .btnTrash:disabled {
@@ -231,9 +231,9 @@
 }
 
 .tablePlans thead th {
-  background: #e8f5e9;
+  background: var(--mm-success-bg);
   color: var(--mm-text);
-  border-bottom: 1px solid #c8e6c9;
+  border-bottom: 1px solid var(--mm-success-border);
 }
 
 .table tr:hover td {
@@ -251,7 +251,7 @@
 }
 
 .badgeOff {
-  background: #f1f5f9;
+  background: var(--mm-bg);
   color: var(--mm-muted);
 }
 
@@ -325,8 +325,8 @@
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.75rem;
   border-radius: var(--mm-radius-sm);
-  background: rgba(209, 250, 229, 0.55);
-  color: #065f46;
+  background: var(--mm-success-bg);
+  color: var(--mm-success);
   font-size: 0.88rem;
 }
 
@@ -339,7 +339,7 @@
   font-weight: 700;
   font-family: inherit;
   color: #fff;
-  background: #dc2626;
+  background: var(--mm-danger);
   border: none;
   border-radius: var(--mm-radius-sm);
   cursor: pointer;
@@ -349,7 +349,7 @@
 }
 
 .hardDeleteBtn:hover:not(:disabled) {
-  background: #b91c1c;
+  background: var(--mm-danger-hover);
 }
 
 .hardDeleteBtn:disabled {
@@ -390,7 +390,7 @@
   padding: 0.4rem 0.5rem;
   border-radius: var(--mm-radius-sm);
   border: 1px solid var(--mm-border);
-  background: var(--mm-bg, #fff);
+  background: var(--mm-bg);
   color: var(--mm-text);
   min-width: 9.5rem;
 }
@@ -502,7 +502,7 @@
   padding: 0.4rem 0.5rem;
   border-radius: var(--mm-radius-sm);
   border: 1px solid var(--mm-border);
-  background: var(--mm-bg, #fff);
+  background: var(--mm-bg);
   color: var(--mm-text);
   min-width: 9.5rem;
 }
@@ -543,7 +543,7 @@
   border: 1px solid var(--mm-border);
   border-radius: 4px;
   font-size: 0.72rem;
-  background: var(--mm-bg, #f8fafc);
+  background: var(--mm-bg);
   color: var(--mm-text);
 }
 
@@ -645,7 +645,7 @@
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
   padding: 0.85rem 1rem;
-  background: #fafbfc;
+  background: var(--mm-bg);
 }
 
 .promptCardHead {
@@ -666,7 +666,7 @@
   font-family: ui-monospace, "Cascadia Code", monospace;
   font-size: 0.72rem;
   color: var(--mm-muted);
-  background: rgba(0, 0, 0, 0.05);
+  background: color-mix(in srgb, var(--mm-text) 5%, transparent);
   padding: 0.1em 0.35em;
   border-radius: 4px;
 }
@@ -710,7 +710,7 @@
   padding: 0.2rem 0.55rem;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #fff;
+  background: var(--mm-card);
   color: var(--mm-text-secondary);
   cursor: pointer;
   font-family: inherit;
@@ -735,7 +735,7 @@
   line-height: 1.6;
   letter-spacing: -0.01em;
   resize: vertical;
-  background: #fff;
+  background: var(--mm-card);
   color: var(--mm-text);
   box-sizing: border-box;
 }
@@ -748,7 +748,7 @@
 
 .promptTextareaAtual {
   border-color: var(--mm-accent);
-  background: #f0fdf4;
+  background: var(--mm-success-bg);
 }
 
 .promptCardActions {
@@ -761,7 +761,7 @@
 
 .promptSaveOk {
   font-size: 0.83rem;
-  color: #065f46;
+  color: var(--mm-success);
   margin-right: auto;
 }
 
@@ -798,7 +798,7 @@
 .promptCatTable td {
   padding: 0.35rem 0.5rem;
   vertical-align: top;
-  border-bottom: 1px solid var(--mm-border-light, #f1f5f9);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .promptCatName {
@@ -818,7 +818,7 @@
   font-size: 0.83rem;
   line-height: 1.55;
   resize: vertical;
-  background: #fff;
+  background: var(--mm-card);
   color: var(--mm-text);
   box-sizing: border-box;
 }
@@ -842,7 +842,7 @@
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
   font-size: 0.83rem;
-  background: #fff;
+  background: var(--mm-card);
   color: var(--mm-text);
   font-family: inherit;
   min-width: 10rem;
@@ -858,20 +858,20 @@
   height: 2.2rem;
   padding: 0;
   background: transparent;
-  border: 1.5px solid var(--mm-accent, #0d9488);
+  border: 1.5px solid var(--mm-accent);
   border-radius: 8px;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   cursor: pointer;
   transition: background 0.15s ease;
   flex-shrink: 0;
 }
 
 .printBtn:hover {
-  background: rgba(13, 148, 136, 0.1);
+  background: color-mix(in srgb, var(--mm-primary) 10%, transparent);
 }
 
 .printBtn:focus-visible {
-  outline: 2px solid var(--mm-accent, #0d9488);
+  outline: 2px solid var(--mm-accent);
   outline-offset: 2px;
 }
 
@@ -913,15 +913,15 @@
 }
 
 .aiProviderBadgeOn {
-  background: #f0fdf4;
-  color: #16a34a;
-  border-color: #bbf7d0;
+  background: var(--mm-success-bg);
+  color: var(--mm-success);
+  border-color: var(--mm-success-border);
 }
 
 .aiProviderBadgeOff {
-  background: #fafafa;
-  color: #9ca3af;
-  border-color: #e5e7eb;
+  background: var(--mm-bg);
+  color: var(--mm-muted);
+  border-color: var(--mm-border);
 }
 
 .aiRows {
@@ -934,7 +934,7 @@
   border: 1px solid var(--mm-border);
   border-radius: 10px;
   padding: 1rem 1.1rem;
-  background: var(--mm-surface, #fff);
+  background: var(--mm-card);
 }
 
 .aiRowHeader {
@@ -954,15 +954,15 @@
 .aiRowOp {
   font-size: 0.78rem;
   color: var(--mm-muted);
-  background: var(--mm-bg, #f9fafb);
+  background: var(--mm-bg);
   padding: 0.1rem 0.4rem;
   border-radius: 4px;
 }
 
 .aiReadOnlyBadge {
   font-size: 0.75rem;
-  color: #9ca3af;
-  border: 1px solid #e5e7eb;
+  color: var(--mm-muted);
+  border: 1px solid var(--mm-border);
   border-radius: 999px;
   padding: 0.1rem 0.5rem;
   margin-left: auto;
@@ -1004,14 +1004,14 @@
 .aiSaveOk {
   font-size: 0.85rem;
   font-weight: 600;
-  color: #16a34a;
+  color: var(--mm-success);
 }
 
 /* ── Aba Conexões BD ──────────────────────────────────────── */
 
 .dbConnForm {
-  background: var(--mm-surface, #f8f8f8);
-  border: 1px solid var(--mm-border, #e0e0e0);
+  background: var(--mm-bg);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 1.25rem 1.5rem;
   margin-bottom: 2rem;
@@ -1049,7 +1049,7 @@
 }
 
 .dbConnRow {
-  border: 1px solid var(--mm-border, #e0e0e0);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 1rem 1.25rem;
   display: flex;

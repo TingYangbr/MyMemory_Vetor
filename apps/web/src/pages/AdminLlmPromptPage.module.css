@@ -8,7 +8,7 @@
 
 .meta {
   font-size: 0.9rem;
-  color: var(--mm-text-muted, #64748b);
+  color: var(--mm-muted);
 }
 
 .blocks {
@@ -18,9 +18,9 @@
 }
 
 .block {
-  border: 1px solid var(--mm-border, #d8dee6);
+  border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: var(--mm-card, #fff);
+  background: var(--mm-card);
   padding: 0.8rem;
 }
 
@@ -38,9 +38,9 @@
   font-size: 0.82rem;
   line-height: 1.45;
   border-radius: var(--mm-radius-sm);
-  border: 1px solid var(--mm-border, #d8dee6);
-  background: var(--mm-surface-2, #f8fafc);
-  color: var(--mm-text, #0f172a);
+  border: 1px solid var(--mm-border);
+  background: var(--mm-bg);
+  color: var(--mm-text);
   padding: 0.7rem;
   box-sizing: border-box;
 }

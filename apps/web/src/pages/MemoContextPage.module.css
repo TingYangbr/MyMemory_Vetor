@@ -39,7 +39,7 @@
   max-width: 100%;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius);
-  background: var(--mm-card, #fff);
+  background: var(--mm-card);
   box-shadow: var(--mm-shadow);
   overflow: hidden;
   display: flex;
@@ -59,7 +59,7 @@
 .treePanelHead {
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--mm-border);
-  background: var(--mm-primary-faint, #f0f9ff);
+  background: var(--mm-primary-faint);
 }
 
 .treePanelTitle {
@@ -75,7 +75,7 @@
   margin: 0;
   font-size: 1rem;
   font-weight: 700;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
   line-height: 1.3;
 }
 
@@ -92,7 +92,7 @@
   font-size: 0.74rem;
   line-height: 1.5;
   color: var(--mm-text-secondary);
-  background: rgba(0, 0, 0, 0.03);
+  background: color-mix(in srgb, var(--mm-text) 3%, transparent);
   border-radius: var(--mm-radius-sm);
   border: 1px solid var(--mm-border);
 }
@@ -101,7 +101,7 @@
   font-size: 0.68rem;
   padding: 0.05rem 0.2rem;
   border-radius: 4px;
-  background: rgba(0, 0, 0, 0.06);
+  background: color-mix(in srgb, var(--mm-text) 6%, transparent);
 }
 
 .treeBranchCaption {
@@ -171,7 +171,7 @@
   padding: 0.55rem 0.65rem;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #f8fafc;
+  background: var(--mm-bg);
 }
 
 .mediaCheckboxLabel {
@@ -192,7 +192,7 @@
   gap: 0.4rem;
   padding: 0.5rem 0.75rem;
   border-bottom: 1px solid var(--mm-border);
-  background: #fafbfc;
+  background: var(--mm-bg);
 }
 
 .treeToolbar button {
@@ -239,12 +239,12 @@
 }
 
 .treeCatRow:hover {
-  background: var(--mm-primary-faint, #f0f9ff);
+  background: var(--mm-primary-faint);
 }
 
 .treeCatRowSelected {
-  background: var(--mm-primary-soft, #e0f2fe);
-  box-shadow: inset 3px 0 0 var(--mm-accent, #0d9488);
+  background: var(--mm-primary-soft);
+  box-shadow: inset 3px 0 0 var(--mm-accent);
 }
 
 .treeChevron {
@@ -341,7 +341,7 @@
   color: var(--mm-muted);
   border: 1px dashed var(--mm-border);
   border-radius: var(--mm-radius);
-  background: #fafbfc;
+  background: var(--mm-bg);
 }
 
 .toolbar {
@@ -373,7 +373,7 @@
   padding: 0.55rem 0.75rem;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #fff;
+  background: var(--mm-card);
   max-width: 100%;
 }
 
@@ -387,7 +387,7 @@
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius);
   padding: 1rem 1.15rem;
-  background: #fff;
+  background: var(--mm-card);
   box-shadow: var(--mm-shadow);
   text-align: left;
 }
@@ -456,7 +456,7 @@
 .detailBox {
   margin-top: 0.45rem;
   padding: 0.5rem 0.65rem;
-  background: #f8fafc;
+  background: var(--mm-bg);
   border-radius: var(--mm-radius-sm);
   font-size: 0.82rem;
   color: var(--mm-text-secondary);
@@ -508,8 +508,8 @@
   font-size: 0.85rem;
   line-height: 1.4;
   color: var(--mm-text-secondary);
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
+  background: var(--mm-warning-bg);
+  border: 1px solid var(--mm-warning-border);
   border-radius: var(--mm-radius-sm);
 }
 
@@ -550,7 +550,7 @@
 .catSection {
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius);
-  background: var(--mm-card, #fff);
+  background: var(--mm-card);
   box-shadow: var(--mm-shadow);
   padding: 0.75rem 1rem 1rem;
 }
@@ -574,13 +574,13 @@
   padding: 0;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #f8fafc;
+  background: var(--mm-bg);
   cursor: pointer;
   color: var(--mm-text-secondary);
 }
 
 .catToggle:hover {
-  background: var(--mm-primary-faint, #f0f9ff);
+  background: var(--mm-primary-faint);
   color: var(--mm-text);
 }
 
@@ -627,12 +627,12 @@
 }
 
 .iconBtn:hover {
-  background: var(--mm-primary-faint, #f0f9ff);
+  background: var(--mm-primary-faint);
   opacity: 1;
 }
 
 .iconBtnDanger:hover {
-  background: #fef2f2;
+  background: var(--mm-danger-bg);
 }
 
 .nested {
@@ -688,7 +688,7 @@
 }
 
 .itemLine:hover {
-  background: #f8fafc;
+  background: var(--mm-bg);
 }
 
 .fieldHelpSmall {
@@ -700,7 +700,7 @@
 .fieldWarn {
   margin: 0.35rem 0 0;
   font-size: 0.72rem;
-  color: #c97c00;
+  color: var(--mm-warning);
 }
 
 /* ── Queries SQL ───────────────────────────────────────────── */
@@ -721,7 +721,7 @@
 .queryItem {
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #fafbfc;
+  background: var(--mm-bg);
   padding: 0.6rem 0.75rem;
 }
 
@@ -757,7 +757,7 @@
   font-size: 0.72rem;
   color: var(--mm-text-secondary);
   word-break: break-all;
-  background: rgba(0, 0, 0, 0.04);
+  background: color-mix(in srgb, var(--mm-text) 4%, transparent);
   padding: 0.2rem 0.4rem;
   border-radius: 4px;
   margin-top: 0.15rem;
@@ -783,7 +783,7 @@
 .paramsTable td {
   padding: 0.28rem 0.45rem;
   vertical-align: middle;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--mm-border);
   color: var(--mm-text-secondary);
 }
 
@@ -793,7 +793,7 @@
 
 .paramsTable code {
   font-size: 0.72rem;
-  background: rgba(0, 0, 0, 0.05);
+  background: color-mix(in srgb, var(--mm-text) 5%, transparent);
   padding: 0.05rem 0.25rem;
   border-radius: 3px;
 }
@@ -828,9 +828,9 @@
   margin: 0.25rem 0 0.5rem;
   padding: 0.45rem 0.75rem;
   border-radius: 6px;
-  background: rgba(239, 68, 68, 0.08);
-  border: 1px solid rgba(239, 68, 68, 0.25);
-  color: #ef4444;
+  background: var(--mm-danger-bg);
+  border: 1px solid var(--mm-danger-border);
+  color: var(--mm-danger);
   font-size: 0.85rem;
 }
 
@@ -843,7 +843,7 @@
 
 .gerarQueryHint {
   font-size: 0.78rem;
-  color: var(--mm-primary, #6366f1);
+  color: var(--mm-primary);
   opacity: 0.85;
 }
 
@@ -857,13 +857,13 @@
 
 .syntaxOk {
   font-size: 0.82rem;
-  color: #16a34a;
+  color: var(--mm-success);
   font-weight: 500;
 }
 
 .syntaxErr {
   font-size: 0.82rem;
-  color: #dc2626;
+  color: var(--mm-danger);
   font-weight: 500;
   white-space: pre-wrap;
   word-break: break-word;

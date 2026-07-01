@@ -21,7 +21,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.68rem 1.05rem;
-  border-radius: var(--mm-radius-sm, 8px);
+  border-radius: var(--mm-radius-sm);
   font: inherit;
   font-weight: 700;
   font-size: 0.9rem;
@@ -341,7 +341,7 @@
   padding: 0.45rem 0.55rem 0.55rem;
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #f8fafc;
+  background: var(--mm-bg);
 }
 
 .aiLegend {

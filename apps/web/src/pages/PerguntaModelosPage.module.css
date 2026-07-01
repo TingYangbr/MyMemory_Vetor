@@ -1,6 +1,6 @@
 .shell {
   min-height: 100vh;
-  background: var(--mm-bg, #f8fafc);
+  background: var(--mm-bg);
   display: flex;
   flex-direction: column;
 }
@@ -24,7 +24,7 @@
 .title {
   font-size: 1.25rem;
   font-weight: 700;
-  color: var(--mm-text, #1e293b);
+  color: var(--mm-text);
   margin: 0;
 }
 
@@ -34,15 +34,15 @@
   justify-content: center;
   position: relative;
   background: none;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   border-radius: 4px;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   padding: 0.22rem 0.32rem;
   transition: color 0.1s, border-color 0.1s;
 }
-.filterBtn:hover { color: var(--mm-primary, #6366f1); border-color: var(--mm-primary, #6366f1); }
-.filterBtnActive { color: var(--mm-primary, #6366f1); border-color: var(--mm-primary, #6366f1); }
+.filterBtn:hover { color: var(--mm-primary); border-color: var(--mm-primary); }
+.filterBtnActive { color: var(--mm-primary); border-color: var(--mm-primary); }
 
 .iconBtn {
   display: inline-flex;
@@ -50,28 +50,28 @@
   justify-content: center;
   position: relative;
   background: none;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   border-radius: 4px;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   padding: 0.22rem 0.32rem;
   transition: color 0.1s, border-color 0.1s;
 }
-.iconBtn:hover { color: var(--mm-primary, #6366f1); border-color: var(--mm-primary, #6366f1); }
-.iconBtnActive { color: var(--mm-primary, #6366f1); border-color: var(--mm-primary, #6366f1); }
+.iconBtn:hover { color: var(--mm-primary); border-color: var(--mm-primary); }
+.iconBtnActive { color: var(--mm-primary); border-color: var(--mm-primary); }
 
 .searchBar {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  background: var(--mm-card, #fff);
-  border: 1px solid var(--mm-primary, #6366f1);
+  background: var(--mm-card);
+  border: 1px solid var(--mm-primary);
   border-radius: 6px;
   padding: 0.25rem 0.5rem;
   margin-bottom: 0.75rem;
 }
 .searchBarIcon {
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   flex-shrink: 0;
 }
 .searchInput {
@@ -80,21 +80,21 @@
   outline: none;
   background: transparent;
   font-size: 0.85rem;
-  color: var(--mm-text, #1e293b);
+  color: var(--mm-text);
   min-width: 0;
 }
-.searchInput::placeholder { color: var(--mm-text-muted, #94a3b8); }
+.searchInput::placeholder { color: var(--mm-muted); }
 .searchClearBtn {
   background: none;
   border: none;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   font-size: 1rem;
   line-height: 1;
   padding: 0 0.1rem;
   flex-shrink: 0;
 }
-.searchClearBtn:hover { color: #ef4444; }
+.searchClearBtn:hover { color: var(--mm-danger); }
 
 .filterDot {
   position: absolute;
@@ -103,7 +103,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--mm-primary, #6366f1);
+  background: var(--mm-primary);
 }
 
 .catFilterBar {
@@ -114,31 +114,31 @@
 }
 .catChip {
   background: none;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   border-radius: 20px;
   padding: 0.2rem 0.7rem;
   font-size: 0.75rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   transition: all 0.1s;
   white-space: nowrap;
 }
-.catChip:hover { border-color: var(--mm-primary, #6366f1); color: var(--mm-primary, #6366f1); }
+.catChip:hover { border-color: var(--mm-primary); color: var(--mm-primary); }
 .catChipActive {
-  background: var(--mm-primary, #6366f1);
-  border-color: var(--mm-primary, #6366f1);
+  background: var(--mm-primary);
+  border-color: var(--mm-primary);
   color: #fff;
 }
 
 .muted {
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   font-size: 0.9rem;
   text-align: center;
   margin-top: 2rem;
 }
 
 .errorMsg {
-  color: #dc2626;
+  color: var(--mm-danger);
   font-size: 0.85rem;
   margin: 0.25rem 0;
 }
@@ -155,8 +155,8 @@
 
 .item {
   position: relative;
-  background: var(--mm-card, #fff);
-  border: 1px solid var(--mm-border, #e2e8f0);
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
   border-radius: 8px;
   padding: 0.65rem 2.5rem 0.65rem 0.9rem;
 }
@@ -173,15 +173,15 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--mm-primary, #6366f1);
-  background: var(--mm-primary-light, #ede9fe);
+  color: var(--mm-primary);
+  background: var(--mm-primary-faint);
   padding: 0.08rem 0.4rem;
   border-radius: 3px;
 }
 
 .itemStars {
   font-size: 0.72rem;
-  color: #f59e0b;
+  color: var(--mm-warning);
   letter-spacing: 0.03em;
   opacity: 0.9;
 }
@@ -189,22 +189,22 @@
 /* ── View mode ── */
 .perguntaText {
   font-size: 0.875rem;
-  color: var(--mm-text, #1e293b);
+  color: var(--mm-text);
   line-height: 1.5;
   margin: 0;
   cursor: pointer;
 }
-.perguntaText:hover { color: var(--mm-primary, #6366f1); }
+.perguntaText:hover { color: var(--mm-primary); }
 
 .anotacoesText {
   font-size: 0.78rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   font-style: italic;
   line-height: 1.4;
   margin: 0.15rem 0 0;
   cursor: pointer;
 }
-.anotacoesText:hover { color: var(--mm-primary, #6366f1); }
+.anotacoesText:hover { color: var(--mm-primary); }
 
 .deleteFloatBtn {
   position: absolute;
@@ -213,13 +213,13 @@
   background: none;
   border: none;
   font-size: 0.8rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   cursor: pointer;
   padding: 0.1rem 0.3rem;
   border-radius: 3px;
   line-height: 1;
 }
-.deleteFloatBtn:hover { color: #ef4444; background: #fee2e2; }
+.deleteFloatBtn:hover { color: var(--mm-danger); background: var(--mm-danger-bg); }
 
 /* ── Edit mode ── */
 .editBlock {
@@ -243,7 +243,7 @@
 
 .editStarLabel {
   font-size: 0.78rem;
-  color: var(--mm-text-muted, #94a3b8);
+  color: var(--mm-muted);
   margin-right: 0.3rem;
 }
 
@@ -252,13 +252,13 @@
   border: none;
   cursor: pointer;
   font-size: 1.15rem;
-  color: #d1d5db;
+  color: var(--mm-border-muted);
   padding: 0 0.05rem;
   line-height: 1;
   transition: color 0.1s, transform 0.1s;
 }
-.starBtn:hover { color: #f59e0b; transform: scale(1.15); }
-.starBtnOn { color: #f59e0b; }
+.starBtn:hover { color: var(--mm-warning); transform: scale(1.15); }
+.starBtnOn { color: var(--mm-warning); }
 
 .editActions {
   display: flex;
@@ -268,8 +268,8 @@
 }
 
 .deleteBtn {
-  color: #dc2626 !important;
+  color: var(--mm-danger) !important;
 }
 .deleteBtn:hover {
-  background: #fef2f2 !important;
+  background: var(--mm-danger-bg) !important;
 }

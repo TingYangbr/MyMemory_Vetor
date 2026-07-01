@@ -112,7 +112,7 @@
 .select:focus {
   outline: none;
   border-color: var(--mm-primary);
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.18);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mm-primary) 18%, transparent);
 }
 
 .inputWithHint {
@@ -136,7 +136,7 @@
 .input:focus {
   outline: none;
   border-color: var(--mm-primary);
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.18);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mm-primary) 18%, transparent);
 }
 
 .fileInput {
@@ -181,7 +181,7 @@
 .iaOptionActive {
   border-color: var(--mm-primary);
   background: var(--mm-primary-faint);
-  box-shadow: 0 0 0 2px rgba(13, 148, 136, 0.15);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--mm-primary) 15%, transparent);
 }
 
 .iaRadio {
@@ -245,9 +245,9 @@
 
 .btnProcessOk {
   padding: 0.5rem 1.2rem;
-  border: 2px solid #16a34a;
+  border: 2px solid var(--mm-success);
   border-radius: var(--mm-radius-sm);
-  background: #16a34a;
+  background: var(--mm-success);
   color: #fff;
   font: inherit;
   font-size: 0.88rem;
@@ -258,16 +258,16 @@
 }
 
 .btnProcessOk:hover:not(:disabled) {
-  background: #15803d;
-  border-color: #15803d;
+  background: color-mix(in srgb, var(--mm-success) 85%, black);
+  border-color: color-mix(in srgb, var(--mm-success) 85%, black);
   box-shadow: var(--mm-shadow-md);
 }
 
 .btnProcessWarn {
   padding: 0.5rem 1.2rem;
-  border: 2px solid #d97706;
+  border: 2px solid var(--mm-warning);
   border-radius: var(--mm-radius-sm);
-  background: #d97706;
+  background: var(--mm-warning);
   color: #fff;
   font: inherit;
   font-size: 0.88rem;
@@ -278,8 +278,8 @@
 }
 
 .btnProcessWarn:hover:not(:disabled) {
-  background: #b45309;
-  border-color: #b45309;
+  background: color-mix(in srgb, var(--mm-warning) 85%, black);
+  border-color: color-mix(in srgb, var(--mm-warning) 85%, black);
   box-shadow: var(--mm-shadow-md);
 }
 
@@ -303,9 +303,9 @@
   margin-top: 0.75rem;
   padding: 0.55rem 0.85rem;
   border-radius: var(--mm-radius-sm);
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #b91c1c;
+  background: var(--mm-danger-bg);
+  border: 1px solid var(--mm-danger-border);
+  color: var(--mm-danger-hover);
   font-size: 0.88rem;
 }
 
@@ -335,22 +335,22 @@
 }
 
 .countOk {
-  color: #15803d;
-  background: #dcfce7;
+  color: var(--mm-success);
+  background: var(--mm-success-bg);
   padding: 0.15em 0.6em;
   border-radius: 999px;
 }
 
 .countWarn {
-  color: #92400e;
-  background: #fef3c7;
+  color: var(--mm-warning);
+  background: var(--mm-warning-bg);
   padding: 0.15em 0.6em;
   border-radius: 999px;
 }
 
 .countErr {
-  color: #991b1b;
-  background: #fee2e2;
+  color: var(--mm-danger);
+  background: var(--mm-danger-bg);
   padding: 0.15em 0.6em;
   border-radius: 999px;
 }
@@ -362,7 +362,7 @@
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
-  color: var(--text-secondary, #6b7280);
+  color: var(--mm-muted);
   margin-left: 0.5rem;
 }
 
@@ -383,7 +383,7 @@
 }
 
 .table th {
-  background: #f8fafc;
+  background: var(--mm-bg);
   font-weight: 650;
   color: var(--mm-text-secondary);
   font-size: 0.78rem;
@@ -396,7 +396,7 @@
 
 .table td {
   padding: 0.5rem 0.8rem;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--mm-border);
   vertical-align: middle;
   color: var(--mm-text);
 }
@@ -435,18 +435,18 @@
 }
 
 .badgeOk {
-  background: #dcfce7;
-  color: #15803d;
+  background: var(--mm-success-bg);
+  color: var(--mm-success);
 }
 
 .badgeWarn {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--mm-warning-bg);
+  color: var(--mm-warning);
 }
 
 .badgeErr {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--mm-danger-bg);
+  color: var(--mm-danger);
 }
 
 /* ── Credit bar ───────────────────────────────────────────────────────── */
@@ -473,11 +473,11 @@
 }
 
 .resultOk {
-  color: #15803d;
+  color: var(--mm-success);
 }
 
 .resultErr {
-  color: #b91c1c;
+  color: var(--mm-danger-hover);
 }
 
 .resultLink {
@@ -497,10 +497,10 @@
   margin: 0.85rem 0 0;
   padding: 0.65rem 0.85rem 0.65rem 1.5rem;
   border-radius: var(--mm-radius-sm);
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--mm-danger-bg);
+  border: 1px solid var(--mm-danger-border);
   font-size: 0.84rem;
-  color: #991b1b;
+  color: var(--mm-danger);
   line-height: 1.55;
 }
 

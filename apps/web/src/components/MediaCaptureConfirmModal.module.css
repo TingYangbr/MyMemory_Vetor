@@ -67,9 +67,9 @@
 }
 
 .previewCard {
-  border-radius: var(--mm-radius-sm, 8px);
+  border-radius: var(--mm-radius-sm);
   border: 1px solid var(--mm-border);
-  background: #f8fafc;
+  background: var(--mm-bg);
   overflow: hidden;
 }
 
@@ -93,7 +93,7 @@
   word-break: break-all;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   color: var(--mm-text-secondary);
-  background: #f1f5f9;
+  background: var(--mm-bg);
 }
 
 .imagePreviewWrap {
@@ -124,7 +124,7 @@
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--mm-text-secondary);
-  background: #fff;
+  background: var(--mm-card);
   border-top: 1px solid var(--mm-border);
 }
 
@@ -152,8 +152,8 @@
   gap: 0.25rem;
   padding: 0.2rem 0.45rem;
   border-radius: 6px;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--mm-accent-alt-bg);
+  color: var(--mm-accent-alt);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.02em;

@@ -165,7 +165,7 @@ html[data-theme="dark"] .header {
 }
 
 .entrarLink {
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   font-weight: 600;
   text-decoration: none;
 }
@@ -256,7 +256,7 @@ html[data-theme="dark"] .header {
 
 .logoutBtn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-accent) 25%, transparent);
 }
 
 .themeToggleBtn {
@@ -282,7 +282,7 @@ html[data-theme="dark"] .header {
 
 .themeToggleBtn:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-accent) 25%, transparent);
 }
 
 .menuWrap {
@@ -312,7 +312,7 @@ html[data-theme="dark"] .header {
 
 .hamburger:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.25);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--mm-accent) 25%, transparent);
 }
 
 .dropdown {

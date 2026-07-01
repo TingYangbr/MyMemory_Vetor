@@ -10,7 +10,7 @@
   margin-bottom: 1.25rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   text-decoration: none;
 }
 
@@ -22,14 +22,14 @@
   margin: 0 0 0.75rem;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
 }
 
 .text {
   margin: 0;
   font-size: 0.95rem;
   line-height: 1.55;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .text code {

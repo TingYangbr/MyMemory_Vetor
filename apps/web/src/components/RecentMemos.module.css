@@ -51,8 +51,8 @@
 
 .viewToggleOn {
   border-color: var(--mm-accent);
-  color: #0f766e;
-  background: rgba(20, 184, 166, 0.12);
+  color: var(--mm-primary-hover);
+  background: var(--mm-primary-soft);
 }
 
 .viewToggleIcon {
@@ -113,7 +113,7 @@
 }
 
 .listGlyphBtn:hover {
-  background: rgba(20, 184, 166, 0.12);
+  background: color-mix(in srgb, var(--mm-accent) 12%, transparent);
 }
 
 .listGlyphBtn:focus-visible {
@@ -184,8 +184,8 @@
   gap: 0.2rem;
   padding: 0.2rem 0.45rem;
   border-radius: 6px;
-  background: rgba(241, 245, 249, 0.95);
-  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: var(--mm-bg);
+  border: 1px solid var(--mm-border-muted);
 }
 
 .metricLbl {
@@ -193,14 +193,14 @@
   font-weight: 800;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: #64748b;
+  color: var(--mm-muted);
 }
 
 .metricVal {
   font-size: 0.82rem;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
-  color: #0f172a;
+  color: var(--mm-text);
 }
 
 .metricChipSemIA,
@@ -215,21 +215,21 @@
 }
 
 .metricChipSemIA {
-  background: color-mix(in srgb, #64748b 8%, transparent);
-  border-color: color-mix(in srgb, #64748b 18%, transparent);
-  color: #64748b;
+  background: color-mix(in srgb, var(--mm-muted) 8%, transparent);
+  border-color: color-mix(in srgb, var(--mm-muted) 18%, transparent);
+  color: var(--mm-muted);
 }
 
 .metricChipBasico {
-  background: color-mix(in srgb, #3b82f6 8%, transparent);
-  border-color: color-mix(in srgb, #3b82f6 22%, transparent);
-  color: #2563eb;
+  background: color-mix(in srgb, var(--mm-info) 8%, transparent);
+  border-color: color-mix(in srgb, var(--mm-info) 22%, transparent);
+  color: var(--mm-info);
 }
 
 .metricChipSemantic {
-  background: color-mix(in srgb, #7F77DD 8%, transparent);
-  border-color: color-mix(in srgb, #7F77DD 22%, transparent);
-  color: #6d63cc;
+  background: color-mix(in srgb, var(--mm-accent-alt) 8%, transparent);
+  border-color: color-mix(in srgb, var(--mm-accent-alt) 22%, transparent);
+  color: var(--mm-accent-alt);
 }
 
 .filePreviewModal {
@@ -249,7 +249,7 @@
   gap: 0.75rem;
   padding: 0.85rem 1rem;
   border-bottom: 1px solid var(--mm-border);
-  background: rgba(248, 250, 252, 0.95);
+  background: var(--mm-bg);
 }
 
 .filePreviewTitle {
@@ -275,7 +275,7 @@
 }
 
 .filePreviewClose:hover {
-  background: rgba(15, 23, 42, 0.06);
+  background: color-mix(in srgb, var(--mm-text) 6%, transparent);
   color: var(--mm-text);
 }
 
@@ -284,7 +284,7 @@
   min-height: 0;
   overflow: auto;
   padding: 1rem;
-  background: #fff;
+  background: var(--mm-card);
 }
 
 .filePreviewFoot {
@@ -333,7 +333,7 @@
   margin: 0 0 0.85rem;
   padding: 0.65rem 0.75rem;
   border-radius: var(--mm-radius-sm);
-  background: rgba(241, 245, 249, 0.9);
+  background: var(--mm-bg);
   border: 1px solid var(--mm-border);
 }
 
@@ -362,7 +362,7 @@
   font-size: 0.78rem;
   padding: 0.05rem 0.25rem;
   border-radius: 4px;
-  background: rgba(15, 23, 42, 0.06);
+  background: color-mix(in srgb, var(--mm-text) 6%, transparent);
 }
 
 .previewOpenAppBtn {
@@ -392,7 +392,7 @@
   min-height: min(65vh, 520px);
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius-sm);
-  background: #f8fafc;
+  background: var(--mm-bg);
 }
 
 .previewUrlBox {
@@ -437,8 +437,8 @@
 }
 
 .listIconBtnDanger:hover {
-  color: #b91c1c;
-  background: rgba(254, 226, 226, 0.5);
+  color: var(--mm-danger-hover);
+  background: var(--mm-danger-bg);
 }
 
 .listIconSvg {
@@ -488,7 +488,7 @@
 .card:hover {
   transform: translateY(-2px);
   box-shadow: var(--mm-shadow-md);
-  border-color: rgba(20, 184, 166, 0.28);
+  border-color: color-mix(in srgb, var(--mm-accent) 28%, transparent);
 }
 
 .cardTop {
@@ -507,7 +507,7 @@
   margin: 0;
   font-size: 0.72rem;
   font-weight: 600;
-  color: var(--mm-muted, #64748b);
+  color: var(--mm-muted);
   line-height: 1.35;
 }
 
@@ -540,27 +540,27 @@
 }
 
 .badgeSemIA {
-  background: color-mix(in srgb, var(--mm-muted, #64748b) 12%, transparent);
-  color: var(--mm-muted, #64748b);
-  border-color: color-mix(in srgb, var(--mm-muted, #64748b) 25%, transparent);
+  background: color-mix(in srgb, var(--mm-muted) 12%, transparent);
+  color: var(--mm-muted);
+  border-color: color-mix(in srgb, var(--mm-muted) 25%, transparent);
 }
 
 .badgeBasico {
-  background: color-mix(in srgb, #3b82f6 12%, transparent);
-  color: #2563eb;
-  border-color: color-mix(in srgb, #3b82f6 30%, transparent);
+  background: color-mix(in srgb, var(--mm-info) 12%, transparent);
+  color: var(--mm-info);
+  border-color: color-mix(in srgb, var(--mm-info) 30%, transparent);
 }
 
 .badgeCompleto {
-  background: color-mix(in srgb, #8b5cf6 12%, transparent);
-  color: #7c3aed;
-  border-color: color-mix(in srgb, #8b5cf6 30%, transparent);
+  background: color-mix(in srgb, var(--mm-accent-alt) 12%, transparent);
+  color: var(--mm-accent-alt);
+  border-color: color-mix(in srgb, var(--mm-accent-alt) 30%, transparent);
 }
 
 .badgeSemantic {
-  background: color-mix(in srgb, #14b8a6 12%, transparent);
-  color: #0f766e;
-  border-color: color-mix(in srgb, #14b8a6 30%, transparent);
+  background: color-mix(in srgb, var(--mm-accent) 12%, transparent);
+  color: var(--mm-primary-hover);
+  border-color: color-mix(in srgb, var(--mm-accent) 30%, transparent);
 }
 
 .keywordsBlock {
@@ -593,8 +593,8 @@
   border-radius: 6px;
   font-size: 0.72rem;
   font-weight: 600;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--mm-accent-alt-bg);
+  color: var(--mm-accent-alt);
 }
 
 .keywordsEmpty {
@@ -608,7 +608,7 @@
   margin: 0;
   font-size: 0.76rem;
   line-height: 1.4;
-  color: var(--mm-text, #1e293b);
+  color: var(--mm-text);
 }
 
 .textBlock {
@@ -710,12 +710,12 @@
 .actionDanger {
   font-size: 0.78rem !important;
   padding: 0.35rem 0.65rem !important;
-  color: #b91c1c !important;
-  border-color: rgba(185, 28, 28, 0.35) !important;
+  color: var(--mm-danger-hover) !important;
+  border-color: color-mix(in srgb, var(--mm-danger) 35%, transparent) !important;
 }
 
 .actionDanger:hover:not(:disabled) {
-  background: rgba(254, 226, 226, 0.6) !important;
+  background: var(--mm-danger-bg) !important;
 }
 
 .notOwnerHint {
@@ -731,7 +731,7 @@
   text-align: center;
   border-radius: var(--mm-radius);
   border: 1px dashed var(--mm-border);
-  background: rgba(255, 255, 255, 0.6);
+  background: color-mix(in srgb, var(--mm-card) 60%, transparent);
 }
 
 .confirmDialog {

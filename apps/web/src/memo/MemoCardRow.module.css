@@ -13,11 +13,11 @@
 }
 
 .memoCardPrimary:hover {
-  background: rgba(15, 23, 42, 0.05);
+  background: color-mix(in srgb, var(--mm-text) 5%, transparent);
 }
 
 .memoCardPrimaryConsult:hover {
-  background: rgba(13, 148, 136, 0.08);
+  background: color-mix(in srgb, var(--mm-primary) 8%, transparent);
 }
 
 .memoCardPrimaryLabel {
@@ -46,7 +46,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #0d9488;
+  color: var(--mm-primary);
 }
 
 .searchCardGlyphSvg {
@@ -60,7 +60,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  color: #4f46e5;
+  color: var(--mm-accent-alt);
 }
 
 .searchCardDocTag {
@@ -112,7 +112,7 @@
   margin: 0;
   border-radius: var(--mm-radius-sm);
   overflow: hidden;
-  border: 1px solid var(--mm-border, #e2e8f0);
+  border: 1px solid var(--mm-border);
   background: #0f172a;
   line-height: 0;
 }
@@ -168,7 +168,7 @@
 .memoCardUrlAction {
   font-size: 0.75rem;
   font-weight: 600;
-  color: #0d9488;
+  color: var(--mm-primary);
   text-decoration: none;
   border-radius: var(--mm-radius-sm);
   padding: 0.15rem 0.35rem;
@@ -176,5 +176,5 @@
 
 .memoCardUrlAction:hover {
   text-decoration: underline;
-  background: rgba(13, 148, 136, 0.08);
+  background: color-mix(in srgb, var(--mm-primary) 8%, transparent);
 }

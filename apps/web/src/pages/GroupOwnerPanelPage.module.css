@@ -10,7 +10,7 @@
   font-size: 1.45rem;
   font-weight: 800;
   letter-spacing: -0.02em;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
 }
 
 .tabs {
@@ -20,8 +20,8 @@
   margin: 0 0 1.25rem;
   padding: 0.2rem;
   border-radius: 10px;
-  background: rgba(241, 245, 249, 0.85);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  background: var(--mm-bg);
+  border: 1px solid var(--mm-border);
 }
 
 .tab {
@@ -30,7 +30,7 @@
   padding: 0.55rem 0.85rem;
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
   background: transparent;
   border: none;
   border-radius: 8px;
@@ -40,18 +40,18 @@
 }
 
 .tab:hover {
-  color: var(--mm-text, #1a2332);
-  background: rgba(255, 255, 255, 0.65);
+  color: var(--mm-text);
+  background: color-mix(in srgb, var(--mm-card) 65%, transparent);
 }
 
 .tab:focus-visible {
-  outline: 2px solid var(--mm-accent, #0d9488);
+  outline: 2px solid var(--mm-accent);
   outline-offset: 2px;
 }
 
 .tabActive {
-  color: var(--mm-text, #1a2332);
-  background: #fff;
+  color: var(--mm-text);
+  background: var(--mm-card);
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
 }
 
@@ -70,7 +70,7 @@
 .back {
   font-size: 0.9rem;
   font-weight: 600;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   text-decoration: none;
   white-space: nowrap;
 }
@@ -81,12 +81,12 @@
 
 .groupsNav {
   font-size: 0.82rem;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
   flex: 1 1 0;
 }
 
 .groupNavLink {
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   text-decoration: none;
 }
 
@@ -95,13 +95,13 @@
 }
 
 .groupNavActive {
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
   font-weight: 700;
   text-decoration: none;
 }
 
 .groupsSep {
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
   user-select: none;
 }
 
@@ -109,15 +109,15 @@
   margin: 0 0 0.5rem;
   font-size: 1.35rem;
   font-weight: 700;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
 }
 
 .panelHeader {
   margin: 0 0 1.35rem;
   padding: 1.1rem 1.2rem 1.15rem;
-  border-radius: var(--mm-radius, 12px);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 250, 252, 0.92) 100%);
+  border-radius: var(--mm-radius);
+  border: 1px solid var(--mm-border);
+  background: linear-gradient(165deg, var(--mm-card) 0%, var(--mm-bg) 100%);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -127,7 +127,7 @@
   font-weight: 700;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
 }
 
 .panelTitle {
@@ -136,21 +136,21 @@
   font-weight: 800;
   letter-spacing: -0.02em;
   line-height: 1.2;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
 }
 
 .panelDesc {
   margin: 0 0 0.65rem;
   font-size: 0.92rem;
   line-height: 1.5;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .panelMeta {
   margin: 0;
   font-size: 0.82rem;
   line-height: 1.45;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .panelMeta code {
@@ -161,15 +161,15 @@
   margin: 0 0 1.5rem;
   font-size: 0.95rem;
   line-height: 1.55;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .card {
   margin-top: 1.25rem;
   padding: 1.25rem 1.35rem;
-  border-radius: var(--mm-radius, 12px);
-  border: 1px solid rgba(226, 232, 240, 0.95);
-  background: rgba(255, 255, 255, 0.92);
+  border-radius: var(--mm-radius);
+  border: 1px solid var(--mm-border);
+  background: color-mix(in srgb, var(--mm-card) 92%, transparent);
 }
 
 .cardTitle {
@@ -198,9 +198,9 @@
   box-sizing: border-box;
   padding: 0.55rem 0.65rem;
   font-size: 1rem;
-  border: 1px solid rgba(203, 213, 225, 0.95);
+  border: 1px solid var(--mm-border-muted);
   border-radius: 8px;
-  background: #fff;
+  background: var(--mm-card);
 }
 
 .hint {
@@ -239,8 +239,8 @@
   margin: 0 0 1rem;
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  background: rgba(254, 226, 226, 0.65);
-  color: #991b1b;
+  background: var(--mm-danger-bg);
+  color: var(--mm-danger);
   font-size: 0.9rem;
 }
 
@@ -248,8 +248,8 @@
   margin: 0 0 1rem;
   padding: 0.65rem 0.75rem;
   border-radius: 8px;
-  background: rgba(209, 250, 229, 0.65);
-  color: #065f46;
+  background: var(--mm-success-bg);
+  color: var(--mm-success);
   font-size: 0.9rem;
 }
 
@@ -279,7 +279,7 @@
 .table td {
   text-align: left;
   padding: 0.45rem 0.5rem;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .table th {
@@ -291,11 +291,11 @@
 }
 
 .statusPending {
-  color: #b45309;
+  color: var(--mm-warning);
 }
 
 .statusAccepted {
-  color: #047857;
+  color: var(--mm-success);
 }
 
 .statusOther {
@@ -326,7 +326,7 @@
 .consultaField label {
   font-size: 0.78rem;
   font-weight: 600;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .consultaField input,
@@ -334,16 +334,16 @@
   font: inherit;
   padding: 0.4rem 0.5rem;
   border-radius: 8px;
-  border: 1px solid rgba(203, 213, 225, 0.95);
-  background: #fff;
-  color: var(--mm-text, #1a2332);
+  border: 1px solid var(--mm-border-muted);
+  background: var(--mm-card);
+  color: var(--mm-text);
   min-width: 9.5rem;
 }
 
 .consultaMeta {
   margin: 0 0 0.5rem;
   font-size: 0.82rem;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .consultaTableWrap {
@@ -360,7 +360,7 @@
 .consultaTable th,
 .consultaTable td {
   text-align: left;
-  border-bottom: 1px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 1px solid var(--mm-border);
 }
 
 .consultaThSort {
@@ -368,7 +368,7 @@
   user-select: none;
   font-size: 0.76rem;
   font-weight: 600;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
   padding: 0.35rem 0.5rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -376,24 +376,24 @@
 }
 
 .consultaThSort:hover {
-  background: rgba(13, 148, 136, 0.06);
+  background: color-mix(in srgb, var(--mm-primary) 6%, transparent);
 }
 
 .sortArrow {
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   font-size: 0.75rem;
 }
 
 .sortArrowInactive {
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
   font-size: 0.75rem;
   opacity: 0.4;
 }
 
 .consultaFilterRow th {
-  background: rgba(248, 250, 252, 0.9);
+  background: var(--mm-bg);
   padding: 0.2rem 0.3rem;
-  border-bottom: 2px solid rgba(226, 232, 240, 0.9);
+  border-bottom: 2px solid var(--mm-border);
   font-weight: normal;
 }
 
@@ -401,17 +401,17 @@
   width: 100%;
   min-width: 60px;
   padding: 0.2rem 0.35rem;
-  border: 1px solid rgba(203, 213, 225, 0.95);
+  border: 1px solid var(--mm-border-muted);
   border-radius: 4px;
   font-size: 0.72rem;
-  background: #fff;
-  color: var(--mm-text, #1a2332);
+  background: var(--mm-card);
+  color: var(--mm-text);
 }
 
 .consultaColFilter:focus {
-  outline: 2px solid var(--mm-accent, #0d9488);
+  outline: 2px solid var(--mm-accent);
   outline-offset: -1px;
-  border-color: var(--mm-accent, #0d9488);
+  border-color: var(--mm-accent);
 }
 
 .consultaTd {
@@ -421,21 +421,21 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.76rem;
-  color: var(--mm-text, #1a2332);
+  color: var(--mm-text);
 }
 
 .consultaRowEven td {
-  background: #fff;
+  background: var(--mm-card);
 }
 
 .consultaRowOdd td {
-  background: rgba(13, 148, 136, 0.04);
+  background: color-mix(in srgb, var(--mm-primary) 4%, transparent);
 }
 
 .consultaEmpty {
   text-align: center;
   padding: 2rem;
-  color: var(--mm-muted, #5a6578);
+  color: var(--mm-muted);
 }
 
 .consultaPaginacao {
@@ -455,20 +455,20 @@
   height: 2.2rem;
   padding: 0;
   background: transparent;
-  border: 1.5px solid var(--mm-accent, #0d9488);
+  border: 1.5px solid var(--mm-accent);
   border-radius: 8px;
-  color: var(--mm-accent, #0d9488);
+  color: var(--mm-accent);
   cursor: pointer;
   transition: background 0.15s ease;
   flex-shrink: 0;
 }
 
 .printBtn:hover {
-  background: rgba(13, 148, 136, 0.1);
+  background: color-mix(in srgb, var(--mm-primary) 10%, transparent);
 }
 
 .printBtn:focus-visible {
-  outline: 2px solid var(--mm-accent, #0d9488);
+  outline: 2px solid var(--mm-accent);
   outline-offset: 2px;
 }
 
