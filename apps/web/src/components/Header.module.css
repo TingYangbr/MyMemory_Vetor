@@ -120,7 +120,7 @@ html[data-theme="dark"] .header {
 }
 
 .titleMemory {
-  color: var(--mm-success);
+  color: var(--mm-accent);
 }
 
 .version {
