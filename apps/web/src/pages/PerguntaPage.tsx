@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
   MeResponse,
   MemoContextCategory,
@@ -192,6 +193,86 @@ function formatNumericCell(num: number, colName: string): string {
   if (/\b(valores?|vlr|vl|prec[oa]s?|custos?|saldos?|receitas?|despesas?|montantes?)\b/.test(col))
     return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return num.toLocaleString("pt-BR");
+}
+
+const CHART_BAR_COLORS = ["#2563eb", "#f97316", "#16a34a", "#dc2626", "#7c3aed"];
+const CHART_MAX_BARRAS = 25;
+
+function isNumericCellValue(v: unknown): boolean {
+  if (v == null) return false;
+  if (typeof v === "number") return Number.isFinite(v);
+  if (typeof v === "string" && v.trim() !== "") return !isNaN(Number(v));
+  return false;
+}
+
+interface DadosGrafico {
+  valueCols: string[];
+  rows: Array<Record<string, string | number>>;
+}
+
+/** Detecta colunas numéricas (exceto "id") e usa a primeira coluna não-numérica como eixo de categoria. */
+function buildDadosGrafico(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
+  if (!dados.linhas.length) return null;
+  const numericCols = dados.colunas.filter((col) => {
+    if (col.toLowerCase() === "id") return false;
+    const vals = dados.linhas.map((l) => l[col]).filter((v) => v != null);
+    return vals.length > 0 && vals.every(isNumericCellValue);
+  });
+  if (numericCols.length === 0) return null;
+  const labelCol = dados.colunas.find((col) => !numericCols.includes(col));
+  if (!labelCol) return null; // todas as colunas são numéricas — sem eixo de categoria claro
+
+  const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
+    const row: Record<string, string | number> = { label: String(linha[labelCol] ?? "") };
+    for (const col of numericCols) {
+      const v = linha[col];
+      row[col] = v == null ? 0 : typeof v === "number" ? v : Number(v);
+    }
+    return row;
+  });
+  return { valueCols: numericCols, rows };
+}
+
+function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={dados.rows} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-border, #e2e8f0)" />
+        <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
+        <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => v.toLocaleString("pt-BR", { notation: "compact" })} />
+        <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
+        {dados.valueCols.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
+        {dados.valueCols.map((col, idx) => (
+          <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[3, 3, 0, 0]} />
+        ))}
+      </BarChart>
+    </ResponsiveContainer>
+  );
+}
+
+interface TabelaEstruturadaProps {
+  dados: PerguntaResultadoEstruturado;
+  onOpenMemo?: (id: number) => void;
+  onOpenMemoFile?: (id: number) => void;
+  loadingCardId?: number | null;
+  loadingFileId?: number | null;
+}
+
+/** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
+function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
+  const grafico = useMemo(() => buildDadosGrafico(props.dados), [props.dados]);
+  if (!props.dados.totalLinhas) return null;
+  if (!grafico) return <TabelaEstruturada {...props} />;
+  return (
+    <div className={styles.chartTableRow}>
+      <div className={styles.chartWrap}>
+        <GraficoBarrasEstruturado dados={grafico} />
+      </div>
+      <div className={styles.tabelaScrollItem}>
+        <TabelaEstruturada {...props} />
+      </div>
+    </div>
+  );
 }
 
 function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
@@ -1519,9 +1600,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
-                          <TabelaEstruturada key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                          <EstruturadoComGrafico key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                         ))
-                      : <TabelaEstruturada dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                      : <EstruturadoComGrafico dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />

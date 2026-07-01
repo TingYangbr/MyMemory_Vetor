@@ -991,6 +991,44 @@
   text-decoration: underline dotted;
 }
 
+/* ── Gráfico de barras + tabela lado a lado (Pipe 2 / Pipe 3) ── */
+.chartTableRow {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  overflow-x: auto;
+  margin-top: 0.25rem;
+  scroll-snap-type: x proximity;
+}
+
+.chartWrap {
+  flex: 0 0 360px;
+  min-width: 300px;
+  max-width: 420px;
+  scroll-snap-align: start;
+  border: 1px solid var(--mm-border, #e2e8f0);
+  border-radius: 8px;
+  padding: 0.5rem 0.5rem 0;
+  background: var(--mm-surface, #fff);
+}
+
+.tabelaScrollItem {
+  flex: 1 1 360px;
+  min-width: 300px;
+  scroll-snap-align: start;
+}
+
+.tabelaScrollItem .tabelaWrap {
+  margin-top: 0;
+}
+
+@media (max-width: 720px) {
+  .chartWrap,
+  .tabelaScrollItem {
+    flex: 0 0 100%;
+  }
+}
+
 /* ── Tabela estruturada (Pipe 2 / Pipe 3) ── */
 .tabelaWrap {
   overflow-x: auto;
