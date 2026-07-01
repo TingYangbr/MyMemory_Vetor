@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { MeResponse, WorkspaceGroupsResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPostJson } from "../api";
+import { useTheme } from "../hooks/useTheme";
 import styles from "./Header.module.css";
 
 function IconPerson() {
@@ -47,6 +48,7 @@ export default function Header({
   const [ownerPanelGroupId, setOwnerPanelGroupId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+  const { theme, toggle: toggleTheme } = useTheme();
 
   const { versionLabel, versionTitle } = useMemo(() => {
     const iso = typeof __APP_BUILD_ISO__ === "string" ? __APP_BUILD_ISO__.trim() : "";
@@ -224,6 +226,15 @@ export default function Header({
               </div>
             )
           ) : null}
+          <button
+            type="button"
+            className={styles.themeToggleBtn}
+            aria-label={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
+            title={theme === "dark" ? "Tema claro" : "Tema escuro"}
+            onClick={toggleTheme}
+          >
+            {theme === "dark" ? "☀" : "☾"}
+          </button>
           <div className={styles.menuWrap}>
             <button
               type="button"

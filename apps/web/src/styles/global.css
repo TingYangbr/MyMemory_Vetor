@@ -28,6 +28,27 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html[data-theme="dark"] {
+  --mm-primary: #2dd4bf;
+  --mm-primary-hover: #5eead4;
+  --mm-primary-soft: #0f3d38;
+  --mm-primary-faint: #0b2b28;
+  --mm-accent: #2dd4bf;
+  --mm-text: #e2e8f0;
+  --mm-text-secondary: #94a3b8;
+  --mm-muted: #64748b;
+  --mm-border: #334155;
+  --mm-border-muted: #1e293b;
+  --mm-bg: #0f172a;
+  --mm-bg-pattern: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(45, 212, 191, 0.08), transparent 55%);
+  --mm-card: #1e293b;
+  --mm-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
+  --mm-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.35);
+  --mm-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
+  color: var(--mm-text);
+  background-color: var(--mm-bg);
+}
+
 * {
   box-sizing: border-box;
 }
