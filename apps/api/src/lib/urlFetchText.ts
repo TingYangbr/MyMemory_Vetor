@@ -1,11 +1,17 @@
 import axios, { isAxiosError } from "axios";
 import * as cheerio from "cheerio";
+import { config } from "../config.js";
+import { openaiTranscribeAudio } from "./openaiTranscription.js";
 
 /** Limite de download HTTP (HTML ou texto). */
 const MAX_DOWNLOAD_BYTES = 5 * 1024 * 1024;
+/** Limite maior só para o fallback de áudio (Whisper aceita até ~25 MB). */
+const MAX_AUDIO_DOWNLOAD_BYTES = 20 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 /** Tamanho máximo do texto final enviado ao pipeline / LLM. */
 const MAX_OUTPUT_CHARS = 8_000;
+/** Abaixo disso o texto extraído do HTML é tratado como "nada útil capturado". */
+const MIN_MEANINGFUL_TEXT_CHARS = 40;
 
 const CHROME_120_WIN_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -134,14 +140,17 @@ function assemblePlainText(
   return { text: full, truncated };
 }
 
-async function downloadWithAxios(href: string): Promise<{ body: string; contentType: string }> {
+/** Download binário (safe para HTML/texto e para áudio); `maxBytes` varia por caso de uso. */
+async function downloadWithAxios(
+  href: string,
+  maxBytes: number = MAX_DOWNLOAD_BYTES
+): Promise<{ buffer: Buffer; contentType: string }> {
   try {
-    const res = await axios.get<string>(href, {
+    const res = await axios.get<ArrayBuffer>(href, {
       timeout: FETCH_TIMEOUT_MS,
-      maxContentLength: MAX_DOWNLOAD_BYTES,
-      maxBodyLength: MAX_DOWNLOAD_BYTES,
-      responseType: "text",
-      responseEncoding: "utf8",
+      maxContentLength: maxBytes,
+      maxBodyLength: maxBytes,
+      responseType: "arraybuffer",
       headers: {
         "User-Agent": CHROME_120_WIN_UA,
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,text/plain;q=0.8,*/*;q=0.7",
@@ -150,8 +159,8 @@ async function downloadWithAxios(href: string): Promise<{ body: string; contentT
       validateStatus: (s) => s >= 200 && s < 300,
     });
     const ct = String(res.headers["content-type"] ?? "").toLowerCase();
-    const body = typeof res.data === "string" ? res.data : String(res.data);
-    return { body, contentType: ct };
+    const buffer = Buffer.from(res.data);
+    return { buffer, contentType: ct };
   } catch (e) {
     if (isAxiosError(e)) {
       const status = e.response?.status;
@@ -159,6 +168,84 @@ async function downloadWithAxios(href: string): Promise<{ body: string; contentT
       throw new Error("url_fetch_failed");
     }
     throw e;
+  }
+}
+
+function isAudioMime(mime: string): boolean {
+  return mime.startsWith("audio/");
+}
+
+function guessFilenameFromUrl(u: URL, mime: string): string {
+  const last = u.pathname.split("/").filter(Boolean).pop() ?? "";
+  if (/\.[a-z0-9]{2,5}$/i.test(last)) return last;
+  const extMap: Record<string, string> = {
+    "audio/mpeg": ".mp3",
+    "audio/mp3": ".mp3",
+    "audio/wav": ".wav",
+    "audio/x-wav": ".wav",
+    "audio/ogg": ".ogg",
+    "audio/webm": ".webm",
+    "audio/mp4": ".mp4",
+    "audio/x-m4a": ".m4a",
+    "audio/flac": ".flac",
+    "audio/opus": ".opus",
+  };
+  const ext = extMap[mime.split(";")[0].trim().toLowerCase()] || ".mp3";
+  return `${last || "audio"}${ext}`;
+}
+
+/** Procura `<audio src>` / `<audio><source src>` e resolve para URL absoluta (mesma página, sem seguir navegação). */
+function findEmbeddedAudioUrl($: cheerio.CheerioAPI, baseHref: string): string | null {
+  const raw =
+    $("audio[src]").first().attr("src") || $("audio source[src]").first().attr("src") || null;
+  if (!raw?.trim()) return null;
+  try {
+    return new URL(raw.trim(), baseHref).href;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Transcreve um recurso de áudio via Whisper. Retorna `null` (sem lançar) quando IA não está
+ * configurada ou a transcrição falha — quem chama decide o fallback (nunca derruba o fluxo principal).
+ * Só lança quando o próprio download excede o limite de tamanho (caso digno de mensagem específica).
+ */
+async function transcribeAudioResource(
+  audioUrl: string,
+  mimeHint: string
+): Promise<{ text: string; costUsd: number } | null> {
+  if (!config.openai.apiKey) return null;
+  let u: URL;
+  try {
+    u = assertMemoUrlFetchable(audioUrl);
+  } catch {
+    return null;
+  }
+  let buffer: Buffer;
+  let contentType: string;
+  try {
+    const dl = await downloadWithAxios(u.href, MAX_AUDIO_DOWNLOAD_BYTES);
+    buffer = dl.buffer;
+    contentType = dl.contentType || mimeHint;
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg === "url_fetch_failed" || msg.startsWith("url_fetch_http_")) return null;
+    throw e;
+  }
+  if (!buffer.length) return null;
+  if (buffer.length >= MAX_AUDIO_DOWNLOAD_BYTES) throw new Error("url_audio_too_large");
+  try {
+    const { text, costUsd } = await openaiTranscribeAudio({
+      buffer,
+      filename: guessFilenameFromUrl(u, contentType),
+      mime: contentType.split(";")[0]?.trim() || mimeHint,
+    });
+    const trimmed = text.trim();
+    if (!trimmed) return null;
+    return { text: trimmed, costUsd };
+  } catch {
+    return null;
   }
 }
 
@@ -192,22 +279,51 @@ export function assertMemoUrlFetchable(urlStr: string): URL {
 
 /**
  * Um único GET (sem seguir `href`); monta texto estruturado para pipeline / LLM.
+ *
+ * Fallback de áudio (Whisper), só neste pipeline de URL:
+ * - se a própria URL responder com `content-type: audio/*`, transcreve o áudio diretamente;
+ * - se for HTML mas o texto extraído for vazio/muito curto, procura um `<audio>` embutido na
+ *   página e, se achar, transcreve esse áudio. Qualquer falha nesse fallback é silenciosa e
+ *   cai de volta no comportamento anterior (texto curto tal como estava, ou `url_no_text`).
  */
 export async function fetchAndExtractPlainTextFromUrl(urlStr: string): Promise<{
   text: string;
   warning: string | null;
+  apiCost: number;
 }> {
   const u = assertMemoUrlFetchable(urlStr);
   const href = u.href;
   const host = u.hostname;
-  const { body: raw, contentType } = await downloadWithAxios(href);
-
-  const warnings: string[] = [];
-  if (raw.length >= MAX_DOWNLOAD_BYTES - 100) {
-    warnings.push("Resposta próxima do limite de 5 MB; parte do HTML pode estar incompleta.");
-  }
+  // Baixa sempre com o teto maior (áudio): o content-type só é conhecido depois do download,
+  // então não dá para decidir o limite antes. HTML/texto seguem cortados em 8.000 chars no final,
+  // então o teto maior aqui não muda o comportamento deles, só permite áudio maior que 5 MB.
+  const { buffer: rawBuf, contentType } = await downloadWithAxios(href, MAX_AUDIO_DOWNLOAD_BYTES);
 
   const mimeMain = contentType.split(";")[0]?.trim().toLowerCase() ?? "";
+  const warnings: string[] = [];
+
+  if (isAudioMime(mimeMain)) {
+    if (rawBuf.length >= MAX_AUDIO_DOWNLOAD_BYTES) throw new Error("url_audio_too_large");
+    if (!config.openai.apiKey) throw new Error("url_no_text");
+    const transcript = await transcribeAudioResource(href, mimeMain);
+    if (!transcript?.text) throw new Error("url_no_text");
+    const { text, truncated } = assemblePlainText(
+      {
+        title: "(áudio)",
+        site: host,
+        description: "(transcrito automaticamente via IA — narração em áudio)",
+      },
+      transcript.text
+    );
+    if (truncated) warnings.push("Texto final truncado em 8.000 caracteres (limite para IA).");
+    return { text, warning: warnings.length ? warnings.join(" ") : null, apiCost: transcript.costUsd };
+  }
+
+  if (rawBuf.length >= MAX_DOWNLOAD_BYTES - 100) {
+    warnings.push("Resposta próxima do limite de 5 MB; parte do conteúdo pode estar incompleta.");
+  }
+
+  const raw = rawBuf.toString("utf8");
   const isPlainMime = mimeMain === "text/plain";
 
   if (isPlainMime) {
@@ -222,13 +338,33 @@ export async function fetchAndExtractPlainTextFromUrl(urlStr: string): Promise<{
       plain
     );
     if (truncated) warnings.push("Texto final truncado em 8.000 caracteres (limite para IA).");
-    return { text, warning: warnings.length ? warnings.join(" ") : null };
+    return { text, warning: warnings.length ? warnings.join(" ") : null, apiCost: 0 };
   }
 
   const $ = cheerio.load(raw);
   const meta = extractMeta($);
+  const embeddedAudioUrl = findEmbeddedAudioUrl($, href);
   cleanupDom($);
   const mainText = extractMainPlainText($);
+
+  if (normalizeText(mainText).length < MIN_MEANINGFUL_TEXT_CHARS && embeddedAudioUrl) {
+    const transcript = await transcribeAudioResource(embeddedAudioUrl, "audio/mpeg").catch(() => null);
+    if (transcript?.text) {
+      const siteLabel = meta.site || host;
+      const titleLabel = meta.title || host;
+      const { text, truncated } = assemblePlainText(
+        {
+          title: titleLabel,
+          site: siteLabel,
+          description: meta.description || "(transcrito automaticamente via IA — narração em áudio da página)",
+        },
+        transcript.text
+      );
+      if (truncated) warnings.push("Texto final truncado em 8.000 caracteres (limite para IA).");
+      return { text, warning: warnings.length ? warnings.join(" ") : null, apiCost: transcript.costUsd };
+    }
+  }
+
   if (!mainText) throw new Error("url_no_text");
 
   const siteLabel = meta.site || host;
@@ -244,5 +380,5 @@ export async function fetchAndExtractPlainTextFromUrl(urlStr: string): Promise<{
   );
   if (truncated) warnings.push("Texto final truncado em 8.000 caracteres (limite para IA).");
 
-  return { text, warning: warnings.length ? warnings.join(" ") : null };
+  return { text, warning: warnings.length ? warnings.join(" ") : null, apiCost: 0 };
 }

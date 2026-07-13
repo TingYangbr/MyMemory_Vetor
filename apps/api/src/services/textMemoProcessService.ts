@@ -715,13 +715,16 @@ export async function processUrlMemoForReview(input: {
   if (!href) throw new Error("empty_text");
   let pipelineText: string;
   let extractWarning: string | null = null;
+  let extractCost = 0;
   try {
-    const { text, warning } = await fetchAndExtractPlainTextFromUrl(href);
+    const { text, warning, apiCost } = await fetchAndExtractPlainTextFromUrl(href);
     extractWarning = warning;
+    extractCost = apiCost;
     pipelineText = text.trim();
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg === "url_invalid" || msg === "url_forbidden_host") throw new Error(msg);
+    if (msg === "url_no_text" || msg === "url_audio_too_large") throw new Error(msg);
     if (msg.startsWith("url_fetch_http_")) throw new Error(msg);
     throw new Error("url_fetch_failed");
   }
@@ -736,6 +739,9 @@ export async function processUrlMemoForReview(input: {
     iaUseTexto: input.iaUseUrl,
     maxSummaryChars: input.maxSummaryChars,
   });
+  if (extractCost > 0) {
+    out.apiCost = Math.round((out.apiCost + extractCost) * 1e8) / 1e8;
+  }
   const parts = [out.processingWarning, extractWarning].filter((s): s is string => Boolean(s?.trim()));
   if (parts.length) {
     out.processingWarning = parts.join(" ");
