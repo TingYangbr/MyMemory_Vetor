@@ -338,6 +338,12 @@ const plugin: FastifyPluginAsync = async (app) => {
           message: "Falha ao obter o conteúdo da URL (rede ou tempo esgotado).",
         });
       }
+      if (msg === "url_audio_too_large") {
+        return reply.code(400).send({
+          error: "url_audio_too_large",
+          message: "O áudio encontrado nesta URL excede o limite de 20 MB para transcrição automática.",
+        });
+      }
       throw e;
     }
   });
