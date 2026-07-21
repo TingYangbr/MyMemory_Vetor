@@ -97,6 +97,15 @@ function assertWebDavUrlAllowed(inputUrl: string): void {
   }
 }
 
+function describeWebDavError(err: unknown): string {
+  const anyErr = err as { status?: number; code?: string; message?: string; cause?: { code?: string } } | null;
+  const status = anyErr?.status;
+  if (typeof status === "number") return `HTTP ${status}`;
+  const code = anyErr?.code ?? anyErr?.cause?.code;
+  if (code) return code;
+  return anyErr?.message || String(err);
+}
+
 export async function scanWebDavFolder(
   inputUrl: string,
   maxDepth = 2
@@ -112,7 +121,13 @@ export async function scanWebDavFolder(
     let items: FileStat[];
     try {
       items = (await client.getDirectoryContents(dir)) as FileStat[];
-    } catch {
+    } catch (err) {
+      // Falha na pasta raiz invalida a varredura inteira (usuário precisa saber o motivo real
+      // - servidor fora do ar, caminho errado, etc. - em vez de ver "nenhum arquivo encontrado").
+      // Falha numa subpasta aninhada só pula essa subpasta, o restante da árvore ainda é útil.
+      if (depth === 0) {
+        throw new Error(`Falha ao acessar "${dir}" no servidor WebDAV: ${describeWebDavError(err)}`);
+      }
       return;
     }
     for (const item of items) {
