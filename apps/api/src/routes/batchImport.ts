@@ -192,7 +192,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       let result;
       if (webdav) {
         try {
-          const webdavPath = new URL(file.fullPath).pathname;
+          // fullPath = origin + decoded_path (webdav lib retorna filename decodificado).
+          // new URL() re-encoda; decodeURIComponent desfaz para entregar o path
+          // limpo à lib webdav, que faz o encoding uma única vez.
+          const webdavPath = decodeURIComponent(new URL(file.fullPath).pathname);
           const buffer = await downloadWebDavFile(folderPath, webdavPath);
           result = await processBatchFileFromBuffer({
             userId,
