@@ -27,6 +27,19 @@ import { createBatchMemoDirectly } from "./memoService.js";
 const MAX_FILES_PER_BATCH = 50;
 const MAX_FILE_SIZE_DEFAULT = 100 * 1024 * 1024; // 100 MB
 
+/** Retorna true para arquivos temporários que devem ser ignorados silenciosamente. */
+function isTempFile(basename: string): boolean {
+  // ~$arquivo.docx — Office (Word/Excel/PowerPoint com o arquivo aberto)
+  if (basename.startsWith("~$")) return true;
+  // .~lock.arquivo.odt# — LibreOffice
+  if (basename.startsWith(".~lock.")) return true;
+  // *.tmp — genérico
+  if (basename.toLowerCase().endsWith(".tmp")) return true;
+  // Arquivos ocultos do sistema (.DS_Store, .gitkeep, etc.)
+  if (basename.startsWith(".")) return true;
+  return false;
+}
+
 /** Extensões aceitas pelo batch (espelho do upload normal). */
 const SUPPORTED_EXTENSIONS = new Set([
   ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
@@ -134,6 +147,7 @@ export async function scanWebDavFolder(
       if (item.type === "directory") {
         await walk(item.filename, depth + 1);
       } else if (item.type === "file") {
+        if (isTempFile(item.basename)) continue;
         const ext = path.extname(item.filename).toLowerCase();
         if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
         results.push({
@@ -226,6 +240,7 @@ export async function scanLocalFolder(
       if (entry.isDirectory()) {
         await walk(full, depth + 1);
       } else if (entry.isFile()) {
+        if (isTempFile(entry.name)) continue;
         const ext = path.extname(entry.name).toLowerCase();
         if (!SUPPORTED_EXTENSIONS.has(ext)) continue;
         let sizeBytes = 0;
