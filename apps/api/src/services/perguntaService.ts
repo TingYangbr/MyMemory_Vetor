@@ -154,11 +154,16 @@ export async function classificarPergunta(input: {
   pergunta: string;
   categories: MemoContextCategory[];
   historico: PerguntaCardHistorico[];
+  contextoTela?: string;
 }): Promise<{ classificacao: PerguntaClassificacao; costUsd: number }> {
   const userMsg = JSON.stringify(
     {
       pergunta: input.pergunta,
       contexto_sessao: buildContextoSessao(input.historico),
+      // Onde o usuário estava no sistema de origem (tela, filtros ativos, texto selecionado) —
+      // ajuda a resolver referências implícitas mesmo numa pergunta "nova" (contexto: "nova"),
+      // sem histórico de sessão pra puxar. Vem de integrações externas (ex.: Softing-erp).
+      contexto_tela: input.contextoTela ?? null,
       categorias_disponiveis: buildCategoriasPayload(input.categories),
       modelo_estruturado_generico: {
         id: "consulta_analitica_generica",
@@ -217,6 +222,8 @@ export async function perguntarMemory(input: {
   forceCategories?: string[];
   thresholdInitial?: number;
   thresholdMin?: number;
+  /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
+  contextoTela?: string;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
@@ -248,6 +255,7 @@ export async function perguntarMemory(input: {
       pergunta: input.pergunta,
       categories: input.categories,
       historico: input.historico,
+      contextoTela: input.contextoTela,
     }));
     classificacao = r.classificacao;
     totalCost += r.costUsd;
@@ -310,6 +318,7 @@ export async function perguntarMemory(input: {
       thresholdMin: thMin,
       escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
       categoryId: firstCategoryId,
+      contextoTela: input.contextoTela,
     });
     const { texto: sugestaoAviso } = gerarSugestaoAviso();
     const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };

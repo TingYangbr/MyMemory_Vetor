@@ -25,6 +25,8 @@ export interface Pipe1Input {
   escopoMemoIds?: number[];
   /** ID da primeira categoria classificada, para lookup de override de prompt. */
   categoryId?: number | null;
+  /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
+  contextoTela?: string;
 }
 
 export interface Pipe1Result {
@@ -173,6 +175,7 @@ async function gerarRespostaSemantica(input: {
   pergunta: string;
   memos: MemoHit[];
   categoryId?: number | null;
+  contextoTela?: string;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const memosPayload = input.memos.map((m) => {
     let camposEstruturados: Record<string, unknown> | null = null;
@@ -192,6 +195,10 @@ async function gerarRespostaSemantica(input: {
   const userMsg = JSON.stringify(
     {
       pergunta: input.pergunta,
+      // Onde o usuário estava no sistema quando abriu a pergunta (tela, filtros ativos, texto
+      // selecionado) — use pra resolver referências implícitas ("ele", "esse cliente") que não
+      // aparecem no texto da pergunta em si.
+      contexto_tela: input.contextoTela ?? null,
       memos_usados: memosPayload,
       metadados: {
         quantidade_memos: input.memos.length,
@@ -276,6 +283,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     pergunta: input.pergunta,
     memos,
     categoryId: input.categoryId,
+    contextoTela: input.contextoTela,
   }));
 
   return {

@@ -69,6 +69,8 @@ const COL: Record<string, string> = {
   conexaoid: "conexaoId",
   trustservercertificate: "trustServerCertificate",
   isprincipal: "isPrincipal",
+  // group_api_keys
+  keyprefix: "keyPrefix", lastusedat: "lastUsedAt",
   // dados_especificos
   id_categoria: "id_Categoria", dadooriginal: "dadoOriginal",
   dadopadronizado: "dadoPadronizado",

@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { PerguntaRequest, PerguntaResponse } from "@mymemory/shared";
 import { z } from "zod";
-import { resolveUserId, getUserIsAdmin } from "../lib/userContext.js";
+import { resolveUserIdForIntegration, getUserIsAdmin } from "../lib/userContext.js";
 import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
@@ -38,11 +38,13 @@ const perguntaBodySchema = z.object({
   forcePipe: z.enum(["semantica", "estruturada", "hibrida"]).optional(),
   thresholdOverride: z.number().min(0).max(1).optional(),
   forceCategories: z.array(z.string()).optional(),
+  /** Tela/filtros/seleção de onde a pergunta partiu — usado por integrações externas (Softing-erp). */
+  contextoTela: z.string().max(4000).optional(),
 });
 
 const plugin: FastifyPluginAsync = async (app) => {
   app.post("/api/perguntas", async (req, reply) => {
-    const userId = await resolveUserId(req);
+    const userId = await resolveUserIdForIntegration(req);
     if (userId === null) {
       return reply.code(401).send({ error: "unauthorized", message: "Faça login para continuar." });
     }
@@ -125,6 +127,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             ? Math.max(parsed.data.thresholdOverride, thresholds.min)
             : thresholds.initial,
           thresholdMin: thresholds.min,
+          contextoTela: parsed.data.contextoTela,
         })
       )));
       result = ran.value;
@@ -177,7 +180,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   // Transcrição de chunk de áudio via Whisper (usado pelo gravador mobile)
   app.post("/api/perguntas/transcribe", async (req, reply) => {
-    const userId = await resolveUserId(req);
+    const userId = await resolveUserIdForIntegration(req);
     if (userId === null) return reply.code(401).send({ error: "unauthorized" });
 
     const data = await req.file();
