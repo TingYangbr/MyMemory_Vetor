@@ -297,7 +297,7 @@ export async function loadMemoContextStructure(
   let queryParamRows: RowDataPacket[] = [];
   try {
     const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, isactive, createdat, updatedat
+      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, isactive, createdat, updatedat
        FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -371,6 +371,7 @@ export async function loadMemoContextStructure(
         descricao: (r.descricao as string) ?? null,
         sentencaSql: r.sentencaSql as string,
         conexaoId: r.conexaoId != null ? (r.conexaoId as number) : null,
+        conexaoPendente: Number(r.conexaoPendente) === 1,
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
@@ -679,7 +680,11 @@ export async function updateQueryCategoria(
   if (patch.nome !== undefined) { sets.push("nome = ?"); vals.push(patch.nome.trim()); }
   if (patch.descricao !== undefined) { sets.push("descricao = ?"); vals.push(patch.descricao?.trim() ?? null); }
   if (patch.sentencaSql !== undefined) { sets.push("sentencasql = ?"); vals.push(patch.sentencaSql.trim()); }
-  if (patch.conexaoId !== undefined) { sets.push("conexaoid = ?"); vals.push(patch.conexaoId ?? null); }
+  if (patch.conexaoId !== undefined) {
+    // Escolha explícita da conexão (inclusive PostgreSQL interno) resolve a pendência do clone
+    sets.push("conexaoid = ?", "conexaopendente = 0");
+    vals.push(patch.conexaoId ?? null);
+  }
   if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
   if (sets.length === 0) return;
   vals.push(queryId);

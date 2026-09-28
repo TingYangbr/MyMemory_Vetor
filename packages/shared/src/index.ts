@@ -662,6 +662,8 @@ export interface QueryCategoria {
   sentencaSql: string;
   /** null = usar conexão PostgreSQL interna padrão */
   conexaoId: number | null;
+  /** true = query clonada de origem com conexão externa; precisa escolher a conexão antes de executar */
+  conexaoPendente: boolean;
   isActive: number;
   createdAt: string;
   updatedAt: string;

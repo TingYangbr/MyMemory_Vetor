@@ -114,6 +114,8 @@ export default function MemoContextPage() {
   const [modalQueryDescricao, setModalQueryDescricao] = useState("");
   const [modalQuerySentencaSql, setModalQuerySentencaSql] = useState("");
   const [modalQueryConexaoId, setModalQueryConexaoId] = useState<number | null>(null);
+  /** Query clonada sem conexão escolhida: o select fica em "— selecione —" até o usuário escolher. */
+  const [modalQueryConexaoPendente, setModalQueryConexaoPendente] = useState(false);
   const [dbConnOptions, setDbConnOptions] = useState<DbConnection[]>([]);
   const [syntaxResult, setSyntaxResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [syntaxBusy, setSyntaxBusy] = useState(false);
@@ -401,6 +403,7 @@ export default function MemoContextPage() {
     setModalQueryDescricao("");
     setModalQuerySentencaSql("");
     setModalQueryConexaoId(null);
+    setModalQueryConexaoPendente(false);
     loadDbConnOptions();
     setModal("query");
   };
@@ -412,6 +415,7 @@ export default function MemoContextPage() {
     setModalQueryDescricao(q.descricao ?? "");
     setModalQuerySentencaSql(q.sentencaSql);
     setModalQueryConexaoId(q.conexaoId ?? null);
+    setModalQueryConexaoPendente(q.conexaoPendente);
     loadDbConnOptions();
     setModal("queryEdit");
   };
@@ -580,6 +584,7 @@ export default function MemoContextPage() {
     } else if (modal === "query" || modal === "queryEdit") {
       if (!modalQueryNome.trim()) { setModalSaveError("O campo Nome da query é obrigatório."); return; }
       if (!modalQuerySentencaSql.trim()) { setModalSaveError("A sentença SQL é obrigatória."); return; }
+      if (modalQueryConexaoPendente) { setModalSaveError("Selecione a Conexão BD externa desta query."); return; }
     } else {
       if (!modalParamCampo.trim()) { setModalSaveError("O campo nome do parâmetro é obrigatório."); return; }
     }
@@ -1015,6 +1020,9 @@ export default function MemoContextPage() {
                           <div className={styles.queryItemHead}>
                             <div className={styles.queryItemInfo}>
                               <span className={styles.queryItemNome}>{q.nome}</span>
+                              {q.conexaoPendente ? (
+                                <span className={styles.queryConexaoPendente}>⚠ Conexão BD pendente — edite a query para escolher</span>
+                              ) : null}
                               {q.descricao ? <span className={styles.queryItemDesc}>{q.descricao}</span> : null}
                               <code className={styles.queryItemSql}>
                                 {q.sentencaSql.length > 140 ? `${q.sentencaSql.slice(0, 140)}…` : q.sentencaSql}
@@ -1317,9 +1325,15 @@ export default function MemoContextPage() {
                   <select
                     id="mod-q-conexao"
                     className="mm-field"
-                    value={modalQueryConexaoId ?? ""}
-                    onChange={(e) => setModalQueryConexaoId(e.target.value === "" ? null : Number(e.target.value))}
+                    value={modalQueryConexaoPendente ? "pendente" : (modalQueryConexaoId ?? "")}
+                    onChange={(e) => {
+                      setModalQueryConexaoPendente(false);
+                      setModalQueryConexaoId(e.target.value === "" ? null : Number(e.target.value));
+                    }}
                   >
+                    {modalQueryConexaoPendente ? (
+                      <option value="pendente" disabled>— selecione a conexão —</option>
+                    ) : null}
                     <option value="">— PostgreSQL interno (padrão) —</option>
                     {(() => {
                       // Template global (sem grupo): só mostra conexões globais
@@ -1331,10 +1345,22 @@ export default function MemoContextPage() {
                           ));
                       }
                       // Categoria de grupo: separa conexões do grupo das globais
-                      const grupo = dbConnOptions.filter((c) => c.groupId != null);
+                      // Admin recebe conexões de todos os grupos: mostrar só as do grupo em edição
+                      const grupo = dbConnOptions.filter((c) => c.groupId === scopeGroupId);
                       const global = dbConnOptions.filter((c) => c.groupId == null);
+                      // Query já apontando para conexão de outro grupo: mantém visível para não trocar em silêncio
+                      const atualOutroGrupo = dbConnOptions.find(
+                        (c) => c.id === modalQueryConexaoId && c.groupId != null && c.groupId !== scopeGroupId
+                      );
                       return (
                         <>
+                          {atualOutroGrupo && (
+                            <optgroup label="⚠ De outro grupo (atual)">
+                              <option value={atualOutroGrupo.id}>
+                                {atualOutroGrupo.nome} ({atualOutroGrupo.host}:{atualOutroGrupo.port}/{atualOutroGrupo.database})
+                              </option>
+                            </optgroup>
+                          )}
                           {grupo.length > 0 && (
                             <optgroup label="Deste grupo">
                               {grupo.map((c) => (
@@ -1353,6 +1379,11 @@ export default function MemoContextPage() {
                       );
                     })()}
                   </select>
+                  {modalQueryConexaoPendente ? (
+                    <p className={styles.queryConexaoPendente}>
+                      Query clonada: a origem usava uma conexão externa. Escolha a conexão deste grupo antes de salvar.
+                    </p>
+                  ) : null}
                   <p className={styles.fieldHelpSmall}>
                     Deixe em branco para usar o banco interno. Selecione uma conexão SQL Server para executar o query externamente.
                   </p>

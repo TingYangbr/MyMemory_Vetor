@@ -43,7 +43,7 @@ function hashResultado(resultado: ResultadoExecucao): string {
 
 async function fetchQueryTemplate(queryId: number): Promise<QueryTemplate | null> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, sentencasql, conexaoid FROM queries_categoria WHERE id = ? AND isactive = 1`,
+    `SELECT id, sentencasql, conexaoid FROM queries_categoria WHERE id = ? AND isactive = 1 AND conexaopendente = 0`,
     [queryId]
   );
   if (!(rows as unknown[]).length) return null;

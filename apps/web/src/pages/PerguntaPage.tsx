@@ -195,8 +195,75 @@ function formatNumericCell(num: number, colName: string): string {
   return num.toLocaleString("pt-BR");
 }
 
+/**
+ * Datas vindas do banco (ISO "2026-04-07T00:00:00.000Z" ou mês agregado "2026-04") → dd/mm/aaaa ou mm/aaaa.
+ * Meia-noite UTC é data pura do SQL: formata pelas partes do texto para não voltar um dia no fuso -03.
+ * Retorna null quando o valor não é data.
+ */
+function formatDateCell(val: string): string | null {
+  const s = val.trim();
+  const mes = /^(\d{4})-(\d{2})$/.exec(s);
+  if (mes) return `${mes[2]}/${mes[1]}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$/.exec(s);
+  if (!m) return null;
+  const [, ano, mesNum, dia, hh, mi, ss] = m;
+  const horaZero = !hh || (hh === "00" && mi === "00" && (!ss || ss === "00"));
+  if (horaZero) return `${dia}/${mesNum}/${ano}`;
+  const d = new Date(s);
+  return Number.isNaN(d.getTime()) ? `${dia}/${mesNum}/${ano}` : d.toLocaleDateString("pt-BR");
+}
+
 const CHART_BAR_COLORS = ["#2563eb", "#f97316", "#16a34a", "#dc2626", "#7c3aed"];
 const CHART_MAX_BARRAS = 25;
+/** Máximo de barras (séries) por item do eixo X. */
+const CHART_MAX_SERIES = 3;
+
+/** Colunas de identificação (Num_Nota_Fiscal, Codigo_Produto, id…) não são medidas — nunca viram barra. */
+function isColunaIdentificador(col: string): boolean {
+  return /(^|_)(id|num|numero|nro|nr|cod|codigo)(_|$)/.test(col.toLowerCase());
+}
+
+function semAcento(s: string): string {
+  return s.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase();
+}
+
+/**
+ * Escolhe até CHART_MAX_SERIES colunas: se a pergunta cita colunas, usa só as citadas; senão, as monetárias.
+ * Palavra que aparece em muitas colunas (ex.: "valor" em todas as Valor_*) pesa menos (1/frequência),
+ * para "valores presentes" apontar Valor_Presente_* e não todas as Valor_*.
+ */
+function escolherSeries(cols: string[], pergunta: string): string[] {
+  const p = semAcento(pergunta);
+  // "faturado"/"faturamento" sem "quantidade" explícita = valor monetário faturado (Valor_Prod_Fat, Valor_NF)
+  const faturadoEhValor = /\bfatur/.test(p) && !/\b(quantidade|qtde|qtd|unidades|volume)\b/.test(p);
+  const isValorFaturado = (col: string) =>
+    /^(valor|vlr|total)(_prod(uto)?)?_(fat|faturado|faturamento|nf)$/.test(semAcento(col));
+  const tokensPorCol = cols.map((col) =>
+    semAcento(col).split(/[_\s]+/).filter((t) => t.length >= 4 && !(faturadoEhValor && t.startsWith("fatur")))
+  );
+  const freq = new Map<string, number>();
+  for (const tokens of tokensPorCol) for (const t of new Set(tokens)) freq.set(t, (freq.get(t) ?? 0) + 1);
+  const isMonetaria = (col: string) => /(valor|vlr|preco|custo|total|saldo|montante|receita|despesa|lucro)/.test(semAcento(col));
+
+  const avaliadas = cols.map((col, idx) => ({
+    col,
+    idx,
+    citacao: tokensPorCol[idx].filter((t) => p.includes(t)).reduce((acc, t) => acc + 1 / (freq.get(t) ?? 1), 0),
+    monetaria: isMonetaria(col) ? 1 : 0,
+  }));
+  // Entre as citadas, se houver monetárias fica só com elas: evita misturar quantidade e R$ na mesma escala
+  const soMonetarias = (lista: typeof avaliadas) =>
+    lista.some((a) => a.monetaria) ? lista.filter((a) => a.monetaria) : lista;
+  // ≥ 0.75: exige ao menos uma palavra específica da coluna (palavra comum a 2+ colunas sozinha não basta)
+  const citadas = avaliadas.filter((a) => a.citacao >= 0.75);
+  const valorFaturado = faturadoEhValor && citadas.length === 0 ? avaliadas.filter((a) => isValorFaturado(a.col)) : [];
+  const base = valorFaturado.length > 0 ? valorFaturado : soMonetarias(citadas.length > 0 ? citadas : avaliadas);
+  return base
+    .sort((a, b) => b.citacao - a.citacao || b.monetaria - a.monetaria || a.idx - b.idx)
+    .slice(0, CHART_MAX_SERIES)
+    .sort((a, b) => a.idx - b.idx)
+    .map((x) => x.col);
+}
 
 function isNumericCellValue(v: unknown): boolean {
   if (v == null) return false;
@@ -215,7 +282,7 @@ interface DadosGrafico {
  * Quando TODAS as colunas são numéricas (ex.: ano + métricas, sem nenhuma coluna de texto), assume que a
  * primeira coluna é a categoria — convenção comum em queries agregadas, onde o group_by vem primeiro no SELECT.
  */
-function buildDadosGrafico(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
+function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
@@ -229,11 +296,13 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado): DadosGrafico | 
   if (!labelCol) {
     labelCol = dados.colunas[0];
     valueCols = numericCols.filter((col) => col !== labelCol);
-    if (valueCols.length === 0) return null;
   }
+  valueCols = escolherSeries(valueCols.filter((col) => !isColunaIdentificador(col)), pergunta);
+  if (valueCols.length === 0) return null;
 
   const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
-    const row: Record<string, string | number> = { label: String(linha[labelCol] ?? "") };
+    const rawLabel = String(linha[labelCol] ?? "");
+    const row: Record<string, string | number> = { label: formatDateCell(rawLabel) ?? rawLabel };
     for (const col of valueCols) {
       const v = linha[col];
       row[col] = v == null ? 0 : typeof v === "number" ? v : Number(v);
@@ -262,6 +331,8 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
 
 interface TabelaEstruturadaProps {
   dados: PerguntaResultadoEstruturado;
+  /** Texto da pergunta — usado para escolher quais colunas viram barras no gráfico. */
+  pergunta?: string;
   onOpenMemo?: (id: number) => void;
   onOpenMemoFile?: (id: number) => void;
   loadingCardId?: number | null;
@@ -270,7 +341,7 @@ interface TabelaEstruturadaProps {
 
 /** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
 function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
-  const grafico = useMemo(() => buildDadosGrafico(props.dados), [props.dados]);
+  const grafico = useMemo(() => buildDadosGrafico(props.dados, props.pergunta ?? ""), [props.dados, props.pergunta]);
   if (!props.dados.totalLinhas) return null;
   if (!grafico) return <TabelaEstruturada {...props} />;
   return (
@@ -322,6 +393,10 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                     if (col === "mediaType" && typeof val === "string")
                       return MEDIA_TYPE_LABELS[val] ?? val;
                     if (val == null) return "—";
+                    if (typeof val === "string") {
+                      const data = formatDateCell(val);
+                      if (data) return data;
+                    }
                     if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
                       const num = typeof val === "number" ? val : Number(val);
                       return formatNumericCell(num, col);
@@ -1610,9 +1685,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
-                          <EstruturadoComGrafico key={idx} dados={d} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                          <EstruturadoComGrafico key={idx} dados={d} pergunta={r.perguntaTexto} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                         ))
-                      : <EstruturadoComGrafico dados={r.resposta.dados_estruturados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                      : <EstruturadoComGrafico dados={r.resposta.dados_estruturados} pergunta={r.perguntaTexto} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />

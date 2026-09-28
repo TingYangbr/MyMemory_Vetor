@@ -58,6 +58,7 @@ import { RevertClassificacaoTextoAtual1700000000142 } from "./migrations/1700000
 import { UpdateClassificacaoDominioPorBem1700000000143 } from "./migrations/1700000000143-UpdateClassificacaoDominioPorBem.js";
 import { GroupStorageConfigs1700000000144 } from "./migrations/1700000000144-GroupStorageConfigs.js";
 import { GroupApiKeys1700000000146 } from "./migrations/1700000000146-GroupApiKeys.js";
+import { QueryConexaoPendente1700000000147 } from "./migrations/1700000000147-QueryConexaoPendente.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -147,6 +148,7 @@ assertMediaStorageEnv();
       UpdateClassificacaoDominioPorBem1700000000143,
       GroupStorageConfigs1700000000144,
       GroupApiKeys1700000000146,
+      QueryConexaoPendente1700000000147,
     ],
   });
   const ds = await AppDataSource.initialize();

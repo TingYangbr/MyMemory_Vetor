@@ -66,7 +66,7 @@ const COL: Record<string, string> = {
   categoryid: "categoryId", normalizedterms: "normalizedTerms",
   resolucaonomeabrev: "resolucaoNomeAbrev",
   queryid: "queryId", sentencasql: "sentencaSql", operadorsql: "operadorSql",
-  conexaoid: "conexaoId",
+  conexaoid: "conexaoId", conexaopendente: "conexaoPendente",
   trustservercertificate: "trustServerCertificate",
   isprincipal: "isPrincipal",
   // group_api_keys
