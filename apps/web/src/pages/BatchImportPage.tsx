@@ -22,13 +22,15 @@ interface StorageConfigOption {
 
 type IaLevel = "semIA" | "basico" | "completo";
 
-const PROVIDER_OPTIONS: { value: StorageProvider; label: string; hint: string }[] = [
+// emBreve: origem em quarentena — aparece desabilitada. OneDrive/Google Drive não têm integração real
+// (seletor comum do navegador, grava só o nome do arquivo, memo fica sem vínculo com o original).
+const PROVIDER_OPTIONS: { value: StorageProvider; label: string; hint: string; emBreve?: boolean }[] = [
   { value: "LOCAL",        label: "Disco Local",    hint: "Pasta no servidor (ex.: C:\\Documentos)" },
   { value: "REDE",         label: "Rede Local",     hint: "Caminho UNC (ex.: \\\\servidor\\pasta)" },
   { value: "WEBDAV",       label: "WebDAV",         hint: "URL do servidor WebDAV (ex.: http://192.168.1.10:19401)" },
-  { value: "ONEDRIVE",     label: "OneDrive",       hint: "Selecione os arquivos do OneDrive" },
-  { value: "GOOGLE_DRIVE", label: "Google Drive",   hint: "Selecione os arquivos do Google Drive" },
-  { value: "URL",          label: "URL Externa",    hint: "Disponível em breve" },
+  { value: "ONEDRIVE",     label: "OneDrive",       hint: "Disponível em breve", emBreve: true },
+  { value: "GOOGLE_DRIVE", label: "Google Drive",   hint: "Disponível em breve", emBreve: true },
+  { value: "URL",          label: "URL Externa",    hint: "Disponível em breve", emBreve: true },
 ];
 
 const IA_OPTIONS: { value: IaLevel; label: string; desc: string }[] = [
@@ -222,7 +224,9 @@ export default function BatchImportPage() {
                 }}
               >
                 {PROVIDER_OPTIONS.map(o => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
+                  <option key={o.value} value={o.value} disabled={o.emBreve}>
+                    {o.emBreve ? `${o.label} (em breve)` : o.label}
+                  </option>
                 ))}
               </select>
             </div>

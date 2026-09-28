@@ -7,6 +7,27 @@
   min-width: 0;
 }
 
+/* Tile «Guarda própria»: leva para outra tela (Importação em Lote) — borda tracejada + ↗ para diferenciar */
+.guardaPropriaTile {
+  position: relative;
+  border-style: dashed;
+  border-color: var(--mm-accent);
+}
+
+.guardaPropriaSeta {
+  position: absolute;
+  top: 0.35rem;
+  right: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--mm-accent);
+}
+
+.guardaPropriaLegenda {
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--mm-muted);
+}
+
 .buscarRow {
   display: flex;
   justify-content: center;

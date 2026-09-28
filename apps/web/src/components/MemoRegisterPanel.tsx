@@ -202,7 +202,6 @@ export default function MemoRegisterPanel({
   const [error, setError] = useState<string | null>(null);
   const [drag, setDrag] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const docInputRef = useRef<HTMLInputElement>(null);
   const photoVideoRef = useRef<HTMLVideoElement>(null);
   const photoStreamRef = useRef<MediaStream | null>(null);
 
@@ -1435,24 +1434,6 @@ export default function MemoRegisterPanel({
           Gravar áudio
         </button>
 
-        <label className="mm-icon-action">
-          <span className={styles.iconEmoji} aria-hidden>
-            📎
-          </span>
-          Documento / arquivo
-          <input
-            ref={docInputRef}
-            type="file"
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.msg,.eml,.dwg,.rtf,.odt,.ods,.ppt,.pptx,application/*,text/*,image/*"
-            disabled={busy || captureConfirmOpen}
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) handleFileFromDropzone(f);
-              e.target.value = "";
-            }}
-          />
-        </label>
-
         <button
           type="button"
           className="mm-icon-action"
@@ -1482,6 +1463,21 @@ export default function MemoRegisterPanel({
           </span>
           URL
         </button>
+
+        {/* Guarda própria: catalogar arquivos que continuam no servidor do cliente (Importação em Lote).
+            Substitui o antigo «Documento / arquivo», redundante com o seletor de arquivo acima. */}
+        <Link
+          to="/importar-lote"
+          className={`mm-icon-action ${styles.guardaPropriaTile}`}
+          title="Catalogar arquivos do seu disco, rede ou WebDAV sem copiá-los para o myMemory"
+        >
+          <span className={styles.guardaPropriaSeta} aria-hidden>↗</span>
+          <span className={styles.iconEmoji} aria-hidden>
+            📂
+          </span>
+          Guarda própria
+          <span className={styles.guardaPropriaLegenda}>arquivos no seu servidor</span>
+        </Link>
       </div>
 
       {error ? <p className="mm-error">{error}</p> : null}
