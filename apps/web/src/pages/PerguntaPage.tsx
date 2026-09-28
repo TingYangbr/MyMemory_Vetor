@@ -1443,8 +1443,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   className={styles.novaSessaoBtn}
                   onClick={novasSessao}
                   title="Limpar histórico e começar nova sessão"
+                  aria-label="Nova sessão"
                 >
-                  ↺ Nova sessão
+                  ↺<span className={styles.soDesktop}>&nbsp;Nova sessão</span>
                 </button>
               ) : null}
               {!busy && micState === "idle" ? (
@@ -1454,7 +1455,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   onClick={() => void abrirModeloSelect()}
                   title="Carregar pergunta salva"
                 >
-                  <IconLightbulb /> Perguntas salvas
+                  <span className={styles.soDesktop}><IconLightbulb /></span> Perguntas salvas
                 </button>
               ) : null}
             </div>
