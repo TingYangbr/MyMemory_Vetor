@@ -759,6 +759,14 @@
   line-height: 1.25;
 }
 
+/* Número da query (id em queries_categoria) — o mesmo citado nos traces e mensagens de erro */
+.queryItemId {
+  font-weight: 500;
+  font-size: 0.8rem;
+  color: var(--mm-text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
 .queryItemDesc {
   font-size: 0.78rem;
   color: var(--mm-text-secondary);

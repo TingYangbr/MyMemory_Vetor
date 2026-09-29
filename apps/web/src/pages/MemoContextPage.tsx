@@ -1019,7 +1019,9 @@ export default function MemoContextPage() {
                         <div key={q.id} className={styles.queryItem}>
                           <div className={styles.queryItemHead}>
                             <div className={styles.queryItemInfo}>
-                              <span className={styles.queryItemNome}>{q.nome}</span>
+                              <span className={styles.queryItemNome}>
+                                <span className={styles.queryItemId} title="Número da query">#{q.id}</span> {q.nome}
+                              </span>
                               {q.conexaoPendente ? (
                                 <span className={styles.queryConexaoPendente}>⚠ Conexão BD pendente — edite a query para escolher</span>
                               ) : null}
@@ -1152,7 +1154,7 @@ export default function MemoContextPage() {
               {modal === "campo" && "Novo campo"}
               {modal === "campoEdit" && "Editar campo"}
               {modal === "query" && "Nova query SQL"}
-              {modal === "queryEdit" && "Editar query SQL"}
+              {modal === "queryEdit" && `Editar query SQL${modalQueryId != null ? ` #${modalQueryId}` : ""}`}
               {modal === "queryParam" && "Novo parâmetro"}
               {modal === "queryParamEdit" && "Editar parâmetro"}
             </h3>
