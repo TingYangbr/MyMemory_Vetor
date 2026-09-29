@@ -11,7 +11,7 @@ import type {
   WorkspaceGroupItem,
 } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
-import { pool } from "../db.js";
+import { pool, queryIsoladaPorGrupo } from "../db.js";
 
 function ts(v: unknown): string {
   if (v instanceof Date) return v.toISOString();
@@ -632,11 +632,14 @@ export async function softDeleteCampo(userId: number, campoId: number): Promise<
 }
 
 export async function syntaxCheckPostgres(
-  sentencaSql: string
+  sentencaSql: string,
+  ctx: { userId: number; groupId: number | null }
 ): Promise<{ ok: boolean; message: string }> {
   const sql = sentencaSql.replace(/(?<!:):([a-zA-Z\p{L}][a-zA-Z0-9_\p{L}]*)/gu, "NULL");
   try {
-    await pool.query(`EXPLAIN (ANALYZE false, COSTS false, VERBOSE false) ${sql}`);
+    // Isolado como na execução real: um único comando, read only, papel restrito.
+    // Também antecipa "permission denied" para tabelas que a query não pode ler.
+    await queryIsoladaPorGrupo(`EXPLAIN (ANALYZE false, COSTS false, VERBOSE false) ${sql}`, [], ctx);
     return { ok: true, message: "Sintaxe válida." };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

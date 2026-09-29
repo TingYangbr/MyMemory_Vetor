@@ -8,7 +8,7 @@ import type {
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
-import { pool } from "../db.js";
+import { pool, queryIsoladaPorGrupo } from "../db.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { withSpan } from "../lib/requestTimings.js";
@@ -1001,9 +1001,16 @@ async function executarConsultasPlano(input: {
 
       let rows: RowDataPacket[];
       try {
-        [rows] = await pool.query<RowDataPacket[]>(finalSql, values);
+        // SQL escrito pelo owner: roda isolado (read only, papel restrito, RLS por grupo)
+        [rows] = await queryIsoladaPorGrupo<RowDataPacket[]>(finalSql, values, { userId, groupId });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
+        if (/permission denied|read-only transaction|cannot insert multiple commands/i.test(msg)) {
+          throw new Error(
+            `A query "${template.nome}" tentou uma operação não permitida (${msg}). ` +
+            `Queries de categoria só podem ler memos, dadosespecificos, categories, subcategories e categorycampos.`
+          );
+        }
         if (/invalid input syntax for type date/i.test(msg)) {
           throw new Error(
             `Campo de data com valor inválido na query "${template.nome}". ` +

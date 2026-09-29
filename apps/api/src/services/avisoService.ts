@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
 import type { AvisoExecucaoSnapshot, AvisoQueryParamSnapshot, FrequenciaTipo } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
-import { pool } from "../db.js";
+import { pool, queryIsoladaPorGrupo } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
 import { sendAvisoAlert } from "../lib/mail.js";
@@ -129,7 +129,8 @@ export async function reexecutarSnapshot(
           template.params.map((p) => ({ nome: p.nome, tipo: p.tipo, obrigatorio: p.obrigatorio, operadorSql: p.operadorSql, normalizar: p.normalizar, descricao_campo: null, exemplos_valores: [] })),
           { userid: userId, groupid: groupId }
         );
-        const [rows] = await pool.query<RowDataPacket[]>(sql, values);
+        // SQL escrito pelo owner: roda isolado (read only, papel restrito, RLS por grupo)
+        const [rows] = await queryIsoladaPorGrupo<RowDataPacket[]>(sql, values, { userId, groupId });
         resultado.queryResults[qs.queryId] = rows as Record<string, unknown>[];
       }
     }

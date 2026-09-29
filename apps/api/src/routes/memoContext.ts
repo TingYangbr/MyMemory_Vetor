@@ -456,9 +456,10 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   // ── Verificação de sintaxe PostgreSQL interno ─────────────────────────────
   app.post("/api/memo-context/syntax-check", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
     const body = z.object({ sentencaSql: z.string().min(1) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
-    return syntaxCheckPostgres(body.data.sentencaSql);
+    return syntaxCheckPostgres(body.data.sentencaSql, { userId, groupId: null });
   });
 
   // ── Lista de Memos por Categoria ─────────────────────────────────────────

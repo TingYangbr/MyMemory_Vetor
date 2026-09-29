@@ -145,6 +145,46 @@ function wrapClient(client: pg.PoolClient | pg.Pool) {
   return { query: runQuery, execute: runQuery };
 }
 
+/** Papel restrito criado na migration QueryCategoriaIsolada: SELECT só em tabelas de memos, com RLS por grupo. */
+export const QUERY_READER_ROLE = "mm_query_reader";
+
+/**
+ * Executa SQL escrito por owner de grupo (queries de categoria) no PostgreSQL interno, isolado:
+ *   - transação READ ONLY: bloqueia INSERT/UPDATE/DELETE/DDL;
+ *   - SET LOCAL ROLE mm_query_reader: sem acesso a users, db_connections, group_api_keys etc.;
+ *   - RLS em memos/dadosespecificos: só as linhas do grupo ativo (ou do usuário, sem grupo);
+ *   - queryMode "extended": um único comando — impede "; COMMIT; RESET ROLE; ..." no texto.
+ * O app conecta como superusuário (dono das tabelas), por isso o isolamento depende do SET ROLE.
+ */
+export async function queryIsoladaPorGrupo<T>(
+  sql: string,
+  params: unknown[],
+  ctx: { userId: number; groupId: number | null }
+): Promise<[T, pg.FieldDef[]]> {
+  const client = await pgPool.connect();
+  try {
+    await client.query("BEGIN READ ONLY");
+    await client.query(
+      "SELECT set_config('mymemory.group_id', $1, true), set_config('mymemory.user_id', $2, true)",
+      [ctx.groupId == null ? "" : String(ctx.groupId), String(ctx.userId)]
+    );
+    await client.query(`SET LOCAL ROLE ${QUERY_READER_ROLE}`);
+    // queryMode existe no pg 8.20, mas ainda não nos tipos (@types/pg)
+    const result: pg.QueryResult = await client.query({
+      text: toPositional(sql),
+      values: params,
+      queryMode: "extended",
+    } as pg.QueryConfig);
+    await client.query("COMMIT");
+    return [result.rows.map(camelizeRow) as unknown as T, result.fields ?? []];
+  } catch (err) {
+    await client.query("ROLLBACK").catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export const pool = {
   ...wrapClient(pgPool),
 
