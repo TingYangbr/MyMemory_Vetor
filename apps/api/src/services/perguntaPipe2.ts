@@ -597,7 +597,15 @@ export function bindTemplateParams(
     } else {
       // Parâmetro comum (inclui ocorrências IS NULL e fallback quando colExpr não detectado)
       result += sentencaSql.slice(pos, token.start);
-      if (val !== null && val !== undefined && /LIKE/i.test(def?.operadorSql ?? "") && llmOpMap.get(key) === "LIKE") {
+      if (val === null || val === undefined) {
+        // Sem valor: NULL literal, sem cast. Com "?::text" o PostgreSQL valida os tipos antes de executar e
+        // um filtro não usado com tipo cadastrado errado (ex.: date >= text) derrubava a pergunta inteira.
+        // Com cast do próprio template (":param::numeric") vira "NULL::numeric", também válido.
+        result += "NULL";
+        pos = token.end;
+        continue;
+      }
+      if (/LIKE/i.test(def?.operadorSql ?? "") && llmOpMap.get(key) === "LIKE") {
         const stripped = String(val).normalize("NFD").replace(/\p{Mn}/gu, "");
         val = `%${stripped}%`;
       }
