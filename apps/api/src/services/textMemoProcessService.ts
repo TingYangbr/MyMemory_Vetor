@@ -7,6 +7,7 @@ import { openaiChatJson } from "../lib/openaiChat.js";
 import { pool } from "../db.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
 import { resolveNomeAbrev } from "./entityResolutionService.js";
+import { linhaDataRegistro } from "../lib/dataReferencia.js";
 import {
   ABSOLUTE_CAP,
   clampTextToMax,
@@ -133,11 +134,24 @@ export function formatCategoriesBlock(cats: CatCtx[]): string {
       const sn = c.subcategories.map((s) => s.name).join("; ");
       const fn = c.campos
         .map((f) => {
+          // Descrição do campo = instrução de extração do owner (ex.: formato de data); sem ela só o 2.º passo a via
+          const desc = f.description ? ` (${f.description})` : "";
           const terms = f.normalizedTerms.length ? ` [padrões: ${f.normalizedTerms.join(", ")}]` : "";
-          return `${f.name}${terms}`;
+          return `${f.name}${desc}${terms}`;
         })
         .join("; ");
       return `- ID ${c.id} | Nome exato: "${c.name}"${sn ? ` | Subcategorias conhecidas: ${sn}` : ""}${fn ? ` | Campos: ${fn}` : ""}`;
+    })
+    .join("\n");
+}
+
+/** Guia "campo: descrição [padrões]" para os prompts de 2.º passo de imagem e vídeo. */
+export function formatCamposGuide(campos: CatCtx["campos"]): string {
+  return campos
+    .map((c) => {
+      const desc = c.description ? `: ${c.description}` : "";
+      const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
+      return `- "${c.name}"${desc}${terms}`;
     })
     .join("\n");
 }
@@ -175,6 +189,8 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
       : "(Nenhum campo listado — devolva dados_especificos.campos como {}.)";
 
   return [
+    linhaDataRegistro(),
+    "",
     "TAREFA (UMA UNICA CHAMADA): extrair categoria, subcategorias e dados especificos do memo, junto com resumo e palavras-chave.",
     "IMPORTANTE: use o catalogo completo abaixo (todas as categorias, todas as subcategorias por categoria e todos os campos por categoria).",
     "",
@@ -576,7 +592,7 @@ Regras: ${summaryRule}`;
   "categoria_livre": string | null,
   "palavras_chave": string[] (termos curtos úteis para busca; coerentes com o resumo — a 2.ª passagem só refinará subcategorias/campos)
 }`;
-    const user1 = `Categorias (use nome exato de categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\nTEXTO:\n${forLlm}`;
+    const user1 = `${linhaDataRegistro()}\n\nCategorias (use nome exato de categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\nTEXTO:\n${forLlm}`;
     const r1 = await openaiChatJson({
       messages: [
         { role: "system", content: sys1 },
@@ -619,7 +635,9 @@ Regras: ${summaryRule}`;
       : allowFreeSpecificFieldsWithoutCategoryMatch
         ? "(catálogo vazio — extraia campos livres chave→valor)"
         : "(nenhum — use {})";
-    const user2 = `Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
+    const user2 = `${linhaDataRegistro()}
+
+Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
 Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subNames.length ? subNames.join(", ") : "(nenhuma — deixe lista vazia)"}
 
 CAMPOS A PREENCHER — use os nomes de campo EXATAMENTE como indicado e siga a instrução de cada campo:
@@ -861,7 +879,7 @@ Responda apenas o JSON.`;
     : null;
 
   try {
-    const user = `Categorias e estrutura do contexto de trabalho:\n${formatCategoriesBlock(cats)}\n\n---\nTRANSCRIÇÃO DO ÁUDIO DO VÍDEO:\n${forLlm}`;
+    const user = `${linhaDataRegistro()}\n\nCategorias e estrutura do contexto de trabalho:\n${formatCategoriesBlock(cats)}\n\n---\nTRANSCRIÇÃO DO ÁUDIO DO VÍDEO:\n${forLlm}`;
     const { content, costUsd } = await openaiChatJson({
       messages: [
         { role: "system", content: sys },

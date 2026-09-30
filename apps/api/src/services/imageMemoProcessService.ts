@@ -14,6 +14,7 @@ import {
   resolveTextImagemMinForPlan,
 } from "./textMemoMaxSummary.js";
 import {
+  formatCamposGuide,
   formatCategoriesBlock,
   loadCategoryContext,
   matchCategoryId,
@@ -22,6 +23,7 @@ import {
   processTextMemoForReview,
   uniqueKeywordParts,
 } from "./textMemoProcessService.js";
+import { linhaDataRegistro } from "../lib/dataReferencia.js";
 
 export async function getUserIaUseImagem(userId: number): Promise<UserIaUseLevel> {
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -367,7 +369,7 @@ Regras:
 4) subcategorias e palavras_chave coerentes com o resumo.
 5) ${resumoPtBrPromptRule(maxSummaryChars)}`;
 
-      const userTxt = `Categorias e estrutura:\n${formatCategoriesBlock(cats)}\n\n---\nTexto local (OCR / instrução):\n"""${textHintForVision}"""\n\n${VISION_USER_STUB}`;
+      const userTxt = `${linhaDataRegistro()}\n\nCategorias e estrutura:\n${formatCategoriesBlock(cats)}\n\n---\nTexto local (OCR / instrução):\n"""${textHintForVision}"""\n\n${VISION_USER_STUB}`;
 
       const { content, costUsd } = await openaiChatVisionJson({
         messages: [
@@ -438,7 +440,7 @@ Regras:
 Regras: use a IMAGEM como fonte principal. O texto OCR no usuario é só apoio.
 ${resumoPtBrPromptRule(maxSummaryChars)}`;
 
-    const user1 = `Categorias (use nome exato em categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\nTexto local (OCR / instrução):\n"""${textHintForVision}"""\n\n${VISION_USER_STUB}`;
+    const user1 = `${linhaDataRegistro()}\n\nCategorias (use nome exato em categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\nTexto local (OCR / instrução):\n"""${textHintForVision}"""\n\n${VISION_USER_STUB}`;
 
     const r1 = await openaiChatVisionJson({
       messages: [
@@ -462,14 +464,7 @@ ${resumoPtBrPromptRule(maxSummaryChars)}`;
     const cat = cats.find((c) => c.id === catId);
     const subNames = cat?.subcategories.map((s) => s.name) ?? [];
     const campoNames = cat?.campos.map((c) => c.name) ?? [];
-    const campoGuide =
-      cat?.campos
-        .map((c) =>
-          c.normalizedTerms.length
-            ? `${c.name} (padrões: ${c.normalizedTerms.join(", ")})`
-            : `${c.name} (sem padrões)`
-        )
-        .join("; ") ?? "";
+    const campoGuide = cat ? formatCamposGuide(cat.campos) : "";
 
     const contextBlock = [
       ocrLocal.length ? `TEXTO OCR:\n${ocrLocal.slice(0, 8000)}` : "(Sem texto OCR.)",
@@ -483,10 +478,13 @@ ${resumoPtBrPromptRule(maxSummaryChars)}`;
   "subcategorias_livres": string[],
   "campos": object (chaves = nomes exatos dos campos solicitados, valores = texto extraído ou "")
 }`;
-    const user2 = `Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
+    const user2 = `${linhaDataRegistro()}
+
+Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
 Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subNames.length ? subNames.join(", ") : "(nenhuma — deixe lista vazia)"}
 Campos a preencher (chaves do objeto campos): ${campoNames.length ? campoNames.join(", ") : "(nenhum — use {})"}
-Guia de padronização dos campos: ${campoGuide || "(sem padrões definidos)"}
+Instruções e padrões de cada campo (siga a instrução do campo):
+${campoGuide || "(sem instruções definidas)"}
 
 CONTEXTO (OCR + resumo visual):
 ${forSecond}`;

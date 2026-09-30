@@ -8,12 +8,14 @@ import {
   resumoPtBrPromptRule,
 } from "./textMemoMaxSummary.js";
 import {
+  formatCamposGuide,
   formatCategoriesBlock,
   loadCategoryContext,
   matchCategoryId,
   parseJsonLoose,
   uniqueKeywordParts,
 } from "./textMemoProcessService.js";
+import { linhaDataRegistro } from "../lib/dataReferencia.js";
 
 function str(v: unknown): string {
   if (v == null) return "";
@@ -104,7 +106,7 @@ Regras:
 5) subcategorias e palavras_chave coerentes com o resumo.
 6) ${resumoPtBrPromptRule(maxSummaryChars)}`;
 
-    const userTxt = `Categorias e estrutura:\n${formatCategoriesBlock(cats)}\n\n---\n${audioBlock}\n\n${VISION_USER_STUB}`;
+    const userTxt = `${linhaDataRegistro()}\n\nCategorias e estrutura:\n${formatCategoriesBlock(cats)}\n\n---\n${audioBlock}\n\n${VISION_USER_STUB}`;
 
     const { content, costUsd } = await openaiChatVisionJson({
       messages: [
@@ -153,7 +155,7 @@ Regras:
 Regras: use os FOTOGRAMAS como fonte principal (ordem cronológica). O áudio transcrito é só apoio e pode estar vazio.
 ${resumoPtBrPromptRule(maxSummaryChars)}`;
 
-  const user1 = `Categorias (use nome exato em categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\n${audioBlock}\n\n${VISION_USER_STUB}`;
+  const user1 = `${linhaDataRegistro()}\n\nCategorias (use nome exato em categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\n${audioBlock}\n\n${VISION_USER_STUB}`;
 
   const r1 = await openaiChatVisionJson({
     messages: [
@@ -187,9 +189,13 @@ ${resumoPtBrPromptRule(maxSummaryChars)}`;
   "subcategorias_livres": string[],
   "campos": object (chaves = nomes exatos dos campos solicitados, valores = texto extraído ou "")
 }`;
-  const user2 = `Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
+  const user2 = `${linhaDataRegistro()}
+
+Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
 Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subNames.length ? subNames.join(", ") : "(nenhuma — deixe lista vazia)"}
 Campos a preencher (chaves do objeto campos): ${campoNames.length ? campoNames.join(", ") : "(nenhum — use {})"}
+Instruções e padrões de cada campo (siga a instrução do campo):
+${cat ? formatCamposGuide(cat.campos) || "(sem instruções definidas)" : "(sem instruções definidas)"}
 
 CONTEXTO:
 ${forSecond}`;
