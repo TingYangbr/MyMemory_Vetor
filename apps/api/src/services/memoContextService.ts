@@ -12,6 +12,12 @@ import type {
 } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { pool, queryIsoladaPorGrupo } from "../db.js";
+import {
+  gerarQueryPadraoMemos,
+  queryPadraoDescricao,
+  queryPadraoNome,
+  type QueryPadraoCampo,
+} from "@mymemory/shared";
 
 function ts(v: unknown): string {
   if (v instanceof Date) return v.toISOString();
@@ -297,7 +303,7 @@ export async function loadMemoContextStructure(
   let queryParamRows: RowDataPacket[] = [];
   try {
     const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, isactive, createdat, updatedat
+      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, sqlgerado, isactive, createdat, updatedat
        FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -372,6 +378,8 @@ export async function loadMemoContextStructure(
         sentencaSql: r.sentencaSql as string,
         conexaoId: r.conexaoId != null ? (r.conexaoId as number) : null,
         conexaoPendente: Number(r.conexaoPendente) === 1,
+        autoGerada: r.sqlGerado != null && String(r.sentencaSql).trim() === String(r.sqlGerado).trim(),
+        autoEditada: r.sqlGerado != null && String(r.sentencaSql).trim() !== String(r.sqlGerado).trim(),
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
@@ -426,6 +434,90 @@ export async function loadStructureForGroup(
   return loadMemoContextStructure(userId, groupId, null);
 }
 
+// ── Query padrão automática ──────────────────────────────────────────────────
+
+/** Gera a Query padrão com o nome e os campos ativos atuais da categoria (null se inativa/inexistente). */
+async function gerarQueryPadraoDaCategoria(categoryId: number) {
+  const [catRows] = await pool.query<RowDataPacket[]>(
+    `SELECT name, isactive FROM categories WHERE id = ? LIMIT 1`,
+    [categoryId]
+  );
+  const cat = catRows[0];
+  if (!cat || Number(cat.isActive) !== 1) return null;
+  const [campoRows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, name, tipo, normalizedterms, isactive FROM categorycampos
+     WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+    [categoryId]
+  );
+  const nome = String(cat.name);
+  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[]) };
+}
+
+/** Grava o SQL gerado como atual + "último gerado" e troca os parâmetros pelos gerados. */
+async function aplicarQueryPadraoGerada(
+  queryId: number,
+  gerada: { nome: string; sql: string; params: ReturnType<typeof gerarQueryPadraoMemos>["params"] },
+  /** false = mantém o nome que o usuário deu à query */
+  renomear = true
+): Promise<void> {
+  if (renomear) {
+    await pool.query(
+      `UPDATE queries_categoria SET nome = ?, sentencasql = ?, sqlgerado = ?, updatedat = NOW() WHERE id = ?`,
+      [queryPadraoNome(gerada.nome), gerada.sql, gerada.sql, queryId]
+    );
+  } else {
+    await pool.query(
+      `UPDATE queries_categoria SET sentencasql = ?, sqlgerado = ?, updatedat = NOW() WHERE id = ?`,
+      [gerada.sql, gerada.sql, queryId]
+    );
+  }
+  await pool.query(`UPDATE queries_categoria_params SET isactive = 0 WHERE queryid = ? AND isactive = 1`, [queryId]);
+  for (const p of gerada.params) {
+    await pool.query(
+      `INSERT INTO queries_categoria_params (queryid, campo, tipo, obrigatorio, operadorsql, normalizar, ordem, isactive)
+       VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+      [queryId, p.campo, p.tipo, p.obrigatorio, p.operadorSql, p.normalizar, p.ordem]
+    );
+  }
+}
+
+/**
+ * Mantém a Query padrão da categoria em dia com o nome e os campos:
+ *  - query automática (sentencasql = sqlgerado) → regera se o resultado mudou;
+ *  - query editada à mão (sentencasql ≠ sqlgerado) → não toca;
+ *  - categoria sem nenhuma query → cria a Query padrão automática.
+ * Categorias que já têm outras queries (ex.: ERP) e nenhuma automática não ganham uma nova, para o
+ * planejador não preferir uma consulta de memos vazia no lugar da do ERP.
+ * Falha aqui não pode impedir a gravação da categoria/campo: só registra no log.
+ */
+async function sincronizarQueryPadrao(categoryId: number): Promise<void> {
+  try {
+    const gerada = await gerarQueryPadraoDaCategoria(categoryId);
+    if (!gerada) return;
+    const [qRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, sentencasql, sqlgerado FROM queries_categoria WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+      [categoryId]
+    );
+    const automatica = qRows.find((q) => q.sqlGerado != null);
+    if (automatica) {
+      const intacta = String(automatica.sentencaSql).trim() === String(automatica.sqlGerado).trim();
+      if (intacta && String(automatica.sqlGerado) !== gerada.sql) {
+        await aplicarQueryPadraoGerada(automatica.id as number, gerada);
+      }
+      return;
+    }
+    if (qRows.length > 0) return;
+    const [ins] = await pool.query<{ id: number }[]>(
+      `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, isactive)
+       VALUES (?, ?, ?, ?, ?, NULL, 1) RETURNING id`,
+      [categoryId, queryPadraoNome(gerada.nome), queryPadraoDescricao(gerada.nome), gerada.sql, gerada.sql]
+    );
+    await aplicarQueryPadraoGerada(ins[0].id, gerada);
+  } catch (err) {
+    console.error(`[queryPadrao] Falha ao sincronizar a categoria ${categoryId}:`, err instanceof Error ? err.message : err);
+  }
+}
+
 export async function createCategory(
   userId: number,
   input: {
@@ -443,6 +535,7 @@ export async function createCategory(
        VALUES (?, ?, ?, ?, 1) RETURNING id`,
       [input.groupId, input.mediaType ?? null, input.name.trim(), input.description?.trim() ?? null]
     );
+    await sincronizarQueryPadrao(rows[0].id);
     return rows[0].id;
   } catch (e) {
     const err = e as { code?: string; constraint?: string; message?: string };
@@ -494,6 +587,8 @@ export async function updateCategory(
   if (sets.length === 0) return;
   vals.push(categoryId);
   await pool.query(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
+  // O nome da categoria entra no SQL (m.category = '...'); reativar também pede query em dia
+  if (patch.name !== undefined || patch.isActive === 1) await sincronizarQueryPadrao(categoryId);
 }
 
 async function assertCategoryInAccessibleGroup(userId: number, categoryId: number): Promise<void> {
@@ -568,6 +663,7 @@ export async function createCampo(
     `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
     [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
   );
+  await sincronizarQueryPadrao(categoryId);
   return rows[0].id;
 }
 
@@ -578,7 +674,7 @@ export async function updateCampo(
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.groupId FROM categorycampos cc
+    `SELECT c.groupId, cc.categoryId FROM categorycampos cc
      INNER JOIN categories c ON c.id = cc.categoryId
      WHERE cc.id = ? LIMIT 1`,
     [campoId]
@@ -587,6 +683,7 @@ export async function updateCampo(
   if (!row) throw new Error("not_found");
   const gid = row.groupId != null ? (row.groupId as number) : null;
   await assertMemoContextWriteForGroupScope(userId, gid, isAdmin);
+  const campoCategoryId = row.categoryId as number;
 
   const sets: string[] = [];
   const vals: (string | number | null)[] = [];
@@ -617,6 +714,10 @@ export async function updateCampo(
   if (sets.length === 0) return;
   vals.push(campoId);
   await pool.query(`UPDATE categorycampos SET ${sets.join(", ")} WHERE id = ?`, vals);
+  // Nome, tipo, padrões e ativo/inativo mudam o SQL ou os parâmetros gerados (descrição não)
+  if (patch.name !== undefined || patch.tipo !== undefined || patch.normalizedTerms !== undefined || patch.isActive !== undefined) {
+    await sincronizarQueryPadrao(campoCategoryId);
+  }
 }
 
 export async function softDeleteCategory(userId: number, categoryId: number): Promise<void> {
@@ -653,10 +754,13 @@ export async function createQueryCategoria(
   input: { nome: string; descricao?: string | null; sentencaSql: string; conexaoId?: number | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
+  // Criada pelo botão "Gerar Query padrão" sem edição → nasce automática (os parâmetros vêm do web)
+  const gerada = input.conexaoId == null ? await gerarQueryPadraoDaCategoria(categoryId) : null;
+  const sqlGerado = gerada && input.sentencaSql.trim() === gerada.sql ? gerada.sql : null;
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, conexaoid, isactive)
-     VALUES (?, ?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim(), input.conexaoId ?? null]
+    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, isactive)
+     VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim(), sqlGerado, input.conexaoId ?? null]
   );
   return rows[0].id;
 }
@@ -692,6 +796,21 @@ export async function updateQueryCategoria(
   if (sets.length === 0) return;
   vals.push(queryId);
   await pool.query(`UPDATE queries_categoria SET ${sets.join(", ")} WHERE id = ?`, vals);
+
+  // SQL salvo igual ao gerado agora (ex.: "Gerar Query padrão" no editor) → volta a ser automática,
+  // com os parâmetros gerados. Diferente → fica como está (se era automática, passa a "editada").
+  if (patch.sentencaSql !== undefined && (patch.conexaoId ?? null) == null) {
+    const [qRows] = await pool.query<RowDataPacket[]>(
+      `SELECT categoryid, conexaoid FROM queries_categoria WHERE id = ? LIMIT 1`,
+      [queryId]
+    );
+    if (qRows[0] && qRows[0].conexaoId == null) {
+      const gerada = await gerarQueryPadraoDaCategoria(qRows[0].categoryId as number);
+      if (gerada && patch.sentencaSql.trim() === gerada.sql) {
+        await aplicarQueryPadraoGerada(queryId, gerada, false);
+      }
+    }
+  }
 }
 
 export async function softDeleteQueryCategoria(userId: number, queryId: number): Promise<void> {

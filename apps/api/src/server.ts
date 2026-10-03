@@ -61,6 +61,7 @@ import { GroupApiKeys1700000000146 } from "./migrations/1700000000146-GroupApiKe
 import { QueryConexaoPendente1700000000147 } from "./migrations/1700000000147-QueryConexaoPendente.js";
 import { QueryCategoriaIsolada1700000000148 } from "./migrations/1700000000148-QueryCategoriaIsolada.js";
 import { ParseDateFormatosTolerantes1700000000149 } from "./migrations/1700000000149-ParseDateFormatosTolerantes.js";
+import { QueryPadraoAutomatica1700000000150 } from "./migrations/1700000000150-QueryPadraoAutomatica.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -153,6 +154,7 @@ assertMediaStorageEnv();
       QueryConexaoPendente1700000000147,
       QueryCategoriaIsolada1700000000148,
       ParseDateFormatosTolerantes1700000000149,
+      QueryPadraoAutomatica1700000000150,
     ],
   });
   const ds = await AppDataSource.initialize();

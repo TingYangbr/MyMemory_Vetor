@@ -664,6 +664,10 @@ export interface QueryCategoria {
   conexaoId: number | null;
   /** true = query clonada de origem com conexão externa; precisa escolher a conexão antes de executar */
   conexaoPendente: boolean;
+  /** true = Query padrão mantida pelo sistema: atualizada sozinha quando a categoria ou os campos mudam */
+  autoGerada: boolean;
+  /** true = era Query padrão automática, mas foi editada à mão: não é mais atualizada sozinha */
+  autoEditada: boolean;
   isActive: number;
   createdAt: string;
   updatedAt: string;
@@ -1445,3 +1449,5 @@ export interface BatchProcessResponse {
   totalErrors: number;
   results: BatchProcessResult[];
 }
+
+export * from "./queryPadrao.js";

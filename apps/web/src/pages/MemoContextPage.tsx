@@ -12,7 +12,7 @@ import type {
   QueryCategoriaParam,
   QueryCategoriaParamTipo,
 } from "@mymemory/shared";
-import { OPERADORES_SQL } from "@mymemory/shared";
+import { OPERADORES_SQL, gerarQueryPadraoMemos, queryPadraoDescricao, queryPadraoNome } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
 import styles from "./MemoContextPage.module.css";
@@ -411,6 +411,7 @@ export default function MemoContextPage() {
   const openEditQuery = (q: QueryCategoria) => {
     resetModalState();
     setModalQueryId(q.id);
+    setModalCategoryId(q.categoryId); // permite "Gerar Query padrão" também no editor
     setModalQueryNome(q.nome);
     setModalQueryDescricao(q.descricao ?? "");
     setModalQuerySentencaSql(q.sentencaSql);
@@ -445,108 +446,21 @@ export default function MemoContextPage() {
     }
   };
 
-  function toParamName(name: string): string {
-    return name
-      .normalize("NFD")
-      .replace(/[̀-ͯ]/g, "")
-      .toLowerCase()
-      .replace(/\s+/g, "_")
-      .replace(/[^a-z0-9_]/g, "")
-      .replace(/_+/g, "_")
-      .replace(/^_|_$/g, "");
-  }
-
   function gerarQueryPadrao() {
     if (modalCategoryId == null) return;
     const cat = categories.find((c) => c.id === modalCategoryId);
     if (!cat) return;
-
-    const activeCampos = cat.campos.filter((c) => c.isActive === 1);
-    const catNameSafe = cat.name.replace(/'/g, "''");
-
-    const whereParts: string[] = [
-      "  m.isactive = 1",
-      `  AND m.category = '${catNameSafe}'`,
-      "  AND (",
-      "    (:groupId IS NOT NULL AND m.groupid = :groupId)",
-      "    OR (:groupId IS NULL AND m.groupid IS NULL AND m.userid = :userId)",
-      "  )",
-    ];
-
-    let paramOrdem = 2;
-    for (const campo of activeCampos) {
-      const p = toParamName(campo.name);
-      if (!p) continue;
-      const jsonExpr = `m.dadosespecificosjson::jsonb->>'${campo.name}'`;
-      whereParts.push(`  AND (:${p} IS NULL OR ${jsonExpr} ILIKE :${p})`);
-      if (campo.tipo === "date") {
-        whereParts.push(
-          `  AND (:${p}_ini IS NULL OR mymemory_parse_date(${jsonExpr}) >= :${p}_ini)`,
-          `  AND (:${p}_fin IS NULL OR mymemory_parse_date(${jsonExpr}) <= :${p}_fin)`
-        );
-      } else if (campo.tipo === "number") {
-        whereParts.push(
-          `  AND (:${p}_ini IS NULL OR (${jsonExpr})::numeric >= :${p}_ini)`,
-          `  AND (:${p}_fin IS NULL OR (${jsonExpr})::numeric <= :${p}_fin)`
-        );
-      }
+    // Mesmo gerador do backend: SQL salvo idêntico ao gerado = query automática (atualiza sozinha)
+    const { sql, params } = gerarQueryPadraoMemos(cat.name, cat.campos);
+    if (modal === "query") {
+      setModalQueryNome(queryPadraoNome(cat.name));
+      setModalQueryDescricao(queryPadraoDescricao(cat.name));
+      setPendingAutoParams(params);
+    } else {
+      // Editor: o backend troca os parâmetros pelos gerados ao salvar este SQL sem alteração
+      setPendingAutoParams([]);
     }
-
-    const campoSelects = activeCampos
-      .map((campo) => {
-        const alias = toParamName(campo.name) || `campo_${campo.id}`;
-        return `  m.dadosespecificosjson::jsonb->>'${campo.name}' AS ${alias},`;
-      })
-      .join("\n");
-
-    const sql = [
-      "SELECT",
-      "  m.id,",
-      "  m.mediatype,",
-      "  m.mediatext,",
-      "  m.keywords,",
-      "  m.category,",
-      ...(campoSelects ? [campoSelects] : []),
-      "  m.createdat",
-      "FROM memos m",
-      "WHERE",
-      ...whereParts,
-      "ORDER BY m.createdat DESC",
-      "LIMIT 50",
-    ].join("\n");
-
-    const params: typeof pendingAutoParams = [
-      { campo: "groupId", tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 0 },
-      { campo: "userId",  tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: 1 },
-    ];
-    activeCampos.forEach((campo) => {
-      const p = toParamName(campo.name);
-      if (!p) return;
-      params.push({
-        campo: p,
-        tipo: "string",
-        obrigatorio: 0,
-        operadorSql: "LIKE",
-        normalizar: campo.normalizedTerms ? 1 : 0,
-        ordem: paramOrdem++,
-      });
-      if (campo.tipo === "date") {
-        params.push(
-          { campo: `${p}_ini`, tipo: "date", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: paramOrdem++ },
-          { campo: `${p}_fin`, tipo: "date", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: paramOrdem++ }
-        );
-      } else if (campo.tipo === "number") {
-        params.push(
-          { campo: `${p}_ini`, tipo: "number", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: paramOrdem++ },
-          { campo: `${p}_fin`, tipo: "number", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: paramOrdem++ }
-        );
-      }
-    });
-
-    setModalQueryNome(`Query padrão — ${cat.name}`);
-    setModalQueryDescricao(`Query padrão para categoria "${cat.name}". Adapte os filtros conforme necessário.`);
     setModalQuerySentencaSql(sql);
-    setPendingAutoParams(params);
   }
 
   const openNewQueryParam = (qid: number) => {
@@ -1022,6 +936,22 @@ export default function MemoContextPage() {
                               <span className={styles.queryItemNome}>
                                 <span className={styles.queryItemId} title="Número da query">#{q.id}</span> {q.nome}
                               </span>
+                              {q.autoGerada ? (
+                                <span
+                                  className={styles.queryAuto}
+                                  title="Mantida pelo sistema: atualizada sozinha quando a categoria ou os campos mudam. Se você editar o SQL, ela deixa de ser atualizada."
+                                >
+                                  🔄 Automática
+                                </span>
+                              ) : null}
+                              {q.autoEditada ? (
+                                <span
+                                  className={styles.queryAutoEditada}
+                                  title="Editada à mão: não é mais atualizada quando os campos mudam. Para voltar ao automático, abra a query, clique em ✦ Gerar Query padrão e salve."
+                                >
+                                  ✎ Editada à mão
+                                </span>
+                              ) : null}
                               {q.conexaoPendente ? (
                                 <span className={styles.queryConexaoPendente}>⚠ Conexão BD pendente — edite a query para escolher</span>
                               ) : null}
@@ -1269,12 +1199,16 @@ export default function MemoContextPage() {
                 <div className={styles.modalField}>
                   <label htmlFor="mod-q-sql">Sentença SQL</label>
                   <div className={styles.gerarQueryRow}>
-                    {modal === "query" ? (
+                    {modal === "query" || (modal === "queryEdit" && modalQueryConexaoId == null) ? (
                       <button
                         type="button"
                         className="mm-btn mm-btn--ghost"
                         onClick={gerarQueryPadrao}
-                        title="Gera SELECT padrão com filtros de groupId, userId, category e campos da categoria"
+                        title={
+                          modal === "queryEdit"
+                            ? "Substitui o SQL pela Query padrão atual dos campos. Salvando sem alterar, a query volta a ser atualizada automaticamente."
+                            : "Gera SELECT padrão com filtros de groupId, userId, category e campos da categoria"
+                        }
                       >
                         ✦ Gerar Query padrão
                       </button>

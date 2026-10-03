@@ -703,6 +703,29 @@
   color: var(--mm-warning);
 }
 
+.queryAuto,
+.queryAutoEditada {
+  display: inline-block;
+  align-self: flex-start;
+  margin: 0.25rem 0 0;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: var(--mm-radius-sm);
+}
+
+.queryAuto {
+  color: var(--mm-accent);
+  background: var(--mm-primary-faint);
+  border: 1px solid var(--mm-accent);
+}
+
+.queryAutoEditada {
+  color: var(--mm-text-secondary);
+  background: var(--mm-card);
+  border: 1px dashed var(--mm-border);
+}
+
 .queryConexaoPendente {
   display: inline-block;
   align-self: flex-start;
