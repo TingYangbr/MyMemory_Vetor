@@ -32,3 +32,7 @@ _doc_edit/
 "diag_reuniao.mjs" 
 "*.sql" 
 "*_b64.txt" 
+
+# Temporários do Microsoft Office (documento aberto)
+~$*
+~WRL*.tmp
