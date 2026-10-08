@@ -15,6 +15,7 @@ import type {
 import { OPERADORES_SQL, gerarQueryPadraoMemos, queryPadraoDescricao, queryPadraoNome } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
+import LembretesModal from "../components/LembretesModal";
 import styles from "./MemoContextPage.module.css";
 
 const CATEGORY_MEDIA_SELECT: { value: MemoContextMediaType | ""; label: string }[] = [
@@ -91,6 +92,8 @@ export default function MemoContextPage() {
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [editorMeta, setEditorMeta] = useState<MemoContextEditorMetaResponse | null>(null);
   const [scopeGroupId, setScopeGroupId] = useState<number | null>(ownerGroupIdLocked);
+  /** Categoria com o modal de lembretes aberto */
+  const [lembretesCatId, setLembretesCatId] = useState<number | null>(null);
   const [mediaFilter, setMediaFilter] = useState<MemoContextMediaType | "">("");
   const [categories, setCategories] = useState<MemoContextCategory[]>([]);
   const [canEditStructure, setCanEditStructure] = useState(false);
@@ -799,6 +802,17 @@ export default function MemoContextPage() {
                       >
                         ✎
                       </button>
+                      {scopeGroupId != null ? (
+                        <button
+                          type="button"
+                          className={styles.iconBtn}
+                          title="Lembretes: e-mail antes da data de cada memo desta categoria"
+                          aria-label="Lembretes da categoria"
+                          onClick={() => setLembretesCatId(cat.id)}
+                        >
+                          🔔
+                        </button>
+                      ) : null}
                       <button
                         type="button"
                         className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
@@ -1441,6 +1455,20 @@ export default function MemoContextPage() {
           {saveOkMsg}
         </div>
       ) : null}
+
+      {lembretesCatId != null
+        ? (() => {
+            const cat = categories.find((c) => c.id === lembretesCatId);
+            return cat ? (
+              <LembretesModal
+                categoryId={cat.id}
+                categoryName={cat.name}
+                campos={cat.campos}
+                onClose={() => setLembretesCatId(null)}
+              />
+            ) : null;
+          })()
+        : null}
 
       {cloneModalOpen ? (
         <div

@@ -591,7 +591,7 @@ export async function updateCategory(
   if (patch.name !== undefined || patch.isActive === 1) await sincronizarQueryPadrao(categoryId);
 }
 
-async function assertCategoryInAccessibleGroup(userId: number, categoryId: number): Promise<void> {
+export async function assertCategoryInAccessibleGroup(userId: number, categoryId: number): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
     "SELECT groupId FROM categories WHERE id = ? LIMIT 1",

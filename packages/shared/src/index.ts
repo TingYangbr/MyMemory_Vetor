@@ -1451,3 +1451,4 @@ export interface BatchProcessResponse {
 }
 
 export * from "./queryPadrao.js";
+export * from "./lembretes.js";

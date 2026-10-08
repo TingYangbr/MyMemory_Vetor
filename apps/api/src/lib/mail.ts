@@ -193,6 +193,21 @@ export async function sendAvisoAlert(opts: {
   console.info("[mail] Aviso aceito pelo Resend (id=%s) → %s", id ?? "?", to);
 }
 
+/** Lembrete de compromisso/vencimento (lembreteService). Um destinatário por envio. */
+export async function sendLembreteEmail(opts: { to: string; subject: string; html: string; text: string }): Promise<void> {
+  const client = getResend();
+  const { data, error } = await client.emails.send({
+    from: config.emailFrom,
+    to: [opts.to],
+    subject: `${opts.subject} — MyMemory`,
+    html: opts.html,
+    text: opts.text,
+  });
+  if (error) throw new Error(`Resend: ${formatResendError(error)}`);
+  const id = data && typeof data === "object" && "id" in data ? String((data as { id: string }).id) : null;
+  console.info("[mail] Lembrete aceito pelo Resend (id=%s) → %s", id ?? "?", opts.to);
+}
+
 function escapeHtml(s: string): string {
   return s
     .replace(/&/g, "&amp;")

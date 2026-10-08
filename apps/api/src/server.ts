@@ -62,6 +62,7 @@ import { QueryConexaoPendente1700000000147 } from "./migrations/1700000000147-Qu
 import { QueryCategoriaIsolada1700000000148 } from "./migrations/1700000000148-QueryCategoriaIsolada.js";
 import { ParseDateFormatosTolerantes1700000000149 } from "./migrations/1700000000149-ParseDateFormatosTolerantes.js";
 import { QueryPadraoAutomatica1700000000150 } from "./migrations/1700000000150-QueryPadraoAutomatica.js";
+import { Lembretes1700000000151 } from "./migrations/1700000000151-Lembretes.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -87,7 +88,9 @@ import memoContextRoutes from "./routes/memoContext.js";
 import perguntasRoutes from "./routes/perguntas.js";
 import perguntaModelosRoutes from "./routes/perguntaModelos.js";
 import avisosRoutes from "./routes/avisos.js";
+import lembretesRoutes from "./routes/lembretes.js";
 import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
+import { iniciarLembreteScheduler } from "./services/lembreteScheduler.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 import batchImportRoutes from "./routes/batchImport.js";
@@ -155,6 +158,7 @@ assertMediaStorageEnv();
       QueryCategoriaIsolada1700000000148,
       ParseDateFormatosTolerantes1700000000149,
       QueryPadraoAutomatica1700000000150,
+      Lembretes1700000000151,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -211,6 +215,7 @@ await app.register(memoContextRoutes);
 await app.register(perguntasRoutes);
 await app.register(perguntaModelosRoutes);
 await app.register(avisosRoutes);
+await app.register(lembretesRoutes);
 await app.register(adminSubscriptionPlansRoutes);
 await app.register(adminMediaSettingsRoutes);
 await app.register(adminDocumentAiRoutes);
@@ -244,6 +249,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 iniciarAvisoScheduler();
+iniciarLembreteScheduler();
 
 try {
   await app.listen({ port: config.port, host: "0.0.0.0" });
