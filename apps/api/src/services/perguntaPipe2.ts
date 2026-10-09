@@ -873,6 +873,27 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
 
 // ── Internal: execução das queries do plano ───────────────────────────────────
 
+/**
+ * Registra no trace a consulta que falhou (SQL, parâmetros e mensagem do banco) — sem isso o erro chega à
+ * tela sem dizer qual query nem qual SQL — e devolve um erro que identifica a query.
+ */
+function registrarFalhaSql(template: QueryDisponivel, sql: string, params: unknown, err: unknown): Error {
+  const msg = err instanceof Error ? err.message : String(err);
+  setLastLlmPromptTrace({
+    provider: "sql",
+    model: template.conexaoId != null ? "SQL Server" : "PostgreSQL",
+    source: "consulta_sql (erro)",
+    messages: [
+      {
+        role: "system",
+        content: `Query #${template.query_id} "${template.nome}"\n\nSQL executado:\n${sql.replace(/\s+/g, " ").trim()}\n\nparâmetros: ${JSON.stringify(params)}`,
+      },
+      { role: "user", content: `Erro do banco de dados:\n${msg}` },
+    ],
+  });
+  return new Error(`Query #${template.query_id} "${template.nome}": ${msg}`);
+}
+
 async function executarConsultasPlano(input: {
   plano: PlanoConsulta;
   queriesDisponiveis: QueryDisponivel[];
@@ -978,13 +999,18 @@ async function executarConsultasPlano(input: {
           console.warn("[Pipe2] applyAgregacao mssql ignorada:", err instanceof Error ? err.message : err);
         }
       }
-      const result = await executeQueryMssql(
-        template.conexaoId,
-        sqlToExecute,
-        paramValues,
-        template.params.map((p) => ({ nome: p.nome, operadorSql: p.operadorSql })),
-        operadorOverrides
-      );
+      let result: Awaited<ReturnType<typeof executeQueryMssql>>;
+      try {
+        result = await executeQueryMssql(
+          template.conexaoId,
+          sqlToExecute,
+          paramValues,
+          template.params.map((p) => ({ nome: p.nome, operadorSql: p.operadorSql })),
+          operadorOverrides
+        );
+      } catch (err) {
+        throw registrarFalhaSql(template, `[mssql:${template.conexaoId}] ${sqlToExecute}`, paramValues, err);
+      }
       linhas = result.linhas;
       colunasQuery = result.colunas;
       sqlParts.push(`[mssql:${template.conexaoId}] ${sqlToExecute}`);
@@ -1025,7 +1051,7 @@ async function executarConsultasPlano(input: {
             `Substitua cast direto como (campo)::date por mymemory_parse_date(campo) no template SQL para tratar campos vazios.`
           );
         }
-        throw err;
+        throw registrarFalhaSql(template, finalSql, values, err);
       }
       linhas = rows as Record<string, unknown>[];
       colunasQuery = linhas.length > 0 ? Object.keys(linhas[0]) : [];

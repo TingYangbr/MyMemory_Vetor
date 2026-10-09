@@ -60,8 +60,14 @@ function buildTrace(input: {
 
 export async function runWithTraces<T>(fn: () => Promise<T>): Promise<{ value: T; traces: LlmPromptTrace[] }> {
   const traces: LlmPromptTrace[] = [];
-  const value = await traceStorage.run(traces, fn);
-  return { value, traces };
+  try {
+    const value = await traceStorage.run(traces, fn);
+    return { value, traces };
+  } catch (err) {
+    // Etapas que rodaram até o erro vão junto, para a tela mostrar "ver etapas" mesmo na falha
+    if (err && typeof err === "object") Object.assign(err, { llmTrace: traces });
+    throw err;
+  }
 }
 
 /** @deprecated Não é mais necessário — cada runWithTraces cria contexto isolado. Mantido por compatibilidade. */

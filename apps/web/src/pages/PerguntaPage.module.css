@@ -1784,3 +1784,16 @@
   background: color-mix(in srgb, var(--mm-warning) 10%, transparent);
   color: var(--mm-warning);
 }
+
+/* Botão "ver etapas" dentro da mensagem de erro da pergunta */
+.erroEtapasBtn {
+  margin-left: 0.35rem;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+}

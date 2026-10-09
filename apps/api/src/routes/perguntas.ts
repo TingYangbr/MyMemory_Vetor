@@ -136,6 +136,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (err) {
       req.log.error(err, "perguntarMemory failed");
       const msg = err instanceof Error ? err.message : "Erro interno";
+      // runWithTraces/runWithTimings anexam ao erro as etapas que rodaram até a falha
+      const parcial = (err && typeof err === "object" ? err : {}) as { llmTrace?: LlmPromptTrace[]; timings?: TimingSpan[] };
       const isNetwork = /fetch failed|ECONNREFUSED|ETIMEDOUT|socket hang up/i.test(msg);
       const isOverloaded = /overloaded_error|_http_529|_http_429|_http_503/i.test(msg);
       sendEvent({
@@ -145,6 +147,8 @@ const plugin: FastifyPluginAsync = async (app) => {
           : isOverloaded
           ? "Os servidores de IA estão temporariamente sobrecarregados. Tente novamente em alguns segundos ou minutos."
           : `Erro ao processar a pergunta: ${msg}`,
+        llmTrace: parcial.llmTrace ?? [],
+        timings: parcial.timings ?? [],
       });
       raw.end();
       return reply;

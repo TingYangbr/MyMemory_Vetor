@@ -654,6 +654,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [busy, setBusy] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Etapas que rodaram até o erro (trace parcial), para "ver etapas" mesmo quando a pergunta falha */
+  const [errorTrace, setErrorTrace] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
   const [refazerIdx, setRefazerIdx] = useState<number | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
@@ -933,6 +935,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setHistorico([]);
     setRespostas([]);
     setError(null);
+    setErrorTrace(null);
     setPendingQuestion(null);
   }
 
@@ -941,6 +944,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
     setError(null);
+    setErrorTrace(null);
     setStatusMsg(null);
     setBusy(true);
     setRefazerIdx(null);
@@ -991,9 +995,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         buf = lines.pop() ?? "";
         for (const line of lines) {
           if (!line.startsWith("data: ")) continue;
-          const evt = JSON.parse(line.slice(6)) as { type: string; message?: string; data?: PerguntaResponse };
+          const evt = JSON.parse(line.slice(6)) as { type: string; message?: string; data?: PerguntaResponse; llmTrace?: PerguntaLlmTraceEntry[] };
           if (evt.type === "status") setStatusMsg(evt.message ?? null);
-          if (evt.type === "error") throw new Error(evt.message ?? "Erro ao processar a pergunta.");
+          if (evt.type === "error") {
+            if (evt.llmTrace?.length) setErrorTrace({ trace: evt.llmTrace, pergunta: q });
+            throw new Error(evt.message ?? "Erro ao processar a pergunta.");
+          }
           if (evt.type === "result" && evt.data) res = evt.data;
         }
       }
@@ -1493,7 +1500,24 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
           )}
         </div>
 
-        {error ? <p className="mm-error" role="alert">{error}</p> : null}
+        {error ? (
+          <p className="mm-error" role="alert">
+            {error}
+            {errorTrace ? (
+              <>
+                {" "}
+                <button
+                  type="button"
+                  className={styles.erroEtapasBtn}
+                  onClick={() => setTraceModal(errorTrace)}
+                  title="Ver as etapas que rodaram até o erro (classificação, planejamento e o SQL que falhou)"
+                >
+                  ver etapas ({errorTrace.trace.length})
+                </button>
+              </>
+            ) : null}
+          </p>
+        ) : null}
         {modeloSaveErr ? <p className="mm-error" role="alert">Salvar pergunta: {modeloSaveErr}</p> : null}
 
         {pendingQuestion ? (

@@ -16,8 +16,13 @@ const storage = new AsyncLocalStorage<TimingSpan[]>();
  */
 export async function runWithTimings<T>(fn: () => Promise<T>): Promise<{ value: T; timings: TimingSpan[] }> {
   const spans: TimingSpan[] = [];
-  const value = await storage.run(spans, fn);
-  return { value, timings: spans };
+  try {
+    const value = await storage.run(spans, fn);
+    return { value, timings: spans };
+  } catch (err) {
+    if (err && typeof err === "object") Object.assign(err, { timings: spans });
+    throw err;
+  }
 }
 
 /**
