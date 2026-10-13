@@ -1347,6 +1347,41 @@
 .modeloBtn svg { width: 20px; height: 20px; }
 .modeloBtn:hover { opacity: 1; color: var(--mm-muted); background: var(--mm-bg); }
 .modeloBtnSaved { opacity: 1; color: var(--mm-primary); }
+.salvarEscolha {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+}
+.salvarEscolhaPadrao,
+.salvarEscolhaAlt {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.salvarEscolhaPadrao {
+  border: 1px solid var(--mm-primary);
+  background: var(--mm-primary);
+  color: #fff;
+  font-weight: 600;
+}
+.salvarEscolhaAlt {
+  border: 1px solid var(--mm-border-muted);
+  background: var(--mm-card);
+  color: var(--mm-text);
+}
+.salvarEscolhaAlt:hover { border-color: var(--mm-primary); background: var(--mm-primary-faint); }
+.salvarEscolhaFechar {
+  border: none;
+  background: none;
+  font-size: 1rem;
+  line-height: 1;
+  color: var(--mm-muted);
+  cursor: pointer;
+}
 .modeloSavedMsg {
   font-size: 0.75rem;
   color: var(--mm-primary);

@@ -682,6 +682,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
   const [modeloSavingIdx, setModeloSavingIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
+  // Card cuja resposta tem parâmetros: pergunta se salva só o texto (padrão) ou com os parâmetros
+  const [salvarEscolhaIdx, setSalvarEscolhaIdx] = useState<number | null>(null);
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
   const [editingModalModelo, setEditingModalModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
   const [savingModalModelo, setSavingModalModelo] = useState(false);
@@ -944,6 +946,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setError(null);
     setErrorTrace(null);
     setPendingQuestion(null);
+    setSalvarEscolhaIdx(null);
   }
 
   async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
@@ -1309,8 +1312,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }
   }
 
-  async function salvarModelo(cardIdx: number) {
+  function cliqueSalvarModelo(cardIdx: number) {
     const r = respostas[cardIdx];
+    if (!r) return;
+    const temParametros = !!r.planoSalvavel && derivarChips(r.planoSalvavel.plano).length > 0;
+    if (temParametros) setSalvarEscolhaIdx((v) => (v === cardIdx ? null : cardIdx));
+    else void salvarModelo(cardIdx, false);
+  }
+
+  async function salvarModelo(cardIdx: number, comPlano: boolean) {
+    const r = respostas[cardIdx];
+    setSalvarEscolhaIdx(null);
     if (!r || modeloSavingIdx === cardIdx || modeloSavedIdx === cardIdx) return;
     const category = r.classificacao.categorias[0] ?? null;
     setModeloSaveErr(null);
@@ -1320,7 +1332,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         pergunta: r.perguntaTexto,
         category,
         workspaceGroupId: workspaceGroupId ?? null,
-        plano: r.planoSalvavel ?? null,
+        plano: comPlano ? r.planoSalvavel ?? null : null,
       });
       setModeloSavedIdx(cardIdx);
       setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
@@ -1803,12 +1815,35 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     <button
                       type="button"
                       className={`${styles.modeloBtn} ${modeloSavedIdx === i ? styles.modeloBtnSaved : ""}`}
-                      onClick={() => void salvarModelo(i)}
+                      onClick={() => cliqueSalvarModelo(i)}
                       title="Salvar esta pergunta"
                       disabled={modeloSavingIdx === i || modeloSavedIdx === i}
                     >
                       <IconRepoIn />
                     </button>
+                    {salvarEscolhaIdx === i ? (
+                      <span className={styles.salvarEscolha}>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaPadrao}
+                          autoFocus
+                          onClick={() => void salvarModelo(i, false)}
+                          title="Salva só o texto da pergunta (como sempre foi)"
+                        >Salvar só o texto</button>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaAlt}
+                          onClick={() => void salvarModelo(i, true)}
+                          title="Salva com os parâmetros como chips trocáveis e reexecuta sem replanejar"
+                        >⚡ Com parâmetros</button>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaFechar}
+                          onClick={() => setSalvarEscolhaIdx(null)}
+                          aria-label="Cancelar"
+                        >×</button>
+                      </span>
+                    ) : null}
                     {modeloSavedIdx === i && (
                       <span className={styles.modeloSavedMsg}>Salvo!</span>
                     )}
