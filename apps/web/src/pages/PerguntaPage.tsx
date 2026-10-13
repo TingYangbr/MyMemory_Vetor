@@ -11,11 +11,15 @@ import type {
   PerguntaModelo,
   PerguntaResponse,
   PerguntaResultadoEstruturado,
+  PerguntaChip,
+  PerguntaChipValor,
 } from "@mymemory/shared";
+import { derivarChips, perguntaComValores } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
+import { PerguntaChips } from "../components/PerguntaChips";
 import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -671,6 +675,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [traceModal, setTraceModal] = useState<{ trace: PerguntaLlmTraceEntry[]; pergunta: string } | null>(null);
   const [modeloSelectOpen, setModeloSelectOpen] = useState(false);
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
+  // Pergunta salva com plano em uso: frase com chips em vez da caixa de texto
+  const [modeloAtivo, setModeloAtivo] = useState<{ modelo: PerguntaModelo; chips: PerguntaChip[] } | null>(null);
+  const [chipValores, setChipValores] = useState<Record<string, PerguntaChipValor>>({});
   const [modelosLoading, setModelosLoading] = useState(false);
   const [modeloSavedIdx, setModeloSavedIdx] = useState<number | null>(null);
   const [modeloSavingIdx, setModeloSavingIdx] = useState<number | null>(null);
@@ -1231,6 +1238,77 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }
   }
 
+  function selecionarModelo(m: PerguntaModelo) {
+    setPergunta(m.pergunta);
+    setChipValores({});
+    const chips = m.plano ? derivarChips(m.plano.plano) : [];
+    // Sem parâmetros trocáveis → comportamento de sempre (texto na caixa)
+    setModeloAtivo(chips.length ? { modelo: m, chips } : null);
+  }
+
+  function sairDoModelo() {
+    if (modeloAtivo) setPergunta(perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores));
+    setModeloAtivo(null);
+    setChipValores({});
+  }
+
+  /** Reexecuta a pergunta salva com os valores dos chips (sem classificação/planejamento). */
+  async function executarModelo() {
+    if (!modeloAtivo || busy) return;
+    stopListening();
+    const q = perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores);
+    setError(null);
+    setErrorTrace(null);
+    setStatusMsg("Executando a pergunta salva…");
+    setBusy(true);
+    setRefazerIdx(null);
+    setHelpHintOpenIdx(null);
+    setPendingQuestion(q);
+    let replanejar: string | null = null;
+    try {
+      const r = await fetch(`${apiBase}/api/pergunta-modelos/${modeloAtivo.modelo.id}/executar`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ valores: chipValores }),
+      });
+      const j = (await r.json().catch(() => ({}))) as {
+        replanejar?: boolean; pergunta?: string; resultado?: PerguntaResponse;
+        message?: string; llmTrace?: PerguntaLlmTraceEntry[];
+      };
+      if (!r.ok) {
+        if (j.llmTrace?.length) setErrorTrace({ trace: j.llmTrace, pergunta: q });
+        throw new Error(j.message ?? `HTTP ${r.status}`);
+      }
+      if (j.replanejar) replanejar = j.pergunta ?? q;
+      else if (j.resultado) {
+        const res = j.resultado;
+        setRespostas((prev) => [{ ...res, perguntaTexto: q }, ...prev]);
+        setHistorico((prev) => [
+          ...prev,
+          {
+            pergunta: q,
+            resposta: res.resposta.resposta,
+            pipe: res.classificacao.pipe,
+            dados_usados: res.resposta.dados_usados.length > 0 ? res.resposta.dados_usados : undefined,
+          },
+        ].slice(-5));
+      } else throw new Error("Resposta não recebida.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível obter a resposta.");
+    } finally {
+      setBusy(false);
+      setStatusMsg(null);
+      setPendingQuestion(null);
+    }
+    // Query do plano mudou desde que a pergunta foi salva: segue pelo caminho normal
+    if (replanejar) {
+      setModeloAtivo(null);
+      setChipValores({});
+      await enviar({ perguntaOverride: replanejar });
+    }
+  }
+
   async function salvarModelo(cardIdx: number) {
     const r = respostas[cardIdx];
     if (!r || modeloSavingIdx === cardIdx || modeloSavedIdx === cardIdx) return;
@@ -1242,6 +1320,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         pergunta: r.perguntaTexto,
         category,
         workspaceGroupId: workspaceGroupId ?? null,
+        plano: r.planoSalvavel ?? null,
       });
       setModeloSavedIdx(cardIdx);
       setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
@@ -1397,6 +1476,20 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
         <div className={styles.inputArea}>
           <div className={styles.inputRow}>
+            {modeloAtivo ? (
+              <PerguntaChips
+                modeloId={modeloAtivo.modelo.id}
+                pergunta={modeloAtivo.modelo.pergunta}
+                chips={modeloAtivo.chips}
+                valores={chipValores}
+                disabled={busy}
+                onChange={(chave, v) => setChipValores((prev) => {
+                  const nv = { ...prev };
+                  if (v == null) delete nv[chave]; else nv[chave] = v;
+                  return nv;
+                })}
+              />
+            ) : (
             <textarea
               ref={textareaRef}
               className={styles.perguntaInput}
@@ -1407,6 +1500,25 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               rows={3}
               disabled={busy}
             />
+            )}
+            {modeloAtivo ? (
+              <div className={styles.micWrap}>
+                <button
+                  type="button"
+                  className={styles.micCancelBtn}
+                  onClick={sairDoModelo}
+                  title="Editar como texto livre"
+                  disabled={busy}
+                >✎</button>
+                <button
+                  type="button"
+                  className={styles.micCancelBtn}
+                  onClick={() => { setModeloAtivo(null); setChipValores({}); setPergunta(""); }}
+                  title="Fechar pergunta salva"
+                  disabled={busy}
+                >✕</button>
+              </div>
+            ) : (
             <div className={styles.micWrap}>
               <button
                 type="button"
@@ -1431,6 +1543,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 >✕</button>
               ) : null}
             </div>
+            )}
           </div>
           <div className={styles.inputActions}>
             <div className={styles.inputActionsLeft}>
@@ -1466,11 +1579,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 </button>
               ) : null}
             </div>
-            {!busy && pergunta.trim() ? (
+            {!busy && (pergunta.trim() || modeloAtivo) ? (
               <button
                 type="button"
                 className={styles.perguntarBtn}
-                onClick={() => void enviar()}
+                onClick={() => void (modeloAtivo ? executarModelo() : enviar())}
               >
                 Perguntar →
               </button>
@@ -1546,7 +1659,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 <div className={styles.cardPergunta}>
                   <div className={styles.cardPerguntaMain}>
                     <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
-                    <p className={styles.cardPerguntaText}>{r.perguntaTexto}</p>
+                    <p className={styles.cardPerguntaText}>{r.planoReaproveitado ? <span title="Plano salvo reaproveitado: sem classificação e planejamento">⚡ </span> : null}{r.perguntaTexto}</p>
                   </div>
                   <div className={styles.refazerArea}>
                     {r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2) ? (
@@ -2058,7 +2171,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           <button
                             type="button"
                             className={styles.modeloItemBtn}
-                            onClick={() => { setPergunta(m.pergunta); setModeloSelectOpen(false); }}
+                            onClick={() => { selecionarModelo(m); setModeloSelectOpen(false); }}
                           >
                             {(m.category || m.estrelas) ? (
                               <span className={styles.modeloItemMeta}>
@@ -2066,7 +2179,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                                 {m.estrelas ? <span className={styles.modeloItemStars}>{"★".repeat(m.estrelas)}</span> : null}
                               </span>
                             ) : null}
-                            <span className={styles.modeloItemText}>{m.pergunta}</span>
+                            <span className={styles.modeloItemText}>{m.plano ? <span title="Com plano salvo: troque os valores e reexecute direto">⚡ </span> : null}{m.pergunta}</span>
                           </button>
                           <button
                             type="button"

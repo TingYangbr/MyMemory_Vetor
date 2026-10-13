@@ -175,6 +175,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       llmTrace,
       sugestaoAviso: result.sugestaoAviso,
       avisoSnapshot: result.avisoSnapshot,
+      planoSalvavel: result.planoSalvavel,
     };
 
     sendEvent({ type: "result", data: body });

@@ -58,6 +58,8 @@ export interface Pipe2Result {
   dadosEstruturados: PerguntaResultadoEstruturado;
   /** Snapshot das queries executadas — usado para criar avisos automáticos. */
   queriesParaAviso?: AvisoQuerySnapshot[];
+  /** Plano efetivamente executado (só queries executáveis) — guardado nas perguntas salvas. */
+  planoExecutado?: PlanoConsulta;
 }
 
 export interface PlanoParam {
@@ -112,7 +114,7 @@ interface PlanoQuery {
   cross_query_filter?: PlanoCrossQueryFilter[];
 }
 
-interface PlanoConsulta {
+export interface PlanoConsulta {
   queries: PlanoQuery[];
   dados_insuficientes: boolean;
   pergunta_para_usuario: string | null;
@@ -1268,8 +1270,14 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   }));
   totalCost += c2;
 
-  const queriesParaAviso: AvisoQuerySnapshot[] = planoExec.queries.map((task) => {
-    const template = input.queriesDisponiveis.find((q) => q.query_id === task.query_id);
+  const queriesParaAviso = montarQueriesParaAviso(planoExec, input.queriesDisponiveis);
+
+  return { resposta, apiCost: totalCost, dadosEstruturados: agregado, queriesParaAviso, planoExecutado: planoExec };
+}
+
+function montarQueriesParaAviso(plano: PlanoConsulta, queriesDisponiveis: QueryDisponivel[]): AvisoQuerySnapshot[] {
+  return plano.queries.map((task) => {
+    const template = queriesDisponiveis.find((q) => q.query_id === task.query_id);
     return {
       queryId: Number(task.query_id),
       nome: template?.nome ?? task.query_id,
@@ -1285,6 +1293,124 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
         })),
     };
   });
+}
 
-  return { resposta, apiCost: totalCost, dadosEstruturados: agregado, queriesParaAviso };
+/**
+ * Reexecuta um plano salvo (pergunta salva com chips): pula classificação e planejamento,
+ * roda só as queries e a síntese. Quem chama garante que as queries do plano não mudaram.
+ */
+export async function executarPlanoSalvo(input: {
+  pergunta: string;
+  plano: PlanoConsulta;
+  queriesDisponiveis: QueryDisponivel[];
+  userId: number;
+  groupId: number | null;
+  categoryId?: number | null;
+}): Promise<Pipe2Result> {
+  const planoExec: PlanoConsulta = {
+    ...input.plano,
+    queries: input.plano.queries.filter((t) => input.queriesDisponiveis.some((q) => q.query_id === t.query_id)),
+  };
+  const { agregado, porQuery } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
+    plano: planoExec,
+    queriesDisponiveis: input.queriesDisponiveis,
+    userId: input.userId,
+    groupId: input.groupId,
+  }));
+  const { resposta, costUsd } = await withSpan("Síntese da resposta (estruturada)", () => gerarRespostaEstruturada({
+    pergunta: input.pergunta,
+    plano: planoExec,
+    porQuery,
+    agregado,
+    categoryId: input.categoryId,
+  }));
+  return {
+    resposta,
+    apiCost: costUsd,
+    dadosEstruturados: agregado,
+    queriesParaAviso: montarQueriesParaAviso(planoExec, input.queriesDisponiveis),
+    planoExecutado: planoExec,
+  };
+}
+
+// ── Sugestão de valores para os chips das perguntas salvas ────────────────────
+
+/** Colunas do SELECT preservando maiúsculas (aliases entre aspas no PostgreSQL são sensíveis a caixa). */
+function extractSelectColumnNamesOriginal(sentencaSql: string): string[] {
+  const m = /\bSELECT\b([\s\S]+?)\bFROM\b/i.exec(sentencaSql);
+  if (!m) return [];
+  return m[1]
+    .split(",")
+    .map((col) => {
+      const t = col.trim().replace(/\s+/g, " ");
+      const asMatch = /\bAS\s+[\[\"`]?(\w+)[\]\"`]?\s*$/i.exec(t);
+      if (asMatch) return asMatch[1];
+      const lastId = /[\[\"`]?(\w+)[\]\"`]?\s*$/.exec(t);
+      return lastId && lastId[1].toLowerCase() !== "select" ? lastId[1] : "";
+    })
+    .filter((c) => c.length > 0 && c !== "*");
+}
+
+const normNomeCol = (s: string) =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_|_$/g, "");
+
+/**
+ * Valores distintos da coluna ligada ao parâmetro que contenham `termo` — alimenta o autocomplete do chip.
+ * Roda o próprio template da query (sem os demais filtros) com o mesmo isolamento da execução normal.
+ * Sem coluna identificável no SELECT → lista vazia (o usuário ainda pode digitar livremente).
+ */
+export async function sugerirValoresParam(input: {
+  template: QueryDisponivel;
+  param: string;
+  termo: string;
+  userId: number;
+  groupId: number | null;
+}): Promise<string[]> {
+  const { template } = input;
+  const base = input.param.toLowerCase().replace(/_(in|nin)$/, "");
+  const col = extractSelectColumnNamesOriginal(template.sentencaSql).find((c) => normNomeCol(c) === base);
+  if (!col) return [];
+  const semFim = (sql: string) =>
+    sql.replace(/\s+ORDER\s+BY\s+[^()]*$/i, "").replace(/\s+LIMIT\s+\d+(\s+OFFSET\s+\d+)?\s*$/i, "").trim();
+  const like = `%${input.termo.trim()}%`;
+
+  let linhas: Record<string, unknown>[];
+  if (template.conexaoId != null) {
+    const sql =
+      `WITH _base AS (\n${semFim(template.sentencaSql)}\n) ` +
+      `SELECT DISTINCT TOP 30 ${sanitizeIdentifier(col, "mssql")} AS v FROM _base ` +
+      `WHERE ${sanitizeIdentifier(col, "mssql")} LIKE @mm_sugestao ORDER BY 1`;
+    const r = await executeQueryMssql(
+      template.conexaoId,
+      sql,
+      { userid: input.userId, groupid: input.groupId, mm_sugestao: like },
+      template.params.map((p) => ({ nome: p.nome, operadorSql: p.operadorSql })),
+      { mm_sugestao: "LIKE" }
+    );
+    linhas = r.linhas;
+  } else {
+    const { sql: baseSql, values } = bindTemplateParams(template.sentencaSql, [], template.params, {
+      userid: input.userId,
+      groupid: input.groupId,
+    });
+    const c = sanitizeIdentifier(col, "pg");
+    const sql =
+      `WITH _base AS (\n${semFim(baseSql)}\n) ` +
+      `SELECT DISTINCT ${c}::text AS v FROM _base ` +
+      `WHERE unaccent(${c}::text) ILIKE unaccent(?::text) ORDER BY 1 LIMIT 30`;
+    const [rows] = await queryIsoladaPorGrupo<RowDataPacket[]>(sql, [...values, like], {
+      userId: input.userId,
+      groupId: input.groupId,
+    });
+    linhas = rows as Record<string, unknown>[];
+  }
+  const vistos = new Set<string>();
+  const out: string[] = [];
+  for (const l of linhas) {
+    const v = l.v ?? Object.values(l)[0];
+    if (v == null) continue;
+    const s = String(v).trim();
+    if (s && !vistos.has(s.toLowerCase())) { vistos.add(s.toLowerCase()); out.push(s); }
+  }
+  return out;
 }

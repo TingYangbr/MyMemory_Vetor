@@ -4,8 +4,11 @@ import type {
   PerguntaCardHistorico,
   PerguntaClassificacao,
   PerguntaFiltros,
+  PerguntaPlanoSalvo,
   PerguntaResposta,
+  PlanoSalvo,
 } from "@mymemory/shared";
+import { createHash } from "node:crypto";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { withSpan } from "../lib/requestTimings.js";
 import { executarPipe1 } from "./perguntaPipe1.js";
@@ -85,7 +88,7 @@ function toParamName(name: string): string {
     .replace(/^_|_$/g, "");
 }
 
-function buildQueriesDisponiveis(
+export function buildQueriesDisponiveis(
   categories: MemoContextCategory[],
   categoriaNames: string[]
 ): QueryDisponivel[] {
@@ -128,6 +131,16 @@ function buildQueriesDisponiveis(
             }),
         }));
     });
+}
+
+/** Hash do SQL + parâmetros + conexão da query: se mudar depois de salvar a pergunta, o plano salvo é descartado. */
+export function hashQueryDisponivel(q: QueryDisponivel): string {
+  const base = JSON.stringify({
+    sql: q.sentencaSql,
+    conexao: q.conexaoId,
+    params: q.params.map((p) => [p.nome, p.tipo, p.operadorSql, p.obrigatorio]),
+  });
+  return createHash("sha256").update(base).digest("hex").slice(0, 32);
 }
 
 /** Coleta todos os memo_ids citados nas respostas do histórico da sessão. */
@@ -236,6 +249,7 @@ export async function perguntarMemory(input: {
   memosEncontrados?: number;
   sugestaoAviso?: string;
   avisoSnapshot?: AvisoExecucaoSnapshot;
+  planoSalvavel?: PerguntaPlanoSalvo;
 }> {
   let totalCost = 0;
 
@@ -352,12 +366,28 @@ export async function perguntarMemory(input: {
     const queriesUsadas = result.queriesParaAviso ?? [];
     const { texto: sugestaoAviso } = gerarSugestaoAviso();
     const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "estruturada", queries: queriesUsadas };
+    // Plano reaproveitável ao salvar a pergunta (evita classificação + planejamento na reexecução)
+    let planoSalvavel: PerguntaPlanoSalvo | undefined;
+    if (result.planoExecutado?.queries.length) {
+      const queryHashes: Record<string, string> = {};
+      for (const t of result.planoExecutado.queries) {
+        const q = queriesDisponiveis.find((x) => x.query_id === t.query_id);
+        if (q) queryHashes[t.query_id] = hashQueryDisponivel(q);
+      }
+      planoSalvavel = {
+        versao: 1,
+        classificacao,
+        plano: result.planoExecutado as unknown as PlanoSalvo,
+        queryHashes,
+      };
+    }
     return {
       resposta: result.resposta,
       classificacao,
       apiCost: totalCost + result.apiCost,
       sugestaoAviso,
       avisoSnapshot,
+      planoSalvavel,
     };
   }
 

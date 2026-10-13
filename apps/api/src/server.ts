@@ -63,6 +63,7 @@ import { QueryCategoriaIsolada1700000000148 } from "./migrations/1700000000148-Q
 import { ParseDateFormatosTolerantes1700000000149 } from "./migrations/1700000000149-ParseDateFormatosTolerantes.js";
 import { QueryPadraoAutomatica1700000000150 } from "./migrations/1700000000150-QueryPadraoAutomatica.js";
 import { Lembretes1700000000151 } from "./migrations/1700000000151-Lembretes.js";
+import { PerguntaModeloPlano1700000000152 } from "./migrations/1700000000152-PerguntaModeloPlano.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -159,6 +160,7 @@ assertMediaStorageEnv();
       ParseDateFormatosTolerantes1700000000149,
       QueryPadraoAutomatica1700000000150,
       Lembretes1700000000151,
+      PerguntaModeloPlano1700000000152,
     ],
   });
   const ds = await AppDataSource.initialize();

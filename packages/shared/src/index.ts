@@ -1161,6 +1161,10 @@ export interface PerguntaResponse {
   sugestaoAviso?: string;
   /** Snapshot do pipeline para re-execução automática pelo serviço de avisos. */
   avisoSnapshot?: AvisoExecucaoSnapshot;
+  /** Plano reutilizável ao salvar a pergunta (só respostas estruturadas) */
+  planoSalvavel?: PerguntaPlanoSalvo;
+  /** true = resposta gerada a partir de pergunta salva com plano (sem classificação/planejamento) */
+  planoReaproveitado?: boolean;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
@@ -1224,6 +1228,8 @@ export interface AdminDiagnosticsResponse {
 
 // ── Perguntas Modelo (salvas pelo usuário) ───────────────────────────────────
 
+import type { PerguntaPlanoSalvo } from "./perguntaPlano.js";
+
 export interface PerguntaModelo {
   id: number;
   userId: number;
@@ -1232,6 +1238,8 @@ export interface PerguntaModelo {
   pergunta: string;
   anotacoes: string | null;
   estrelas: number | null;
+  /** Plano salvo (classificação + queries + parâmetros); null = pergunta salva só com texto */
+  plano?: PerguntaPlanoSalvo | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -1452,3 +1460,4 @@ export interface BatchProcessResponse {
 
 export * from "./queryPadrao.js";
 export * from "./lembretes.js";
+export * from "./perguntaPlano.js";
