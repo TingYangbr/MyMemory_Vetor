@@ -71,8 +71,9 @@ export function gerarQueryPadraoMemos(
       );
     } else if (campo.tipo === "number") {
       whereParts.push(
-        `  AND (:${p}_ini IS NULL OR (${jsonExpr})::numeric >= :${p}_ini)`,
-        `  AND (:${p}_fin IS NULL OR (${jsonExpr})::numeric <= :${p}_fin)`
+        // mymemory_parse_number tolera texto ("4 horas" = 4, "1h30" = 1.5, "R$ 1.500,25") em vez de quebrar a query
+        `  AND (:${p}_ini IS NULL OR mymemory_parse_number(${jsonExpr}) >= :${p}_ini)`,
+        `  AND (:${p}_fin IS NULL OR mymemory_parse_number(${jsonExpr}) <= :${p}_fin)`
       );
     }
   }
