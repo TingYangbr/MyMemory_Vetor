@@ -197,11 +197,43 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     categoryId: input.categoryId,
   };
 
-  // Pipe 1 e Pipe 2 correm em paralelo — cada um é independente
-  const [pipe1, pipe2] = await Promise.all([
+  // Pipe 1 e Pipe 2 correm em paralelo — cada um é independente. Se um deles falhar, a resposta
+  // sai com o outro e a falha vira limitação (antes, um erro de SQL derrubava a pergunta inteira).
+  const [r1, r2] = await Promise.allSettled([
     executarPipe1(pipe1Input),
     executarPipe2(pipe2Input),
   ]);
+  if (r1.status === "rejected" && r2.status === "rejected") throw r2.reason;
+  const msgErro = (e: unknown) => (e instanceof Error ? e.message : String(e));
+  const falhas: string[] = [];
+
+  let pipe1: Awaited<ReturnType<typeof executarPipe1>>;
+  if (r1.status === "fulfilled") pipe1 = r1.value;
+  else {
+    console.warn("[Pipe3] busca semântica falhou:", r1.reason);
+    falhas.push(`A busca nos registros de texto falhou: ${msgErro(r1.reason)}`);
+    pipe1 = {
+      resposta: { resposta: "Busca nos registros de texto indisponível.", tipo_resposta: "semantica", dados_usados: [], limitacoes: [], confianca_estimada: 0 },
+      apiCost: 0,
+      limiarInicial: input.thresholdInitial,
+      limiarUsado: input.thresholdInitial,
+      limiarMinimo: input.thresholdMin,
+      memosEncontrados: 0,
+    };
+  }
+
+  let pipe2: Awaited<ReturnType<typeof executarPipe2>>;
+  if (r2.status === "fulfilled") pipe2 = r2.value;
+  else {
+    console.warn("[Pipe3] consulta estruturada falhou:", r2.reason);
+    falhas.push(`A consulta aos dados estruturados falhou: ${msgErro(r2.reason)}`);
+    const vazio = { colunas: [], linhas: [], totalLinhas: 0 };
+    pipe2 = {
+      resposta: { resposta: "Consulta estruturada indisponível (erro).", tipo_resposta: "estruturada", dados_usados: [], limitacoes: [], confianca_estimada: 0, dados_estruturados: vazio },
+      apiCost: 0,
+      dadosEstruturados: vazio,
+    };
+  }
 
   const { resposta, costUsd: c3 } = await withSpan("Síntese da resposta (híbrida)", () => gerarRespostaHibrida({
     pergunta: input.pergunta,
@@ -210,6 +242,8 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     categoryId: input.categoryId,
   }));
 
+  if (falhas.length) resposta.limitacoes = [...resposta.limitacoes, ...falhas];
+
   return {
     resposta,
     apiCost: pipe1.apiCost + pipe2.apiCost + c3,
@@ -217,7 +251,8 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     limiarUsado: pipe1.limiarUsado,
     limiarMinimo: pipe1.limiarMinimo,
     memosEncontrados: pipe1.memosEncontrados,
-    aguardaFase2: pipe1.memosEncontrados === 0 && pipe2.dadosEstruturados.totalLinhas > 0,
+    // Sem memos: oferece "Ampliar busca" também quando a parte estruturada falhou
+    aguardaFase2: r1.status === "fulfilled" && pipe1.memosEncontrados === 0 && (pipe2.dadosEstruturados.totalLinhas > 0 || r2.status === "rejected"),
     queriesParaAviso: pipe2.queriesParaAviso,
   };
 }

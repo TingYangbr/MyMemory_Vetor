@@ -664,7 +664,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 6 — FATURADO/FATURAMENTO = VALOR: Os termos "faturado", "faturamento", "faturou" ou "total faturado", sozinhos, significam por padrão o VALOR MONETÁRIO faturado — use a coluna de valor da nota/produto faturado (ex: Valor_NF, Valor_Prod_Fat) como campo_medida. Use colunas de quantidade (Qtde_xxx) SOMENTE quando a pergunta explicitar quantidade (ex: "quantidade faturada", "qtde faturada", "quantas unidades faturadas"). Preço unitário, custo, impostos etc. só quando citados explicitamente.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 6 — FATURADO/FATURAMENTO = VALOR: Os termos "faturado", "faturamento", "faturou" ou "total faturado", sozinhos, significam por padrão o VALOR MONETÁRIO faturado — use a coluna de valor da nota/produto faturado (ex: Valor_NF, Valor_Prod_Fat) como campo_medida. Use colunas de quantidade (Qtde_xxx) SOMENTE quando a pergunta explicitar quantidade (ex: "quantidade faturada", "qtde faturada", "quantas unidades faturadas"). Preço unitário, custo, impostos etc. só quando citados explicitamente.\n\nREGRA CRÍTICA 7 — ORIGEM DO CROSS_QUERY_FILTER: from_field DEVE ser uma coluna presente em colunas_select da query de ORIGEM (a de prioridade from_priority). Se a query de origem não tiver essa coluna (ex.: cabeçalho de pedido sem Codigo_Produto), use como origem outra query que a tenha (ex.: a versão detalhada por produto). Sem query de origem adequada, não use cross_query_filter e registre a limitação em observacoes.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -901,8 +901,10 @@ async function executarConsultasPlano(input: {
   queriesDisponiveis: QueryDisponivel[];
   userId: number;
   groupId: number | null;
-}): Promise<{ agregado: PerguntaResultadoEstruturado; porQuery: QueryExecResultado[] }> {
+}): Promise<{ agregado: PerguntaResultadoEstruturado; porQuery: QueryExecResultado[]; avisos: string[] }> {
   const { plano, queriesDisponiveis, userId, groupId } = input;
+  /** Queries puladas (ex.: cross_query_filter inválido) — viram limitações na resposta */
+  const avisos: string[] = [];
 
   const porQuery: QueryExecResultado[] = [];
   const allLinhas: Record<string, unknown>[] = [];
@@ -923,53 +925,84 @@ async function executarConsultasPlano(input: {
       );
     }
 
-    // Resolve cross_query_filter: extrai lista de valores de query origem e injeta como parâmetro IN/NOT IN
+    // Resolve cross_query_filter: extrai lista de valores de query origem e injeta como parâmetro IN/NOT IN.
+    // Filtro inválido não derruba a pergunta: a query destino é pulada e o motivo vai para as limitações.
     const parametrosResolvidos: PlanoParam[] = [...task.parametros];
-    if (task.cross_query_filter && task.cross_query_filter.length > 0) {
-      for (const ref of task.cross_query_filter) {
-        const origem = resultadosPorPrioridade.get(ref.from_priority);
-        if (!origem) {
-          throw new Error(
-            `cross_query_filter inválido: query de prioridade ${ref.from_priority} não foi executada antes da prioridade ${task.prioridade}.`
-          );
-        }
-        const paramDef = template.params.find((p) => p.nome.toLowerCase() === ref.to_param.toLowerCase());
-        if (!paramDef) {
-          throw new Error(
-            `cross_query_filter inválido: query #${task.query_id} "${template.nome}" não tem parâmetro "${ref.to_param}" cadastrado. ` +
-            `Cadastre o parâmetro com tipo "lista_texto" e operador IN ou NOT IN para suportar este tipo de pergunta.`
-          );
-        }
-        const op = (paramDef.operadorSql ?? "").toUpperCase();
-        if (op !== "IN" && op !== "NOT IN") {
-          const inVariant = template.params.find(
-            (p) => p.nome.toLowerCase() === `${ref.to_param.toLowerCase()}_in` && ["IN", "NOT IN"].includes((p.operadorSql ?? "").toUpperCase())
-          );
-          const sugestao = inVariant ? ` Use "${inVariant.nome}" (operador ${inVariant.operadorSql}) para cross_query_filter.` : "";
-          throw new Error(
-            `cross_query_filter inválido: parâmetro "${ref.to_param}" da query #${task.query_id} "${template.nome}" tem operador "${paramDef.operadorSql}". ` +
-            `Esperado IN ou NOT IN para receber lista de valores de outra query.${sugestao}`
-          );
-        }
-        // Extrai valores únicos não-nulos do campo na query origem
-        const fieldLower = ref.from_field.toLowerCase();
-        const fieldKey = origem.colunas.find((c) => c.toLowerCase() === fieldLower) ?? ref.from_field;
-        const valores = Array.from(new Set(
-          origem.linhas
-            .map((row) => row[fieldKey])
-            .filter((v): v is string | number => v !== null && v !== undefined && v !== "")
-            .map((v) => String(v))
-        ));
-        parametrosResolvidos.push({
-          nome: ref.to_param,
-          termo_usuario: `(de query prioridade ${ref.from_priority}.${ref.from_field})`,
-          valor: valores,
-          tipo: "lista_texto",
-          operador_sugerido: paramDef.operadorSql,
-          obrigatorio: false,
-          precisa_normalizacao: false,
-        });
+    let pularQuery: string | null = null;
+    let resultadoVazio = false;
+    for (const ref of task.cross_query_filter ?? []) {
+      const rotulo = `query #${task.query_id} "${template.nome}"`;
+      const origem = resultadosPorPrioridade.get(ref.from_priority);
+      if (!origem) {
+        pularQuery = `Não foi possível executar a ${rotulo}: ela dependia da consulta de prioridade ${ref.from_priority}, que não foi executada.`;
+        break;
       }
+      // Parâmetro destino: cadastrado com IN/NOT IN; senão a variante _in cadastrada; senão o próprio SQL com "IN (@param)"
+      const toLower = ref.to_param.toLowerCase();
+      const ehIn = (op: string | undefined) => ["IN", "NOT IN"].includes((op ?? "").toUpperCase());
+      let paramDef = template.params.find((p) => p.nome.toLowerCase() === toLower);
+      if (paramDef && !ehIn(paramDef.operadorSql)) {
+        paramDef = template.params.find((p) => p.nome.toLowerCase() === `${toLower}_in` && ehIn(p.operadorSql));
+      }
+      let nomeParam = paramDef?.nome ?? ref.to_param;
+      let operador = paramDef?.operadorSql?.toUpperCase();
+      if (!paramDef) {
+        const escapado = ref.to_param.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const noSql = new RegExp(`(NOT\\s+)?IN\\s*\\(\\s*[@:]${escapado}\\s*\\)`, "i").exec(template.sentencaSql);
+        if (noSql) {
+          nomeParam = ref.to_param;
+          operador = noSql[1] ? "NOT IN" : "IN";
+          console.warn(`[Pipe2] cross_query_filter: "${ref.to_param}" não cadastrado na ${rotulo}; usando o IN do SQL.`);
+        } else {
+          pularQuery =
+            `Não foi possível filtrar a ${rotulo} pelos resultados da consulta anterior: falta o parâmetro "${ref.to_param}" ` +
+            `(tipo lista_texto, operador IN). Cadastre-o na query para suportar este tipo de pergunta.`;
+          break;
+        }
+      }
+      // Coluna de origem precisa existir no resultado (com 0 linhas não há como conferir — lista vazia de qualquer forma)
+      const fieldLower = ref.from_field.toLowerCase();
+      const fieldKey = origem.colunas.find((c) => c.toLowerCase() === fieldLower);
+      if (!fieldKey && origem.linhas.length > 0) {
+        pularQuery =
+          `Não foi possível filtrar a ${rotulo}: a coluna "${ref.from_field}" não existe no resultado da consulta de origem ` +
+          `(colunas: ${origem.colunas.join(", ")}).`;
+        break;
+      }
+      // Extrai valores únicos não-nulos do campo na query origem
+      const valores = fieldKey
+        ? Array.from(new Set(
+            origem.linhas
+              .map((row) => row[fieldKey])
+              .filter((v): v is string | number => v !== null && v !== undefined && v !== "")
+              .map((v) => String(v))
+          ))
+        : [];
+      // IN com lista vazia = nenhum registro (sem isso o "IS NULL" do template devolveria tudo).
+      // NOT IN com lista vazia = não exclui nada.
+      if (valores.length === 0) {
+        if (operador === "IN") { resultadoVazio = true; break; }
+        continue;
+      }
+      parametrosResolvidos.push({
+        nome: nomeParam,
+        termo_usuario: `(de query prioridade ${ref.from_priority}.${ref.from_field})`,
+        valor: valores,
+        tipo: "lista_texto",
+        operador_sugerido: operador ?? "IN",
+        obrigatorio: false,
+        precisa_normalizacao: false,
+      });
+    }
+    if (pularQuery) {
+      avisos.push(pularQuery);
+      continue;
+    }
+    if (resultadoVazio) {
+      const vazio: QueryExecResultado = { query_id: task.query_id, colunas: [], linhas: [], totalLinhas: 0 };
+      porQuery.push(vazio);
+      resultadosPorPrioridade.set(task.prioridade, vazio);
+      continue;
     }
 
     let linhas: Record<string, unknown>[];
@@ -1076,7 +1109,8 @@ async function executarConsultasPlano(input: {
     messages: [
       {
         role: "system",
-        content: `SQL executado:\n${sqlParts.join("\n---\n").replace(/\s+/g, " ").trim()}\n\nparâmetros: ${JSON.stringify(allValues)}`,
+        content: `SQL executado:\n${sqlParts.join("\n---\n").replace(/\s+/g, " ").trim()}\n\nparâmetros: ${JSON.stringify(allValues)}` +
+          (avisos.length ? `\n\nqueries puladas:\n${avisos.join("\n")}` : ""),
       },
       {
         role: "user",
@@ -1088,6 +1122,7 @@ async function executarConsultasPlano(input: {
   return {
     agregado: { colunas, linhas: allLinhas, totalLinhas: allLinhas.length },
     porQuery,
+    avisos,
   };
 }
 
@@ -1099,6 +1134,8 @@ async function gerarRespostaEstruturada(input: {
   porQuery: QueryExecResultado[];
   agregado: PerguntaResultadoEstruturado;
   categoryId?: number | null;
+  /** Queries que não puderam ser executadas e o motivo */
+  avisosExecucao?: string[];
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const queries_executadas = input.plano.queries.map((q) => ({
     query_id: q.query_id,
@@ -1140,6 +1177,7 @@ async function gerarRespostaEstruturada(input: {
       parametros_aplicados,
       normalizacoes_aplicadas,
       ...(avisosTruncamento.length > 0 ? { avisos_truncamento: avisosTruncamento } : {}),
+      ...(input.avisosExecucao?.length ? { consultas_nao_executadas: input.avisosExecucao } : {}),
     },
     null,
     2
@@ -1179,7 +1217,7 @@ async function gerarRespostaEstruturada(input: {
     resposta: parseRespostaStr(parsed.resposta, respostaFallback),
     tipo_resposta: "estruturada",
     dados_usados: [] as PerguntaMemoUsado[],
-    limitacoes: parseStringArray(parsed.limitacoes),
+    limitacoes: [...parseStringArray(parsed.limitacoes), ...(input.avisosExecucao ?? [])],
     confianca_estimada: typeof parsed.confianca_estimada === "number"
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
@@ -1254,7 +1292,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   }
 
   const planoExec = { ...plano, queries: executableQueries };
-  const { agregado, porQuery } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
+  const { agregado, porQuery, avisos } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
     plano: planoExec,
     queriesDisponiveis: input.queriesDisponiveis,
     userId: input.userId,
@@ -1267,6 +1305,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     porQuery,
     agregado,
     categoryId: input.categoryId,
+    avisosExecucao: avisos,
   }));
   totalCost += c2;
 
@@ -1311,7 +1350,7 @@ export async function executarPlanoSalvo(input: {
     ...input.plano,
     queries: input.plano.queries.filter((t) => input.queriesDisponiveis.some((q) => q.query_id === t.query_id)),
   };
-  const { agregado, porQuery } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
+  const { agregado, porQuery, avisos } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
     plano: planoExec,
     queriesDisponiveis: input.queriesDisponiveis,
     userId: input.userId,
@@ -1323,6 +1362,7 @@ export async function executarPlanoSalvo(input: {
     porQuery,
     agregado,
     categoryId: input.categoryId,
+    avisosExecucao: avisos,
   }));
   return {
     resposta,
