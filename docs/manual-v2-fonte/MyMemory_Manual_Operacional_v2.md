@@ -30,9 +30,10 @@ Este documento descreve todas as telas do sistema MyMemory, seus campos, comport
 - Seção 24 — Admin: Último prompt LLM
 - Seção 25 — Admin: Assinaturas
 - Seção 26 — Admin: Storage por Grupo
-- Seção 27 — Integrações externas (chave de API)
-- Seção 28 — Erros Comuns e Soluções
-- Seção 29 — Referência Rápida Admin
+- Seção 27 — Admin: Importar conhecimento
+- Seção 28 — Integrações externas (chave de API)
+- Seção 29 — Erros Comuns e Soluções
+- Seção 30 — Referência Rápida Admin
 # NOVIDADES DA VERSÃO 2
 Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
 | Novidade | Onde |
@@ -55,7 +56,8 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Isolamento por grupo nas queries internas (cada grupo só lê os próprios memos) | Seção 17 |
 | Ícones ✎ e 🗑 visíveis no tema escuro | Seção 17 |
 | Média (AVG) no SQL Server sem truncar para inteiro | Seção 17 |
-| Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 27 |
+| Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo | Seção 27 |
+| Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
 Rota: /login
@@ -737,6 +739,7 @@ Visível no menu apenas para usuários com perfil admin. Redireciona para login 
 | Config. Sistema | → /admin/system-config |
 | Último prompt LLM | → /admin/llm-prompt |
 | Assinaturas | → /admin/assinaturas |
+| Importar conhecimento | → /admin/conhecimento |
 
 ## Aba: Planos
 CRUD de planos de assinatura.
@@ -901,7 +904,44 @@ Na mesma tela, "Limpeza de Arquivos Órfãos" → "Verificar" lista arquivos no 
 | Senha mostrada em texto puro após salvar | STORAGE_ENCRYPTION_KEY não configurada no servidor. Configurar e regerar as senhas. |
 | Não aparece dropdown de WebDAV no Batch Import | Verificar se há config ativa e padrão para o grupo no /admin/storage. |
 
-# SEÇÃO 27 — Integrações externas (chave de API)
+# SEÇÃO 27 — Admin: Importar conhecimento
+Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+## Propósito
+Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
+## Antes de importar
+1. Na Estrutura do contexto, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
+2. Criar nela os campos Seção, Tela, Rota, Perfil, Tipo e Versão. Os nomes são casados com ou sem acento ("Secao" = "Seção").
+3. Ter o arquivo .jsonl com um trecho por linha (campos obrigatórios: id e texto).
+## Como importar
+1. Abrir Admin → Importar conhecimento.
+2. Escolher o grupo que vai consultar o conhecimento.
+3. Escolher a categoria (as globais aparecem com "(global)"). Uma categoria com "manual" no nome é pré-selecionada.
+4. Escolher o arquivo .jsonl. A tela mostra quantos trechos foram lidos.
+5. Manter marcado "Substituir os trechos importados antes nesta categoria" para trocar a versão anterior.
+6. Clicar Importar. Leva de um a dois minutos para 200 trechos (o sistema gera os vetores de cada um).
+## Campos da tela
+| Campo / Elemento | Descrição |
+|---|---|
+| Grupo | Grupo onde os memos serão criados. Só os membros desse grupo terão respostas a partir deles. |
+| Categoria | Categoria dos memos. Precisa estar disponível para o grupo (do grupo ou global). |
+| Arquivo de trechos | .jsonl (um JSON por linha) ou .json com uma lista. Cada trecho: id, texto e, opcionalmente, secao, tela, rota, perfil, tipo, versao. |
+| Substituir | Desativa os trechos importados antes na mesma categoria e grupo antes de criar os novos. |
+| Importar | Cria os memos e mostra o resultado: criados, substituídos e erros. |
+| Já importado neste grupo | Lista categoria, quantidade de trechos, versão e data da última importação, com o botão Remover. |
+## Regras importantes
+- O texto entra exatamente como no arquivo (sem acentos, como todos os memos do sistema); a IA não reescreve nem classifica.
+- Não há custo de IA de extração; só a geração dos vetores da busca semântica (alguns centavos para 200 trechos).
+- Os memos importados aparecem nos Recentes do grupo e podem ser abertos e editados como qualquer memo de texto.
+- Remover desativa os memos (exclusão lógica); eles deixam de ser usados nas respostas.
+- A Importação em Lote (Seção 16) não serve para isso: pelo WebDAV ela não lê o conteúdo dos arquivos e não aplica IA.
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Linha N não é JSON válido | O arquivo não está no formato JSON Lines. Gerar de novo com docs/manual-v2-fonte/gerar_trechos.py. |
+| Trecho N sem "id" ou "texto" | Cada linha precisa ter os campos id e texto. |
+| Categoria não disponível para este grupo | A categoria é de outro grupo. Usar uma categoria do grupo ou global. |
+| Perguntas não usam os trechos importados | Conferir se a pergunta foi feita no mesmo grupo da importação e se a busca semântica está ativa (OPENAI_API_KEY configurada). |
+# SEÇÃO 28 — Integrações externas (chave de API)
 ## Propósito
 Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome de um grupo sem login de usuário, usando uma chave de API do grupo.
 ## Funcionamento
@@ -914,7 +954,7 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 |---|---|
 | unauthorized | Chave ausente, revogada ou expirada. Gerar nova chave. |
 | forbidden_group | A chave não pertence ao grupo informado. |
-# SEÇÃO 28 — Erros Comuns e Soluções
+# SEÇÃO 29 — Erros Comuns e Soluções
 ## Erros de sessão / autenticação
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
@@ -958,7 +998,7 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 | Invalid column name 'X' (SQL Server) | Coluna inexistente na view/tabela do banco usado pela conexão. Conferir se a view é a mesma em todos os bancos (ex.: Demo × produção). |
 | Resposta com filtro ignorado | Parâmetro com nome errado no SQL (nunca recebe valor). Conferir os nomes @param no trace. |
 
-# SEÇÃO 29 — Referência Rápida Admin
+# SEÇÃO 30 — Referência Rápida Admin
 ## Variáveis de ambiente (.env) essenciais
 | Campo / Elemento | Descrição |
 |---|---|
@@ -1003,6 +1043,7 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 | /admin/llm-prompt | Último prompt enviado à IA (diagnóstico) |
 | /admin/assinaturas | Assinaturas de usuários e grupos |
 | /admin/storage | Storage WebDAV por grupo |
+| /admin/conhecimento | Importar conhecimento em trechos para um grupo |
 | /estrutura-memo | Categorias, queries e lembretes 🔔 (owner e admin) |
 | /avisos | Avisos do usuário (monitoramento de perguntas) |
 

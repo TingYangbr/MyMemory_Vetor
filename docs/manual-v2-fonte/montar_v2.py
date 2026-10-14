@@ -29,8 +29,8 @@ mapa = {}
 for n in range(1, 9): mapa[n] = n
 for n in range(9, 17): mapa[n] = n + 1
 for n in range(17, 25): mapa[n] = n + 2
-mapa[25] = 28
-mapa[26] = 29
+mapa[25] = 29
+mapa[26] = 30
 
 def renumerar(texto: str) -> str:
     return re.sub(r"Seção (\d+)", lambda m: f"Seção {mapa.get(int(m.group(1)), int(m.group(1)))}", texto)
@@ -101,6 +101,8 @@ for num, titulo, ls in secoes:
         ls = trocar(ls, "| Configurações de Mídia | → /admin/midia |", "| Mídia por plano | → /admin/midia |")
         ls = trocar(ls, "| Documento IA | → /admin/documento-ia |", "| Documento — roteamento IA | → /admin/documento-ia |")
         ls = trocar(ls, "| Prompts LLM | → /admin/llm-prompt |", "| Último prompt LLM | → /admin/llm-prompt |")
+        i = ls.index("| Assinaturas | → /admin/assinaturas |")
+        ls.insert(i + 1, "| Importar conhecimento | → /admin/conhecimento |")
     if num == 18:
         saida_secoes.append(("Admin: Mídia por plano", ["Rota: /admin/midia"] + bloco("ADM_MIDIA")))
         continue
@@ -119,6 +121,7 @@ for num, titulo, ls in secoes:
     if num == 24:
         ls = inserir_antes(ls, "## Erros frequentes", bloco("ADM_STORAGE_ADD"))
         saida_secoes.append((titulo, ls))
+        saida_secoes.append(("Admin: Importar conhecimento", bloco("SEC_IMPORTAR")[1:]))
         saida_secoes.append(("Integrações externas (chave de API)", bloco("SEC27NOVA")[1:]))
         continue
     if num == 25:
@@ -142,6 +145,7 @@ for num, titulo, ls in secoes:
                     "| /estrutura-memo | Categorias, queries e lembretes 🔔 (owner e admin) |")
         i = ls.index("| /estrutura-memo | Categorias, queries e lembretes 🔔 (owner e admin) |")
         ls.insert(i + 1, "| /avisos | Avisos do usuário (monitoramento de perguntas) |")
+        ls.insert(i, "| /admin/conhecimento | Importar conhecimento em trechos para um grupo |")
         i = ls.index("| USE_DEV_FALLBACK | 1 para desativar auth em dev local (não usar em prod!). |")
         ls.insert(i, "| Migrations | Aplicadas automaticamente quando a API sobe (inclui as funções mymemory_parse_date e mymemory_parse_number). |")
     saida_secoes.append((titulo, ls))

@@ -20,9 +20,9 @@ PERFIL_POR_SECAO = {}
 for n in range(1, 13): PERFIL_POR_SECAO[n] = "usuário"
 for n in (13, 15, 16): PERFIL_POR_SECAO[n] = "usuário"
 for n in (14, 17, 18): PERFIL_POR_SECAO[n] = "owner"
-for n in range(19, 28): PERFIL_POR_SECAO[n] = "admin"
-PERFIL_POR_SECAO[28] = "suporte"
-PERFIL_POR_SECAO[29] = "admin"
+for n in range(19, 29): PERFIL_POR_SECAO[n] = "admin"
+PERFIL_POR_SECAO[29] = "suporte"
+PERFIL_POR_SECAO[30] = "admin"
 
 def slug(s: str) -> str:
     s = unicodedata.normalize("NFD", s).encode("ascii", "ignore").decode().lower()
