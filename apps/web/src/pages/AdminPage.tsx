@@ -1349,6 +1349,7 @@ export default function AdminPage() {
               <Link to="/admin/documento-ia" className="mm-btn mm-btn--primary">Documento IA (ai_config)</Link>
               <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary">Último prompt LLM</Link>
               <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary">CAD/BIM pipeline</Link>
+              <Link to="/admin/conhecimento" className="mm-btn mm-btn--primary">Importar conhecimento</Link>
               <Link to="/admin/system-config" className="mm-btn mm-btn--primary">Configurações do sistema</Link>
               <Link to="/admin/assinaturas" className="mm-btn mm-btn--primary">Assinaturas &amp; Grupos</Link>
               <Link to="/admin/storage" className="mm-btn mm-btn--primary">Storage por Grupo</Link>

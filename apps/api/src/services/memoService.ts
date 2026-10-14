@@ -1620,3 +1620,54 @@ export async function createBatchMemoDirectly(input: {
   if (!row) throw new Error("insert_failed");
   return rowToCreated(row);
 }
+
+// ── Conhecimento importado (ex.: Manual MyMemory em trechos) ──────────────────
+
+/** Marca em mediaMetadata dos memos criados pelo importador de trechos. */
+export const REVIEW_FLOW_CONHECIMENTO = "conhecimento_v1";
+
+/**
+ * Cria um memo de texto a partir de um trecho já pronto (sem IA): texto, categoria e campos vêm do
+ * arquivo importado. Gera os vetores da busca semântica antes de retornar.
+ */
+export async function createKnowledgeTextMemo(input: {
+  userId: number;
+  groupId: number;
+  categoryId: number;
+  categoryName: string;
+  texto: string;
+  keywords: string | null;
+  dadosEspecificos: Record<string, string>;
+  trechoId: string;
+  versao: string | null;
+  origem: string;
+}): Promise<number> {
+  const text = stripAccents(input.texto.trim());
+  const kw = keywordsForStorage(input.keywords);
+  const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(JSON.stringify(input.dadosEspecificos)));
+  const meta = JSON.stringify({
+    iaUseTexto: "semIA",
+    reviewFlow: REVIEW_FLOW_CONHECIMENTO,
+    trechoId: input.trechoId,
+    versao: input.versao,
+    origem: input.origem,
+  });
+  const [rows] = await pool.query<{ id: number }[]>(
+    `INSERT INTO memos (
+       userId, groupId, mediaType, mediaWebUrl, mediaText, keywords, dadosEspecificosJson, mediaMetadata,
+       apiCost, usedApiCred, tamMediaUrl, isActive, category
+     ) VALUES (?, ?, 'text', NULL, ?, ?, ?, ?, 0, 0, 0, 1, ?) RETURNING id`,
+    [input.userId, input.groupId, text, kw, dadosJson, meta, input.categoryName]
+  );
+  const memoId = rows[0].id;
+  await trySyncMemoDadosEspecificosRows({
+    memoId,
+    groupId: input.groupId,
+    mediaType: "text",
+    explicitCategoryId: input.categoryId,
+    dadosEspecificosJson: dadosJson,
+    dadosEspecificosOriginaisJson: null,
+  });
+  await upsertMemoChunks({ memoId, mediaText: text, keywords: kw, dadosEspecificosJson: dadosJson });
+  return memoId;
+}

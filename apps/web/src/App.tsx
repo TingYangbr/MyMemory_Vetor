@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
 import AdminDocumentAiPage from "./pages/AdminDocumentAiPage";
 import AdminCadPipelinePage from "./pages/AdminCadPipelinePage";
+import AdminConhecimentoPage from "./pages/AdminConhecimentoPage";
 import AdminSystemConfigPage from "./pages/AdminSystemConfigPage";
 import AdminLlmPromptPage from "./pages/AdminLlmPromptPage";
 import AdminMediaSettingsPage from "./pages/AdminMediaSettingsPage";
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/admin/midia" element={<AdminMediaSettingsPage />} />
       <Route path="/admin/documento-ia" element={<AdminDocumentAiPage />} />
       <Route path="/admin/cad-pipeline" element={<AdminCadPipelinePage />} />
+      <Route path="/admin/conhecimento" element={<AdminConhecimentoPage />} />
       <Route path="/admin/system-config" element={<AdminSystemConfigPage />} />
       <Route path="/admin/llm-prompt" element={<AdminLlmPromptPage />} />
       <Route path="/admin/assinaturas" element={<AdminSubscriptionsPage />} />
