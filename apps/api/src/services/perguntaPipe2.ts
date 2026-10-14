@@ -244,6 +244,9 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
 
   const normalizeOrderCampo = (campo: string) => unwrapFn(stripBase(campo));
 
+  // SQL Server: AVG de coluna inteira devolve inteiro truncado (média 0,8 dias → 0)
+  const avgArg = (col: string) => (dialect === "mssql" ? `CAST(${col} AS FLOAT)` : col);
+
   // Constrói expressões de truncamento para colunas de data com granularidade
   const truncMap = new Map<string, { selectExpr: string; groupExpr: string }>();
   for (const t of (ag.group_by_trunc ?? [])) {
@@ -297,7 +300,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     const measureExprs = ag.medidas.map((m) => {
       const arg = m.medida === "count" ? "*" : qi(stripBase(m.campo));
       const alias = m.alias || `${AL[m.medida]}_${stripBase(m.campo).toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
-      return `${FN[m.medida]}(${arg}) AS ${alias}`;
+      return `${FN[m.medida]}(${m.medida === "avg" ? avgArg(arg) : arg}) AS ${alias}`;
     });
     const medidaAliasLowers = new Set(ag.medidas.map((m) =>
       (m.alias || `${AL[m.medida]}_${stripBase(m.campo).toLowerCase().replace(/[^a-z0-9]/g, "_")}`).toLowerCase()
@@ -354,7 +357,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     const col = qi(stripBase(ag.campo_medida));
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
     measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
-    measureFnExpr = `${fnName}(${col})`;
+    measureFnExpr = `${fnName}(${ag.medida === "avg" ? avgArg(col) : col})`;
     measureExpr = `${measureFnExpr} AS ${measureAlias}`;
   }
 

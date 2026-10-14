@@ -286,6 +286,8 @@ interface DadosGrafico {
  * Quando TODAS as colunas são numéricas (ex.: ano + métricas, sem nenhuma coluna de texto), assume que a
  * primeira coluna é a categoria — convenção comum em queries agregadas, onde o group_by vem primeiro no SELECT.
  */
+const CHART_MAX_ROTULOS_EIXO_X = 20;
+
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
@@ -303,6 +305,10 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   }
   valueCols = escolherSeries(valueCols.filter((col) => !isColunaIdentificador(col)), pergunta);
   if (valueCols.length === 0) return null;
+
+  // Mais de 20 rótulos distintos no eixo X fica ilegível — mostra só a tabela
+  const rotulos = new Set(dados.linhas.map((l) => String(l[labelCol!] ?? "")));
+  if (rotulos.size > CHART_MAX_ROTULOS_EIXO_X) return null;
 
   const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
     const rawLabel = String(linha[labelCol] ?? "");
