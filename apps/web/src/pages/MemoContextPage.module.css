@@ -621,6 +621,8 @@
   padding: 0.25rem 0.4rem;
   border: none;
   background: transparent;
+  /* Sem cor explícita o botão herda o preto padrão do navegador e some no tema escuro */
+  color: var(--mm-text-secondary);
   cursor: pointer;
   border-radius: var(--mm-radius-sm);
   opacity: 0.85;
@@ -628,11 +630,13 @@
 
 .iconBtn:hover {
   background: var(--mm-primary-faint);
+  color: var(--mm-primary);
   opacity: 1;
 }
 
 .iconBtnDanger:hover {
   background: var(--mm-danger-bg);
+  color: var(--mm-danger);
 }
 
 .nested {
