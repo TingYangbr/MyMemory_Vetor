@@ -691,6 +691,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [showCatFilter, setShowCatFilter] = useState(false);
   const [modalSearchText, setModalSearchText] = useState("");
   const [modalShowSearch, setModalShowSearch] = useState(false);
+  // Última pergunta salva escolhida (e filtros usados) — reaberta na mesma posição durante a sessão do navegador
+  const [ultimoModeloId, setUltimoModeloId] = useState<number | null>(null);
+  const modeloListRef = useRef<HTMLUListElement>(null);
   const modalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
@@ -1208,14 +1211,34 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     return pipe;
   }
 
+  const chaveUltimoModelo = `mm_pergunta_modelo_ultimo:${workspaceGroupId ?? "pessoal"}`;
+
+  function lerUltimoModelo(): { id: number; filterCat: string | null; busca: string; showCatFilter: boolean } | null {
+    try {
+      const raw = sessionStorage.getItem(chaveUltimoModelo);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function guardarUltimoModelo(id: number) {
+    setUltimoModeloId(id);
+    try {
+      sessionStorage.setItem(chaveUltimoModelo, JSON.stringify({ id, filterCat, busca: modalSearchText, showCatFilter }));
+    } catch { /* storage indisponível: só não lembra */ }
+  }
+
   async function abrirModeloSelect() {
+    const ultimo = lerUltimoModelo();
     setModeloSelectOpen(true);
     setOpenNoteId(null);
     setEditingModalModelo(null);
-    setFilterCat(null);
-    setShowCatFilter(false);
-    setModalSearchText("");
-    setModalShowSearch(false);
+    setUltimoModeloId(ultimo?.id ?? null);
+    setFilterCat(ultimo?.filterCat ?? null);
+    setShowCatFilter(!!ultimo?.filterCat && ultimo.showCatFilter);
+    setModalSearchText(ultimo?.busca ?? "");
+    setModalShowSearch(!!ultimo?.busca);
     setModelosLoading(true);
     try {
       const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
@@ -1400,6 +1423,14 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }
     return result;
   }, [modelos, filterCat, modalSearchText]);
+
+  // Ao reabrir a lista, rola até a última pergunta escolhida
+  useEffect(() => {
+    if (!modeloSelectOpen || modelosLoading || ultimoModeloId == null) return;
+    const el = modeloListRef.current?.querySelector(`[data-modelo-id="${ultimoModeloId}"]`);
+    el?.scrollIntoView({ block: "center" });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modeloSelectOpen, modelosLoading]);
 
   if (!ready) {
     if (embedded) return <p className={styles.muted}>Carregando…</p>;
@@ -2154,9 +2185,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             ) : filteredModelos.length === 0 ? (
               <p className={styles.modeloModalEmpty}>Nenhuma pergunta nesta categoria.</p>
             ) : (
-              <ul className={styles.modeloList}>
+              <ul ref={modeloListRef} className={styles.modeloList}>
                 {filteredModelos.map((m) => (
-                  <li key={m.id} className={styles.modeloItem}>
+                  <li key={m.id} data-modelo-id={m.id} className={`${styles.modeloItem}${m.id === ultimoModeloId ? ` ${styles.modeloItemUltimo}` : ""}`}>
                     {editingModalModelo?.id === m.id ? (
                       <div className={styles.modeloInlineEdit}>
                         <textarea
@@ -2206,7 +2237,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           <button
                             type="button"
                             className={styles.modeloItemBtn}
-                            onClick={() => { selecionarModelo(m); setModeloSelectOpen(false); }}
+                            onClick={() => { guardarUltimoModelo(m.id); selecionarModelo(m); setModeloSelectOpen(false); }}
                           >
                             {(m.category || m.estrelas) ? (
                               <span className={styles.modeloItemMeta}>

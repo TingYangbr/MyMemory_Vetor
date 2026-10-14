@@ -1832,3 +1832,9 @@
   text-decoration: underline;
   cursor: pointer;
 }
+
+/* Última pergunta salva escolhida na sessão */
+.modeloItemUltimo {
+  background: var(--mm-primary-faint);
+  box-shadow: inset 3px 0 0 var(--mm-primary);
+}
