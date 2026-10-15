@@ -1,4 +1,5 @@
 import path from "node:path";
+import { randomUUID } from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
@@ -17,7 +18,7 @@ import {
 function isWebDavUrl(p: string): boolean {
   return p.startsWith("http://") || p.startsWith("https://");
 }
-import type { BatchProcessResponse } from "@mymemory/shared";
+import type { BatchProcessJobStatus, BatchProcessResult, BatchProcessStartResponse } from "@mymemory/shared";
 
 const PROVIDER_VALUES = ["S3", "ONEDRIVE", "GOOGLE_DRIVE", "LOCAL", "REDE", "URL", "WEBDAV"] as const;
 
@@ -62,6 +63,84 @@ const PREVIEW_INLINE_EXT = new Set([
 ]);
 
 const MAX_BATCH_FILES = 50;
+
+// ── Jobs em segundo plano ─────────────────────────────────────────────────────
+// O Processar baixa, extrai (OCR/IA) e grava arquivo por arquivo; com 10+ arquivos passa fácil dos
+// 120 s do proxy (Cloudflare 524). Por isso a rota responde na hora com um jobId e a tela consulta
+// o progresso em GET /api/memos/batch/process/status/:jobId. Estado em memória (instância única da
+// API): se a API reiniciar no meio, o status devolve 404 e o usuário reverifica a pasta.
+
+interface BatchJob {
+  id: string;
+  userId: number;
+  totalRequested: number;
+  processed: number;
+  totalCreated: number;
+  totalErrors: number;
+  results: BatchProcessResult[];
+  finished: boolean;
+  finishedAt: number | null;
+}
+
+const batchJobs = new Map<string, BatchJob>();
+const BATCH_JOB_TTL_MS = 30 * 60 * 1000;
+
+function pruneBatchJobs(): void {
+  const now = Date.now();
+  for (const [id, job] of batchJobs) {
+    if (job.finishedAt != null && now - job.finishedAt > BATCH_JOB_TTL_MS) batchJobs.delete(id);
+  }
+}
+
+function startBatchJob(
+  userId: number,
+  items: { name: string; run: () => Promise<BatchProcessResult> }[]
+): BatchJob {
+  pruneBatchJobs();
+  const job: BatchJob = {
+    id: randomUUID(),
+    userId,
+    totalRequested: items.length,
+    processed: 0,
+    totalCreated: 0,
+    totalErrors: 0,
+    results: [],
+    finished: false,
+    finishedAt: null,
+  };
+  batchJobs.set(job.id, job);
+
+  void (async () => {
+    for (const item of items) {
+      let result: BatchProcessResult;
+      try {
+        result = await item.run();
+      } catch (err) {
+        result = { originalFileName: item.name, ok: false, error: err instanceof Error ? err.message : String(err) };
+      }
+      job.results.push(result);
+      job.processed++;
+      if (result.ok) job.totalCreated++;
+      else job.totalErrors++;
+    }
+    job.finished = true;
+    job.finishedAt = Date.now();
+  })();
+
+  return job;
+}
+
+function jobStatus(job: BatchJob): BatchProcessJobStatus {
+  return {
+    jobId: job.id,
+    finished: job.finished,
+    totalRequested: job.totalRequested,
+    processed: job.processed,
+    totalCreated: job.totalCreated,
+    totalErrors: job.totalErrors,
+    results: job.results,
+  };
+}
 
 const BATCH_MULTIPART_LIMITS = { fileSize: 500 * 1024 * 1024, files: 200 } as const;
 
@@ -233,19 +312,28 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
     toProcess = toProcess.slice(0, MAX_BATCH_FILES);
 
-    const results = [];
-    let totalCreated = 0;
-    let totalErrors = 0;
-
-    for (const file of toProcess) {
-      let result;
-      if (webdav) {
+    const items = toProcess.map((file) => ({
+      name: file.originalFileName,
+      run: async (): Promise<BatchProcessResult> => {
+        if (!webdav) {
+          return processBatchFile({
+            userId,
+            groupId: groupIdVal,
+            isAdmin,
+            originalFileName: file.originalFileName,
+            fullPath: file.fullPath,
+            sizeBytes: file.sizeBytes,
+            provider,
+            iaLevel,
+            folder: folderPath,
+          });
+        }
         try {
           // fullPath = origin + path decodificado; a lib webdav codifica uma única vez.
           // (Sem new URL(): nomes com "#", "?" ou "%" quebravam o download.)
           const webdavPath = webDavRemotePath(file.fullPath);
           const buffer = await downloadWebDavFile(folderPath, webdavPath);
-          result = await processBatchFileFromBuffer({
+          return await processBatchFileFromBuffer({
             userId,
             groupId: groupIdVal,
             isAdmin,
@@ -258,32 +346,24 @@ const plugin: FastifyPluginAsync = async (app) => {
           });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          result = { originalFileName: file.originalFileName, ok: false as const, error: msg };
+          return { originalFileName: file.originalFileName, ok: false, error: msg };
         }
-      } else {
-        result = await processBatchFile({
-          userId,
-          groupId: groupIdVal,
-          isAdmin,
-          originalFileName: file.originalFileName,
-          fullPath: file.fullPath,
-          sizeBytes: file.sizeBytes,
-          provider,
-          iaLevel,
-          folder: folderPath,
-        });
-      }
-      results.push(result);
-      if (result.ok) totalCreated++;
-      else totalErrors++;
-    }
+      },
+    }));
 
-    return {
-      totalRequested: toProcess.length,
-      totalCreated,
-      totalErrors,
-      results,
-    } satisfies BatchProcessResponse;
+    const job = startBatchJob(userId, items);
+    return reply.code(202).send({ jobId: job.id, totalRequested: job.totalRequested } satisfies BatchProcessStartResponse);
+  });
+
+  /** Progresso de um lote em segundo plano (só o dono do job enxerga). */
+  app.get("/api/memos/batch/process/status/:jobId", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+
+    const { jobId } = req.params as { jobId: string };
+    const job = batchJobs.get(jobId);
+    if (!job || job.userId !== userId) return reply.code(404).send({ error: "job_not_found" });
+    return jobStatus(job);
   });
 
   /**
@@ -346,35 +426,26 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
     toProcess = toProcess.slice(0, MAX_BATCH_FILES);
 
-    const results = [];
-    let totalCreated = 0;
-    let totalErrors = 0;
+    // Para OneDrive/GDrive o fullPath é o nome do arquivo (referência externa)
+    // O buffer é usado apenas para extração de texto, não armazenado
+    const items = toProcess.map((file) => ({
+      name: file.name,
+      run: () =>
+        processBatchFileFromBuffer({
+          userId,
+          groupId,
+          isAdmin,
+          originalFileName: file.name,
+          buffer: file.buffer,
+          sizeBytes: file.sizeBytes,
+          provider,
+          iaLevel,
+          externalFileRef: file.externalRef ?? file.name,
+        }),
+    }));
 
-    for (const file of toProcess) {
-      // Para OneDrive/GDrive o fullPath é o nome do arquivo (referência externa)
-      // O buffer é usado apenas para extração de texto, não armazenado
-      const result = await processBatchFileFromBuffer({
-        userId,
-        groupId,
-        isAdmin,
-        originalFileName: file.name,
-        buffer: file.buffer,
-        sizeBytes: file.sizeBytes,
-        provider,
-        iaLevel,
-        externalFileRef: file.externalRef ?? file.name,
-      });
-      results.push(result);
-      if (result.ok) totalCreated++;
-      else totalErrors++;
-    }
-
-    return {
-      totalRequested: toProcess.length,
-      totalCreated,
-      totalErrors,
-      results,
-    } satisfies BatchProcessResponse;
+    const job = startBatchJob(userId, items);
+    return reply.code(202).send({ jobId: job.id, totalRequested: job.totalRequested } satisfies BatchProcessStartResponse);
   });
 };
 
@@ -393,7 +464,7 @@ import { processTextMemoForReview } from "../services/textMemoProcessService.js"
 import { recognizeImageWithTesseract } from "../lib/imageOcr.js";
 import { createBatchMemoDirectly } from "../services/memoService.js";
 import { pool } from "../db.js";
-import type { BatchProcessResult, StorageProvider } from "@mymemory/shared";
+import type { StorageProvider } from "@mymemory/shared";
 
 async function processBatchFileFromBuffer(input: {
   userId: number;

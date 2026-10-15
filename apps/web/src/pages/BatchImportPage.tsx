@@ -6,6 +6,8 @@ import type {
   BatchProcessResponse,
   StorageProvider,
   MeResponse,
+  BatchProcessJobStatus,
+  BatchProcessStartResponse,
 } from "@mymemory/shared";
 import { BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
 import { apiGet, apiPostJson, apiPostMultipart } from "../api";
@@ -106,6 +108,7 @@ export default function BatchImportPage() {
   const [processResult, setProcessResult] = useState<BatchProcessResponse | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
+  const [processProgress, setProcessProgress] = useState<{ done: number; total: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -154,34 +157,66 @@ export default function BatchImportPage() {
 
   // ── Processar ─────────────────────────────────────────────────────────────
 
+  /**
+   * O servidor processa em segundo plano (evita o timeout de 120 s do proxy). Aqui só acompanhamos
+   * o progresso; falha transitória de rede na consulta não derruba o lote, que continua no servidor.
+   */
+  async function waitForJob(jobId: string, total: number): Promise<BatchProcessResponse> {
+    let falhasSeguidas = 0;
+    for (;;) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const st = await apiGet<BatchProcessJobStatus>(`/api/memos/batch/process/status/${jobId}`);
+        falhasSeguidas = 0;
+        setProcessProgress({ done: st.processed, total: st.totalRequested || total });
+        if (st.finished) return st;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("job_not_found")) {
+          throw new Error(
+            "O servidor perdeu o acompanhamento deste lote (provável reinício). Rode Verificar de novo: o que já foi importado aparece como \"Já cadastrado\"."
+          );
+        }
+        if (++falhasSeguidas >= 15) throw new Error("Sem resposta do servidor ao acompanhar o lote. Rode Verificar para ver o que já foi importado.");
+      }
+    }
+  }
+
   async function handleProcess() {
     if (!verifyResult || !canProcess) return;
     setProcessError(null);
     setProcessResult(null);
+    setProcessProgress(null);
     setProcessLoading(true);
     try {
+      let start: BatchProcessStartResponse | null = null;
       if (isLocal) {
-        const result = await apiPostJson<BatchProcessResponse>(
+        start = await apiPostJson<BatchProcessStartResponse>(
           "/api/memos/batch/process/local",
           { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId, onlyFileNames: readyFiles.map(f => f.originalFileName) }
         );
-        setProcessResult(result);
       } else if (isUpload) {
         const files = fileInputRef.current?.files;
         if (!files?.length) return;
         const form = new FormData();
         form.append("provider", provider);
         form.append("iaLevel", iaLevel);
+        if (workspaceGroupId != null) form.append("groupId", String(workspaceGroupId));
         form.append("onlyFileNames", JSON.stringify(readyFiles.map(f => f.originalFileName)));
         for (const f of Array.from(files)) {
           if (readyFiles.some(r => r.originalFileName === f.name)) form.append("files", f);
         }
-        setProcessResult((await apiPostMultipart("/api/memos/batch/process/upload", form)) as BatchProcessResponse);
+        start = (await apiPostMultipart("/api/memos/batch/process/upload", form)) as BatchProcessStartResponse;
+      }
+      if (start) {
+        setProcessProgress({ done: 0, total: start.totalRequested });
+        setProcessResult(await waitForJob(start.jobId, start.totalRequested));
       }
     } catch (err) {
       setProcessError(err instanceof Error ? err.message : String(err));
     } finally {
       setProcessLoading(false);
+      setProcessProgress(null);
     }
   }
 
@@ -340,7 +375,7 @@ export default function BatchImportPage() {
                 onClick={handleProcess}
                 disabled={!canProcess || busy}
               >
-                {processLoading ? "Processando…" : `Processar${readyFiles.length > 0 ? ` (${readyFiles.length})` : ""}`}
+                {processLoading ? (processProgress ? `Processando ${processProgress.done}/${processProgress.total}…` : "Processando…") : `Processar${readyFiles.length > 0 ? ` (${readyFiles.length})` : ""}`}
               </button>
             </div>
           </div>
