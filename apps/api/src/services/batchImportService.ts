@@ -165,6 +165,18 @@ export async function scanWebDavFolder(
   return results.slice(0, MAX_FILES_PER_BATCH * 2);
 }
 
+/**
+ * Caminho remoto (no servidor WebDAV) de um arquivo devolvido por `scanWebDavFolder`.
+ * `fullPath` = origin + path já decodificado (como a lib webdav devolve), então basta tirar a origem.
+ * NÃO passar por `new URL()`: "#" e "?" no nome virariam fragmento/query (arquivo cortado) e "%"
+ * solto faz decodeURIComponent lançar "URI malformed".
+ */
+export function webDavRemotePath(fullPath: string): string {
+  const { origin } = parseWebDavUrl(fullPath);
+  if (!fullPath.startsWith(origin)) throw new Error("Caminho WebDAV inválido.");
+  return fullPath.slice(origin.length) || "/";
+}
+
 // ── Pré-visualização de arquivo da pré-verificação ────────────────────────────
 
 const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
@@ -180,10 +192,7 @@ export async function readBatchFileForPreview(
   if (provider === "WEBDAV") {
     assertWebDavUrlAllowed(fullPath);
     const { origin } = parseWebDavUrl(fullPath);
-    // fullPath = origin + path já decodificado (como a lib webdav devolve). Não passa por new URL():
-    // nomes com "#" ou "?" virariam fragmento/query e o arquivo seria cortado.
-    if (!fullPath.startsWith(origin)) throw new Error("Caminho WebDAV inválido.");
-    const webdavPath = fullPath.slice(origin.length) || "/";
+    const webdavPath = webDavRemotePath(fullPath);
     const filename = path.posix.basename(webdavPath);
     if (!SUPPORTED_EXTENSIONS.has(path.extname(filename).toLowerCase())) {
       throw new Error("Tipo de arquivo não suportado para visualização.");

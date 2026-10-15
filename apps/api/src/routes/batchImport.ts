@@ -9,6 +9,7 @@ import {
   scanLocalFolder,
   scanWebDavFolder,
   readBatchFileForPreview,
+  webDavRemotePath,
   downloadWebDavFile,
   estimateBatchCredits,
 } from "../services/batchImportService.js";
@@ -240,10 +241,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       let result;
       if (webdav) {
         try {
-          // fullPath = origin + decoded_path (webdav lib retorna filename decodificado).
-          // new URL() re-encoda; decodeURIComponent desfaz para entregar o path
-          // limpo à lib webdav, que faz o encoding uma única vez.
-          const webdavPath = decodeURIComponent(new URL(file.fullPath).pathname);
+          // fullPath = origin + path decodificado; a lib webdav codifica uma única vez.
+          // (Sem new URL(): nomes com "#", "?" ou "%" quebravam o download.)
+          const webdavPath = webDavRemotePath(file.fullPath);
           const buffer = await downloadWebDavFile(folderPath, webdavPath);
           result = await processBatchFileFromBuffer({
             userId,
