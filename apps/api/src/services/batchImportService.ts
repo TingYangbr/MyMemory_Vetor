@@ -165,6 +165,48 @@ export async function scanWebDavFolder(
   return results.slice(0, MAX_FILES_PER_BATCH * 2);
 }
 
+// ── Pré-visualização de arquivo da pré-verificação ────────────────────────────
+
+const PREVIEW_MAX_BYTES = 50 * 1024 * 1024;
+
+/**
+ * Lê um arquivo da pré-verificação (ainda não é memo) pra abrir no modal. Mesmas whitelists do scan
+ * e mesmas extensões aceitas pelo lote; limite de 50 MB só pra preview.
+ */
+export async function readBatchFileForPreview(
+  provider: "LOCAL" | "REDE" | "WEBDAV",
+  fullPath: string
+): Promise<{ buffer: Buffer; filename: string; sizeBytes: number }> {
+  if (provider === "WEBDAV") {
+    assertWebDavUrlAllowed(fullPath);
+    const { origin } = parseWebDavUrl(fullPath);
+    // fullPath = origin + path já decodificado (como a lib webdav devolve). Não passa por new URL():
+    // nomes com "#" ou "?" virariam fragmento/query e o arquivo seria cortado.
+    if (!fullPath.startsWith(origin)) throw new Error("Caminho WebDAV inválido.");
+    const webdavPath = fullPath.slice(origin.length) || "/";
+    const filename = path.posix.basename(webdavPath);
+    if (!SUPPORTED_EXTENSIONS.has(path.extname(filename).toLowerCase())) {
+      throw new Error("Tipo de arquivo não suportado para visualização.");
+    }
+    const stat = (await createClient(origin).stat(webdavPath)) as FileStat;
+    if (stat.type !== "file") throw new Error("O caminho informado não é um arquivo.");
+    if (stat.size > PREVIEW_MAX_BYTES) throw new Error("Arquivo grande demais para visualizar (limite de 50 MB).");
+    const buffer = await downloadWebDavFile(fullPath, webdavPath);
+    return { buffer, filename, sizeBytes: buffer.length };
+  }
+
+  assertPathAllowed(fullPath);
+  const filename = path.basename(fullPath);
+  if (!SUPPORTED_EXTENSIONS.has(path.extname(filename).toLowerCase())) {
+    throw new Error("Tipo de arquivo não suportado para visualização.");
+  }
+  const stat = await fs.stat(fullPath);
+  if (!stat.isFile()) throw new Error("O caminho informado não é um arquivo.");
+  if (stat.size > PREVIEW_MAX_BYTES) throw new Error("Arquivo grande demais para visualizar (limite de 50 MB).");
+  const buffer = await fs.readFile(fullPath);
+  return { buffer, filename, sizeBytes: buffer.length };
+}
+
 export async function downloadWebDavFile(inputUrl: string, remotePath: string): Promise<Buffer> {
   const { origin } = parseWebDavUrl(inputUrl);
   const client = createClient(origin);

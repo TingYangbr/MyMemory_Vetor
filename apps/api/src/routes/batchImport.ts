@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
@@ -7,6 +8,7 @@ import {
   processBatchFile,
   scanLocalFolder,
   scanWebDavFolder,
+  readBatchFileForPreview,
   downloadWebDavFile,
   estimateBatchCredits,
 } from "../services/batchImportService.js";
@@ -43,11 +45,57 @@ const processLocalBody = z.object({
   onlyFileNames: z.array(z.string()).optional(),
 });
 
+const previewQuery = z.object({
+  provider: z.enum(["LOCAL", "REDE", "WEBDAV"]),
+  path: z.string().min(1),
+  download: z.enum(["0", "1"]).optional(),
+});
+
+// Só tipos que o navegador mostra sem executar script (nada de html/svg): ficam "inline" no modal;
+// o resto sai como download.
+const PREVIEW_INLINE_EXT = new Set([
+  ".pdf", ".txt", ".csv", ".md",
+  ".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp",
+  ".mp3", ".wav", ".ogg", ".oga", ".opus", ".m4a", ".flac", ".aac",
+  ".mp4", ".webm", ".m4v",
+]);
+
 const MAX_BATCH_FILES = 50;
 
 const BATCH_MULTIPART_LIMITS = { fileSize: 500 * 1024 * 1024, files: 200 } as const;
 
 const plugin: FastifyPluginAsync = async (app) => {
+  /**
+   * Visualização de um arquivo da pré-verificação (ainda não é memo). Somente leitura, mesmas
+   * whitelists do lote. `download=1` força anexo.
+   */
+  app.get("/api/memos/batch/preview", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+
+    const parsed = previewQuery.safeParse(req.query);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_query" });
+
+    let file: Awaited<ReturnType<typeof readBatchFileForPreview>>;
+    try {
+      file = await readBatchFileForPreview(parsed.data.provider, parsed.data.path);
+    } catch (err) {
+      return reply.code(400).send({ error: "preview_error", message: err instanceof Error ? err.message : String(err) });
+    }
+
+    const ext = path.extname(file.filename).toLowerCase();
+    const inline = PREVIEW_INLINE_EXT.has(ext) && parsed.data.download !== "1";
+    reply
+      .header("Content-Type", inline ? guessMimeFromFilename(file.filename) : "application/octet-stream")
+      .header(
+        "Content-Disposition",
+        `${inline ? "inline" : "attachment"}; filename*=UTF-8''${encodeURIComponent(file.filename)}`
+      )
+      .header("X-Content-Type-Options", "nosniff")
+      .header("Cache-Control", "private, no-store");
+    return reply.send(file.buffer);
+  });
+
   // ── POST /api/memos/batch/verify ─────────────────────────────────────────
 
   /**

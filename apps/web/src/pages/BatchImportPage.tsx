@@ -10,6 +10,7 @@ import type {
 import { BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
 import { apiGet, apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
+import { BatchFilePreviewModal } from "../components/BatchFilePreviewModal";
 import styles from "./BatchImportPage.module.css";
 
 interface StorageConfigOption {
@@ -100,6 +101,7 @@ export default function BatchImportPage() {
   const [verifyLoading, setVerifyLoading] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
   const [hideJaCadastrado, setHideJaCadastrado] = useState(true);
+  const [previewFile, setPreviewFile] = useState<BatchFileVerifyResult | null>(null);
 
   const [processResult, setProcessResult] = useState<BatchProcessResponse | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
@@ -392,7 +394,20 @@ export default function BatchImportPage() {
                   <tbody>
                     {verifyResult.files.filter(f => !(hideJaCadastrado && f.situacao === "ja_cadastrado")).map(f => (
                       <tr key={f.originalFileName}>
-                        <td className={styles.nameCell} title={f.fullPath}>{f.originalFileName}</td>
+                        <td className={styles.nameCell} title={f.fullPath}>
+                          {isLocal ? (
+                            <button
+                              type="button"
+                              className={styles.nameLink}
+                              onClick={() => setPreviewFile(f)}
+                              title="Clique para visualizar"
+                            >
+                              {f.originalFileName}
+                            </button>
+                          ) : (
+                            f.originalFileName
+                          )}
+                        </td>
                         <td>{f.mediaType ?? "—"}</td>
                         <td>{formatBytes(f.sizeBytes)}</td>
                         <td><span className={`${styles.badge} ${situacaoBadgeClass(f.situacao)}`}>{BATCH_FILE_SITUACAO_LABELS[f.situacao]}</span></td>
@@ -431,6 +446,14 @@ export default function BatchImportPage() {
         )}
 
       </main>
+
+      {previewFile && isLocal ? (
+        <BatchFilePreviewModal
+          file={previewFile}
+          provider={provider}
+          onClose={() => setPreviewFile(null)}
+        />
+      ) : null}
     </div>
   );
 }

@@ -1,0 +1,141 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, 100%);
+  height: min(86vh, 900px);
+  background: var(--mm-surface, #fff);
+  color: var(--mm-text, #0f172a);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--mm-border, #e2e8f0);
+}
+
+.headText {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border-bottom: none;
+}
+
+.meta {
+  font-size: 0.78rem;
+  color: var(--mm-muted, #64748b);
+}
+
+.headActions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.linkBtn {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mm-primary, #0f766e);
+  text-decoration: none;
+}
+
+.linkBtn:hover {
+  text-decoration: underline;
+}
+
+.closeBtn {
+  border: none;
+  background: transparent;
+  color: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 0.3rem;
+}
+
+.body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--mm-bg, #f1f5f9);
+}
+
+.frame {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: #fff;
+}
+
+.img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.video {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.audio {
+  width: min(520px, 90%);
+}
+
+.state,
+.stateErr {
+  margin: 0;
+  padding: 1.5rem;
+  text-align: center;
+}
+
+.stateErr {
+  color: var(--mm-danger, #b91c1c);
+}
+
+.downloadBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.primaryBtn {
+  display: inline-block;
+  padding: 0.55rem 1.1rem;
+  border-radius: 8px;
+  background: var(--mm-primary, #0f766e);
+  color: #fff;
+  font-weight: 650;
+  text-decoration: none;
+}

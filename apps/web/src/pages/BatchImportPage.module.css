@@ -417,6 +417,28 @@
   font-weight: 600;
 }
 
+.nameLink {
+  all: unset;
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--mm-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.nameLink:hover {
+  text-decoration: underline;
+}
+
+.nameLink:focus-visible {
+  outline: 2px solid var(--mm-primary);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
 .motivoCell {
   color: var(--mm-muted);
   font-size: 0.8rem;
