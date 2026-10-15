@@ -45,6 +45,8 @@ const processLocalBody = z.object({
   iaLevel: z.enum(["semIA", "basico", "completo"]).default("semIA"),
   groupId: z.number().int().positive().nullable().optional(),
   onlyFileNames: z.array(z.string()).optional(),
+  /** Preferido sobre onlyFileNames: distingue arquivos de mesmo nome em subpastas diferentes. */
+  onlyFullPaths: z.array(z.string()).optional(),
 });
 
 const previewQuery = z.object({
@@ -290,7 +292,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const parsed = processLocalBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
 
-    const { provider, folderPath, iaLevel, groupId, onlyFileNames } = parsed.data;
+    const { provider, folderPath, iaLevel, groupId, onlyFileNames, onlyFullPaths } = parsed.data;
     const groupIdVal = groupId ?? null;
 
     const webdav = isWebDavUrl(folderPath);
@@ -306,7 +308,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
 
     let toProcess = scanned;
-    if (onlyFileNames?.length) {
+    if (onlyFullPaths?.length) {
+      const pathSet = new Set(onlyFullPaths);
+      toProcess = scanned.filter((f) => pathSet.has(f.fullPath));
+    } else if (onlyFileNames?.length) {
       const nameSet = new Set(onlyFileNames);
       toProcess = scanned.filter((f) => nameSet.has(f.originalFileName));
     }

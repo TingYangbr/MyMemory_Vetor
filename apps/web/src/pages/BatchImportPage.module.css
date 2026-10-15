@@ -70,6 +70,11 @@
   align-items: flex-end;
 }
 
+/* Origem fica no topo, ao lado do 1º campo da direita (Servidor WebDAV / Caminho), não colada embaixo. */
+.rowTop {
+  align-items: flex-start;
+}
+
 .row + .row {
   margin-top: 0.85rem;
   padding-top: 0.85rem;

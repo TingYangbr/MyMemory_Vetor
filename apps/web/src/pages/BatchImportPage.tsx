@@ -108,6 +108,7 @@ export default function BatchImportPage() {
   const [processResult, setProcessResult] = useState<BatchProcessResponse | null>(null);
   const [processLoading, setProcessLoading] = useState(false);
   const [processError, setProcessError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [processProgress, setProcessProgress] = useState<{ done: number; total: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -116,9 +117,12 @@ export default function BatchImportPage() {
   const isUpload = UPLOAD_PROVIDERS.includes(provider);
   const currentHint = PROVIDER_OPTIONS.find(p => p.value === provider)?.hint ?? "";
 
-  const readyFiles = verifyResult?.files.filter(
+  // Importáveis (pronto/suspeito) e, entre eles, os marcados com tic (todos marcados por padrão após Verificar)
+  const importableFiles = verifyResult?.files.filter(
     f => f.situacao === "pronto" || f.situacao === "suspeito_duplicidade"
   ) ?? [];
+  const readyFiles = importableFiles.filter(f => selected.has(f.fullPath));
+  const allSelected = importableFiles.length > 0 && readyFiles.length === importableFiles.length;
   const hasErrors = verifyResult?.files.some(
     f => f.situacao !== "pronto" && f.situacao !== "suspeito_duplicidade"
   ) ?? false;
@@ -126,7 +130,30 @@ export default function BatchImportPage() {
 
   // ── Verificar ─────────────────────────────────────────────────────────────
 
+  /** Marca com tic todos os arquivos importáveis (pronto/suspeito) de um resultado de verificação. */
+  function selectAllImportable(result: BatchVerifyResponse) {
+    setSelected(new Set(
+      result.files
+        .filter(f => f.situacao === "pronto" || f.situacao === "suspeito_duplicidade")
+        .map(f => f.fullPath)
+    ));
+  }
+
+  function toggleFile(fullPath: string) {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(fullPath)) next.delete(fullPath);
+      else next.add(fullPath);
+      return next;
+    });
+  }
+
+  function toggleAll() {
+    setSelected(allSelected ? new Set() : new Set(importableFiles.map(f => f.fullPath)));
+  }
+
   async function handleVerify() {
+    setSelected(new Set());
     setVerifyError(null);
     setVerifyResult(null);
     setProcessResult(null);
@@ -138,13 +165,16 @@ export default function BatchImportPage() {
           { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId }
         );
         setVerifyResult(result);
+        selectAllImportable(result);
       } else if (isUpload) {
         const files = fileInputRef.current?.files;
         if (!files?.length) { setVerifyError("Selecione ao menos um arquivo."); return; }
         const form = new FormData();
         form.append("provider", provider);
         for (const f of Array.from(files)) form.append("files", f);
-        setVerifyResult((await apiPostMultipart("/api/memos/batch/verify/upload", form)) as BatchVerifyResponse);
+        const result = (await apiPostMultipart("/api/memos/batch/verify/upload", form)) as BatchVerifyResponse;
+        setVerifyResult(result);
+        selectAllImportable(result);
       } else {
         setVerifyError("Provider não suportado para verificação.");
       }
@@ -193,7 +223,7 @@ export default function BatchImportPage() {
       if (isLocal) {
         start = await apiPostJson<BatchProcessStartResponse>(
           "/api/memos/batch/process/local",
-          { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId, onlyFileNames: readyFiles.map(f => f.originalFileName) }
+          { provider, folderPath: folderPath.trim(), iaLevel, groupId: workspaceGroupId, onlyFileNames: readyFiles.map(f => f.originalFileName), onlyFullPaths: readyFiles.map(f => f.fullPath) }
         );
       } else if (isUpload) {
         const files = fileInputRef.current?.files;
@@ -247,7 +277,7 @@ export default function BatchImportPage() {
         <div className={styles.card}>
 
           {/* Linha 1: Origem + caminho/arquivos */}
-          <div className={styles.row}>
+          <div className={`${styles.row} ${styles.rowTop}`}>
             <div className={styles.fieldGroup}>
               <label className={styles.label} htmlFor="provider">Origem</label>
               <select
@@ -419,6 +449,17 @@ export default function BatchImportPage() {
                 <table className={styles.table}>
                   <thead>
                     <tr>
+                      <th style={{ width: 32 }}>
+                        <input
+                          type="checkbox"
+                          checked={allSelected}
+                          ref={el => { if (el) el.indeterminate = readyFiles.length > 0 && !allSelected; }}
+                          onChange={toggleAll}
+                          disabled={importableFiles.length === 0 || busy}
+                          title={allSelected ? "Desmarcar todos" : "Marcar todos"}
+                          aria-label="Marcar ou desmarcar todos os arquivos importáveis"
+                        />
+                      </th>
                       <th>Nome</th>
                       <th>Tipo</th>
                       <th>Tamanho</th>
@@ -428,7 +469,18 @@ export default function BatchImportPage() {
                   </thead>
                   <tbody>
                     {verifyResult.files.filter(f => !(hideJaCadastrado && f.situacao === "ja_cadastrado")).map(f => (
-                      <tr key={f.originalFileName}>
+                      <tr key={f.fullPath}>
+                        <td>
+                          {(f.situacao === "pronto" || f.situacao === "suspeito_duplicidade") && (
+                            <input
+                              type="checkbox"
+                              checked={selected.has(f.fullPath)}
+                              onChange={() => toggleFile(f.fullPath)}
+                              disabled={busy || !!processResult}
+                              aria-label={`Importar ${f.originalFileName}`}
+                            />
+                          )}
+                        </td>
                         <td className={styles.nameCell} title={f.fullPath}>
                           {isLocal ? (
                             <button

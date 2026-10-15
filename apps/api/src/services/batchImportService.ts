@@ -320,8 +320,8 @@ export async function scanLocalFolder(
 
 interface DuplicateInfo {
   kind: "none" | "exact" | "suspect";
-  createdAt?: Date | string;
-  email?: string | null;
+  /** Texto pronto pra coluna "Motivo" (inclui grupo, data e quem importou). */
+  motivo?: string;
 }
 
 function formatDupDate(d: Date | string | undefined): string {
@@ -334,6 +334,60 @@ function formatDupDate(d: Date | string | undefined): string {
   return `${dd}-${mm}-${dt.getFullYear()} ${hh}:${min}`;
 }
 
+interface DupOccurrence {
+  groupId: number | null;
+  /** Nome do grupo, ou "Pessoal" quando o memo não tem grupo. */
+  grupo: string;
+  createdAt: Date | string;
+  email: string | null;
+}
+
+function occurrenceText(o: DupOccurrence): string {
+  return `${o.grupo} em ${formatDupDate(o.createdAt)} por ${o.email ?? "?"}`;
+}
+
+/** Uma ocorrência (a mais recente) por grupo, na ordem em que vieram (mais recente primeiro). */
+function latestPerGroup(list: DupOccurrence[]): DupOccurrence[] {
+  const seen = new Set<number | null>();
+  return list.filter((o) => (seen.has(o.groupId) ? false : (seen.add(o.groupId), true)));
+}
+
+/**
+ * Memos ativos com este nome de arquivo nos escopos que o usuário enxerga: o grupo ativo, os grupos
+ * de que é membro e os próprios memos pessoais. (Aliases fora do mapa de colunas de db.ts: `createdat`
+ * seria renomeado pra `createdAt` na saída.)
+ */
+async function findNameOccurrences(
+  userId: number,
+  activeGroupId: number | null,
+  fileName: string
+): Promise<DupOccurrence[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT m.groupid AS dup_grupo_id, g.name AS dup_grupo, m.createdat AS dup_data, u.email AS dup_email
+     FROM memos m
+     LEFT JOIN users u ON u.id = m.userid
+     LEFT JOIN groups g ON g.id = m.groupid
+     WHERE m.original_file_name = ? AND m.isactive = 1
+       AND (
+         m.groupid = ?
+         OR m.groupid IN (SELECT gm.groupid FROM group_members gm WHERE gm.userid = ?)
+         OR (m.groupid IS NULL AND m.userid = ?)
+       )
+     ORDER BY m.createdat DESC
+     LIMIT 50`,
+    [fileName, activeGroupId, userId, userId]
+  );
+  return rows.map((r) => {
+    const gid = r.dup_grupo_id == null ? null : Number(r.dup_grupo_id);
+    return {
+      groupId: gid,
+      grupo: gid == null ? "Pessoal" : String(r.dup_grupo ?? "").trim() || `Grupo #${gid}`,
+      createdAt: r.dup_data as Date | string,
+      email: (r.dup_email as string | null) ?? null,
+    };
+  });
+}
+
 async function checkDuplicate(
   userId: number,
   groupId: number | null,
@@ -341,37 +395,23 @@ async function checkDuplicate(
   fullPath?: string
 ): Promise<DuplicateInfo> {
   const basename = path.basename(originalFileName);
+  const isActiveScope = (o: DupOccurrence) => o.groupId === groupId;
 
-  async function queryDup(fileName: string): Promise<{ createdat: Date; email: string | null } | null> {
-    let rows: RowDataPacket[];
-    if (groupId != null) {
-      // Em grupo: qualquer membro que já importou o mesmo arquivo
-      [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT m.createdat, u.email
-         FROM memos m LEFT JOIN users u ON u.id = m.userid
-         WHERE m.groupid = ? AND m.original_file_name = ? AND m.isactive = 1
-         LIMIT 1`,
-        [groupId, fileName]
-      );
-    } else {
-      // Pessoal: só memos do próprio usuário sem grupo
-      [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT m.createdat, u.email
-         FROM memos m LEFT JOIN users u ON u.id = m.userid
-         WHERE m.userid = ? AND m.groupid IS NULL AND m.original_file_name = ? AND m.isactive = 1
-         LIMIT 1`,
-        [userId, fileName]
-      );
-    }
-    return rows.length > 0 ? (rows[0] as { createdat: Date; email: string | null }) : null;
+  const byName = await findNameOccurrences(userId, groupId, originalFileName);
+  const inActive = byName.filter(isActiveScope);
+  const elsewhere = latestPerGroup(byName.filter((o) => !isActiveScope(o)));
+
+  if (inActive.length > 0) {
+    // Bloqueia: já existe no workspace de destino. Se também existe em outros grupos, avisa quais.
+    const outros = elsewhere.length ? ` · Também em: ${elsewhere.map(occurrenceText).join("; ")}` : "";
+    return { kind: "exact", motivo: `Já cadastrado em ${occurrenceText(inActive[0])}${outros}` };
   }
 
-  const exact = await queryDup(originalFileName);
-  if (exact) return { kind: "exact", createdAt: exact.createdat, email: exact.email };
-
   if (originalFileName !== basename) {
-    const suspect = await queryDup(basename);
-    if (suspect) return { kind: "suspect", createdAt: suspect.createdat, email: suspect.email };
+    const sameBase = (await findNameOccurrences(userId, groupId, basename)).filter(isActiveScope);
+    if (sameBase.length > 0) {
+      return { kind: "suspect", motivo: `Semelhante cadastrado em ${occurrenceText(sameBase[0])}` };
+    }
   }
 
   // Checagem por URL de mídia — detecta memos criados via Catalogar (câmera/upload)
@@ -382,17 +422,31 @@ async function checkDuplicate(
       : "m.userid = ? AND m.groupid IS NULL";
     const scopeParam = groupId != null ? groupId : userId;
     const [urlRows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.createdat, u.email
-       FROM memos m LEFT JOIN users u ON u.id = m.userid
+      `SELECT m.groupid AS dup_grupo_id, g.name AS dup_grupo, m.createdat AS dup_data, u.email AS dup_email
+       FROM memos m
+       LEFT JOIN users u ON u.id = m.userid
+       LEFT JOIN groups g ON g.id = m.groupid
        WHERE ${scopeClause} AND m.isactive = 1
          AND (m.mediaImageUrl = ? OR m.mediaAudioUrl = ? OR m.mediaVideoUrl = ? OR m.mediaDocumentUrl = ?)
        LIMIT 1`,
       [scopeParam, fullPath, fullPath, fullPath, fullPath]
     );
     if (urlRows.length > 0) {
-      const r = urlRows[0] as { createdat: Date; email: string | null };
-      return { kind: "exact", createdAt: r.createdat, email: r.email };
+      const r = urlRows[0];
+      const gid = r.dup_grupo_id == null ? null : Number(r.dup_grupo_id);
+      const occ: DupOccurrence = {
+        groupId: gid,
+        grupo: gid == null ? "Pessoal" : String(r.dup_grupo ?? "").trim() || `Grupo #${gid}`,
+        createdAt: r.dup_data as Date | string,
+        email: (r.dup_email as string | null) ?? null,
+      };
+      return { kind: "exact", motivo: `Já cadastrado em ${occurrenceText(occ)}` };
     }
+  }
+
+  // Não está no destino, mas existe em outro grupo (ou no pessoal): possível duplicado, importável.
+  if (elsewhere.length > 0) {
+    return { kind: "suspect", motivo: `Já existe em outro grupo: ${elsewhere.map(occurrenceText).join("; ")}` };
   }
 
   return { kind: "none" };
@@ -434,10 +488,10 @@ export async function verifyBatchFiles(
       const dup = await checkDuplicate(input.userId, groupId, file.originalFileName, file.fullPath);
       if (dup.kind === "exact") {
         situacao = "ja_cadastrado";
-        motivo = `Já cadastrado em ${formatDupDate(dup.createdAt)} por ${dup.email ?? "?"}`;
+        motivo = dup.motivo ?? null;
       } else if (dup.kind === "suspect") {
         situacao = "suspeito_duplicidade";
-        motivo = `Semelhante cadastrado em ${formatDupDate(dup.createdAt)} por ${dup.email ?? "?"}`;
+        motivo = dup.motivo ?? null;
       } else {
         if (input.provider === "LOCAL" || input.provider === "REDE") {
           try {
