@@ -144,14 +144,14 @@ export default function RegisterPage() {
   return (
     <div className={styles.shell}>
       <div className={styles.card}>
-        <h1 className={styles.title}>Criar conta</h1>
-        <p className={styles.sub}>
-          Plano escolhido: <strong>{chosenPlan?.name}</strong> ({priceLabel}). Enviaremos um e-mail de
-          confirmação (via Resend). A senha deve ter pelo menos 8 caracteres.{" "}
-          <Link to={selectPlanHref}>Alterar plano</Link>
-        </p>
+        <h1 className={styles.title}>{success && !mailFailed ? "Confirme seu e-mail" : "Criar conta"}</h1>
+        {!success ? (
+          <p className={styles.sub}>
+            Plano <strong>{chosenPlan?.name}</strong> ({priceLabel}) · <Link to={selectPlanHref}>Alterar plano</Link>
+          </p>
+        ) : null}
 
-        {emailTravado && convite ? (
+        {emailTravado && convite && !success ? (
           <div className={styles.success} role="note">
             Convite para o grupo <strong>{convite.groupName}</strong> no proMemory. Crie sua conta com{" "}
             <strong>{convite.email}</strong>: depois de confirmar o e-mail, você já entra no grupo.
@@ -191,13 +191,12 @@ export default function RegisterPage() {
         ) : null}
         {success && !mailFailed ? (
           <div className={styles.success} role="status">
-            <p style={{ margin: 0, fontWeight: 700, fontSize: "1.1rem", letterSpacing: "0.01em" }}>Verifique sua Caixa de Entrada de E-mail</p>
-            <p style={{ margin: "0.45rem 0 0" }}>
-              Enviamos um link de confirmação para <strong>{email}</strong>.
-              Clique nele para ativar sua conta — só depois disso será possível entrar.
+            <p style={{ margin: 0 }}>
+              Enviamos um link para <strong>{email}</strong>. Clique nele para ativar sua conta
+              {emailTravado && convite ? <> e entrar no grupo <strong>{convite.groupName}</strong></> : null}.
             </p>
             <p style={{ margin: "0.45rem 0 0", fontSize: "0.82rem", opacity: 0.9 }}>
-              Não encontrou? Verifique spam, Promoções (Gmail) e aguarde alguns minutos.
+              Não chegou? Veja o spam.
             </p>
           </div>
         ) : null}
@@ -248,6 +247,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={8}
+                placeholder="Mínimo 8 caracteres"
               />
             </div>
             <div className={styles.actions}>
