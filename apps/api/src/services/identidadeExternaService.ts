@@ -39,7 +39,7 @@ export async function resolverIdentidade(input: {
     `SELECT ie.userid AS "userId"
      FROM identidades_externas ie
      JOIN group_members gm ON gm.groupid = ie.groupid AND gm.userid = ie.userid
-     WHERE ie.groupid = ? AND ie.sistema = ? AND ie.banco = ? AND ie.idexterno = ? AND ie.ativo = 1
+     WHERE ie.groupid = ? AND ie.sistema = ? AND ie.banco = ? AND LOWER(ie.idexterno) = LOWER(?) AND ie.ativo = 1
      LIMIT 1`,
     [input.groupId, input.sistema.toLowerCase(), input.banco, input.idExterno]
   );

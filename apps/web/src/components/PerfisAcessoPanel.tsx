@@ -489,7 +489,8 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                         />
                         <input
                           className="mm-field"
-                          placeholder="id no ERP"
+                          placeholder="usuário no ERP"
+                          title="Usuário com que a pessoa entra no ERP. No Softing-erp: o NOME do usuário (AGUSUAR.NOME), não o código interno."
                           value={form.idExterno}
                           onChange={(e) => setNovoId((p) => ({ ...p, [m.userId]: { ...form, idExterno: e.target.value } }))}
                         />

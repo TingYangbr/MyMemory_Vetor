@@ -398,7 +398,7 @@ export async function ligarIdentidade(groupId: number, input: LigarIdentidadeInp
   if (!m[0]) throw new PerfilError("membro_nao_encontrado");
 
   const [porId] = await pool.query<RowDataPacket[]>(
-    `SELECT id, userid FROM identidades_externas WHERE groupid = ? AND sistema = ? AND banco = ? AND idexterno = ?`,
+    `SELECT id, userid FROM identidades_externas WHERE groupid = ? AND sistema = ? AND banco = ? AND LOWER(idexterno) = LOWER(?)`,
     [groupId, sistema, banco, idExterno]
   );
   if (porId[0]) {

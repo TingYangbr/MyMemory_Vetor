@@ -11,7 +11,7 @@ O perfil controla só o Perguntar. O Localizar e a navegação pelo site continu
 - **Categoria**: o tipo do memo (Faturamento, Agenda, Manual do usuário etc.). É o que o perfil libera ou não.
 - **Perfil**: uma lista de categorias com nome. Não existe exceção por pessoa: quem precisa de um acesso diferente recebe um perfil novo.
 - **Perfil padrão**: cada grupo tem um e só um. Quem não recebeu um perfil explícito usa o padrão.
-- **De-para**: a ligação entre uma pessoa do myMemory e o id dela no ERP (por exemplo o código do usuário no Softing-erp).
+- **De-para**: a ligação entre uma pessoa do myMemory e o usuário dela no ERP (no Softing-erp, o nome de login do usuário, AGUSUAR.NOME).
 - **Chaves do grupo**: duas chaves ligam o modelo, "Aplicar os perfis nas perguntas deste grupo" e "Exigir cadastro no de-para". Nascem desligadas.
 
 ## Quem pode configurar
@@ -153,7 +153,7 @@ O de-para liga uma pessoa do myMemory ao id dela no ERP. O ERP só informa "é o
 |---|---|
 | sistema | O sistema de origem. Para o Softing-erp, use softing-erp (já vem preenchido). É gravado em minúsculas. |
 | banco (opcional) | O banco do cliente, quando o mesmo grupo atende mais de um banco. Deixe vazio no uso comum: precisa coincidir com o banco da chave de integração do grupo, que por padrão é vazio. |
-| id no ERP | O id da pessoa no ERP. No Softing-erp é o código do usuário (U1_IDUSUARIO da tabela AGUSUAR). |
+| usuário no ERP | O usuário com que a pessoa entra no ERP. No Softing-erp é o NOME da tabela AGUSUAR (o que se digita no login), não o código interno U1_IDUSUARIO. Maiúsculas e minúsculas não fazem diferença. |
 | Ligar | Grava a ligação. Repetir a mesma ligação não duplica. |
 | remover | Desfaz a ligação. A pessoa continua membro do grupo e perde só o reconhecimento pelo ERP. |
 
