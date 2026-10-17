@@ -84,14 +84,17 @@ export async function revokeGroupApiKey(id: number): Promise<void> {
 }
 
 /**
- * Resolve o `userId` "dono" de uma API key válida (ativa, não expirada), ou `null`.
- * Usado por `resolveUserId` pra autenticação servidor-a-servidor.
+ * Resolve uma API key válida (ativa, não expirada) para o `userId` "dono" e o `groupId` ao qual a
+ * key está presa, ou `null`. Usado por `resolveIntegrationAuth` na autenticação servidor-a-servidor.
+ *
+ * O `groupId` devolvido é a ÚNICA fonte do grupo em requisições feitas por key: o corpo da
+ * requisição nunca escolhe o grupo (senão a key de um cliente alcançaria dados de outro).
  */
-export async function resolveUserIdByApiKey(rawKey: string): Promise<number | null> {
+export async function resolveApiKey(rawKey: string): Promise<{ userId: number; groupId: number } | null> {
   if (!rawKey.startsWith(KEY_PREFIX)) return null;
   const hash = hashOpaqueToken(rawKey);
-  const [rows] = await pool.query<{ id: number; userId: number }[]>(
-    `SELECT id, userid FROM group_api_keys
+  const [rows] = await pool.query<{ id: number; userId: number; groupId: number }[]>(
+    `SELECT id, userid, groupid FROM group_api_keys
      WHERE keyhash = ? AND isactive = 1 AND (expiresat IS NULL OR expiresat > NOW())
      LIMIT 1`,
     [hash]
@@ -105,5 +108,5 @@ export async function resolveUserIdByApiKey(rawKey: string): Promise<number | nu
       /* best-effort */
     });
 
-  return Number(row.userId);
+  return { userId: Number(row.userId), groupId: Number(row.groupId) };
 }

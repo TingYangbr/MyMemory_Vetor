@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from "fastify";
 import type { PerguntaRequest, PerguntaResponse } from "@mymemory/shared";
 import { z } from "zod";
-import { resolveUserIdForIntegration, getUserIsAdmin } from "../lib/userContext.js";
+import { resolveIntegrationAuth, resolveUserIdForIntegration, getUserIsAdmin } from "../lib/userContext.js";
 import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
@@ -44,10 +44,11 @@ const perguntaBodySchema = z.object({
 
 const plugin: FastifyPluginAsync = async (app) => {
   app.post("/api/perguntas", async (req, reply) => {
-    const userId = await resolveUserIdForIntegration(req);
-    if (userId === null) {
+    const auth = await resolveIntegrationAuth(req);
+    if (auth === null) {
       return reply.code(401).send({ error: "unauthorized", message: "Faça login para continuar." });
     }
+    const userId = auth.userId;
 
     const parsed = perguntaBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -58,7 +59,16 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
 
     const { pergunta, workspaceGroupId, filtros, contextoSessao } = parsed.data;
-    const groupId = workspaceGroupId ?? null;
+    let groupId = workspaceGroupId ?? null;
+    if (auth.apiKeyGroupId !== null) {
+      // Requisição por API key: o grupo vem do registro da key, nunca do corpo. Sem isso, a key
+      // de um cliente (cujo usuário é admin e entra em qualquer grupo) alcançaria dados de outro,
+      // e um grupo omitido cairia na busca dos memos pessoais do usuário da key.
+      if (groupId !== null && groupId !== auth.apiKeyGroupId) {
+        return reply.code(403).send({ error: "forbidden_group", message: "Esta chave não pertence a este grupo." });
+      }
+      groupId = auth.apiKeyGroupId;
+    }
     const isAdmin = await getUserIsAdmin(userId);
 
     if (groupId != null) {
@@ -86,6 +96,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       structure = { categories: [], capabilities: { canEditStructure: false } };
     }
 
+    const categoriasDoGrupo = new Set(structure.categories.map((c) => c.name));
     const thresholds = await getSemanticSearchThresholds();
 
     // ── SSE setup ───────────────────────────────────────────────────────────────
@@ -122,7 +133,8 @@ const plugin: FastifyPluginAsync = async (app) => {
           historico: contextoSessao ?? [],
           categories: structure.categories,
           forcePipe: parsed.data.forcePipe,
-          forceCategories: parsed.data.forceCategories,
+          // Só categorias que existem para este grupo: o que vem da tela nunca amplia o alcance.
+          forceCategories: parsed.data.forceCategories?.filter((nome) => categoriasDoGrupo.has(nome)),
           thresholdInitial: parsed.data.thresholdOverride != null
             ? Math.max(parsed.data.thresholdOverride, thresholds.min)
             : thresholds.initial,
