@@ -14,9 +14,10 @@ import type {
 } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 import Header from "../components/Header";
+import { PerfisAcessoPanel } from "../components/PerfisAcessoPanel";
 import styles from "./GroupOwnerPanelPage.module.css";
 
-type OwnerTab = "settings" | "invites" | "context" | "consulta" | "conexoes_bd";
+type OwnerTab = "settings" | "invites" | "context" | "consulta" | "conexoes_bd" | "perfis";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "pendente",
@@ -456,6 +457,16 @@ export default function GroupOwnerPanelPage() {
               >
                 Conexões BD
               </button>
+              <button
+                type="button" role="tab"
+                id={`${tabListId}-tab-perfis`}
+                aria-selected={activeTab === "perfis"}
+                aria-controls={`${tabListId}-panel-perfis`}
+                className={`${styles.tab} ${activeTab === "perfis" ? styles.tabActive : ""}`}
+                onClick={() => setActiveTab("perfis")}
+              >
+                Perfis
+              </button>
             </div>
 
             {/* ── Settings ── */}
@@ -824,6 +835,18 @@ export default function GroupOwnerPanelPage() {
                 ) : consultaLoading ? (
                   <p className={styles.loading}>A consultar…</p>
                 ) : null}
+              </section>
+            ) : null}
+
+            {/* ── Perfis ── */}
+            {activeTab === "perfis" && groupId != null ? (
+              <section
+                role="tabpanel"
+                id={`${tabListId}-panel-perfis`}
+                aria-labelledby={`${tabListId}-tab-perfis`}
+                className={styles.tabPanel}
+              >
+                <PerfisAcessoPanel groupId={groupId} />
               </section>
             ) : null}
 

@@ -65,6 +65,7 @@ import { QueryPadraoAutomatica1700000000150 } from "./migrations/1700000000150-Q
 import { Lembretes1700000000151 } from "./migrations/1700000000151-Lembretes.js";
 import { PerguntaModeloPlano1700000000152 } from "./migrations/1700000000152-PerguntaModeloPlano.js";
 import { ParseNumberTolerante1700000000153 } from "./migrations/1700000000153-ParseNumberTolerante.js";
+import { PerfisAcessoDePara1700000000154 } from "./migrations/1700000000154-PerfisAcessoDePara.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -82,6 +83,7 @@ import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
 import adminGroupApiKeysRoutes from "./routes/adminGroupApiKeys.js";
 import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
 import groupDbConnectionsRoutes from "./routes/groupDbConnections.js";
+import perfisAcessoRoutes from "./routes/perfisAcesso.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
 import adminMemoContextCloneRoutes from "./routes/adminMemoContextClone.js";
 import adminSubscriptionsRoutes from "./routes/adminSubscriptions.js";
@@ -164,6 +166,7 @@ assertMediaStorageEnv();
       Lembretes1700000000151,
       PerguntaModeloPlano1700000000152,
       ParseNumberTolerante1700000000153,
+      PerfisAcessoDePara1700000000154,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -236,6 +239,7 @@ await app.register(adminDbConnectionsRoutes);
 await app.register(adminGroupApiKeysRoutes);
 await app.register(adminConhecimentoRoutes);
 await app.register(groupDbConnectionsRoutes);
+await app.register(perfisAcessoRoutes);
 await app.register(adminUserInvitesRoutes);
 await app.register(adminMemoContextCloneRoutes);
 await app.register(adminSubscriptionsRoutes);

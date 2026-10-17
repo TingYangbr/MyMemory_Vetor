@@ -30,9 +30,10 @@ import type {
 import { AI_PROVIDER_OPTIONS } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 import Header from "../components/Header";
+import { PerfisAcessoPanel } from "../components/PerfisAcessoPanel";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "convites_usuarios";
+type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "perfis" | "convites_usuarios";
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -549,6 +550,19 @@ export default function AdminPage() {
   const [dbConnTestResults, setDbConnTestResults] = useState<Record<number, DbConnectionTestResult>>({});
   const [dbConnTesting, setDbConnTesting] = useState<Set<number>>(new Set());
   const [dbConnGroups, setDbConnGroups] = useState<MemoContextGroupOption[]>([]);
+
+  // ── Aba Perfis (perfis de acesso e de-para) ──────────────────────────────
+  const [perfisGroups, setPerfisGroups] = useState<MemoContextGroupOption[]>([]);
+  const [perfisGroupId, setPerfisGroupId] = useState<number | null>(null);
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "perfis") return;
+    apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
+      .then((r) => {
+        setPerfisGroups(r.groups);
+        setPerfisGroupId((atual) => atual ?? r.groups[0]?.id ?? null);
+      })
+      .catch(() => {});
+  }, [me?.role, tab]);
 
   // ── Aba Convites de Usuários ─────────────────────────────────────────────
   const [userInvites, setUserInvites] = useState<{ id: number; email: string; status: string; createdAt: string; expiresAt: string; acceptedAt: string | null }[]>([]);
@@ -1256,6 +1270,15 @@ export default function AdminPage() {
             onClick={() => setTab("conexoes_bd")}
           >
             Conexões BD
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === "perfis"}
+            className={`${styles.tab} ${tab === "perfis" ? styles.tabActive : ""}`}
+            onClick={() => setTab("perfis")}
+          >
+            Perfis
           </button>
           <button
             type="button"
@@ -2374,6 +2397,29 @@ export default function AdminPage() {
             ) : aiConfigLoading ? (
               <p className="mm-muted">Carregando…</p>
             ) : null}
+          </div>
+        ) : null}
+
+        {tab === "perfis" ? (
+          <div className={styles.panel}>
+            <h2 className={styles.sectionTitle}>Perfis de acesso</h2>
+            <p className="mm-muted" style={{ marginBottom: "1rem" }}>
+              Quem pode perguntar o quê, por grupo: cada perfil é uma lista de categorias. Também liga os membros ao id deles no ERP.
+            </p>
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", marginBottom: "1rem" }}>
+              <span>Grupo</span>
+              <select
+                className="mm-field"
+                style={{ maxWidth: "24rem" }}
+                value={perfisGroupId ?? ""}
+                onChange={(e) => setPerfisGroupId(e.target.value === "" ? null : Number(e.target.value))}
+              >
+                {perfisGroups.map((g) => (
+                  <option key={g.id} value={g.id}>{g.name}</option>
+                ))}
+              </select>
+            </label>
+            {perfisGroupId != null ? <PerfisAcessoPanel groupId={perfisGroupId} /> : null}
           </div>
         ) : null}
 

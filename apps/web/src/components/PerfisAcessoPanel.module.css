@@ -1,0 +1,172 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.bloco {
+  border: 1px solid var(--mm-border);
+  border-radius: 10px;
+  padding: 0.9rem 1rem;
+  background: var(--mm-surface, transparent);
+}
+
+.titulo {
+  margin: 0 0 0.6rem;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.titulo small {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.linha {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.35rem 0;
+}
+
+.linha small {
+  opacity: 0.7;
+}
+
+.ok {
+  color: green;
+}
+
+.avisos {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.9rem;
+}
+
+.rolagem {
+  overflow-x: auto;
+}
+
+.matriz,
+.pessoasTabela {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.88rem;
+}
+
+.matriz th,
+.matriz td,
+.pessoasTabela th,
+.pessoasTabela td {
+  border-bottom: 1px solid var(--mm-border);
+  padding: 0.4rem 0.5rem;
+  text-align: center;
+  vertical-align: top;
+}
+
+.pessoasTabela th,
+.pessoasTabela td {
+  text-align: left;
+}
+
+.colCategoria {
+  text-align: left !important;
+  min-width: 14rem;
+}
+
+.colPerfil {
+  min-width: 9rem;
+}
+
+.colMeus {
+  min-width: 6rem;
+}
+
+.nomePerfil {
+  font-weight: 700;
+}
+
+.pessoas {
+  font-weight: 400;
+  opacity: 0.7;
+  font-size: 0.8rem;
+}
+
+.acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  justify-content: center;
+  margin-top: 0.3rem;
+}
+
+.acoes button,
+.identidade button {
+  font-size: 0.72rem;
+  padding: 0.1rem 0.4rem;
+  cursor: pointer;
+}
+
+.selo {
+  margin-left: 0.35rem;
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--mm-accent, #0ccab5);
+  color: #fff;
+}
+
+.etiqueta {
+  margin-left: 0.3rem;
+  font-size: 0.68rem;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid var(--mm-border);
+  opacity: 0.85;
+}
+
+.linhaTodas td {
+  font-weight: 600;
+  background: rgba(127, 127, 127, 0.07);
+}
+
+.linhaTodas td:first-child {
+  text-align: left;
+}
+
+.rodape {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.identidade {
+  font-size: 0.85rem;
+  margin-bottom: 0.3rem;
+}
+
+.identidade button {
+  margin-left: 0.4rem;
+}
+
+.novoId {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.novoId input {
+  max-width: 9rem;
+}
