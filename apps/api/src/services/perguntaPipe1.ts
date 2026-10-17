@@ -7,7 +7,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { withSpan } from "../lib/requestTimings.js";
-import { searchMemosByEmbedding } from "../lib/openaiEmbedding.js";
+import { searchMemosByEmbedding, type RestricaoMemos } from "../lib/openaiEmbedding.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 
@@ -27,6 +27,8 @@ export interface Pipe1Input {
   categoryId?: number | null;
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
+  /** Perfil de acesso / escopo "Meus por padrão" (só quando o grupo ligou os perfis). */
+  restricao?: RestricaoMemos;
 }
 
 export interface Pipe1Result {
@@ -96,6 +98,7 @@ async function fetchHitsWithMeta(input: {
   filtros: PerguntaFiltros;
   topN: number;
   escopoMemoIds?: number[];
+  restricao?: RestricaoMemos;
 }): Promise<RawHit[]> {
   const hits = await searchMemosByEmbedding({
     query: input.pergunta,
@@ -104,6 +107,7 @@ async function fetchHitsWithMeta(input: {
     limit: input.topN,
     dataInicio: input.filtros.dataInicio ?? undefined,
     dataFim: input.filtros.dataFim ?? undefined,
+    restricao: input.restricao,
   });
   if (!hits.length) return [];
 
@@ -271,6 +275,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     filtros: input.filtros,
     topN: 50,
     escopoMemoIds: input.escopoMemoIds,
+    restricao: input.restricao,
   }));
 
   const memos = rankAndFilter(rawHits, {

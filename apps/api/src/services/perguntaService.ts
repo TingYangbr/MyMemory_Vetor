@@ -16,6 +16,14 @@ import { executarPipe2, type QueryDisponivel } from "./perguntaPipe2.js";
 import { executarPipe3 } from "./perguntaPipe3.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { gerarSugestaoAviso } from "./avisoService.js";
+import type { RestricaoMemos } from "../lib/openaiEmbedding.js";
+import {
+  aplicarCorte,
+  deQuem,
+  mensagemRecusa,
+  registrarRecusa,
+  type PerfilNaPergunta,
+} from "./perfilPerguntaService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -238,6 +246,8 @@ export async function perguntarMemory(input: {
   thresholdMin?: number;
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
+  /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
+  perfil?: PerfilNaPergunta | null;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
@@ -309,6 +319,59 @@ export async function perguntarMemory(input: {
     };
   }
 
+  // ── Perfil de acesso (só com `perfis_ativos` ligado no grupo) ────────────────
+  // A classificação acima já recebeu TODAS as categorias; aqui o servidor corta pela lista do perfil.
+  // Recusa total: uma categoria fora da lista e nada mais é executado.
+  let restricao: RestricaoMemos | undefined;
+  let escopoAutorId: number | null = null;
+  let avisoEscopo: string | undefined;
+  const perfil = input.perfil ?? null;
+  if (perfil) {
+    const catalogo = input.categories.filter((c) => c.isActive === 1).map((c) => c.name);
+    const corte = aplicarCorte(perfil.efetivo, classificacao.categorias, catalogo);
+    if (!corte.liberada) {
+      await registrarRecusa({
+        groupId: perfil.groupId,
+        userId: perfil.userId,
+        perfilId: perfil.efetivo.perfilId,
+        categorias: corte.foraDoPerfil,
+        motivo: "fora_do_perfil",
+        pergunta: input.pergunta,
+      });
+      return {
+        resposta: {
+          resposta: mensagemRecusa(perfil.efetivo, corte.foraDoPerfil),
+          tipo_resposta: classificacao.pipe,
+          dados_usados: [],
+          limitacoes: ["Categoria fora do perfil de acesso."],
+          confianca_estimada: 0,
+        },
+        classificacao,
+        apiCost: totalCost,
+      };
+    }
+
+    // Escopo "Meus por padrão": nas categorias marcadas, memos do próprio autor, a menos que peça "de todos".
+    const classificadas = new Set(classificacao.categorias.map(normCat));
+    const meusClassificadas = perfil.categoriasMeus.filter((n) => classificadas.has(normCat(n)));
+    if (perfil.autorEscopoId != null && meusClassificadas.length && deQuem(input.pergunta) === "eu") {
+      escopoAutorId = perfil.autorEscopoId;
+      avisoEscopo = `Mostrando só os seus memos em ${meusClassificadas.map((n) => `"${n}"`).join(", ")}; para ver os de todos, peça "de todos".`;
+    }
+    const restrito = !perfil.efetivo.todas;
+    if (restrito || escopoAutorId != null) {
+      restricao = {
+        categoriasPermitidas: restrito ? perfil.efetivo.categoriasPermitidas : undefined,
+        incluiSemCategoria: perfil.efetivo.incluiSemCategoria,
+        categoriasConhecidas: catalogo,
+        escopoAutor: escopoAutorId != null ? { categorias: meusClassificadas, userId: escopoAutorId } : undefined,
+      };
+    }
+  }
+  /** Informa o escopo aplicado na própria resposta (nas categorias marcadas). */
+  const comEscopo = <R extends PerguntaResposta>(r: R): R =>
+    avisoEscopo ? { ...r, limitacoes: [...(r.limitacoes ?? []), avisoEscopo] } : r;
+
   const thInitial = input.thresholdInitial ?? 0.7;
   const thMin = input.thresholdMin ?? 0.3;
 
@@ -334,11 +397,12 @@ export async function perguntarMemory(input: {
       escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
       categoryId: firstCategoryId,
       contextoTela: input.contextoTela,
+      restricao,
     });
     const { texto: sugestaoAviso } = gerarSugestaoAviso();
     const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
     return {
-      resposta: result.resposta,
+      resposta: comEscopo(result.resposta),
       classificacao,
       apiCost: totalCost + result.apiCost,
       limiarInicial: result.limiarInicial,
@@ -362,6 +426,7 @@ export async function perguntarMemory(input: {
       classificacao,
       queriesDisponiveis,
       categoryId: firstCategoryId,
+      escopoAutorId,
     });
     const queriesUsadas = result.queriesParaAviso ?? [];
     const { texto: sugestaoAviso } = gerarSugestaoAviso();
@@ -382,7 +447,7 @@ export async function perguntarMemory(input: {
       };
     }
     return {
-      resposta: result.resposta,
+      resposta: comEscopo(result.resposta),
       classificacao,
       apiCost: totalCost + result.apiCost,
       sugestaoAviso,
@@ -409,6 +474,8 @@ export async function perguntarMemory(input: {
     thresholdMin: thMin,
     escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
     categoryId: firstCategoryId,
+    restricao,
+    escopoAutorId,
   });
   const queriesUsadas3 = result.queriesParaAviso ?? [];
   const { texto: sugestaoAviso3 } = gerarSugestaoAviso();
@@ -418,7 +485,7 @@ export async function perguntarMemory(input: {
     queries: queriesUsadas3,
   };
   return {
-    resposta: result.resposta,
+    resposta: comEscopo(result.resposta),
     classificacao,
     apiCost: totalCost + result.apiCost,
     aguardaFase2: result.aguardaFase2,

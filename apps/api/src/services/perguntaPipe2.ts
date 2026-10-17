@@ -50,6 +50,8 @@ export interface Pipe2Input {
   queriesDisponiveis: QueryDisponivel[];
   /** ID da primeira categoria classificada, para lookup de override de prompt. */
   categoryId?: number | null;
+  /** Autor do escopo "Meus por padrão" (vira o parâmetro :autor das queries sobre memos). */
+  escopoAutorId?: number | null;
 }
 
 export interface Pipe2Result {
@@ -452,12 +454,15 @@ export function bindTemplateParams(
   sentencaSql: string,
   llmParams: PlanoParam[],
   paramDefs: QueryDisponivel["params"],
-  systemParams: { userid: number; groupid: number | null }
+  systemParams: { userid: number; groupid: number | null; autor?: number | null }
 ): { sql: string; values: unknown[] } {
   // Chaves em lowercase para comparação case-insensitive (SQL usa :groupId, mapa guarda "groupid")
   const paramMap: Record<string, unknown> = {
     userid: systemParams.userid,
     groupid: systemParams.groupid,
+    // Escopo "Meus por padrão": queries escritas à mão podem usar (:autor IS NULL OR m.userid = :autor).
+    // Nulo = sem escopo; query que não declara :autor não é afetada.
+    autor: systemParams.autor ?? null,
   };
   // operador_sugerido por param: "=" suprime wrap com % mesmo que paramDef tenha operadorSql LIKE
   const llmOpMap = new Map<string, string>();
@@ -904,6 +909,7 @@ async function executarConsultasPlano(input: {
   queriesDisponiveis: QueryDisponivel[];
   userId: number;
   groupId: number | null;
+  escopoAutorId?: number | null;
 }): Promise<{ agregado: PerguntaResultadoEstruturado; porQuery: QueryExecResultado[]; avisos: string[] }> {
   const { plano, queriesDisponiveis, userId, groupId } = input;
   /** Queries puladas (ex.: cross_query_filter inválido) — viram limitações na resposta */
@@ -1058,7 +1064,7 @@ async function executarConsultasPlano(input: {
         template.sentencaSql,
         parametrosResolvidos,
         template.params,
-        { userid: userId, groupid: groupId }
+        { userid: userId, groupid: groupId, autor: input.escopoAutorId ?? null }
       );
 
       let finalSql = baseSql;
@@ -1300,6 +1306,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     queriesDisponiveis: input.queriesDisponiveis,
     userId: input.userId,
     groupId: input.groupId,
+    escopoAutorId: input.escopoAutorId,
   }));
 
   const { resposta, costUsd: c2 } = await withSpan("Síntese da resposta (estruturada)", () => gerarRespostaEstruturada({

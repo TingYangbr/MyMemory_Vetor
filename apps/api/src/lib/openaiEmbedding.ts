@@ -94,6 +94,47 @@ export async function upsertMemoChunks(input: {
  * Busca semântica por similaridade cosine nos chunks de memos.
  * Retorna até `limit` memo IDs ordenados por similaridade decrescente.
  */
+/**
+ * Restrições de acesso aplicadas DENTRO da busca por semelhança (não depois dos candidatos), para
+ * o filtro não perder memos permitidos que ficariam fora dos N primeiros do grupo inteiro.
+ * Perfil com "todas as categorias" não passa nada daqui — a busca fica idêntica à de antes.
+ */
+export interface RestricaoMemos {
+  /** Categorias liberadas pelo perfil (nomes). Ausente = sem restrição por categoria. */
+  categoriasPermitidas?: string[];
+  /** O perfil inclui memos sem categoria. */
+  incluiSemCategoria?: boolean;
+  /**
+   * Nomes de TODAS as categorias que existem para o grupo. Memo cuja categoria não está aqui (apagada,
+   * renomeada) conta como "sem categoria", para não sumir da busca.
+   */
+  categoriasConhecidas?: string[];
+  /** Marca "Meus por padrão": nestas categorias só entram memos do próprio autor. */
+  escopoAutor?: { categorias: string[]; userId: number };
+}
+
+export function condicoesRestricao(r: RestricaoMemos | undefined): { where: string; vals: unknown[] } {
+  if (!r) return { where: "", vals: [] };
+  const conds: string[] = [];
+  const vals: unknown[] = [];
+  const lower = (a: string[]) => a.map((s) => s.toLowerCase());
+
+  if (r.categoriasPermitidas) {
+    const parts = ["LOWER(m.category) = ANY(?::text[])"];
+    vals.push(lower(r.categoriasPermitidas));
+    if (r.incluiSemCategoria) {
+      parts.push("m.category IS NULL", "TRIM(m.category) = ''", "NOT (LOWER(m.category) = ANY(?::text[]))");
+      vals.push(lower(r.categoriasConhecidas ?? []));
+    }
+    conds.push(`(${parts.join(" OR ")})`);
+  }
+  if (r.escopoAutor && r.escopoAutor.categorias.length) {
+    conds.push("NOT (COALESCE(LOWER(m.category) = ANY(?::text[]), false) AND m.userid <> ?)");
+    vals.push(lower(r.escopoAutor.categorias), r.escopoAutor.userId);
+  }
+  return { where: conds.length ? " AND " + conds.join(" AND ") : "", vals };
+}
+
 export async function searchMemosByEmbedding(input: {
   query: string;
   userId: number;
@@ -102,6 +143,7 @@ export async function searchMemosByEmbedding(input: {
   minSimilarity?: number;
   dataInicio?: string | null;
   dataFim?: string | null;
+  restricao?: RestricaoMemos;
 }): Promise<Array<{ memoId: number; similarity: number }>> {
   if (!config.openai.apiKey) return [];
 
@@ -123,19 +165,20 @@ export async function searchMemosByEmbedding(input: {
   if (input.dataInicio) { dateConditions.push("m.createdat::date >= ?::date"); dateVals.push(input.dataInicio); }
   if (input.dataFim)    { dateConditions.push("m.createdat::date <= ?::date"); dateVals.push(input.dataFim); }
   const dateWhere = dateConditions.length ? " AND " + dateConditions.join(" AND ") : "";
+  const restr = condicoesRestricao(input.restricao);
 
   const [rows] = await pool.query<{ memoId: number; similarity: number }[]>(
     `SELECT memoid, similarity FROM (
        SELECT m.id AS memoid, 1 - MIN(c.embedding <=> ?::vector) AS similarity
        FROM memo_chunks c
        JOIN memos m ON m.id = c.memo_id
-       WHERE ${baseWhere}${dateWhere}
+       WHERE ${baseWhere}${dateWhere}${restr.where}
        GROUP BY m.id
      ) sub
      WHERE similarity >= ?
      ORDER BY similarity DESC
      LIMIT ?`,
-    [vectorStr, baseVal, ...dateVals, minSim, limit]
+    [vectorStr, baseVal, ...dateVals, ...restr.vals, minSim, limit]
   );
 
   return rows

@@ -48,6 +48,11 @@ function mapServiceError(
     invite_not_found: { status: 404, error: "invite_not_found", message: "Convite não encontrado." },
     invite_expired: { status: 410, error: "invite_expired", message: "Este convite expirou." },
     invite_used: { status: 409, error: "invite_used", message: "Este convite já foi utilizado." },
+    group_member_limit: {
+      status: 409,
+      error: "group_member_limit",
+      message: "O grupo atingiu o número máximo de membros do plano. Peça ao administrador do grupo para ampliar o plano.",
+    },
     group_settings_schema_outdated: {
       status: 503,
       error: "schema_outdated",

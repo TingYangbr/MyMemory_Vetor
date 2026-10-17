@@ -5,6 +5,7 @@ import { resolveIntegrationAuth, resolveUserIdForIntegration, getUserIsAdmin } f
 import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
+import { montarPerfilNaPergunta } from "../services/perfilPerguntaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 import { runWithTraces } from "../lib/invokeLlm.js";
 import type { LlmPromptTrace } from "../services/llmPromptTraceStore.js";
@@ -97,6 +98,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
 
     const categoriasDoGrupo = new Set(structure.categories.map((c) => c.name));
+    // Perfil de acesso: só existe quando o grupo ligou `perfis_ativos`; senão fica null e nada muda.
+    const perfil = groupId != null
+      ? await montarPerfilNaPergunta({ userId, groupId, porChave: auth.apiKeyGroupId !== null })
+      : null;
     const thresholds = await getSemanticSearchThresholds();
 
     // ── SSE setup ───────────────────────────────────────────────────────────────
@@ -140,6 +145,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             : thresholds.initial,
           thresholdMin: thresholds.min,
           contextoTela: parsed.data.contextoTela,
+          perfil,
         })
       )));
       result = ran.value;

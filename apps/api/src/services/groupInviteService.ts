@@ -266,6 +266,22 @@ export async function acceptGroupInviteToken(input: {
         ]);
       }
     } else {
+      // Limite de membros do plano (subscription_plans.maxmembers, só o admin do sistema altera).
+      // Só barra a ENTRADA de um membro novo; quem já está no grupo nunca é removido por isso.
+      const [lim] = await conn.query<RowDataPacket[]>(
+        `SELECT sp.maxmembers AS "maxMembers",
+                (SELECT COUNT(*) FROM group_members gm WHERE gm.groupid = g.id) AS "total"
+         FROM groups g
+         LEFT JOIN subscriptions s ON s.id = g.subscriptionid
+         LEFT JOIN subscription_plans sp ON sp.id = s.planid
+         WHERE g.id = ?`,
+        [groupId]
+      );
+      const max = lim[0]?.maxMembers == null ? null : Number(lim[0].maxMembers);
+      if (max != null && Number(lim[0]?.total ?? 0) >= max) {
+        await conn.rollback();
+        throw new Error("group_member_limit");
+      }
       await conn.query(`INSERT INTO group_members (groupId, userId, role) VALUES (?, ?, ?)`, [
         groupId,
         input.userId,

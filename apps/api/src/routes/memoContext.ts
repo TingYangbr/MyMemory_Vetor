@@ -28,6 +28,7 @@ import {
   updateSubcategory,
   userHasMemoContextAccess,
 } from "../services/memoContextService.js";
+import { perfisQueGanhamEstruturada } from "../services/perfisAcessoService.js";
 
 const mediaTypeEnum = z.enum(["text", "audio", "image", "video", "document", "url"]);
 
@@ -381,8 +382,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     const parsed = createQueryBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
     try {
+      // Antes de gravar: se for a 1ª query da categoria, avisa quais perfis passam a ter o modo estruturado.
+      const perfisAfetados = await perfisQueGanhamEstruturada(categoryId.data).catch(() => [] as string[]);
       const id = await createQueryCategoria(userId, categoryId.data, parsed.data);
-      return reply.code(201).send({ id });
+      return reply.code(201).send({ id, perfisAfetados });
     } catch (e) {
       return mapErr(reply, e);
     }

@@ -29,6 +29,10 @@ export interface Pipe3Input {
   escopoMemoIds?: number[];
   /** ID da primeira categoria classificada, para lookup de override de prompt. */
   categoryId?: number | null;
+  /** Perfil de acesso / escopo "Meus por padrão" para a parte semântica. */
+  restricao?: Pipe1Input["restricao"];
+  /** Autor para o parâmetro :autor das queries sobre memos (escopo "Meus por padrão"). */
+  escopoAutorId?: number | null;
 }
 
 export interface Pipe3Result {
@@ -184,6 +188,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     thresholdMin: input.thresholdMin,
     escopoMemoIds: input.escopoMemoIds,
     categoryId: input.categoryId,
+    restricao: input.restricao,
   };
 
   const pipe2Input: Pipe2Input = {
@@ -195,6 +200,7 @@ export async function executarPipe3(input: Pipe3Input): Promise<Pipe3Result> {
     classificacao: input.classificacao,
     queriesDisponiveis: input.queriesDisponiveis,
     categoryId: input.categoryId,
+    escopoAutorId: input.escopoAutorId,
   };
 
   // Pipe 1 e Pipe 2 correm em paralelo — cada um é independente. Se um deles falhar, a resposta

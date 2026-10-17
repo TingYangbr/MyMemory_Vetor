@@ -488,3 +488,26 @@ export async function carregarMatriz(groupId: number): Promise<MatrizPerfis> {
     avisos,
   };
 }
+
+/**
+ * Aviso ao cadastrar a PRIMEIRA SQL query de uma categoria: quem já tem a categoria no perfil passa a
+ * ter também o modo estruturado (antes só o texto dos memos). Devolve os nomes dos perfis afetados
+ * (vazio quando a categoria já tinha queries, é global, ou nenhum perfil a inclui).
+ */
+export async function perfisQueGanhamEstruturada(categoryId: number): Promise<string[]> {
+  const [c] = await pool.query<RowDataPacket[]>(`SELECT groupid AS "groupRef" FROM categories WHERE id = ?`, [categoryId]);
+  if (!c[0] || c[0].groupRef == null) return [];
+  const [q] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM queries_categoria WHERE categoryid = ? AND isactive = 1 LIMIT 1`,
+    [categoryId]
+  );
+  if (q[0]) return [];
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT p.nome FROM perfis_acesso p
+     WHERE p.groupid = ?
+       AND (p.todas = 1 OR EXISTS (SELECT 1 FROM perfil_acesso_categorias pc WHERE pc.perfilid = p.id AND pc.categoryid = ?))
+     ORDER BY p.nome`,
+    [Number(c[0].groupRef), categoryId]
+  );
+  return rows.map((r) => String(r.nome));
+}

@@ -543,7 +543,7 @@ export default function MemoContextPage() {
           resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
       } else if (modal === "query" && modalCategoryId != null) {
-        const { id: newQueryId } = await apiPostJson<{ id: number }>(
+        const { id: newQueryId, perfisAfetados } = await apiPostJson<{ id: number; perfisAfetados?: string[] }>(
           `/api/memo-context/categories/${modalCategoryId}/queries`,
           {
             nome: modalQueryNome.trim(),
@@ -554,6 +554,11 @@ export default function MemoContextPage() {
         );
         for (const p of pendingAutoParams) {
           await apiPostJson(`/api/memo-context/queries/${newQueryId}/params`, p);
+        }
+        if (perfisAfetados?.length) {
+          window.alert(
+            `Esta é a primeira query da categoria. Os perfis que incluem a categoria passam a ter também o modo estruturado: ${perfisAfetados.join(", ")}.`
+          );
         }
       } else if (modal === "queryEdit" && modalQueryId != null) {
         await apiPatchJson(`/api/memo-context/queries/${modalQueryId}`, {
