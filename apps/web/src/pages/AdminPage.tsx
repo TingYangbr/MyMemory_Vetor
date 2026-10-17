@@ -559,7 +559,9 @@ export default function AdminPage() {
     apiGet<{ groups: MemoContextGroupOption[] }>("/api/memo-context/groups")
       .then((r) => {
         setPerfisGroups(r.groups);
-        setPerfisGroupId((atual) => atual ?? r.groups[0]?.id ?? null);
+        // Começa no grupo ativo do admin (o do cabeçalho), não no primeiro da lista
+        const ativo = me?.lastWorkspaceGroupId;
+        setPerfisGroupId((atual) => atual ?? (r.groups.some((g) => g.id === ativo) ? ativo! : r.groups[0]?.id ?? null));
       })
       .catch(() => {});
   }, [me?.role, tab]);

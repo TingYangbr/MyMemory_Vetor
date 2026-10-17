@@ -401,7 +401,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     await pool.query("UPDATE users SET emailVerified = 1 WHERE id = ?", [userId]);
     await pool.query("DELETE FROM user_auth_tokens WHERE tokenHash = ?", [hash]);
 
-    return { ok: true, message: "E-mail confirmado. Você já pode entrar." };
+    // Login automático: o link (uso único, com validade) já prova a posse do e-mail.
+    // Assim quem veio de um convite cai direto no grupo, sem digitar a senha recém-criada.
+    const token = await reply.jwtSign({ sub: String(userId) }, { sign: { expiresIn: "7d" } });
+    reply.setCookie("mm_access", token, {
+      path: "/",
+      httpOnly: true,
+      sameSite: "lax",
+      secure: config.cookieSecure,
+      maxAge: 7 * 24 * 3600,
+    });
+
+    return { ok: true, loggedIn: true, message: "E-mail confirmado." };
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/resend-verification", async (req, reply) => {
