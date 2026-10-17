@@ -72,48 +72,80 @@ export async function sendPasswordResetEmail(to: string, resetUrl: string): Prom
   console.info("[mail] Redefinição aceita pelo Resend (id=%s) → %s", id ?? "?", to);
 }
 
+/**
+ * Convite para grupo (marca proMemory). Duas versões, escolhidas no envio:
+ * - temConta: a pessoa já tem conta com este e-mail → entrar e aceitar;
+ * - sem conta: criar a conta com este e-mail → o grupo é aceito ao entrar.
+ * Uma ação só por e-mail, para não deixar a pessoa escolher o caminho errado.
+ */
 export async function sendGroupInviteEmail(
   to: string,
-  opts: { groupName: string; loginUrl: string; registerStartUrl: string }
+  opts: {
+    groupName: string;
+    inviterName: string | null;
+    temConta: boolean;
+    actionUrl: string;
+    resetUrl: string;
+    expiresAt: Date;
+  }
 ): Promise<void> {
-  const { groupName, loginUrl, registerStartUrl } = opts;
-  const html = `
-    <p>Olá,</p>
-    <p>Você foi convidado a participar do grupo <strong>${escapeHtml(groupName)}</strong> no MyMemory.</p>
-    <p style="margin-bottom:8px"><strong>Escolha a opção correta para você:</strong></p>
-    <table width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse">
-      <tr>
-        <td style="border:2px solid #4F46E5;border-radius:8px;padding:16px 20px;background:#F5F5FF">
-          <p style="margin:0 0 4px 0;font-size:13px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">OPÇÃO 1</p>
-          <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#1F2937">Ainda não tenho conta</p>
-          <p style="margin:0 0 12px 0;font-size:14px;color:#374151">Crie sua conta e escolha o plano individual. Após confirmar o e-mail e entrar, o grupo é aceito automaticamente.</p>
-          <a href="${registerStartUrl}" style="display:inline-block;background:#4F46E5;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">Criar conta →</a>
-        </td>
-      </tr>
-      <tr><td style="height:12px"></td></tr>
-      <tr>
-        <td style="border:2px solid #059669;border-radius:8px;padding:16px 20px;background:#F0FDF4">
-          <p style="margin:0 0 4px 0;font-size:13px;color:#6B7280;text-transform:uppercase;letter-spacing:.05em">OPÇÃO 2</p>
-          <p style="margin:0 0 6px 0;font-size:16px;font-weight:700;color:#1F2937">Já tenho conta cadastrada</p>
-          <p style="margin:0 0 12px 0;font-size:14px;color:#374151">Entre com a conta associada a este e-mail e aceite o convite.</p>
-          <a href="${loginUrl}" style="display:inline-block;background:#059669;color:#ffffff;text-decoration:none;font-weight:600;font-size:14px;padding:10px 20px;border-radius:6px">Entrar e aceitar →</a>
-        </td>
-      </tr>
-    </table>
-    <p style="margin-top:20px;font-size:13px;color:#6B7280">O convite expira em 14 dias. Se não foi você, ignore este e-mail.</p>
+  const { groupName, inviterName, temConta, actionUrl, resetUrl, expiresAt } = opts;
+  const validade = expiresAt.toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+  const de = inviterName?.trim() ? ` de <strong>${escapeHtml(inviterName.trim())}</strong>` : "";
+  const deTxt = inviterName?.trim() ? ` de ${inviterName.trim()}` : "";
+  const grupo = escapeHtml(groupName);
+  const emailHtml = escapeHtml(to);
+  const botao = (rotulo: string) =>
+    `<p style="margin:20px 0"><a href="${actionUrl}" style="display:inline-block;background:#0d9488;color:#ffffff;text-decoration:none;font-weight:700;font-size:15px;padding:12px 24px;border-radius:8px">${rotulo}</a></p>`;
+  const rodape = (extra: string) =>
+    `<p style="margin-top:24px;font-size:13px;color:#6B7280">${extra}O convite vale até ${validade}. Se não esperava este convite, ignore este e-mail.</p>`;
+
+  const html = temConta
+    ? `
+    <p>Olá!</p>
+    <p>Você recebeu um convite${de} para participar do grupo <strong>${grupo}</strong> no proMemory.</p>
+    <p>Para aceitar, entre na sua conta do proMemory (<strong>${emailHtml}</strong>).</p>
+    ${botao("Entrar e aceitar o convite")}
+    ${rodape(`Esqueceu a senha? <a href="${resetUrl}">Redefinir senha</a> · `)}
+  `
+    : `
+    <p>Olá!</p>
+    <p>Você recebeu um convite${de} para participar do grupo <strong>${grupo}</strong> no proMemory.</p>
+    <p>Para aceitar, crie sua conta do proMemory com este e-mail (<strong>${emailHtml}</strong>). Leva 2 minutos.</p>
+    ${botao("Criar minha conta e aceitar o convite")}
+    <p>Depois de confirmar seu e-mail, você já entra no grupo.</p>
+    ${rodape("")}
   `;
-  const text = `Olá,\n\nVocê foi convidado a participar do grupo "${groupName}" no MyMemory.\n\nSe você ainda não tem conta:\nCriar conta e escolher plano individual: ${registerStartUrl}\nDepois de confirmar o e-mail e entrar, você entra no grupo automaticamente ao abrir o convite.\n\nSe você já tem conta cadastrada:\nEntrar e aceitar o convite (use a conta com este e-mail): ${loginUrl}\n\nO convite expira em 14 dias. Se não foi você, ignore este e-mail.`;
+  const text = temConta
+    ? `Olá!
+
+Você recebeu um convite${deTxt} para participar do grupo "${groupName}" no proMemory.
+
+Para aceitar, entre na sua conta do proMemory (${to}):
+${actionUrl}
+
+Esqueceu a senha? ${resetUrl}
+O convite vale até ${validade}. Se não esperava este convite, ignore este e-mail.`
+    : `Olá!
+
+Você recebeu um convite${deTxt} para participar do grupo "${groupName}" no proMemory.
+
+Para aceitar, crie sua conta do proMemory com este e-mail (${to}). Leva 2 minutos:
+${actionUrl}
+
+Depois de confirmar seu e-mail, você já entra no grupo.
+O convite vale até ${validade}. Se não esperava este convite, ignore este e-mail.`;
   const client = getResend();
   const { data, error } = await client.emails.send({
     from: config.emailFrom,
     to: [to],
-    subject: `Convite — grupo ${groupName} — MyMemory`,
+    subject: `Convite para o grupo ${groupName} no proMemory`,
     html,
     text,
   });
   if (error) throw new Error(`Resend: ${formatResendError(error)}`);
   const id = data && typeof data === "object" && "id" in data ? String((data as { id: string }).id) : null;
-  console.info("[mail] Convite de grupo aceito pelo Resend (id=%s) → %s", id ?? "?", to);
+  console.info("[mail] Convite de grupo (%s) aceito pelo Resend (id=%s) → %s", temConta ? "com conta" : "sem conta", id ?? "?", to);
 }
 
 export async function sendUserInviteEmail(

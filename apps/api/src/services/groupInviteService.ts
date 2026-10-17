@@ -109,6 +109,120 @@ export interface CreateInviteResult {
   inviteId: number;
   emailSendFailed?: boolean;
   message?: string;
+  /** O e-mail convidado já tem conta (define qual versão do convite foi enviada). */
+  temConta: boolean;
+}
+
+const VALIDADE_CONVITE_MS = 14 * 24 * 3600 * 1000;
+
+async function emailTemConta(email: string): Promise<boolean> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT 1 FROM users WHERE LOWER(TRIM(email)) = ? LIMIT 1",
+    [normEmail(email)]
+  );
+  return rows.length > 0;
+}
+
+/** Monta e envia o e-mail do convite (versão "já tem conta" ou "criar conta"). */
+async function enviarEmailDoConvite(inviteId: number): Promise<{ temConta: boolean; erro?: string }> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ei.email, ei.token, ei.expiresAt, g.name AS groupName, u.name AS "inviterName"
+     FROM email_invites ei
+     INNER JOIN groups g ON g.id = ei.groupId
+     LEFT JOIN users u ON u.id = ei.invitedByUserId
+     WHERE ei.id = ? LIMIT 1`,
+    [inviteId]
+  );
+  const inv = rows[0];
+  if (!inv) throw new Error("invite_not_found");
+  const email = String(inv.email);
+  const temConta = await emailTemConta(email);
+  const acceptPath = `/convite/grupo?token=${encodeURIComponent(String(inv.token))}`;
+  const actionUrl = temConta
+    ? `${config.publicWebUrl}/login?next=${encodeURIComponent(acceptPath)}`
+    : `${config.publicWebUrl}/select-plan?next=${encodeURIComponent(acceptPath)}`;
+  try {
+    await sendGroupInviteEmail(email, {
+      groupName: String(inv.groupName),
+      inviterName: inv.inviterName != null ? String(inv.inviterName) : null,
+      temConta,
+      actionUrl,
+      resetUrl: `${config.publicWebUrl}/esqueci-senha`,
+      expiresAt: new Date(String(inv.expiresAt)),
+    });
+    return { temConta };
+  } catch (err) {
+    return { temConta, erro: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/** Reenvia um convite pendente ou expirado (formato atual), renovando a validade por 14 dias. */
+export async function resendGroupInvite(input: {
+  ownerUserId: number;
+  groupId: number;
+  inviteId: number;
+  isAdmin: boolean;
+}): Promise<CreateInviteResult> {
+  await assertUserCanAccessGroup(input.ownerUserId, input.groupId, input.isAdmin);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, email, status FROM email_invites WHERE id = ? AND groupId = ? LIMIT 1",
+    [input.inviteId, input.groupId]
+  );
+  const inv = rows[0];
+  if (!inv) throw new Error("invite_not_found");
+  if (String(inv.status) === "accepted") throw new Error("invite_used");
+  // Outros convites pendentes do mesmo e-mail no grupo deixam de valer (um link ativo por pessoa)
+  await pool.query(
+    `UPDATE email_invites SET status = 'expired'
+     WHERE groupId = ? AND LOWER(TRIM(email)) = ? AND status = 'pending' AND id <> ?`,
+    [input.groupId, normEmail(String(inv.email)), input.inviteId]
+  );
+  await pool.query("UPDATE email_invites SET status = 'pending', expiresAt = ? WHERE id = ?", [
+    new Date(Date.now() + VALIDADE_CONVITE_MS),
+    input.inviteId,
+  ]);
+  const envio = await enviarEmailDoConvite(input.inviteId);
+  return envio.erro
+    ? { ok: true, inviteId: input.inviteId, temConta: envio.temConta, emailSendFailed: true,
+        message: `Convite renovado, mas o envio do e-mail falhou: ${envio.erro}` }
+    : { ok: true, inviteId: input.inviteId, temConta: envio.temConta };
+}
+
+export interface GroupInviteInfo {
+  groupName: string;
+  email: string;
+  inviterName: string | null;
+  temConta: boolean;
+  status: "pending" | "accepted" | "expired";
+  expiresAt: string;
+}
+
+/** Dados públicos do convite (quem tem o token): usados na tela do convite e no cadastro. */
+export async function getGroupInviteInfo(tokenRaw: string): Promise<GroupInviteInfo> {
+  const token = String(tokenRaw ?? "").trim();
+  if (token.length < 16) throw new Error("invalid_token");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT ei.email, ei.status, ei.expiresAt, g.name AS groupName, u.name AS "inviterName"
+     FROM email_invites ei
+     INNER JOIN groups g ON g.id = ei.groupId
+     LEFT JOIN users u ON u.id = ei.invitedByUserId
+     WHERE ei.token = ? LIMIT 1`,
+    [token]
+  );
+  const inv = rows[0];
+  if (!inv) throw new Error("invite_not_found");
+  const exp = new Date(String(inv.expiresAt));
+  const st = String(inv.status);
+  const status: GroupInviteInfo["status"] =
+    st === "accepted" ? "accepted" : st === "pending" && exp.getTime() >= Date.now() ? "pending" : "expired";
+  return {
+    groupName: String(inv.groupName),
+    email: String(inv.email),
+    inviterName: inv.inviterName != null ? String(inv.inviterName) : null,
+    temConta: await emailTemConta(String(inv.email)),
+    status,
+    expiresAt: exp.toISOString(),
+  };
 }
 
 export async function createGroupEmailInvite(input: {
@@ -144,7 +258,7 @@ export async function createGroupEmailInvite(input: {
   );
 
   const token = crypto.randomBytes(32).toString("hex");
-  const expiresAt = new Date(Date.now() + 14 * 24 * 3600 * 1000);
+  const expiresAt = new Date(Date.now() + VALIDADE_CONVITE_MS);
 
   const [insRows] = await pool.query<{ id: number }[]>(
     `INSERT INTO email_invites (groupid, email, invitedbyuserid, role, adminrole, token, status, expiresat)
@@ -154,23 +268,17 @@ export async function createGroupEmailInvite(input: {
   const insertId = Number(insRows[0]?.id);
   if (!Number.isFinite(insertId)) throw new Error("insert_failed");
 
-  const acceptPath = `/convite/grupo?token=${encodeURIComponent(token)}`;
-  const loginUrl = `${config.publicWebUrl}/login?next=${encodeURIComponent(acceptPath)}`;
-  const registerStartUrl = `${config.publicWebUrl}/select-plan?next=${encodeURIComponent(acceptPath)}`;
-
-  try {
-    await sendGroupInviteEmail(email, { groupName, loginUrl, registerStartUrl });
-  } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
+  const envio = await enviarEmailDoConvite(insertId);
+  if (envio.erro) {
     return {
       ok: true,
       inviteId: insertId,
+      temConta: envio.temConta,
       emailSendFailed: true,
-      message: `Convite registrado, mas o envio do e-mail falhou: ${detail}`,
+      message: `Convite registrado, mas o envio do e-mail falhou: ${envio.erro}`,
     };
   }
-
-  return { ok: true, inviteId: insertId };
+  return { ok: true, inviteId: insertId, temConta: envio.temConta };
 }
 
 export interface AcceptInviteResult {

@@ -1,7 +1,8 @@
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import { tokenDoConvite, useConviteGrupo } from "../lib/conviteGrupo";
 
 function safeNext(raw: string | null): string {
   if (!raw || !raw.startsWith("/") || raw.startsWith("//")) return "/";
@@ -13,6 +14,11 @@ export default function LoginPage() {
   const [searchParams] = useSearchParams();
   const afterLogin = useMemo(() => safeNext(searchParams.get("next")), [searchParams]);
   const [email, setEmail] = useState("");
+  // Login aberto pelo convite de grupo: e-mail convidado já preenchido
+  const convite = useConviteGrupo(tokenDoConvite(afterLogin));
+  useEffect(() => {
+    if (convite?.status === "pending") setEmail((atual) => atual || convite.email);
+  }, [convite]);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
@@ -84,6 +90,13 @@ export default function LoginPage() {
                 )}
               </p>
             ) : null}
+          </div>
+        ) : null}
+
+        {convite?.status === "pending" ? (
+          <div className={styles.success} role="note">
+            Convite para o grupo <strong>{convite.groupName}</strong> no proMemory. Entre com a conta de{" "}
+            <strong>{convite.email}</strong> para aceitar.
           </div>
         ) : null}
 

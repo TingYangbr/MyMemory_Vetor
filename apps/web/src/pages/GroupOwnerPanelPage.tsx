@@ -81,6 +81,7 @@ export default function GroupOwnerPanelPage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [formOk, setFormOk] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reenviandoId, setReenviandoId] = useState<number | null>(null);
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsOk, setSettingsOk] = useState<string | null>(null);
@@ -294,6 +295,32 @@ export default function GroupOwnerPanelPage() {
       .finally(() => setConsultaLoading(false));
   }, [consultaCatNome, consultaCatGroupId, consultaFiltroGroupId, consultaDataInicio, consultaDataFim, pendingCampoFiltros, consultaSortKey, consultaSortDir]);
 
+  function mensagemConvite(destino: string, res: CreateGroupInviteResponse): string {
+    if (res.emailSendFailed) return res.message ?? "Convite registrado; verifique o envio do e-mail.";
+    return res.temConta
+      ? `Convite enviado. ${destino} já tem conta do proMemory e vai receber o convite para entrar e aceitar.`
+      : `Convite enviado. ${destino} ainda não tem conta do proMemory e vai receber as instruções para criar a conta e aceitar.`;
+  }
+
+  async function reenviarConvite(inviteId: number, destino: string) {
+    if (groupId == null) return;
+    setFormError(null);
+    setFormOk(null);
+    setReenviandoId(inviteId);
+    try {
+      const res = await apiPostJson<CreateGroupInviteResponse>(`/api/groups/${groupId}/invites/${inviteId}/resend`, {});
+      setFormOk(mensagemConvite(destino, res).replace("Convite enviado.", "Convite reenviado (válido por mais 14 dias)."));
+      const data = await apiGet<GroupOwnerPanelResponse>(`/api/groups/${groupId}/owner-panel`);
+      setPanel(data);
+    } catch (err) {
+      const raw = err instanceof Error ? err.message : String(err);
+      try { setFormError((JSON.parse(raw) as { message?: string }).message ?? raw); }
+      catch { setFormError(raw || "Não foi possível reenviar o convite."); }
+    } finally {
+      setReenviandoId(null);
+    }
+  }
+
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (groupId == null) return;
@@ -305,11 +332,7 @@ export default function GroupOwnerPanelPage() {
         email: email.trim(),
         role,
       });
-      if (res.emailSendFailed) {
-        setFormOk(res.message ?? "Convite registrado; verifique o envio do e-mail.");
-      } else {
-        setFormOk("Convite enviado. O destinatário receberá um e-mail com o link para entrar no grupo.");
-      }
+      setFormOk(mensagemConvite(email.trim(), res));
       setEmail("");
       const data = await apiGet<GroupOwnerPanelResponse>(`/api/groups/${groupId}/owner-panel`);
       setPanel(data);
@@ -577,6 +600,7 @@ export default function GroupOwnerPanelPage() {
                           <th>Perfil</th>
                           <th>Status</th>
                           <th>Expira em</th>
+                          <th></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -598,6 +622,19 @@ export default function GroupOwnerPanelPage() {
                               </span>
                             </td>
                             <td>{new Date(inv.expiresAt).toLocaleString("pt-BR")}</td>
+                            <td>
+                              {inv.status !== "accepted" ? (
+                                <button
+                                  type="button"
+                                  className="mm-btn mm-btn--ghost"
+                                  disabled={reenviandoId != null}
+                                  onClick={() => void reenviarConvite(inv.id, inv.email)}
+                                  title="Reenvia o convite no formato atual e renova a validade por 14 dias"
+                                >
+                                  {reenviandoId === inv.id ? "Reenviando…" : "Reenviar"}
+                                </button>
+                              ) : null}
+                            </td>
                           </tr>
                         ))}
                       </tbody>

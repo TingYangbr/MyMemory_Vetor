@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import type {
   AcceptGroupInviteResponse,
   CreateGroupInviteResponse,
+  GroupInviteInfoResponse,
   PatchGroupOwnerSettingsResponse,
   GroupOwnerPanelResponse,
 } from "@mymemory/shared";
@@ -12,6 +13,8 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import {
   acceptGroupInviteToken,
   createGroupEmailInvite,
+  getGroupInviteInfo,
+  resendGroupInvite,
   getGroupOwnerPanelData,
   updateGroupOwnerSettings,
 } from "../services/groupInviteService.js";
@@ -127,6 +130,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         inviteId: result.inviteId,
         emailSendFailed: result.emailSendFailed,
         message: result.message,
+        temConta: result.temConta,
       };
       return reply.code(201).send(resBody);
     } catch (e) {
@@ -162,6 +166,47 @@ const plugin: FastifyPluginAsync = async (app) => {
       });
       const body: PatchGroupOwnerSettingsResponse = { ok: true, group };
       return body;
+    } catch (e) {
+      if (mapServiceError(reply, e)) return;
+      throw e;
+    }
+  });
+
+  // Reenvia (formato atual) um convite pendente ou expirado, renovando a validade
+  app.post("/api/groups/:groupId/invites/:inviteId/resend", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) {
+      return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    }
+    const isAdmin = await getUserIsAdmin(userId);
+    const params = req.params as { groupId: string; inviteId: string };
+    const gid = groupIdParam.safeParse(params.groupId);
+    const iid = groupIdParam.safeParse(params.inviteId);
+    if (!gid.success || !iid.success) {
+      return reply.code(400).send({ error: "invalid_params", message: "Convite inválido." });
+    }
+    try {
+      const result = await resendGroupInvite({ ownerUserId: userId, groupId: gid.data, inviteId: iid.data, isAdmin });
+      const resBody: CreateGroupInviteResponse = {
+        ok: true,
+        inviteId: result.inviteId,
+        emailSendFailed: result.emailSendFailed,
+        message: result.message,
+        temConta: result.temConta,
+      };
+      return resBody;
+    } catch (e) {
+      if (mapServiceError(reply, e)) return;
+      throw e;
+    }
+  });
+
+  // Dados do convite por token (sem login): a tela do convite e o cadastro mostram a ação certa
+  app.get("/api/group-invites/info", async (req, reply) => {
+    const token = String((req.query as { token?: string }).token ?? "");
+    try {
+      const info: GroupInviteInfoResponse = await getGroupInviteInfo(token);
+      return info;
     } catch (e) {
       if (mapServiceError(reply, e)) return;
       throw e;

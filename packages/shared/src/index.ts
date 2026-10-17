@@ -824,6 +824,18 @@ export interface CreateGroupInviteResponse {
   inviteId: number;
   emailSendFailed?: boolean;
   message?: string;
+  /** O e-mail convidado já tem conta: recebeu a versão "entrar e aceitar" (senão, "criar conta"). */
+  temConta?: boolean;
+}
+
+/** GET /api/group-invites/info?token= — dados do convite para a tela do convite e o cadastro. */
+export interface GroupInviteInfoResponse {
+  groupName: string;
+  email: string;
+  inviterName: string | null;
+  temConta: boolean;
+  status: "pending" | "accepted" | "expired";
+  expiresAt: string;
 }
 
 export interface AcceptGroupInviteResponse {

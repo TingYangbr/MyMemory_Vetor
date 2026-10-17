@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { IndividualPlanOption, IndividualPlansResponse } from "@mymemory/shared";
 import { apiGet, apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import { tokenDoConvite, useConviteGrupo } from "../lib/conviteGrupo";
 
 function formatBrl(n: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -25,6 +26,12 @@ export default function RegisterPage() {
     return t || undefined;
   }, [searchParams]);
   const [email, setEmail] = useState("");
+  // Cadastro aberto pelo convite de grupo: e-mail do convite já preenchido e travado
+  const convite = useConviteGrupo(tokenDoConvite(nextForApi));
+  const emailTravado = convite?.status === "pending" && !convite.temConta;
+  useEffect(() => {
+    if (emailTravado && convite) setEmail(convite.email);
+  }, [emailTravado, convite]);
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [planId, setPlanId] = useState<number | null>(null);
@@ -144,6 +151,13 @@ export default function RegisterPage() {
           <Link to={selectPlanHref}>Alterar plano</Link>
         </p>
 
+        {emailTravado && convite ? (
+          <div className={styles.success} role="note">
+            Convite para o grupo <strong>{convite.groupName}</strong> no proMemory. Crie sua conta com{" "}
+            <strong>{convite.email}</strong>: depois de confirmar o e-mail, você já entra no grupo.
+          </div>
+        ) : null}
+
         {error ? (
           <div className={styles.error} role="alert">
             <p style={{ margin: 0 }}>{error}</p>
@@ -216,6 +230,8 @@ export default function RegisterPage() {
                 autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                readOnly={emailTravado}
+                title={emailTravado ? "E-mail do convite — a conta precisa ser criada com ele" : undefined}
                 required
               />
             </div>
