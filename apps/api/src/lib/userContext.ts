@@ -41,6 +41,9 @@ export interface IntegrationAuth {
    * login normal (cookie/dev). Quando não é `null`, é a única fonte do grupo da requisição.
    */
   apiKeyGroupId: number | null;
+  /** Sistema e banco fixados pela chave (nunca vêm da requisição). Nulos no login normal. */
+  sistema: string | null;
+  banco: string | null;
 }
 
 /**
@@ -56,10 +59,10 @@ export async function resolveIntegrationAuth(req: FastifyRequest): Promise<Integ
     // Header explícito de integração: resolve só por ele, nunca cai pro cookie/fallback dev —
     // uma key inválida não deve autenticar por acidente via outro caminho.
     const key = await resolveApiKey(apiKeyHeader.trim());
-    return key ? { userId: key.userId, apiKeyGroupId: key.groupId } : null;
+    return key ? { userId: key.userId, apiKeyGroupId: key.groupId, sistema: key.sistema, banco: key.banco } : null;
   }
   const userId = await resolveUserId(req);
-  return userId === null ? null : { userId, apiKeyGroupId: null };
+  return userId === null ? null : { userId, apiKeyGroupId: null, sistema: null, banco: null };
 }
 
 /** Versão que só devolve o usuário, para rotas que não dependem do grupo (ex.: transcrição de áudio). */

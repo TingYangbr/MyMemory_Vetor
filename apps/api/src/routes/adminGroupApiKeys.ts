@@ -7,6 +7,8 @@ const createBody = z.object({
   groupId: z.number().int().positive(),
   userId: z.number().int().positive(),
   nome: z.string().min(1).max(255),
+  sistema: z.string().min(1).max(60).optional(),
+  banco: z.string().max(120).optional(),
   expiresAt: z.string().datetime().nullable().optional(),
 });
 

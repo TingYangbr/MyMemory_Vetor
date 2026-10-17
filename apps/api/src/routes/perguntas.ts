@@ -6,6 +6,7 @@ import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.j
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { perguntarMemory } from "../services/perguntaService.js";
 import { montarPerfilNaPergunta } from "../services/perfilPerguntaService.js";
+import { decidirIdentidade, lerIdExterno } from "../services/identidadeExternaService.js";
 import { getSemanticSearchThresholds } from "../services/systemConfigService.js";
 import { runWithTraces } from "../lib/invokeLlm.js";
 import type { LlmPromptTrace } from "../services/llmPromptTraceStore.js";
@@ -49,7 +50,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (auth === null) {
       return reply.code(401).send({ error: "unauthorized", message: "Faça login para continuar." });
     }
-    const userId = auth.userId;
+    let userId = auth.userId;
 
     const parsed = perguntaBodySchema.safeParse(req.body);
     if (!parsed.success) {
@@ -69,6 +70,25 @@ const plugin: FastifyPluginAsync = async (app) => {
         return reply.code(403).send({ error: "forbidden_group", message: "Esta chave não pertence a este grupo." });
       }
       groupId = auth.apiKeyGroupId;
+    }
+    // Identidade externa (fase 3): o ERP informa SÓ o id da pessoa; sistema e banco vêm da chave.
+    // Pessoa ligada no de-para → a pergunta roda como ela (perfil e escopo dela). Não ligada → recusa se
+    // o grupo exige cadastro; senão segue como o usuário da chave (comportamento anterior).
+    let identidadeReal = false;
+    if (auth.apiKeyGroupId !== null && groupId !== null) {
+      const decisao = await decidirIdentidade({
+        groupId,
+        sistema: auth.sistema ?? "softing-erp",
+        banco: auth.banco ?? "",
+        idExterno: lerIdExterno(req.headers["x-externo-id"]),
+      });
+      if (!decisao.permitido) {
+        return reply.code(403).send({ error: decisao.motivo, message: decisao.mensagem });
+      }
+      if (decisao.userId !== null) {
+        userId = decisao.userId;
+        identidadeReal = true;
+      }
     }
     const isAdmin = await getUserIsAdmin(userId);
 
@@ -100,7 +120,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const categoriasDoGrupo = new Set(structure.categories.map((c) => c.name));
     // Perfil de acesso: só existe quando o grupo ligou `perfis_ativos`; senão fica null e nada muda.
     const perfil = groupId != null
-      ? await montarPerfilNaPergunta({ userId, groupId, porChave: auth.apiKeyGroupId !== null })
+      ? await montarPerfilNaPergunta({ userId, groupId, porChave: auth.apiKeyGroupId !== null && !identidadeReal })
       : null;
     const thresholds = await getSemanticSearchThresholds();
 
@@ -199,6 +219,23 @@ const plugin: FastifyPluginAsync = async (app) => {
     sendEvent({ type: "result", data: body });
     raw.end();
     return reply;
+  });
+
+  // O ERP pergunta, antes de mostrar o gadget, se esta pessoa pode perguntar. Só por chave de
+  // integração; a decisão é a mesma da própria pergunta (ver decidirIdentidade).
+  app.get("/api/perguntas/status", async (req, reply) => {
+    const auth = await resolveIntegrationAuth(req);
+    if (auth === null) return reply.code(401).send({ error: "unauthorized" });
+    if (auth.apiKeyGroupId === null) return { podePerguntar: true };
+    const decisao = await decidirIdentidade({
+      groupId: auth.apiKeyGroupId,
+      sistema: auth.sistema ?? "softing-erp",
+      banco: auth.banco ?? "",
+      idExterno: lerIdExterno(req.headers["x-externo-id"]),
+    });
+    return decisao.permitido
+      ? { podePerguntar: true }
+      : { podePerguntar: false, motivo: decisao.motivo, message: decisao.mensagem };
   });
 
   // Transcrição de chunk de áudio via Whisper (usado pelo gravador mobile)
