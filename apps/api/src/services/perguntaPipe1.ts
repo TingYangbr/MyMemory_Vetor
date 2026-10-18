@@ -27,7 +27,7 @@ export interface Pipe1Input {
   categoryId?: number | null;
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
-  /** Perfil de acesso / escopo "Meus por padrão" (só quando o grupo ligou os perfis). */
+  /** Perfil de acesso / escopo "Só os meus" (só quando o grupo ligou os perfis). */
   restricao?: RestricaoMemos;
 }
 

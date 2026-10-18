@@ -110,7 +110,34 @@
   margin-top: 0.3rem;
 }
 
-.acoes button,
+.icone {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid var(--mm-border);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.icone:hover:not(:disabled) {
+  background: rgba(127, 127, 127, 0.15);
+}
+
+.iconePerigo:hover:not(:disabled) {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+.icone:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .identidade button {
   font-size: 0.72rem;
   padding: 0.1rem 0.4rem;

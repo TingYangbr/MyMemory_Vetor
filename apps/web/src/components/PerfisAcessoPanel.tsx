@@ -71,6 +71,37 @@ function msgErro(e: unknown): string {
   return texto;
 }
 
+const svgProps = {
+  viewBox: "0 0 16 16",
+  width: 14,
+  height: 14,
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.5,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+  "aria-hidden": true,
+} as const;
+
+const Icone = {
+  copiar: (
+    <svg {...svgProps}>
+      <rect x="5.5" y="5.5" width="8" height="8" rx="1.5" />
+      <path d="M3 10.5V4.5A1.5 1.5 0 0 1 4.5 3h6" />
+    </svg>
+  ),
+  check: (
+    <svg {...svgProps}>
+      <path d="M3 8.5l3.2 3.2L13 4.8" />
+    </svg>
+  ),
+  lixeira: (
+    <svg {...svgProps}>
+      <path d="M2.5 4.5h11M6.5 4.5V3h3v1.5M4 4.5l.6 8.5h6.8l.6-8.5M6.8 7v4M9.2 7v4" />
+    </svg>
+  ),
+};
+
 function rascunhoDe(p: PerfilAcesso): Rascunho {
   return { todas: p.todas, incluiSemCategoria: p.incluiSemCategoria, categoriaIds: [...p.categoriaIds] };
 }
@@ -175,8 +206,9 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
     }, "Perfis salvos.");
   }
 
-  async function salvarComoNovo(p: PerfilAcesso) {
-    const nome = window.prompt("Nome do novo perfil (com a lista de categorias que está marcada nesta coluna):");
+  /** Cria um perfil novo com a lista marcada na coluna (inclusive o que ainda não foi salvo). */
+  async function duplicar(p: PerfilAcesso) {
+    const nome = window.prompt(`Nome do novo perfil (cópia da lista marcada em "${p.nome}"):`, `${p.nome} (cópia)`);
     if (!nome?.trim()) return;
     const r = rascunhos[p.id];
     await executar(
@@ -195,12 +227,6 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
     const nome = window.prompt("Nome do novo perfil:");
     if (!nome?.trim()) return;
     await executar(() => apiPostJson(base, { nome: nome.trim(), categoriaIds: [] }), `Perfil "${nome.trim()}" criado.`);
-  }
-
-  async function duplicar(p: PerfilAcesso) {
-    const nome = window.prompt(`Nome da cópia de "${p.nome}":`, `${p.nome} (cópia)`);
-    if (!nome?.trim()) return;
-    await executar(() => apiPostJson(`${base}/${p.id}/duplicar`, { nome: nome.trim() }), `Perfil "${nome.trim()}" criado.`);
   }
 
   async function excluir(p: PerfilAcesso) {
@@ -277,6 +303,9 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
             <thead>
               <tr>
                 <th className={styles.colCategoria}>Categoria</th>
+                <th className={styles.colMeus} title="Em categorias marcadas, a pergunta é sobre os memos da própria pessoa, a menos que ela peça &quot;de todos&quot;. Padrão de escopo, não barreira.">
+                  Só os meus
+                </th>
                 {perfis.map((p) => (
                   <th key={p.id} className={styles.colPerfil}>
                     <div className={styles.nomePerfil}>
@@ -285,31 +314,47 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                     </div>
                     <div className={styles.pessoas}>{p.pessoas} pessoa(s)</div>
                     <div className={styles.acoes}>
-                      <button type="button" disabled={ocupado} onClick={() => void salvarComoNovo(p)} title="Cria um perfil novo com a lista marcada nesta coluna">
-                        Salvar como novo
-                      </button>
-                      <button type="button" disabled={ocupado} onClick={() => void duplicar(p)}>
-                        Duplicar
+                      <button
+                        type="button"
+                        className={styles.icone}
+                        disabled={ocupado}
+                        onClick={() => void duplicar(p)}
+                        title="Duplicar: cria um perfil novo com a lista marcada nesta coluna"
+                        aria-label={`Duplicar o perfil ${p.nome}`}
+                      >
+                        {Icone.copiar}
                       </button>
                       {!p.padrao ? (
                         <>
-                          <button type="button" disabled={ocupado} onClick={() => void tornarPadrao(p)}>
-                            Tornar padrão
+                          <button
+                            type="button"
+                            className={styles.icone}
+                            disabled={ocupado}
+                            onClick={() => void tornarPadrao(p)}
+                            title="Tornar este o perfil padrão do grupo"
+                            aria-label={`Tornar ${p.nome} o perfil padrão`}
+                          >
+                            {Icone.check}
                           </button>
-                          <button type="button" disabled={ocupado} onClick={() => void excluir(p)}>
-                            Excluir
+                          <button
+                            type="button"
+                            className={`${styles.icone} ${styles.iconePerigo}`}
+                            disabled={ocupado}
+                            onClick={() => void excluir(p)}
+                            title="Excluir perfil"
+                            aria-label={`Excluir o perfil ${p.nome}`}
+                          >
+                            {Icone.lixeira}
                           </button>
                         </>
                       ) : null}
                     </div>
                   </th>
                 ))}
-                <th className={styles.colMeus} title="Em categorias marcadas, a pergunta é sobre os memos da própria pessoa, a menos que ela peça &quot;de todos&quot;. Padrão de escopo, não barreira.">
-                  Meus por padrão
-                </th>
               </tr>
               <tr className={styles.linhaTodas}>
                 <td>Todas as categorias</td>
+                <td />
                 {perfis.map((p) => (
                   <td key={p.id}>
                     <input
@@ -320,7 +365,6 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                     />
                   </td>
                 ))}
-                <td />
               </tr>
             </thead>
             <tbody>
@@ -332,6 +376,16 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                     <span className={styles.etiqueta}>Texto</span>
                     {c.temSqlErp ? <span className={styles.etiqueta}>SQL ERP</span> : null}
                     {c.temSqlMemos ? <span className={styles.etiqueta}>SQL memos</span> : null}
+                  </td>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={c.meusPorPadrao}
+                      disabled={ocupado || (c.temSqlErp && !c.temSqlMemos)}
+                      onChange={(e) =>
+                        void executar(() => apiPatchJson(`${base}/categorias/${c.id}`, { meusPorPadrao: e.target.checked }))
+                      }
+                    />
                   </td>
                   {perfis.map((p) => {
                     const r = rascunhos[p.id];
@@ -346,16 +400,6 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                       </td>
                     );
                   })}
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={c.meusPorPadrao}
-                      disabled={ocupado || (c.temSqlErp && !c.temSqlMemos)}
-                      onChange={(e) =>
-                        void executar(() => apiPatchJson(`${base}/categorias/${c.id}`, { meusPorPadrao: e.target.checked }))
-                      }
-                    />
-                  </td>
                 </tr>
               ))}
               <tr>
@@ -363,6 +407,7 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                   <strong>(Sem categoria)</strong>
                   <span className={styles.etiqueta}>Texto</span>
                 </td>
+                <td />
                 {perfis.map((p) => {
                   const r = rascunhos[p.id];
                   return (
@@ -376,7 +421,6 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                     </td>
                   );
                 })}
-                <td />
               </tr>
             </tbody>
           </table>

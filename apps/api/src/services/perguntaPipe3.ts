@@ -29,9 +29,9 @@ export interface Pipe3Input {
   escopoMemoIds?: number[];
   /** ID da primeira categoria classificada, para lookup de override de prompt. */
   categoryId?: number | null;
-  /** Perfil de acesso / escopo "Meus por padrão" para a parte semântica. */
+  /** Perfil de acesso / escopo "Só os meus" para a parte semântica. */
   restricao?: Pipe1Input["restricao"];
-  /** Autor para o parâmetro :autor das queries sobre memos (escopo "Meus por padrão"). */
+  /** Autor para o parâmetro :autor das queries sobre memos (escopo "Só os meus"). */
   escopoAutorId?: number | null;
 }
 

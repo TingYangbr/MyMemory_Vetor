@@ -13,7 +13,7 @@ import type { MigrationInterface, QueryRunner } from "typeorm";
  *                                   é o padrão do grupo (índice único parcial).
  *  - perfil_acesso_categorias     : categorias do perfil (por id, então renomear a categoria não quebra).
  *  - group_members.perfilid       : perfil do membro; NULL = usa o perfil padrão do grupo.
- *  - categories.meus_por_padrao   : marca "Meus por padrão" (padrão de escopo, não barreira).
+ *  - categories.meus_por_padrao   : marca "Só os meus" (padrão de escopo, não barreira).
  *  - identidades_externas         : de-para (sistema + banco do cliente + id externo) → usuário do myMemory.
  *  - perguntas_recusadas          : registro das recusas por perfil (qual categoria falta em qual perfil).
  */

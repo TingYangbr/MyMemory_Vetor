@@ -166,7 +166,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { ok: true };
   });
 
-  // Marca "Meus por padrão" da categoria.
+  // Marca "Só os meus" da categoria.
   app.patch(`${base}/categorias/:categoryId`, async (req, reply) => {
     const ctx = await entrar(req, reply);
     if (!ctx) return;
