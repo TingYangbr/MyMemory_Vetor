@@ -20,7 +20,7 @@ import type { RestricaoMemos } from "../lib/openaiEmbedding.js";
 import {
   aplicarCorte,
   deQuem,
-  MENSAGEM_RECUSA,
+  mensagemRecusa,
   registrarRecusa,
   type PerfilNaPergunta,
 } from "./perfilPerguntaService.js";
@@ -340,7 +340,7 @@ export async function perguntarMemory(input: {
       });
       return {
         resposta: {
-          resposta: MENSAGEM_RECUSA,
+          resposta: mensagemRecusa(corte.foraDoPerfil),
           tipo_resposta: classificacao.pipe,
           dados_usados: [],
           limitacoes: ["Categoria fora do perfil de acesso."],

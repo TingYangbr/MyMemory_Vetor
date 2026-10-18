@@ -128,10 +128,12 @@ export async function registrarRecusa(input: {
 }
 
 /**
- * Mensagem de recusa: curta e sem detalhe — não cita categoria nem perfil. Quem administra vê a categoria
- * recusada no registro (`perguntas_recusadas`), não na tela de quem perguntou.
+ * Mensagem de recusa: curta, com só o NOME da(s) categoria(s) envolvida(s) no fim — nunca conteúdo nem
+ * o nome do perfil. A categoria também fica no registro `perguntas_recusadas`.
  */
-export const MENSAGEM_RECUSA = "Resposta bloqueada com dados restritos";
+export function mensagemRecusa(categorias: string[]): string {
+  return `Resposta bloqueada com dados restritos: ${categorias.join(", ")}`;
+}
 
 /** Tudo que `perguntarMemory` precisa saber sobre o perfil, já resolvido pela rota. */
 export interface PerfilNaPergunta {
