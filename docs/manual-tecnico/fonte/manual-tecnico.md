@@ -2,7 +2,7 @@
 Rota: Painel administrativo → aba Perfis (admin do sistema) · Painel do dono do grupo → aba Perfis
 
 ## Propósito
-O perfil de acesso controla o que cada pessoa pode perguntar no Perguntar (dentro do myMemory ou no gadget embutido de um ERP). Um perfil é uma lista de categorias com um nome, definida por grupo, por exemplo Financeiro, Fiscal ou Geral. A pessoa só obtém respostas sobre as categorias do perfil dela. Pergunta sobre uma categoria que não está no perfil recebe "Resposta não aberta para o seu perfil".
+O perfil de acesso controla o que cada pessoa pode perguntar no Perguntar (dentro do myMemory ou no gadget embutido de um ERP). Um perfil é uma lista de categorias com um nome, definida por grupo, por exemplo Financeiro, Fiscal ou Geral. A pessoa só obtém respostas sobre as categorias do perfil dela. Pergunta sobre uma categoria que não está no perfil recebe "Resposta bloqueada com dados restritos".
 
 O perfil controla só o Perguntar. O Localizar e a navegação pelo site continuam abertos ao grupo todo, como sempre foram.
 
@@ -214,7 +214,7 @@ Com a chave "Aplicar os perfis" ligada, cada pergunta passa por um corte feito n
 ## Passo a passo da decisão
 1. A pergunta é classificada pela IA, que recebe todas as categorias do grupo e devolve sobre quais categorias ela é.
 2. O servidor compara as categorias classificadas com a lista do perfil da pessoa.
-3. Se alguma categoria classificada estiver fora da lista, a recusa é total: nada mais é executado e a resposta é "Resposta não aberta para o seu perfil", citando o nome da categoria (nunca o conteúdo). A recusa fica registrada para análise.
+3. Se alguma categoria classificada estiver fora da lista, a recusa é total: nada mais é executado e a resposta é a mensagem curta "Resposta bloqueada com dados restritos", sem citar categoria nem conteúdo. A recusa fica registrada no banco (categoria, perfil, pessoa e pergunta) para análise; ainda não há tela para consultar esse registro.
 4. Se a IA não identificar categoria, a pergunta segue pela busca nos textos, restrita às categorias do perfil.
 5. Se tudo estiver liberado, a pergunta segue: consultas SQL das categorias classificadas, busca nos textos dos memos das categorias do perfil, ou as duas juntas.
 6. Nas categorias com "Pessoal", a resposta traz só os memos da pessoa, a menos que ela peça "de todos".
@@ -225,13 +225,13 @@ Com a chave "Aplicar os perfis" ligada, cada pergunta passa por um corte feito n
 - Uma categoria libera os dois modos: texto e SQL. Não dá para liberar só o texto de uma categoria que tenha consultas SQL.
 - Memos sem categoria, ou cuja categoria não existe mais, só entram para quem tem "(Sem categoria)" ou "Todas as categorias". Renomear uma categoria não atualiza os memos antigos: eles passam a valer como "sem categoria" até serem reclassificados.
 - Ao cadastrar a primeira consulta SQL de uma categoria, a tela avisa quais perfis passam a ter também o modo estruturado.
-- Uma classificação errada pode causar recusa indevida. A mensagem orienta a reformular a pergunta, e o administrador pode ver qual categoria falta em qual perfil.
+- Uma classificação errada pode causar recusa indevida. A mensagem não diz qual categoria foi entendida: quem perguntou deve reformular com termos mais específicos, e o administrador pode consultar no banco, na tabela de recusas, qual categoria faltou em qual perfil.
 
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Resposta não aberta para o seu perfil | A pergunta é sobre uma categoria que não está no perfil da pessoa. Inclua a categoria no perfil dela (aba Perfis), dê a ela outro perfil, ou peça que reformule a pergunta se a IA entendeu o assunto errado. |
-| A pergunta foi recusada, mas a pessoa acha que a categoria é permitida | A IA classificou a pergunta em outra categoria. Veja a categoria citada na mensagem, reformule a pergunta com termos mais específicos ou ajuste o perfil. |
+| Resposta bloqueada com dados restritos | A pergunta é sobre uma categoria que não está no perfil da pessoa. Inclua a categoria no perfil dela (aba Perfis), dê a ela outro perfil, ou peça que reformule a pergunta se a IA entendeu o assunto errado. |
+| A pergunta foi recusada, mas a pessoa acha que a categoria é permitida | A IA classificou a pergunta em outra categoria. A mensagem não cita a categoria: reformule a pergunta com termos mais específicos ou peça ao administrador para conferir o perfil e o registro de recusas. |
 | Memos antigos sumiram depois de renomear uma categoria | Os memos guardam o nome antigo, que agora não existe e vale como "sem categoria". Marque "(Sem categoria)" no perfil ou reclassifique os memos. |
 
 # SEÇÃO 10 — Chave de integração do ERP
