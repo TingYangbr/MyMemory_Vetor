@@ -34,12 +34,12 @@ A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são a
 |---|---|
 | Grupo | Só no painel administrativo: escolhe qual grupo configurar. No painel do dono, o grupo é sempre o dele. |
 | Aplicação dos perfis | Duas caixas de seleção do grupo: "Aplicar os perfis nas perguntas deste grupo" e "Exigir cadastro no de-para para perguntar pelo ERP" (Seção 8). |
-| Avisos | Alertas de configuração: categoria que nenhum perfil inclui, perfil sem ninguém e categoria marcada "Só os meus" com queries escritas à mão. |
+| Avisos | Alertas de configuração: categoria que nenhum perfil inclui, perfil sem ninguém e categoria marcada "Pessoal" com queries escritas à mão. |
 | Coluna de perfil | Uma por perfil, com o nome, o selo "padrão" no perfil padrão e o número de pessoas que o usam. Abaixo ficam três ícones, cada um com uma dica ao passar o mouse: duplicar (copia o perfil), ✓ tornar padrão e lixeira (excluir). O perfil padrão só tem o ícone de duplicar. |
 | Linha "Todas as categorias" | Marca o perfil como sem restrição: vale para todas as categorias, inclusive as criadas depois. As outras marcas da coluna ficam desabilitadas. |
 | Linha de cada categoria | Mostra o nome e etiquetas do que a categoria oferece: "global" (categoria sem grupo), "Texto" (busca no texto dos memos), "SQL ERP" (consultas ao banco do ERP) e "SQL memos" (consultas sobre os memos). |
 | Linha "(Sem categoria)" | Memos sem categoria, ou cuja categoria foi apagada ou renomeada. Só entram no Perguntar para quem tem esta marca ou "Todas as categorias". |
-| Coluna "Só os meus" | Fica logo depois do nome da categoria. Marca de escopo da categoria (Seção 5). |
+| Coluna "Pessoal" | Fica logo depois do nome da categoria. Marca de escopo da categoria (Seção 5). |
 | Salvar alterações / Descartar | As marcas da matriz só são gravadas ao clicar em Salvar alterações. Descartar volta ao que está salvo. |
 | O que cada perfil alcança | Resumo em texto de cada perfil, por exemplo "Faturamento: texto e SQL do ERP". |
 | Pessoas | Lista de membros com o perfil de cada um e a ligação com o ERP (Seção 7). |
@@ -94,11 +94,11 @@ Cada grupo tem um e só um perfil padrão. Todo membro, novo ou antigo, que não
 | Mudei o padrão e muita gente perdeu o acesso | O padrão novo tem menos categorias que o anterior. Volte a marcar as categorias no padrão ou eleja o perfil anterior como padrão de novo. |
 | Um membro novo não consegue perguntar sobre nada | Ele usa o perfil padrão, e o padrão do grupo está sem categorias. Marque as categorias necessárias no padrão. |
 
-# SEÇÃO 5 — Marca "Só os meus"
-Rota: Painel administrativo → Perfis → coluna "Só os meus" · Painel do dono do grupo → Perfis
+# SEÇÃO 5 — Marca "Pessoal"
+Rota: Painel administrativo → Perfis → coluna "Pessoal" · Painel do dono do grupo → Perfis
 
 ## Propósito
-Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "quais são minhas reuniões em março?" não deve trazer as de todo o grupo. A marca "Só os meus" faz a categoria responder, por padrão, só com os memos da própria pessoa que perguntou.
+Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "quais são minhas reuniões em março?" não deve trazer as de todo o grupo. A marca "Pessoal" faz a categoria responder, por padrão, só com os memos da própria pessoa que perguntou.
 
 ## Como funciona
 - É um padrão de escopo, não uma barreira de acesso. Quem tem a categoria no perfil pode pedir "de todos" ou "do grupo" na pergunta e ver os memos de todos. O acesso continua sendo decidido só pela lista do perfil.
@@ -112,7 +112,7 @@ Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "qua
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| A caixa "Só os meus" está desabilitada | A categoria só tem SQL do ERP e não tem memos para filtrar por autor. A marca não teria efeito. |
+| A caixa "Pessoal" está desabilitada | A categoria só tem SQL do ERP e não tem memos para filtrar por autor. A marca não teria efeito. |
 | Categoria global não deixa marcar | Categoria global só pode ser alterada por um administrador do sistema. |
 | A pessoa pediu as próprias agendas e veio vazio | A Agenda não está no perfil dela, ou ela não tem memos nessa categoria. Confira o perfil na seção Pessoas. |
 
@@ -217,7 +217,7 @@ Com a chave "Aplicar os perfis" ligada, cada pergunta passa por um corte feito n
 3. Se alguma categoria classificada estiver fora da lista, a recusa é total: nada mais é executado e a resposta é "Resposta não aberta para o seu perfil", citando o nome da categoria (nunca o conteúdo). A recusa fica registrada para análise.
 4. Se a IA não identificar categoria, a pergunta segue pela busca nos textos, restrita às categorias do perfil.
 5. Se tudo estiver liberado, a pergunta segue: consultas SQL das categorias classificadas, busca nos textos dos memos das categorias do perfil, ou as duas juntas.
-6. Nas categorias com "Só os meus", a resposta traz só os memos da pessoa, a menos que ela peça "de todos".
+6. Nas categorias com "Pessoal", a resposta traz só os memos da pessoa, a menos que ela peça "de todos".
 
 ## Pontos importantes
 - O botão "Ampliar busca" passa pelo mesmo corte.

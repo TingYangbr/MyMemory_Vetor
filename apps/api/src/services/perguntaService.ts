@@ -351,7 +351,7 @@ export async function perguntarMemory(input: {
       };
     }
 
-    // Escopo "Só os meus": nas categorias marcadas, memos do próprio autor, a menos que peça "de todos".
+    // Escopo "Pessoal": nas categorias marcadas, memos do próprio autor, a menos que peça "de todos".
     const classificadas = new Set(classificacao.categorias.map(normCat));
     const meusClassificadas = perfil.categoriasMeus.filter((n) => classificadas.has(normCat(n)));
     if (perfil.autorEscopoId != null && meusClassificadas.length && deQuem(input.pergunta) === "eu") {

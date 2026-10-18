@@ -50,7 +50,7 @@ export interface Pipe2Input {
   queriesDisponiveis: QueryDisponivel[];
   /** ID da primeira categoria classificada, para lookup de override de prompt. */
   categoryId?: number | null;
-  /** Autor do escopo "Só os meus" (vira o parâmetro :autor das queries sobre memos). */
+  /** Autor do escopo "Pessoal" (vira o parâmetro :autor das queries sobre memos). */
   escopoAutorId?: number | null;
 }
 
@@ -460,7 +460,7 @@ export function bindTemplateParams(
   const paramMap: Record<string, unknown> = {
     userid: systemParams.userid,
     groupid: systemParams.groupid,
-    // Escopo "Só os meus": queries escritas à mão podem usar (:autor IS NULL OR m.userid = :autor).
+    // Escopo "Pessoal": queries escritas à mão podem usar (:autor IS NULL OR m.userid = :autor).
     // Nulo = sem escopo; query que não declara :autor não é afetada.
     autor: systemParams.autor ?? null,
   };

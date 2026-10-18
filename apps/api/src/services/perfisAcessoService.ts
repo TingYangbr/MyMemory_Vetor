@@ -109,7 +109,7 @@ export async function listCategoriasDoGrupo(groupId: number): Promise<CategoriaD
   }));
 }
 
-/** Marca/desmarca "Só os meus". Categoria global só muda por admin do sistema (quem chama decide). */
+/** Marca/desmarca "Pessoal". Categoria global só muda por admin do sistema (quem chama decide). */
 export async function setMeusPorPadrao(
   groupId: number,
   categoryId: number,
@@ -471,7 +471,7 @@ export async function carregarMatriz(groupId: number): Promise<MatrizPerfis> {
   const cegas = categorias.filter((x) => x.meusPorPadrao && x.temSqlMemos);
   if (cegas.length) {
     avisos.push(
-      `"Só os meus" em ${cegas.map((x) => `"${x.nome}"`).join(", ")}: queries escritas à mão sem o parâmetro de autor não aplicam o escopo.`
+      `"Pessoal" em ${cegas.map((x) => `"${x.nome}"`).join(", ")}: queries escritas à mão sem o parâmetro de autor não aplicam o escopo.`
     );
   }
 

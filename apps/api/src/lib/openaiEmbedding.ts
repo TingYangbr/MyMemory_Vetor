@@ -109,7 +109,7 @@ export interface RestricaoMemos {
    * renomeada) conta como "sem categoria", para não sumir da busca.
    */
   categoriasConhecidas?: string[];
-  /** Marca "Só os meus": nestas categorias só entram memos do próprio autor. */
+  /** Marca "Pessoal": nestas categorias só entram memos do próprio autor. */
   escopoAutor?: { categorias: string[]; userId: number };
 }
 

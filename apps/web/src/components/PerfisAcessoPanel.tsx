@@ -304,7 +304,7 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
               <tr>
                 <th className={styles.colCategoria}>Categoria</th>
                 <th className={styles.colMeus} title="Em categorias marcadas, a pergunta é sobre os memos da própria pessoa, a menos que ela peça &quot;de todos&quot;. Padrão de escopo, não barreira.">
-                  Só os meus
+                  Pessoal
                 </th>
                 {perfis.map((p) => (
                   <th key={p.id} className={styles.colPerfil}>

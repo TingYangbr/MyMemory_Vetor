@@ -1,7 +1,7 @@
 # Manual técnico — Integração e perfis de acesso
 
 Manual para quem administra o myMemory (administrador do sistema e dono do grupo): como configurar perfis de acesso,
-a marca "Só os meus", o limite de membros, a ligação dos usuários do ERP (de-para), as chaves do grupo e a chave
+a marca "Pessoal", o limite de membros, a ligação dos usuários do ERP (de-para), as chaves do grupo e a chave
 de integração. Cobre 10 seções e 59 trechos (versão 1).
 
 Não é o manual do usuário. O manual do usuário do ERP (por exemplo `Softing-erp/Docs/manual-operacional`) vai para a

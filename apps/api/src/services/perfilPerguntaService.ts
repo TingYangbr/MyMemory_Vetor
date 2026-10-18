@@ -143,10 +143,10 @@ export interface PerfilNaPergunta {
   groupId: number;
   /** Quem perguntou (para o registro das recusas). */
   userId: number;
-  /** Nomes das categorias marcadas "Só os meus". */
+  /** Nomes das categorias marcadas "Pessoal". */
   categoriasMeus: string[];
   /**
-   * Autor do escopo "Só os meus". Nulo quando a requisição não identifica uma pessoa de verdade
+   * Autor do escopo "Pessoal". Nulo quando a requisição não identifica uma pessoa de verdade
    * (chave de integração sem o id do usuário do ERP, até a fase 3): "eu" seria o usuário de serviço
    * e a pergunta voltaria vazia.
    */
