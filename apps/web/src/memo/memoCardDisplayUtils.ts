@@ -1,3 +1,4 @@
+import { formatarDataBr } from "@mymemory/shared";
 import type { MemoRecentCard } from "@mymemory/shared";
 
 export function memoCardHasAttachment(m: {
@@ -85,7 +86,8 @@ export function parseMemoDadosEspecificosEntries(
       if (!key) continue;
       const val =
         v == null ? "" : typeof v === "string" ? v.trim() : typeof v === "number" || typeof v === "boolean" ? String(v) : "";
-      out.push({ key, value: val });
+      // datas guardadas em AAAA-MM-DD aparecem como dd/mm/aaaa
+      out.push({ key, value: formatarDataBr(val) });
     }
     return out.length ? out : null;
   } catch {

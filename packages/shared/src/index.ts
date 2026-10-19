@@ -1473,6 +1473,7 @@ export interface BatchProcessResponse {
 export * from "./queryPadrao.js";
 export * from "./lembretes.js";
 export * from "./perguntaPlano.js";
+export * from "./dataCampo.js";
 /** Resposta imediata do Processar: o lote roda em segundo plano (evita timeout de 120 s do proxy). */
 export interface BatchProcessStartResponse {
   jobId: string;

@@ -1,5 +1,5 @@
 import type { TextMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
-import { normalizeMemoKeywordKey } from "@mymemory/shared";
+import { normalizeMemoKeywordKey, normalizarDataParaIso } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { fetchAndExtractPlainTextFromUrl } from "../lib/urlFetchText.js";
@@ -17,11 +17,18 @@ import {
 
 const LLM_INPUT_MAX = 48_000;
 
+/** Regra repetida nos prompts de extração (o código também converte depois, mas o prompt reduz a variação). */
+const REGRA_CAMPO_DATA = "- Campos de data: grave SEMPRE no formato AAAA-MM-DD (ex.: 2026-06-30), nunca DD/MM/AAAA nem por extenso.";
+
+function temCampoData(campos: { tipo?: string }[]): boolean {
+  return campos.some((c) => c.tipo === "date");
+}
+
 type CatCtx = {
   id: number;
   name: string;
   subcategories: { name: string }[];
-  campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[];
+  campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string }[];
 };
 
 export async function loadCategoryContext(
@@ -66,7 +73,7 @@ export async function loadCategoryContext(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name, description, normalizedTerms, resolucaoNomeAbrev FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name, description, normalizedTerms, resolucaoNomeAbrev, tipo FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
@@ -78,7 +85,7 @@ export async function loadCategoryContext(
     campoRows = rows;
   }
   const subs = new Map<number, { name: string }[]>();
-  const camps = new Map<number, { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean }[]>();
+  const camps = new Map<number, { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string }[]>();
   for (const id of ids) {
     subs.set(id, []);
     camps.set(id, []);
@@ -97,6 +104,7 @@ export async function loadCategoryContext(
         description: r.description ? String(r.description) : null,
         normalizedTerms: parseNormalizedTerms(r.normalizedTerms),
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
+        tipo: r.tipo ? String(r.tipo) : undefined,
       });
   }
   return dedupedCatRows.map((r) => ({
@@ -147,13 +155,14 @@ export function formatCategoriesBlock(cats: CatCtx[]): string {
 
 /** Guia "campo: descrição [padrões]" para os prompts de 2.º passo de imagem e vídeo. */
 export function formatCamposGuide(campos: CatCtx["campos"]): string {
-  return campos
+  const guia = campos
     .map((c) => {
       const desc = c.description ? `: ${c.description}` : "";
       const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
       return `- "${c.name}"${desc}${terms}`;
     })
     .join("\n");
+  return guia && temCampoData(campos) ? `${guia}\n${REGRA_CAMPO_DATA}` : guia;
 }
 
 /** Bloco de instruções para o modo IA básico (prompt utilizador). */
@@ -402,7 +411,9 @@ export function normalizeCamposForCategory(
     if (!key) continue;
     const originalVal = byLower.get(key.toLowerCase()) ?? "";
     originals[key] = originalVal;
-    normalized[key] = chooseBestNormalizedTerm(originalVal, c.normalizedTerms);
+    const padronizado = chooseBestNormalizedTerm(originalVal, c.normalizedTerms);
+    // Campo de data: a IA devolve ora 27/11/2025, ora 2025-11-27 — grava sempre AAAA-MM-DD (o original fica em `originals`).
+    normalized[key] = c.tipo === "date" ? (normalizarDataParaIso(padronizado) ?? padronizado) : padronizado;
   }
   return { normalized, originals };
 }
@@ -631,7 +642,7 @@ Regras: ${summaryRule}`;
           const desc = c.description ? `: ${c.description}` : "";
           const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
           return `- "${c.name}"${desc}${terms}`;
-        }).join("\n")
+        }).join("\n") + (temCampoData(cat.campos) ? `\n${REGRA_CAMPO_DATA}` : "")
       : allowFreeSpecificFieldsWithoutCategoryMatch
         ? "(catálogo vazio — extraia campos livres chave→valor)"
         : "(nenhum — use {})";
