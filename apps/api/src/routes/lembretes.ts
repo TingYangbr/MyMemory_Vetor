@@ -61,6 +61,22 @@ async function autorizarCategoria(userId: number, categoryId: number, reply: Fas
 const plugin: FastifyPluginAsync = async (app) => {
   const idParam = z.coerce.number().int().positive();
 
+  // Quais categorias do grupo têm lembrete ligado — o 🔔 da Estrutura do contexto mostra o estado
+  app.get("/api/memo-context/lembretes/resumo", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const gid = idParam.safeParse((req.query as { groupId?: string }).groupId);
+    if (!gid.success) return reply.code(400).send({ error: "invalid_group" });
+    if (!(await userHasMemoContextAccess(userId))) return reply.code(403).send({ error: "memo_context_forbidden" });
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT DISTINCT r.categoryid AS "categoryId"
+       FROM lembrete_regras r JOIN categories c ON c.id = r.categoryid
+       WHERE c.groupid = ? AND r.ativo = 1`,
+      [gid.data]
+    );
+    return { categoriasAtivas: (rows as { categoryId: number }[]).map((r) => Number(r.categoryId)) };
+  });
+
   app.get("/api/memo-context/categories/:categoryId/lembretes", async (req, reply) => {
     const userId = await resolveUserId(req);
     if (!userId) return reply.code(401).send({ error: "unauthorized" });

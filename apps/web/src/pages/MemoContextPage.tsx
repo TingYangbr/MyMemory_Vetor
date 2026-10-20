@@ -94,6 +94,18 @@ export default function MemoContextPage() {
   const [scopeGroupId, setScopeGroupId] = useState<number | null>(ownerGroupIdLocked);
   /** Categoria com o modal de lembretes aberto */
   const [lembretesCatId, setLembretesCatId] = useState<number | null>(null);
+  // Categorias do grupo com lembrete ligado (estado do 🔔)
+  const [lembretesAtivos, setLembretesAtivos] = useState<Set<number>>(new Set());
+  const carregarLembretesAtivos = useCallback(async () => {
+    if (scopeGroupId == null) { setLembretesAtivos(new Set()); return; }
+    try {
+      const r = await apiGet<{ categoriasAtivas: number[] }>(`/api/memo-context/lembretes/resumo?groupId=${scopeGroupId}`);
+      setLembretesAtivos(new Set(r.categoriasAtivas));
+    } catch {
+      setLembretesAtivos(new Set());
+    }
+  }, [scopeGroupId]);
+  useEffect(() => { void carregarLembretesAtivos(); }, [carregarLembretesAtivos]);
   const [mediaFilter, setMediaFilter] = useState<MemoContextMediaType | "">("");
   const [categories, setCategories] = useState<MemoContextCategory[]>([]);
   const [canEditStructure, setCanEditStructure] = useState(false);
@@ -807,17 +819,32 @@ export default function MemoContextPage() {
                       >
                         ✎
                       </button>
-                      {scopeGroupId != null ? (
-                        <button
-                          type="button"
-                          className={styles.iconBtn}
-                          title="Lembretes: e-mail antes da data de cada memo desta categoria"
-                          aria-label="Lembretes da categoria"
-                          onClick={() => setLembretesCatId(cat.id)}
-                        >
-                          🔔
-                        </button>
-                      ) : null}
+                      {scopeGroupId != null ? (() => {
+                        // Lembrete precisa de categoria do grupo e de um campo de data
+                        const global = cat.groupId == null;
+                        const temData = cat.campos.some((c) => c.isActive === 1 && c.tipo === "date");
+                        const ligado = lembretesAtivos.has(cat.id);
+                        const indisponivel = global || !temData;
+                        const titulo = global
+                          ? "Lembretes indisponíveis: só em categorias do grupo (esta é global)"
+                          : !temData
+                            ? "Lembretes indisponíveis: crie um campo do tipo data nesta categoria"
+                            : ligado
+                              ? "Lembretes ligados — clique para ver ou alterar"
+                              : "Lembretes desligados — clique para configurar";
+                        return (
+                          <button
+                            type="button"
+                            className={`${styles.iconBtn} ${ligado && !indisponivel ? "" : styles.iconBtnApagado}`}
+                            title={titulo}
+                            aria-label={titulo}
+                            disabled={indisponivel}
+                            onClick={() => setLembretesCatId(cat.id)}
+                          >
+                            {ligado && !indisponivel ? "🔔" : "🔕"}
+                          </button>
+                        );
+                      })() : null}
                       <button
                         type="button"
                         className={`${styles.iconBtn} ${styles.iconBtnDanger}`}
@@ -1469,7 +1496,7 @@ export default function MemoContextPage() {
                 categoryId={cat.id}
                 categoryName={cat.name}
                 campos={cat.campos}
-                onClose={() => setLembretesCatId(null)}
+                onClose={() => { setLembretesCatId(null); void carregarLembretesAtivos(); }}
               />
             ) : null;
           })()

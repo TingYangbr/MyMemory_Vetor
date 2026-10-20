@@ -634,6 +634,17 @@
   opacity: 1;
 }
 
+/* 🔕: lembrete desligado (esmaecido) ou indisponível (desabilitado) */
+.iconBtnApagado {
+  opacity: 0.45;
+  filter: grayscale(1);
+}
+
+.iconBtnApagado:disabled {
+  cursor: not-allowed;
+  opacity: 0.25;
+}
+
 .iconBtnDanger:hover {
   background: var(--mm-danger-bg);
   color: var(--mm-danger);

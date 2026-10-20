@@ -212,7 +212,12 @@ Rota: /estrutura-memo (botão 🔔 na categoria)
 ## Propósito
 Envia e-mail antes da data/hora de cada memo de uma categoria (Agenda, vencimentos, renovações). O memo pode sobrepor o padrão da categoria (ex.: "me lembre 30 min antes", "avisar o João", "não precisa lembrar").
 ## Acesso
-Na Estrutura do contexto, clicar no 🔔 da categoria. Disponível para admin e owner do grupo.
+Na Estrutura do contexto, clicar no ícone de lembrete da categoria. Disponível para admin e owner do grupo.
+| Ícone | Significado |
+|---|---|
+| 🔔 | Lembretes ligados nesta categoria. Clique para ver ou alterar. |
+| 🔕 esmaecido | Lembretes desligados. Clique para configurar. |
+| 🔕 desabilitado | Indisponível: a categoria é global (lembretes só em categorias do grupo) ou não tem nenhum campo do tipo data. Passe o mouse para ver o motivo. |
 ## Campos da configuração
 | Campo / Elemento | Descrição |
 |---|---|
@@ -224,13 +229,30 @@ Na Estrutura do contexto, clicar no 🔔 da categoria. Disponível para admin e 
 | Antecedência padrão * | Uma ou mais: 15 min, 30 min, 1 hora, 2 horas, 1 dia, 2 dias… |
 | Destinatário padrão | Quem registrou o memo, todos do grupo, owner do grupo ou e-mail fixo (vários separados por vírgula). |
 | Lembrar também memos da importação em lote | Inclui memos criados pelo lote. |
-| Campos que sobrepõem o padrão (avançado) | Campos do memo para "Lembrar antes", "Destinatário" e "Lembrete" (sim/não). |
+| Campos que sobrepõem o padrão (avançado) | Seção recolhida "Campos do memo que sobrepõem o padrão": indica quais campos da categoria o sistema lê para "Lembrar antes", "Destinatário" e "Lembrete" (sim/não). |
 | Texto da mensagem | Modelo do e-mail com variáveis. Padrão: "Lembrete: {categoria} em {data} às {hora}". Aceita nomes de campos, ex.: {Com quem}, {Aonde}. |
 | Próximos lembretes (até 60 dias) | Prévia dos envios: memo, compromisso, antecedência, envio, para e situação. |
 | Salvar / Excluir / Fechar | Grava, remove a configuração ou fecha sem salvar. |
+## Antecedência por memo (campo "Lembrar antes")
+Cada memo pode ter a própria antecedência, no lugar da antecedência padrão da categoria.
+1. Na categoria (ex.: Agenda), criar o campo "Lembrar antes", do tipo texto, com uma descrição como "Antecedência do lembrete, ex.: 30 min, 2 horas, 1 dia; 2 dias; 1 hora".
+2. No ícone de lembrete da categoria, abrir "Campos do memo que sobrepõem o padrão" e escolher o campo no seletor "Lembrar antes". Em regras novas o campo é sugerido sozinho.
+3. Salvar. A partir daí a IA preenche o campo ao catalogar (ex.: "me avise 2 dias antes"), e o campo pode ser editado no memo.
+| Texto no campo | Lembretes enviados |
+|---|---|
+| 30 min antes / meia hora | 1, 30 min antes |
+| 1h30 / 1 hora e meia / 1,5 hora | 1, 1h30 antes |
+| 2 dias e 1 hora | 1, 49 horas antes (as partes ligadas por "e" somam) |
+| 2 dias; 1 hora | 2: um 2 dias antes e outro 1 hora antes |
+| 2 dias, 1 hora | 2 (vírgula seguida de espaço também separa) |
+| uma semana, 1 dia, 2 horas | 3 |
+| vazio ou não entendido | vale a antecedência padrão da categoria |
+NOTA: A antecedência do memo substitui a da categoria (não soma). Vírgula sem espaço ("1,5") é decimal; para separar lembretes use ";" ou ", ".
+DICA: O campo não precisa entrar na Query padrão para os lembretes funcionarem: o envio lê o campo direto do memo.
 ## Funcionamento
 - Um agendador no servidor verifica os memos a cada 5 minutos e envia os lembretes cujo horário chegou.
-- Cada lembrete é enviado uma única vez por memo e antecedência.
+- Cada antecedência gera um lembrete, enviado uma única vez (ex.: 1 dia e 30 min marcados = 2 e-mails por compromisso).
+- Lembrete cujo horário de envio já tinha passado quando o memo (ou a regra) foi criado não é enviado.
 - Memos sem data válida são ignorados.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
