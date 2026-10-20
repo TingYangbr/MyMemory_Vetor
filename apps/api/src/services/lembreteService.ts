@@ -60,6 +60,20 @@ export function parseAntecedenciaMin(valor: string | null | undefined): number |
   return achou && total > 0 ? Math.round(total) : null;
 }
 
+/**
+ * Várias antecedências no mesmo campo, separadas por ";" ou por vírgula seguida de espaço:
+ * "2 dias; 1 hora" ou "2 dias, 1 hora" → [2880, 60] (um lembrete para cada). Dentro de cada parte
+ * os valores somam ("2 dias e 1 hora" = 49 h) e "1,5 hora" (vírgula sem espaço) continua decimal.
+ */
+export function parseAntecedenciasMin(valor: string | null | undefined): number[] {
+  if (!valor) return [];
+  const lista = valor
+    .split(/;|,\s+/)
+    .map((parte) => parseAntecedenciaMin(parte))
+    .filter((n): n is number => n != null);
+  return [...new Set(lista)].sort((a, b) => b - a).slice(0, 10);
+}
+
 /** "14:30", "14h", "9h30", "14.30" → { hh, mm } (null se não houver horário válido). */
 export function parseHorario(valor: string | null | undefined): { hh: number; mm: number } | null {
   if (!valor) return null;
@@ -339,8 +353,9 @@ async function calcular(ctx: Contexto, agora: Date): Promise<{ itens: Calculado[
       ignorarMotivo = "Memo da importação em lote (regra: não lembrar importados).";
     }
 
-    const antMemo = parseAntecedenciaMin(campoTexto(dados, regra.campoAntecedencia));
-    const antecedencias = antMemo ? [antMemo] : regra.antecedenciasMin;
+    // Antecedência(s) do próprio memo substituem as da categoria
+    const antMemo = parseAntecedenciasMin(campoTexto(dados, regra.campoAntecedencia));
+    const antecedencias = antMemo.length ? antMemo : regra.antecedenciasMin;
     const dest = resolverDestinatarios(ctx, r.userId as number, campoTexto(dados, regra.campoDestinatario));
     // Lembrete cuja hora de envio já tinha passado quando o memo (ou a regra) foi criado não é enviado
     const limiar = Math.max(new Date(r.createdAt as Date).getTime(), regraCriada);
