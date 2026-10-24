@@ -225,6 +225,23 @@ html[data-theme="dark"] .header {
   font-size: 0.7rem;
 }
 
+.creditosExcedidos {
+  margin-left: 0.6rem;
+  padding: 0.1rem 0.5rem;
+  border: 1px solid var(--mm-danger-border);
+  border-radius: 999px;
+  background: var(--mm-danger-bg);
+  color: var(--mm-danger);
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.creditosExcedidos:hover {
+  text-decoration: underline;
+}
+
 .verifyHint {
   font-size: 0.78rem;
   font-weight: 500;

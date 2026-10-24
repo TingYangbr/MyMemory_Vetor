@@ -55,8 +55,9 @@ function UsageMetricRow(input: {
     metric.limit != null && metric.limit > 0 ? `${Math.round(pct)}%` : metric.used > 0 ? "—" : "0%";
   const usedStr = fmtLimit(metric.used, valueDecimals);
   const limStr = fmtLimit(metric.limit, limitDecimals);
+  const excedido = metric.limit != null && metric.limit > 0 && metric.used > metric.limit;
   return (
-    <div className={styles.usageRow}>
+    <div className={`${styles.usageRow} ${excedido ? styles.usageRowExcedido : ""}`}>
       <div className={styles.usageRowTop}>
         <span className={styles.usageRowLeft}>
           <span className={styles.usageIcon} aria-hidden>
@@ -70,8 +71,11 @@ function UsageMetricRow(input: {
         </span>
       </div>
       <div className={styles.usageBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-        <div className={styles.usageBarFill} style={{ width: `${pct}%` }} />
+        <div className={styles.usageBarFill} style={{ width: `${Math.min(pct, 100)}%` }} />
       </div>
+      {excedido ? (
+        <p className={styles.usageExcedidoMsg}>Limite do plano excedido. Por enquanto o uso continua liberado.</p>
+      ) : null}
     </div>
   );
 }

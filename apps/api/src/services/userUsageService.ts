@@ -80,6 +80,14 @@ export async function getCreditosUsadosNoMes(userId: number, agora = new Date())
   return usd * (await getUsdToCreditsMultiplier());
 }
 
+/** Situação dos créditos de IA do mês (só aviso: o limite ainda não bloqueia o uso). */
+export async function getCreditosStatus(userId: number): Promise<{ usados: number; limite: number | null; excedido: boolean }> {
+  const plan = await resolveUserPlanLimits(userId);
+  const limite = plan?.monthlyApiCredits ?? null;
+  const usados = round(await getCreditosUsadosNoMes(userId), 2);
+  return { usados, limite, excedido: limite != null && limite > 0 && usados > limite };
+}
+
 /**
  * Painel de utilização: limites do plano (individual ou grupo do qual o usuario é dono) e consumo do usuario.
  */

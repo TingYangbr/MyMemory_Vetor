@@ -19,7 +19,7 @@ import {
 } from "../services/memoContextService.js";
 import { getUserMediaLimits } from "../services/mediaLimitsService.js";
 import { getUsdToCreditsMultiplier, showApiCostInUi, showLlmTraceInUi } from "../services/systemConfigService.js";
-import { getUserUsageDashboard } from "../services/userUsageService.js";
+import { getCreditosStatus, getUserUsageDashboard } from "../services/userUsageService.js";
 
 const patchWorkspaceBody = z.object({
   groupId: z.union([z.null(), z.number().int().positive()]),
@@ -210,6 +210,18 @@ async function buildMeResponseFallback(log: FastifyInstance["log"], userId: numb
 }
 
 const plugin: FastifyPluginAsync = async (app) => {
+  // Situação dos créditos de IA do mês — o cabeçalho avisa quando o limite do plano é excedido
+  app.get("/api/me/creditos", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized" });
+    try {
+      return await getCreditosStatus(userId);
+    } catch (err) {
+      req.log.warn(err, "[me/creditos] falha");
+      return { usados: 0, limite: null, excedido: false };
+    }
+  });
+
   app.get("/api/me", async (req, reply) => {
     const userId = await resolveUserId(req);
     if (userId === null) {

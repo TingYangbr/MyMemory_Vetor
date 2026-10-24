@@ -45,6 +45,16 @@ export default function Header({
   const { pathname } = useLocation();
   const showInicioLink = pathname !== "/";
   const [me, setMe] = useState<MeResponse | null>(null);
+  // Aviso de créditos de IA do mês acima do limite do plano (por enquanto não bloqueia)
+  const [creditos, setCreditos] = useState<{ usados: number; limite: number | null; excedido: boolean } | null>(null);
+  useEffect(() => {
+    if (!me) { setCreditos(null); return; }
+    let cancelado = false;
+    apiGetOptional<{ usados: number; limite: number | null; excedido: boolean }>("/api/me/creditos")
+      .then((r) => { if (!cancelado) setCreditos(r.ok ? r.data : null); })
+      .catch(() => {});
+    return () => { cancelado = true; };
+  }, [me]);
   const [ownerPanelGroupId, setOwnerPanelGroupId] = useState<number | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -160,6 +170,15 @@ export default function Header({
             ) : me ? (
               <>
                 {me.email ?? me.name ?? `Usuário #${me.id}`}
+                {creditos?.excedido ? (
+                  <Link
+                    to="/conta/preferencias?tab=uso"
+                    className={styles.creditosExcedidos}
+                    title={`Créditos de IA do mês: ${creditos.usados.toLocaleString("pt-BR")} de ${creditos.limite?.toLocaleString("pt-BR")} do plano. Por enquanto o uso continua liberado.`}
+                  >
+                    ⚠ Créditos de IA excedidos
+                  </Link>
+                ) : null}
                 {me.emailVerified === false ? (
                   <span className={styles.verifyHint} title="Confirme o e-mail para usar todos os recursos">
                     {" "}

@@ -474,3 +474,19 @@
 }
 .modelosStarBtn:hover { color: var(--mm-warning); transform: scale(1.15); }
 .modelosStarBtnOn { color: var(--mm-warning); }
+
+/* Métrica acima do limite do plano (só aviso) */
+.usageRowExcedido .usageMeta {
+  color: var(--mm-danger);
+  font-weight: 600;
+}
+
+.usageRowExcedido .usageBarFill {
+  background: var(--mm-danger);
+}
+
+.usageExcedidoMsg {
+  margin: 0.3rem 0 0;
+  font-size: 0.8rem;
+  color: var(--mm-danger);
+}
