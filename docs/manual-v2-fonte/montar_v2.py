@@ -74,6 +74,7 @@ for num, titulo, ls in secoes:
         ls = trocar(ls, "| URL Externa | Disponível em breve. |", "| URL Externa (em breve) | Disponível em breve. |")
         ls = inserir_antes(ls, "## Fluxo de importação",
                            ["NOTA: A Importação em Lote também é aberta pelo tile \"📂 Guarda própria\" do Catalogar (Seção 5)."])
+        ls = inserir_antes(ls, "## Erros frequentes", bloco("SEC16_AUTO"))
     if num == 16:
         ls = trocar(ls, "| Padrões | Regex ou padrões para identificar o campo no texto. |",
                     "| Padrões | Termos normalizados: valores aceitos separados por vírgula, usados para padronizar o que a IA extrai. Deixar vazio em datas e horas. |")
@@ -86,6 +87,7 @@ for num, titulo, ls in secoes:
         ls = trocar(ls, "| Conexão BD | A conexão SQL Server usada para executar a query. |",
                     "| Conexão BD externa | Vazia = PostgreSQL interno. Preenchida = SQL Server da conexão escolhida. |")
         ls = inserir_antes(ls, "## Permissões de edição", bloco("SEC17ADD"))
+        ls = inserir_antes(ls, "## Permissões de edição", bloco("SEC17_PESSOAL"))
         i = ls.index("| Query falhou no teste | SQL com erro de sintaxe ou conexão BD indisponível. |")
         ls[i + 1:i + 1] = [
             "| ✎ e 🗑 não aparecem | Tela em modo \"Só visualização\": selecionar no escopo o grupo do qual é owner (ou o escopo admin para categorias globais). |",

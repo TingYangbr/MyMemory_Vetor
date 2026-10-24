@@ -69,6 +69,7 @@ import { PerfisAcessoDePara1700000000154 } from "./migrations/1700000000154-Perf
 import { ChaveSistemaBanco1700000000155 } from "./migrations/1700000000155-ChaveSistemaBanco.js";
 import { CustoLoteDuplicado1700000000156 } from "./migrations/1700000000156-CustoLoteDuplicado.js";
 import { CampoDonoCategoria1700000000157 } from "./migrations/1700000000157-CampoDonoCategoria.js";
+import { AutomacaoImportacao1700000000158 } from "./migrations/1700000000158-AutomacaoImportacao.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -86,6 +87,7 @@ import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
 import adminGroupApiKeysRoutes from "./routes/adminGroupApiKeys.js";
 import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
 import donoMemoRoutes from "./routes/donoMemo.js";
+import automacaoImportacaoRoutes from "./routes/automacaoImportacao.js";
 import groupDbConnectionsRoutes from "./routes/groupDbConnections.js";
 import perfisAcessoRoutes from "./routes/perfisAcesso.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
@@ -100,6 +102,7 @@ import avisosRoutes from "./routes/avisos.js";
 import lembretesRoutes from "./routes/lembretes.js";
 import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
 import { iniciarLembreteScheduler } from "./services/lembreteScheduler.js";
+import { iniciarAutomacaoScheduler } from "./services/automacaoScheduler.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
 import batchImportRoutes from "./routes/batchImport.js";
@@ -174,6 +177,7 @@ assertMediaStorageEnv();
       ChaveSistemaBanco1700000000155,
       CustoLoteDuplicado1700000000156,
       CampoDonoCategoria1700000000157,
+      AutomacaoImportacao1700000000158,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -246,6 +250,7 @@ await app.register(adminDbConnectionsRoutes);
 await app.register(adminGroupApiKeysRoutes);
 await app.register(adminConhecimentoRoutes);
 await app.register(donoMemoRoutes);
+await app.register(automacaoImportacaoRoutes);
 await app.register(groupDbConnectionsRoutes);
 await app.register(perfisAcessoRoutes);
 await app.register(adminUserInvitesRoutes);
@@ -268,6 +273,7 @@ if (process.env.NODE_ENV !== "production") {
 
 iniciarAvisoScheduler();
 iniciarLembreteScheduler();
+iniciarAutomacaoScheduler();
 
 try {
   await app.listen({ port: config.port, host: "0.0.0.0" });

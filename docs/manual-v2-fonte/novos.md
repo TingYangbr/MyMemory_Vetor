@@ -22,6 +22,8 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Ícones ✎ e 🗑 visíveis no tema escuro | Seção 17 |
 | Média (AVG) no SQL Server sem truncar para inteiro | Seção 17 |
 | Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo | Seção 27 |
+| Importação automática de pasta (⏱ Automatizar) e lista "Memos sem dono identificado" | Seção 16 |
+| Categoria Pessoal e campo dono configurados na própria categoria | Seção 17 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
@@ -379,4 +381,49 @@ Importa conhecimento já dividido em trechos — por exemplo o próprio Manual M
 | Trecho N sem "id" ou "texto" | Cada linha precisa ter os campos id e texto. |
 | Categoria não disponível para este grupo | A categoria é de outro grupo. Usar uma categoria do grupo ou global. |
 | Perguntas não usam os trechos importados | Conferir se a pergunta foi feita no mesmo grupo da importação e se a busca semântica está ativa (OPENAI_API_KEY configurada). |
+@@FIM
+
+@@SEC16_AUTO
+## Automatizar (importação automática)
+O botão "⏱ Automatizar" (ao lado de Verificar e Processar, em espaço de grupo) faz o servidor verificar a pasta periodicamente e importar sozinho os arquivos novos com situação Pronto. Suspeitos e já cadastrados ficam de fora. Disponível para Disco Local, Rede Local e WebDAV; owner e editor do grupo podem criar.
+1. Informe a pasta e o nível de IA na tela e clique em "⏱ Automatizar".
+2. A janela verifica a pasta na hora. Se não der, mostra o motivo em vermelho (ex.: pasta não encontrada, fora da whitelist, WebDAV fora do ar) e o botão "Verificar de novo". Só salva com a pasta acessível.
+3. Escolha o intervalo, o nível de IA, o máximo de arquivos por execução e as opções, e clique em Salvar.
+| Campo / Elemento | Descrição |
+|---|---|
+| Verificar a cada | 15 minutos, 30 minutos, 1 hora, 6 horas ou 1 dia. |
+| Nível de IA | Sem IA, Básico ou Completo. Só o Completo gera os vetores da busca semântica do Perguntar. |
+| Máximo por execução | Limite de arquivos importados por vez (1 a 500). O que passar fica para a próxima. |
+| Copiar o arquivo para o armazenamento | Marcado: copia o arquivo como o Catalogar (S3/local ou WebDAV padrão do grupo). Desmarcado: só referencia o arquivo na pasta (Guarda própria). |
+| Enviar resumo por e-mail | Resumo para quem criou a automação quando importar algo ou der erro. |
+| Ativa | Desmarcada = pausada. |
+## Lista de importações automáticas
+Abaixo do formulário aparecem as automações do espaço com pasta, intervalo, nível de IA, situação (Ativa, Pausada ou Executando), última execução com o resultado e a próxima execução. Ações: Executar agora, Pausar/Reativar, Editar, Histórico (últimas execuções com os erros por arquivo) e Excluir (os memos já importados continuam).
+## Como a automação roda
+- Um robô no servidor confere a cada 5 minutos quais automações chegaram na hora; cada uma roda no seu intervalo.
+- Arquivo que ainda está sendo copiado para a pasta (tamanho mudando) fica para a próxima execução.
+- Se o servidor reiniciar no meio, a próxima execução continua: o que já foi importado aparece como "Já cadastrado".
+- Os memos são de quem criou a automação, exceto em categoria Pessoal (campo dono).
+- Pausa sozinha após 3 falhas seguidas de acesso à pasta, ou se quem criou deixar de ser owner/editor do grupo, e avisa por e-mail.
+- Créditos de IA do mês acima do limite do plano aparecem no resumo; por enquanto a importação continua.
+## Enviar arquivos para a pasta automaticamente
+A automação importa o que chega na pasta; quem coloca os arquivos lá é um aplicativo ou equipamento, fora do MyMemory. Use como destino o servidor WebDAV (URL, usuário e senha) e a mesma pasta da automação.
+| Origem | Como configurar |
+|---|---|
+| Celular Android | App FolderSync (ou o app do Nextcloud, opção "Envio automático"): crie uma conta WebDAV, escolha a pasta do celular (Câmera, Downloads, Documentos do WhatsApp…) e a pasta de destino no WebDAV, com sincronização "só enviar" e agendamento ou envio imediato. |
+| iPhone | App PhotoSync ou Documents (Readdle): adicione o servidor WebDAV e ative o envio automático de fotos/arquivos para a pasta. O app Atalhos também permite automações como "ao salvar um arquivo, enviar para o WebDAV". |
+| Scanner ou multifuncional | Configure o destino "digitalizar para pasta de rede/WebDAV" apontando para a pasta da automação. |
+| E-mail | Use um serviço de automação (Make, Zapier ou n8n) com a regra "e-mail recebido → salvar anexos (ou o texto como .txt) na pasta WebDAV". Um filtro no Gmail/Outlook encaminhando só o que interessa completa o fluxo. |
+DICA: Prefira formatos que a importação lê bem (PDF, imagens, documentos do Office, .txt). Áudio e vídeo ainda não são transcritos na importação em lote.
+NOTA: A URL do WebDAV precisa estar liberada no servidor (BATCH_ALLOWED_WEBDAV_URLS); se a janela do Automatizar mostrar "fora da whitelist", peça ao administrador.
+## Memos sem dono identificado
+Em categoria Pessoal, a importação (manual ou automática) grava o memo para o membro do grupo cujo e-mail (exato) ou nome (único no grupo) está no campo dono da categoria. Não identificado, o memo fica com quem importou e entra na lista "Memos sem dono identificado", com o valor encontrado e o motivo. Escolha o membro em "Atribuir a" e clique em Atribuir.
+@@FIM
+
+@@SEC17_PESSOAL
+## Categoria Pessoal e campo dono
+Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa". Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
+- Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo "Dono" ou "Proprietario" se não existir).
+- Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
+- A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 @@FIM

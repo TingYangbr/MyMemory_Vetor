@@ -14,6 +14,7 @@ import { apiGet, apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
 import { BatchFilePreviewModal } from "../components/BatchFilePreviewModal";
 import { MemosSemDono } from "../components/MemosSemDono";
+import { AutomacoesImportacao } from "../components/AutomacoesImportacao";
 import styles from "./BatchImportPage.module.css";
 
 interface StorageConfigOption {
@@ -63,6 +64,8 @@ export default function BatchImportPage() {
   const [provider, setProvider] = useState<StorageProvider>("LOCAL");
   const [folderPath, setFolderPath] = useState("");
   const [iaLevel, setIaLevel] = useState<IaLevel>("semIA");
+  // Janela "Automatizar" aberta com a pasta e o nível de IA atuais
+  const [automatizar, setAutomatizar] = useState<{ pasta: string; iaLevel: IaLevel } | null>(null);
   const [webdavConfigs, setWebdavConfigs] = useState<StorageConfigOption[]>([]);
   const [selectedWebdavId, setSelectedWebdavId] = useState<number | null>(null);
 
@@ -408,6 +411,17 @@ export default function BatchImportPage() {
               >
                 {processLoading ? (processProgress ? `Processando ${processProgress.done}/${processProgress.total}…` : "Processando…") : `Processar${readyFiles.length > 0 ? ` (${readyFiles.length})` : ""}`}
               </button>
+              {isLocal && workspaceGroupId != null ? (
+                <button
+                  type="button"
+                  className={styles.btnVerify}
+                  onClick={() => setAutomatizar({ pasta: folderPath.trim(), iaLevel })}
+                  disabled={busy || !folderPath.trim()}
+                  title="Verificar esta pasta periodicamente e importar sozinho os arquivos novos com situação Pronto"
+                >
+                  ⏱ Automatizar
+                </button>
+              ) : null}
             </div>
           </div>
 
@@ -538,6 +552,10 @@ export default function BatchImportPage() {
             )}
           </div>
         )}
+
+        {workspaceGroupId != null ? (
+          <AutomacoesImportacao groupId={workspaceGroupId} novo={automatizar} onFecharNovo={() => setAutomatizar(null)} />
+        ) : null}
 
         {workspaceGroupId != null ? <MemosSemDono groupId={workspaceGroupId} atualizar={processResult ? 1 : 0} /> : null}
 

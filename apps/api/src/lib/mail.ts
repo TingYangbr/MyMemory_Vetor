@@ -247,3 +247,31 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
 }
+
+/** Resumo de uma execução da importação automática, ou aviso de que ela foi pausada. */
+export async function sendAutomacaoImportacaoEmail(opts: {
+  to: string;
+  pasta: string;
+  grupo: string;
+  titulo: string;
+  linhas: string[];
+  link: string;
+}): Promise<void> {
+  const html = `
+    <p>Olá,</p>
+    <p><strong>${escapeHtml(opts.titulo)}</strong></p>
+    <p>Pasta: <code>${escapeHtml(opts.pasta)}</code><br>Grupo: ${escapeHtml(opts.grupo)}</p>
+    <ul>${opts.linhas.map((l) => `<li>${escapeHtml(l)}</li>`).join("")}</ul>
+    <p><a href="${opts.link}">Abrir a Importação em Lote</a></p>
+  `;
+  const text = `${opts.titulo}\n\nPasta: ${opts.pasta}\nGrupo: ${opts.grupo}\n\n${opts.linhas.map((l) => `- ${l}`).join("\n")}\n\n${opts.link}`;
+  const client = getResend();
+  const { error } = await client.emails.send({
+    from: config.emailFrom,
+    to: [opts.to],
+    subject: `${opts.titulo} — MyMemory`,
+    html,
+    text,
+  });
+  if (error) throw new Error(`Resend: ${formatResendError(error)}`);
+}

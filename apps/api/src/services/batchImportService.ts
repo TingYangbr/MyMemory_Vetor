@@ -64,7 +64,7 @@ function getAllowedLocalPaths(): string[] {
 }
 
 /** Lança Error se o caminho não estiver na whitelist. */
-function assertPathAllowed(filePath: string): void {
+export function assertPathAllowed(filePath: string): void {
   const allowed = getAllowedLocalPaths();
   if (!allowed.length) {
     throw new Error(
