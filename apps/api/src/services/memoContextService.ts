@@ -684,10 +684,10 @@ export async function updateCampo(
   userId: number,
   campoId: number,
   patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
-): Promise<void> {
+): Promise<{ renomeado?: { de: string; para: string; memos: number; queries: number } }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.groupId, cc.categoryId FROM categorycampos cc
+    `SELECT c.groupId, cc.categoryId, cc.name AS "nomeAtual" FROM categorycampos cc
      INNER JOIN categories c ON c.id = cc.categoryId
      WHERE cc.id = ? LIMIT 1`,
     [campoId]
@@ -724,13 +724,88 @@ export async function updateCampo(
     sets.push("isactive = ?");
     vals.push(patch.isActive);
   }
-  if (sets.length === 0) return;
+  if (sets.length === 0) return {};
   vals.push(campoId);
   await pool.query(`UPDATE categorycampos SET ${sets.join(", ")} WHERE id = ?`, vals);
+  const de = String(row.nomeAtual ?? "").trim();
+  const para = patch.name?.trim() ?? "";
+  const renomeado = para && de && para !== de ? await renomearCampoNosDados(campoCategoryId, de, para) : null;
   // Nome, tipo, padrões e ativo/inativo mudam o SQL ou os parâmetros gerados (descrição não)
   if (patch.name !== undefined || patch.tipo !== undefined || patch.normalizedTerms !== undefined || patch.isActive !== undefined) {
     await sincronizarQueryPadrao(campoCategoryId);
   }
+  return renomeado ? { renomeado: { de, para, ...renomeado } } : {};
+}
+
+const normChave = (s: string) => s.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase().trim();
+
+/**
+ * Campo renomeado: leva o novo nome aos memos já gravados (chave no dadosespecificosjson e label em
+ * dadosespecificos), ao campo dono da categoria e às queries de memos (parâmetros e o nome entre
+ * aspas simples no SQL escrito à mão). Sem isso os memos antigos somem das buscas pelo campo.
+ */
+async function renomearCampoNosDados(
+  categoryId: number,
+  de: string,
+  para: string
+): Promise<{ memos: number; queries: number }> {
+  const [cRows] = await pool.query<RowDataPacket[]>(
+    `SELECT name, groupid AS "groupId" FROM categories WHERE id = ? LIMIT 1`,
+    [categoryId]
+  );
+  const cat = cRows[0];
+  const alvo = normChave(de);
+  // Memos ligados à categoria por dadosespecificos; nas categorias de grupo também pelo nome
+  const porNome = cat?.groupId != null;
+  const [mRows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, dadosespecificosjson FROM memos
+     WHERE dadosespecificosjson IS NOT NULL
+       AND (id IN (SELECT id_memo FROM dadosespecificos WHERE id_categoria = ?)
+            ${porNome ? "OR (category = ? AND groupid = ?)" : ""})`,
+    porNome ? [categoryId, String(cat.name), Number(cat.groupId)] : [categoryId]
+  );
+  let memos = 0;
+  for (const m of mRows) {
+    let dados: Record<string, unknown>;
+    try {
+      dados = JSON.parse(String(m.dadosEspecificosJson));
+    } catch {
+      continue;
+    }
+    if (!dados || typeof dados !== "object" || Array.isArray(dados)) continue;
+    const chave = Object.keys(dados).find((k) => normChave(k) === alvo);
+    if (chave === undefined || chave === para) continue;
+    // Recria o objeto para manter a ordem das chaves
+    const novo: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(dados)) novo[k === chave ? para : k] = v;
+    await pool.query(`UPDATE memos SET dadosespecificosjson = ? WHERE id = ?`, [JSON.stringify(novo), m.id]);
+    memos++;
+  }
+  await pool.query(`UPDATE dadosespecificos SET label = ? WHERE id_categoria = ? AND label = ?`, [para, categoryId, de]);
+  await pool.query(`UPDATE categories SET campo_dono = ? WHERE id = ? AND campo_dono = ?`, [para, categoryId, de]);
+
+  // Queries de memos (sem conexão ERP): parâmetros e literais '<nome>' no SQL
+  let queries = 0;
+  const [qRows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, sentencasql, sqlgerado FROM queries_categoria WHERE categoryid = ? AND conexaoid IS NULL AND isactive = 1`,
+    [categoryId]
+  );
+  const literal = (s: string) => `'${s.replace(/'/g, "''")}'`;
+  for (const q of qRows) {
+    const sql = String(q.sentencaSql ?? "");
+    const automatica = q.sqlGerado != null && sql.trim() === String(q.sqlGerado).trim();
+    const [p] = await pool.query<{ id: number }[]>(
+      `UPDATE queries_categoria_params SET campo = ? WHERE queryid = ? AND campo = ? RETURNING id`,
+      [para, q.id, de]
+    );
+    // A automática é regerada por sincronizarQueryPadrao; só a escrita à mão precisa da troca no texto
+    const novoSql = automatica ? sql : sql.split(literal(de)).join(literal(para));
+    if (novoSql !== sql) {
+      await pool.query(`UPDATE queries_categoria SET sentencasql = ? WHERE id = ?`, [novoSql, q.id]);
+    }
+    if (novoSql !== sql || p.length) queries++;
+  }
+  return { memos, queries };
 }
 
 export async function softDeleteCategory(userId: number, categoryId: number): Promise<void> {

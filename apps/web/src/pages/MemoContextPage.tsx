@@ -554,13 +554,22 @@ export default function MemoContextPage() {
           resolucaoNomeAbrev: modalResolucaoNomeAbrev,
         });
       } else if (modal === "campoEdit" && modalCampoId != null) {
-        await apiPatchJson(`/api/memo-context/campos/${modalCampoId}`, {
-          name,
-          description: modalDesc.trim() || null,
-          tipo: modalCampoTipo,
-          normalizedTerms: modalNormalizedTerms.trim() || null,
-          resolucaoNomeAbrev: modalResolucaoNomeAbrev,
-        });
+        const r = await apiPatchJson<{ renomeado?: { de: string; para: string; memos: number; queries: number } }>(
+          `/api/memo-context/campos/${modalCampoId}`,
+          {
+            name,
+            description: modalDesc.trim() || null,
+            tipo: modalCampoTipo,
+            normalizedTerms: modalNormalizedTerms.trim() || null,
+            resolucaoNomeAbrev: modalResolucaoNomeAbrev,
+          }
+        );
+        if (r?.renomeado) {
+          const x = r.renomeado;
+          window.alert(
+            `Campo "${x.de}" renomeado para "${x.para}". Atualizados: ${x.memos} memo(s) já gravado(s) e ${x.queries} query(s) da categoria.`
+          );
+        }
       } else if (modal === "query" && modalCategoryId != null) {
         const { id: newQueryId, perfisAfetados } = await apiPostJson<{ id: number; perfisAfetados?: string[] }>(
           `/api/memo-context/categories/${modalCategoryId}/queries`,

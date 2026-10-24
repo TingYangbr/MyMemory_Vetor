@@ -322,8 +322,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     const parsed = patchCampoBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
     try {
-      await updateCampo(userId, campoId.data, parsed.data);
-      return { ok: true };
+      const r = await updateCampo(userId, campoId.data, parsed.data);
+      return { ok: true, ...r };
     } catch (e) {
       return mapErr(reply, e);
     }

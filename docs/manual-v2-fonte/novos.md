@@ -24,6 +24,9 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo | Seção 27 |
 | Importação automática de pasta (⏱ Automatizar) e lista "Memos sem dono identificado" | Seção 16 |
 | Categoria Pessoal e campo dono configurados na própria categoria | Seção 17 |
+| Campo dono aplicado também no Catalogar e na edição; pergunta que cita um membro ("agenda do Suporte") mostra os memos dele | Seção 17 |
+| Renomear um campo atualiza os memos já gravados e as queries da categoria | Seção 17 |
+| Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo | Seção 17 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
@@ -184,6 +187,13 @@ NOTA: Em queries editadas à mão, use mymemory_parse_date(...) e mymemory_parse
 ## Descrição do campo
 A descrição de cada campo é enviada à IA na extração dos memos e no planejamento das consultas. Ela é o principal meio de evitar que um termo da pergunta seja ligado ao campo errado (ex.: "cliente Genea" indo para Vendedor). Descreva o significado e, se útil, valores possíveis (ex.: "Situação do título: EM ABERTO ou LIQUIDADO").
 - "Padrões" (termos normalizados) são valores aceitos separados por vírgula, usados para normalizar o que a IA extrai. Deixe vazio em campos de data e hora.
+- A IA copia nomes, endereços e números como estão no texto (não "corrige" uma rua por outra), grava tempos sempre com unidade ("2 horas") e não mistura duração do evento com antecedência do aviso.
+- "Eu", "me", "meu" no texto referem-se ao autor do memo (quem está catalogando): campos de pessoa que se refiram a ele recebem o nome ou e-mail do autor.
+- Quando dois campos podem ser confundidos, diga na descrição de cada um quem é quem. Exemplo na Agenda — Dono Agenda: "Pessoa dona da agenda, que vai cumprir o compromisso. Em 'agendar para X' ou 'agenda do X', X é o dono. Em primeira pessoa ou sem indicação, use o autor do memo." Com quem: "Outras pessoas ou empresas que participam do compromisso, a contraparte do dono (ex.: 'reunião com Maria', 'reunião com a Petrobras'). Nunca a pessoa depois de 'agendar para'."
+## Renomear um campo
+Ao trocar o nome de um campo (✎), o sistema leva o novo nome a tudo o que já existe na categoria: os memos já gravados, o campo dono da categoria, os parâmetros das queries e o nome entre aspas simples (ex.: 'Proprietario') no SQL das queries de memos escritas à mão. Ao final, uma mensagem informa quantos memos e queries foram atualizados.
+- Prefira nomes que não se confundam com outras categorias (ex.: "Dono Agenda" em vez de "Proprietario", que também aparece em imóveis e veículos).
+- Queries de ERP (SQL Server) não são alteradas: os nomes ali são colunas do banco do ERP.
 ## Parâmetros das queries
 | Convenção | Uso |
 |---|---|
@@ -423,7 +433,19 @@ Em categoria Pessoal, a importação (manual ou automática) grava o memo para o
 @@SEC17_PESSOAL
 ## Categoria Pessoal e campo dono
 Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa". Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
-- Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo "Dono" ou "Proprietario" se não existir).
+- Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo como "Dono Agenda" se não existir).
 - Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
+- No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
+- Só o dono edita o memo: depois de passar para outro membro, quem catalogou não consegue mais editá-lo.
+- O membro é reconhecido pelo e-mail, pelo nome completo ou pelo primeiro nome (quando único no grupo), sem diferenciar acento e maiúsculas.
+### De quem são os memos na pergunta
+| Pergunta | Memos considerados nas categorias Pessoal |
+|---|---|
+| Sem citar ninguém ("qual minha agenda amanhã") | Os de quem pergunta. |
+| Citando um membro ("qual a agenda do Suporte amanhã") | Os desse membro. |
+| Citando mais de um membro, ou nome que serve a vários | Os de todos, com aviso na resposta. |
+| "de todos", "do grupo", "da equipe" | Os de todos. |
+A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em "Agenda").
+NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
 - A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 @@FIM

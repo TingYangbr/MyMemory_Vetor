@@ -1,4 +1,4 @@
-Manual MyMemory › Novidades da versão 2 › Resumo (parte 3/3)
+Manual MyMemory › Novidades da versão 2 › Resumo (parte 3/4)
 Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
@@ -8,8 +8,9 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 - Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo: Seção 27
 - Importação automática de pasta (⏱ Automatizar) e lista "Memos sem dono identificado": Seção 16
 - Categoria Pessoal e campo dono configurados na própria categoria: Seção 17
-- Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela: Seção 28
-- Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1): Seções 20 a 24
+- Campo dono aplicado também no Catalogar e na edição; pergunta que cita um membro ("agenda do Suporte") mostra os memos dele: Seção 17
+- Renomear um campo atualiza os memos já gravados e as queries da categoria: Seção 17
+- Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo: Seção 17
 
 Perguntas que este trecho responde:
 - O que mudou na versão 2 do MyMemory?
