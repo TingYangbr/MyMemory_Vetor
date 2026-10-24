@@ -470,6 +470,7 @@ import { recognizeImageWithTesseract } from "../lib/imageOcr.js";
 import { createBatchMemoDirectly } from "../services/memoService.js";
 import { pool } from "../db.js";
 import type { StorageProvider } from "@mymemory/shared";
+import { aplicarDonoPessoal } from "../services/donoMemoService.js";
 
 async function processBatchFileFromBuffer(input: {
   userId: number;
@@ -553,7 +554,12 @@ async function processBatchFileFromBuffer(input: {
 
     // O custo já foi registrado em api_usage_logs por createBatchMemoDirectly ('memo_batch_ia')
 
-    return { originalFileName, ok: true, memoId: result.id };
+    // Categoria Pessoal: o memo passa a ser da pessoa indicada no campo dono
+    const dono = await aplicarDonoPessoal(result.id).catch((e: unknown) => {
+      console.warn("[batchImport] dono do memo:", e instanceof Error ? e.message : e);
+      return null;
+    });
+    return { originalFileName, ok: true, memoId: result.id, ...(dono?.status === "pendente" ? { donoPendente: true } : {}) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[batchImport/upload] Erro ao processar "${originalFileName}":`, msg);

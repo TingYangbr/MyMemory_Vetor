@@ -596,6 +596,10 @@ export interface MemoContextCategory {
   name: string;
   description: string | null;
   isActive: number;
+  /** Categoria "Pessoal": cada memo pertence a uma pessoa; "minha/meus" nas perguntas filtra pelo dono. */
+  pessoal?: boolean;
+  /** Em categoria Pessoal: campo do memo com o e-mail ou nome do dono (usado na importação em lote). */
+  campoDono?: string | null;
   createdAt: string;
   updatedAt: string;
   subcategories: MemoContextSubcategory[];
@@ -1461,6 +1465,8 @@ export interface BatchProcessResult {
   ok: boolean;
   memoId?: number;
   error?: string;
+  /** Categoria Pessoal sem dono identificado (aparece em "Memos sem dono identificado"). */
+  donoPendente?: boolean;
 }
 
 export interface BatchProcessResponse {

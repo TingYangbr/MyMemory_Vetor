@@ -21,6 +21,7 @@ import { runDocumentExtractPipeline } from "./documentExtractService.js";
 import { loadDocumentRoutingConfig, resolveDocumentPipeline } from "./documentRoutingService.js";
 import { processTextMemoForReview } from "./textMemoProcessService.js";
 import { createBatchMemoDirectly } from "./memoService.js";
+import { aplicarDonoPessoal } from "./donoMemoService.js";
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -629,7 +630,12 @@ export async function processBatchFile(
 
     // O custo já foi registrado em api_usage_logs por createBatchMemoDirectly ('memo_batch_ia')
 
-    return { originalFileName, ok: true, memoId: result.id };
+    // Categoria Pessoal: o memo passa a ser da pessoa indicada no campo dono
+    const dono = await aplicarDonoPessoal(result.id).catch((e: unknown) => {
+      console.warn("[batchImport] dono do memo:", e instanceof Error ? e.message : e);
+      return null;
+    });
+    return { originalFileName, ok: true, memoId: result.id, ...(dono?.status === "pendente" ? { donoPendente: true } : {}) };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[batchImport] Erro ao processar "${originalFileName}":`, msg);

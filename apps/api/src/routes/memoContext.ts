@@ -186,6 +186,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     description: z.string().max(16_000).nullable().optional(),
     mediaType: mediaTypeEnum.nullable().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
+    pessoal: z.boolean().optional(),
+    campoDono: z.string().max(255).nullable().optional(),
   });
 
   app.patch("/api/memo-context/categories/:categoryId", async (req, reply) => {
@@ -204,6 +206,8 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
         ...(parsed.data.isActive !== undefined ? { isActive: parsed.data.isActive } : {}),
         ...(parsed.data.mediaType !== undefined ? { mediaType: parsed.data.mediaType } : {}),
+        ...(parsed.data.pessoal !== undefined ? { pessoal: parsed.data.pessoal } : {}),
+        ...(parsed.data.campoDono !== undefined ? { campoDono: parsed.data.campoDono } : {}),
       });
       return { ok: true };
     } catch (e) {

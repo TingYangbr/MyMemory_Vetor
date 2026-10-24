@@ -303,7 +303,7 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
             <thead>
               <tr>
                 <th className={styles.colCategoria}>Categoria</th>
-                <th className={styles.colMeus} title="Em categorias marcadas, a pergunta é sobre os memos da própria pessoa, a menos que ela peça &quot;de todos&quot;. Padrão de escopo, não barreira.">
+                <th className={styles.colMeus} title="Em categorias marcadas, a pergunta é sobre os memos da própria pessoa, a menos que ela peça &quot;de todos&quot;. Padrão de escopo, não barreira. Configurado na própria categoria (Estrutura do contexto).">
                   Pessoal
                 </th>
                 {perfis.map((p) => (
@@ -378,13 +378,12 @@ export function PerfisAcessoPanel({ groupId }: { groupId: number }) {
                     {c.temSqlMemos ? <span className={styles.etiqueta}>SQL memos</span> : null}
                   </td>
                   <td>
+                    {/* A marca "Pessoal" e o campo dono são configurados na própria categoria (Estrutura do contexto) */}
                     <input
                       type="checkbox"
                       checked={c.meusPorPadrao}
-                      disabled={ocupado || (c.temSqlErp && !c.temSqlMemos)}
-                      onChange={(e) =>
-                        void executar(() => apiPatchJson(`${base}/categorias/${c.id}`, { meusPorPadrao: e.target.checked }))
-                      }
+                      disabled
+                      title="Configure em Estrutura do contexto → editar categoria (Pessoal e campo dono)"
                     />
                   </td>
                   {perfis.map((p) => {

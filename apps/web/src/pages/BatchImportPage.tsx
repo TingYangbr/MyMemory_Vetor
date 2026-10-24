@@ -13,6 +13,7 @@ import { BATCH_FILE_SITUACAO_LABELS } from "@mymemory/shared";
 import { apiGet, apiPostJson, apiPostMultipart } from "../api";
 import Header from "../components/Header";
 import { BatchFilePreviewModal } from "../components/BatchFilePreviewModal";
+import { MemosSemDono } from "../components/MemosSemDono";
 import styles from "./BatchImportPage.module.css";
 
 interface StorageConfigOption {
@@ -529,8 +530,16 @@ export default function BatchImportPage() {
                 ))}
               </ul>
             )}
+            {processResult.results.some(r => r.ok && r.donoPendente) && (
+              <p className="mm-muted" style={{ marginTop: "0.5rem" }}>
+                {processResult.results.filter(r => r.ok && r.donoPendente).length} memo(s) em categoria Pessoal sem dono
+                identificado — veja "Memos sem dono identificado" abaixo.
+              </p>
+            )}
           </div>
         )}
+
+        {workspaceGroupId != null ? <MemosSemDono groupId={workspaceGroupId} atualizar={processResult ? 1 : 0} /> : null}
 
       </main>
 

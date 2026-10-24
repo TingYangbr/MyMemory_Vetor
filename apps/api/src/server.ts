@@ -68,6 +68,7 @@ import { ParseNumberTolerante1700000000153 } from "./migrations/1700000000153-Pa
 import { PerfisAcessoDePara1700000000154 } from "./migrations/1700000000154-PerfisAcessoDePara.js";
 import { ChaveSistemaBanco1700000000155 } from "./migrations/1700000000155-ChaveSistemaBanco.js";
 import { CustoLoteDuplicado1700000000156 } from "./migrations/1700000000156-CustoLoteDuplicado.js";
+import { CampoDonoCategoria1700000000157 } from "./migrations/1700000000157-CampoDonoCategoria.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -84,6 +85,7 @@ import adminAiConfigRoutes from "./routes/adminAiConfig.js";
 import adminDbConnectionsRoutes from "./routes/adminDbConnections.js";
 import adminGroupApiKeysRoutes from "./routes/adminGroupApiKeys.js";
 import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
+import donoMemoRoutes from "./routes/donoMemo.js";
 import groupDbConnectionsRoutes from "./routes/groupDbConnections.js";
 import perfisAcessoRoutes from "./routes/perfisAcesso.js";
 import adminUserInvitesRoutes from "./routes/adminUserInvites.js";
@@ -171,6 +173,7 @@ assertMediaStorageEnv();
       PerfisAcessoDePara1700000000154,
       ChaveSistemaBanco1700000000155,
       CustoLoteDuplicado1700000000156,
+      CampoDonoCategoria1700000000157,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -242,6 +245,7 @@ await app.register(adminAiConfigRoutes);
 await app.register(adminDbConnectionsRoutes);
 await app.register(adminGroupApiKeysRoutes);
 await app.register(adminConhecimentoRoutes);
+await app.register(donoMemoRoutes);
 await app.register(groupDbConnectionsRoutes);
 await app.register(perfisAcessoRoutes);
 await app.register(adminUserInvitesRoutes);

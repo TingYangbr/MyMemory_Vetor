@@ -260,7 +260,8 @@ export async function loadMemoContextStructure(
   await assertMemoContextReadScope(userId, scopeGroupId, isAdmin);
   const canEditStructure = await computeMemoContextCanEditScope(userId, scopeGroupId, isAdmin);
 
-  let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt
+  let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
+            meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
   if (filterMediaType != null) {
@@ -417,6 +418,8 @@ export async function loadMemoContextStructure(
     name: r.name as string,
     description: (r.description as string) ?? null,
     isActive: r.isActive as number,
+    pessoal: Number(r.meusPorPadrao ?? 0) === 1,
+    campoDono: (r.campoDono as string | null) ?? null,
     createdAt: ts(r.createdAt),
     updatedAt: ts(r.updatedAt),
     subcategories: subsByCat.get(r.id as number) ?? [],
@@ -554,6 +557,8 @@ export async function updateCategory(
     description?: string | null;
     mediaType?: MemoContextMediaType | null;
     isActive?: number;
+    pessoal?: boolean;
+    campoDono?: string | null;
   }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
@@ -583,6 +588,14 @@ export async function updateCategory(
   if (patch.isActive !== undefined) {
     sets.push("isactive = ?");
     vals.push(patch.isActive);
+  }
+  if (patch.pessoal !== undefined) {
+    sets.push("meus_por_padrao = ?");
+    vals.push(patch.pessoal ? 1 : 0);
+  }
+  if (patch.campoDono !== undefined) {
+    sets.push("campo_dono = ?");
+    vals.push(patch.campoDono?.trim() || null);
   }
   if (sets.length === 0) return;
   vals.push(categoryId);

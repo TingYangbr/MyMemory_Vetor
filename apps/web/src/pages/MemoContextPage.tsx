@@ -119,6 +119,9 @@ export default function MemoContextPage() {
   const [modalName, setModalName] = useState("");
   const [modalDesc, setModalDesc] = useState("");
   const [modalMedia, setModalMedia] = useState<MemoContextMediaType | "">("");
+  // Categoria "Pessoal" e campo que identifica o dono do memo (importação em lote)
+  const [modalPessoal, setModalPessoal] = useState(false);
+  const [modalCampoDono, setModalCampoDono] = useState("");
   const [modalNormalizedTerms, setModalNormalizedTerms] = useState("");
   const [modalCampoTipo, setModalCampoTipo] = useState<"text" | "date" | "number">("text");
   const [modalResolucaoNomeAbrev, setModalResolucaoNomeAbrev] = useState(false);
@@ -319,6 +322,8 @@ export default function MemoContextPage() {
     setModalName(c.name);
     setModalDesc(c.description ?? "");
     setModalMedia(c.mediaType ?? "");
+    setModalPessoal(c.pessoal === true);
+    setModalCampoDono(c.campoDono ?? "");
     setModalCategoryId(c.id);
     setModalCampoId(null);
     setModalQueryId(null);
@@ -532,6 +537,8 @@ export default function MemoContextPage() {
           name,
           description: modalDesc.trim() || null,
           mediaType: modalMedia === "" ? null : modalMedia,
+          pessoal: modalPessoal,
+          campoDono: modalPessoal ? modalCampoDono || null : null,
         });
       } else if (modal === "sub" && modalCategoryId != null) {
         await apiPostJson(`/api/memo-context/categories/${modalCategoryId}/subcategories`, {
@@ -1154,6 +1161,39 @@ export default function MemoContextPage() {
                 <p className={styles.fieldHelpSmall}>Vazio = qualquer mídia; preenchido = só esse tipo.</p>
               </div>
             )}
+            {modal === "categoryEdit" && editCategory ? (
+              <div className={styles.modalField}>
+                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontWeight: 600 }}>
+                  <input type="checkbox" checked={modalPessoal} onChange={(e) => setModalPessoal(e.target.checked)} />
+                  Pessoal — cada memo pertence a uma pessoa
+                </label>
+                <p className={styles.fieldHelpSmall}>
+                  Nas perguntas, "minha agenda" / "meus registros" mostram só os memos da própria pessoa (para ver
+                  todos, pergunte "de todos"). Ex.: agenda pessoal, despesas de cada colaborador.
+                </p>
+                {modalPessoal ? (
+                  <>
+                    <label htmlFor="mod-campo-dono" style={{ marginTop: "0.5rem" }}>Campo dono do memo</label>
+                    <select
+                      id="mod-campo-dono"
+                      className="mm-field"
+                      value={modalCampoDono}
+                      onChange={(e) => setModalCampoDono(e.target.value)}
+                    >
+                      <option value="">— nenhum —</option>
+                      {editCategory.campos.filter((c) => c.isActive === 1).map((c) => (
+                        <option key={c.id} value={c.name}>{c.name}</option>
+                      ))}
+                    </select>
+                    <p className={modalCampoDono ? styles.fieldHelpSmall : styles.fieldWarn}>
+                      {modalCampoDono
+                        ? "Na importação em lote, o memo passa a ser do membro do grupo cujo e-mail ou nome está neste campo. Não identificado, vai para a lista \"Memos sem dono identificado\"."
+                        : "Crie um campo \"Dono\" (ou \"Proprietario\") com o e-mail ou nome da pessoa e escolha-o aqui. Sem ele, memos importados em lote ficam sem dono identificado."}
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            ) : null}
             {!isQueryParamModal && (
               <>
                 <div className={styles.modalField}>
