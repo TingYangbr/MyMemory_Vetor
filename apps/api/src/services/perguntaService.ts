@@ -21,9 +21,11 @@ import {
   aplicarCorte,
   deQuem,
   mensagemRecusa,
+  pessoaDaPergunta,
   registrarRecusa,
   type PerfilNaPergunta,
 } from "./perfilPerguntaService.js";
+import { listarMembrosDoGrupo } from "./donoMemoService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -354,9 +356,19 @@ export async function perguntarMemory(input: {
     // Escopo "Pessoal": nas categorias marcadas, memos do próprio autor, a menos que peça "de todos".
     const classificadas = new Set(classificacao.categorias.map(normCat));
     const meusClassificadas = perfil.categoriasMeus.filter((n) => classificadas.has(normCat(n)));
-    if (perfil.autorEscopoId != null && meusClassificadas.length && deQuem(input.pergunta) === "eu") {
-      escopoAutorId = perfil.autorEscopoId;
-      avisoEscopo = `Mostrando só os seus memos em ${meusClassificadas.map((n) => `"${n}"`).join(", ")}; para ver os de todos, peça "de todos".`;
+    if (meusClassificadas.length && deQuem(input.pergunta) === "eu") {
+      // Membro citado ("agenda do Suporte") → os memos dele; sem nome → os de quem pergunta.
+      const cats = meusClassificadas.map((n) => `"${n}"`).join(", ");
+      const citado = pessoaDaPergunta(input.pergunta, await listarMembrosDoGrupo(perfil.groupId));
+      if (citado?.tipo === "membro" && citado.id !== perfil.autorEscopoId) {
+        escopoAutorId = citado.id;
+        avisoEscopo = `Mostrando só os memos de ${citado.nome} em ${cats}.`;
+      } else if (citado?.tipo === "ambiguo") {
+        avisoEscopo = `"${citado.termo}" corresponde a mais de um membro; mostrando os memos de todos em ${cats}.`;
+      } else if (perfil.autorEscopoId != null) {
+        escopoAutorId = perfil.autorEscopoId;
+        avisoEscopo = `Mostrando só os seus memos em ${cats}; para ver os de todos, peça "de todos".`;
+      }
     }
     const restrito = !perfil.efetivo.todas;
     if (restrito || escopoAutorId != null) {

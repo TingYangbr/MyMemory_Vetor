@@ -91,6 +91,46 @@ export function aplicarCorte(
 }
 
 /**
+ * Membro do grupo citado na pergunta ("agenda do Suporte"), por e-mail, nome completo ou primeiro
+ * nome (só quando único no grupo). Palavra inteira, sem acento/maiúscula. Mais de um membro citado
+ * (ou nome que serve a vários) → "ambiguo".
+ */
+export function pessoaDaPergunta(
+  pergunta: string,
+  membros: { id: number; name: string | null; email: string | null }[]
+): { tipo: "membro"; id: number; nome: string } | { tipo: "ambiguo"; termo: string } | null {
+  const t = ` ${norm(pergunta).replace(/[^\p{L}\p{N}@._-]+/gu, " ")} `;
+  const tem = (termo: string) => termo.length >= 3 && t.includes(` ${termo} `);
+  const limpa = (s: string) => norm(s).replace(/[^\p{L}\p{N}@._-]+/gu, " ").replace(/\s+/g, " ").trim();
+  const primeiro = (m: { name: string | null }) => (m.name ? limpa(m.name).split(" ")[0] : "");
+  const contaPrimeiro = new Map<string, number>();
+  for (const m of membros) {
+    const p = primeiro(m);
+    if (p) contaPrimeiro.set(p, (contaPrimeiro.get(p) ?? 0) + 1);
+  }
+  const achados = new Map<number, string>();
+  let ambiguo: string | null = null;
+  for (const m of membros) {
+    const nome = m.name ? limpa(m.name) : "";
+    const email = m.email ? m.email.trim().toLowerCase() : "";
+    const p = primeiro(m);
+    if ((email && tem(email)) || (nome && tem(nome))) {
+      achados.set(m.id, m.name ?? m.email ?? `#${m.id}`);
+    } else if (p && tem(p)) {
+      if ((contaPrimeiro.get(p) ?? 0) === 1) achados.set(m.id, m.name ?? `#${m.id}`);
+      else ambiguo = p;
+    }
+  }
+  if (achados.size === 1 && !ambiguo) {
+    const [[id, nome]] = [...achados];
+    return { tipo: "membro", id, nome };
+  }
+  if (achados.size > 1) return { tipo: "ambiguo", termo: [...achados.values()].join(", ") };
+  if (ambiguo) return { tipo: "ambiguo", termo: ambiguo };
+  return null;
+}
+
+/**
  * "De quem" da pergunta: "eu" (padrão) ou "todos" quando a pessoa pede explicitamente. Em dúvida,
  * vale "eu". Primeira versão por regra de texto (sem depender de mudar o prompt do classificador);
  * nomes de pessoas ("agenda da Ana") ficam para depois.

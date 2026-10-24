@@ -48,6 +48,14 @@ import {
   processUrlMemoForReview,
 } from "../services/textMemoProcessService.js";
 import { llmSynonymsForTerm } from "../lib/invokeLlm.js";
+import { aplicarDonoPessoal } from "../services/donoMemoService.js";
+
+/** Categoria Pessoal: ao salvar, o memo passa ao membro indicado no campo dono (se for outra pessoa). */
+async function donoAoSalvar(memoId: number): Promise<void> {
+  await aplicarDonoPessoal(memoId, { marcarPendente: false }).catch((e: unknown) => {
+    console.warn("[memos] dono do memo:", e instanceof Error ? e.message : e);
+  });
+}
 import { listMemoSearchAuthors, searchMemosForUser, searchMemosSemantic } from "../services/memoSearchService.js";
 
 const photoAiUsageField = z.enum(["none", "keywords", "full"]);
@@ -381,6 +389,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         iaLevel,
         originalText: parsed.data.originalText,
       });
+      await donoAoSalvar(memo.id);
       return reply.code(201).send(memo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -426,6 +435,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         iaLevel,
         originalText: parsed.data.originalText,
       });
+      await donoAoSalvar(memo.id);
       return reply.code(201).send(memo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -545,6 +555,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         originalFilename: parsed.data.originalFilename,
         source: parsed.data.source,
       });
+      await donoAoSalvar(memo.id);
       return reply.code(201).send(memo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -667,6 +678,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         originalFilename: parsed.data.originalFilename,
         source: parsed.data.source,
       });
+      await donoAoSalvar(memo.id);
       return reply.code(201).send(memo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -792,6 +804,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         originalFilename: parsed.data.originalFilename,
         source: parsed.data.source,
       });
+      await donoAoSalvar(memo.id);
       return reply.code(201).send(memo);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -1372,6 +1385,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
         category: parsed.data.category,
       });
+      await donoAoSalvar(memo.id);
       const body: PatchMemoResponse = { ok: true, memo };
       return body;
     } catch (e) {

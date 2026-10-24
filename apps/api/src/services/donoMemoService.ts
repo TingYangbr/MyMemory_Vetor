@@ -87,10 +87,14 @@ async function gravarPendencia(memoId: number, meta: Record<string, unknown>, pe
 /**
  * Depois de criar um memo na importação: se a categoria é Pessoal, grava o dono pelo campo dono.
  * Sem efeito em memo sem grupo ou categoria que não é Pessoal.
+ * `marcarPendente: false` (Catalogar/edição): quem salvou já é o dono natural — sem pessoa reconhecida
+ * o memo só continua com ele, sem entrar na lista "memos sem dono".
  */
 export async function aplicarDonoPessoal(
-  memoId: number
+  memoId: number,
+  opts: { marcarPendente?: boolean } = {}
 ): Promise<{ status: "atribuido"; userId: number } | { status: "pendente"; motivo: string } | { status: "nao_se_aplica" }> {
+  const marcarPendente = opts.marcarPendente ?? true;
   const [mRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, groupid, category, dadosespecificosjson, mediametadata FROM memos WHERE id = ? LIMIT 1`,
     [memoId]
@@ -112,13 +116,13 @@ export async function aplicarDonoPessoal(
   const campo = (cat.campoDono as string | null)?.trim() || null;
   if (!campo) {
     const motivo = "A categoria é Pessoal mas não tem campo dono configurado.";
-    await gravarPendencia(memoId, meta, { campo: null, valor: null, motivo });
+    if (marcarPendente) await gravarPendencia(memoId, meta, { campo: null, valor: null, motivo });
     return { status: "pendente", motivo };
   }
   const valor = valorDoCampo(lerJson(memo.dadosEspecificosJson), campo);
   const r = resolverMembro(valor, await listarMembrosDoGrupo(groupId));
   if ("motivo" in r) {
-    await gravarPendencia(memoId, meta, { campo, valor, motivo: r.motivo });
+    if (marcarPendente) await gravarPendencia(memoId, meta, { campo, valor, motivo: r.motivo });
     return { status: "pendente", motivo: r.motivo };
   }
   await pool.query(`UPDATE memos SET userid = ? WHERE id = ?`, [r.userId, memoId]);
