@@ -602,7 +602,12 @@ export default function MemoContextPage() {
         );
         for (const p of pendingAutoParams) {
           if (!existingParamNames.has(p.campo.toLowerCase())) {
-            await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, p);
+            // A lista local pode estar velha: ao salvar a Query padrão o servidor já recria os parâmetros
+            try {
+              await apiPostJson(`/api/memo-context/queries/${modalQueryId}/params`, p);
+            } catch (e) {
+              if (!(e instanceof Error && e.message.includes("já existe nesta query"))) throw e;
+            }
           }
         }
       } else if (modal === "queryParam" && modalQueryId != null) {
