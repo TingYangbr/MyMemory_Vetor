@@ -20,6 +20,29 @@ const LLM_INPUT_MAX = 48_000;
 /** Regra repetida nos prompts de extração (o código também converte depois, mas o prompt reduz a variação). */
 const REGRA_CAMPO_DATA = "- Campos de data: grave SEMPRE no formato AAAA-MM-DD (ex.: 2026-06-30), nunca DD/MM/AAAA nem por extenso.";
 
+/** Fidelidade dos valores extraídos: o modelo tendia a "corrigir" endereços e trocar duração por antecedência. */
+const REGRAS_FIDELIDADE = [
+  "- Copie nomes, endereços, números e valores EXATAMENTE como estão no texto (só ajuste maiúsculas e acentos). Nunca troque, complete ou \"corrija\" um endereço ou nome com conhecimento próprio (ex.: \"av. Butanta 500\" → \"Av. Butantã 500\", nunca outra rua).",
+  "- Valores de tempo levam SEMPRE a unidade (\"2 horas\", \"30 minutos\", \"1 dia\"), nunca só o número.",
+  "- Não confunda grandezas: duração do evento (\"deve demorar 1 hora\") é diferente da antecedência do aviso (\"me avisar 2 horas antes\"). Cada campo recebe só o valor que corresponde à sua descrição.",
+  "- Primeira pessoa (eu, me, meu, minha, comigo) refere-se ao AUTOR DO MEMO: em campos de pessoa/dono/responsável que se refiram a ele, preencha com o nome (ou e-mail) do autor.",
+].join("\n");
+
+/** Linha com a identidade de quem registra o memo (para resolver "me", "meu" etc.). */
+async function linhaAutor(userId: number): Promise<string> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(`SELECT name, email FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const u = rows[0];
+    if (!u) return "";
+    const nome = u.name ? String(u.name).trim() : "";
+    const email = u.email ? String(u.email).trim() : "";
+    const ident = nome && email ? `${nome} <${email}>` : nome || email;
+    return ident ? `AUTOR DO MEMO (quem está registrando): ${ident}.` : "";
+  } catch {
+    return "";
+  }
+}
+
 function temCampoData(campos: { tipo?: string }[]): boolean {
   return campos.some((c) => c.tipo === "date");
 }
@@ -162,11 +185,12 @@ export function formatCamposGuide(campos: CatCtx["campos"]): string {
       return `- "${c.name}"${desc}${terms}`;
     })
     .join("\n");
-  return guia && temCampoData(campos) ? `${guia}\n${REGRA_CAMPO_DATA}` : guia;
+  if (!guia) return guia;
+  return `${guia}\n${REGRAS_FIDELIDADE}${temCampoData(campos) ? `\n${REGRA_CAMPO_DATA}` : ""}`;
 }
 
 /** Bloco de instruções para o modo IA básico (prompt utilizador). */
-export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string): string {
+export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string, autor = ""): string {
   const catNames = cats.map((c) => c.name);
   const subLines: string[] = [];
   const campoLines: string[] = [];
@@ -199,6 +223,7 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
 
   return [
     linhaDataRegistro(),
+    ...(autor ? [autor] : []),
     "",
     "TAREFA (UMA UNICA CHAMADA): extrair categoria, subcategorias e dados especificos do memo, junto com resumo e palavras-chave.",
     "IMPORTANTE: use o catalogo completo abaixo (todas as categorias, todas as subcategorias por categoria e todos os campos por categoria).",
@@ -231,6 +256,8 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
     "- Se um campo não for identificado no texto, retorne o campo com string vazia.",
     "- Não inventar campos fora da lista.",
     "- Campos de data devem ser gravados SEMPRE no formato ISO: AAAA-MM-DD (ex: 2026-06-30). Nunca use DD/MM/AAAA, MM/DD/AAAA ou qualquer outro formato.",
+    REGRAS_FIDELIDADE,
+    "- O resumo também deve manter endereços, nomes e números exatamente como no texto.",
     "",
     "SAIDA ESPERADA (EM UMA UNICA RESPOSTA JSON): categoria + subcategorias + palavras_chave + dados_especificos.campos.",
     "",
@@ -511,6 +538,7 @@ export async function processTextMemoForReview(input: {
   }
 
   let totalCost = 0;
+  const autor = await linhaAutor(input.userId);
   let processingWarning: string | null = truncatedNote
     ? "Parte do texto foi truncada na chamada à IA (limite interno); o campo texto original abaixo está completo."
     : null;
@@ -535,7 +563,7 @@ export async function processTextMemoForReview(input: {
 - campos simples (chave: valor)
 IMPORTANTE: use o campo "categoria" para retornar o nome EXATO de uma categoria da lista. Inclua também a categoria como primeira entrada em "palavras_chave" para garantir busca determinística.
 Regras: ${summaryRule}`;
-      const user = buildTextMemoBasicoUserPrompt(cats, forLlm);
+      const user = buildTextMemoBasicoUserPrompt(cats, forLlm, autor);
       const { content, costUsd } = await openaiChatJson({
         messages: [
           { role: "system", content: sys },
@@ -603,7 +631,7 @@ Regras: ${summaryRule}`;
   "categoria_livre": string | null,
   "palavras_chave": string[] (termos curtos úteis para busca; coerentes com o resumo — a 2.ª passagem só refinará subcategorias/campos)
 }`;
-    const user1 = `${linhaDataRegistro()}\n\nCategorias (use nome exato de categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\n---\nTEXTO:\n${forLlm}`;
+    const user1 = `${linhaDataRegistro()}\n\nCategorias (use nome exato de categoria_lista quando possível):\n${formatCategoriesBlock(cats)}\n\nNo resumo, mantenha endereços, nomes e números exatamente como no texto (sem corrigir com conhecimento próprio).\n\n---\nTEXTO:\n${forLlm}`;
     const r1 = await openaiChatJson({
       messages: [
         { role: "system", content: sys1 },
@@ -642,11 +670,11 @@ Regras: ${summaryRule}`;
           const desc = c.description ? `: ${c.description}` : "";
           const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
           return `- "${c.name}"${desc}${terms}`;
-        }).join("\n") + (temCampoData(cat.campos) ? `\n${REGRA_CAMPO_DATA}` : "")
+        }).join("\n") + `\n${REGRAS_FIDELIDADE}` + (temCampoData(cat.campos) ? `\n${REGRA_CAMPO_DATA}` : "")
       : allowFreeSpecificFieldsWithoutCategoryMatch
         ? "(catálogo vazio — extraia campos livres chave→valor)"
         : "(nenhum — use {})";
-    const user2 = `${linhaDataRegistro()}
+    const user2 = `${linhaDataRegistro()}${autor ? `\n${autor}` : ""}
 
 Categoria escolhida: ${cat?.name ?? catList ?? catFree ?? "desconhecida"}
 Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subNames.length ? subNames.join(", ") : "(nenhuma — deixe lista vazia)"}
