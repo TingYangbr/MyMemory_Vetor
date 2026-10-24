@@ -67,6 +67,7 @@ import { PerguntaModeloPlano1700000000152 } from "./migrations/1700000000152-Per
 import { ParseNumberTolerante1700000000153 } from "./migrations/1700000000153-ParseNumberTolerante.js";
 import { PerfisAcessoDePara1700000000154 } from "./migrations/1700000000154-PerfisAcessoDePara.js";
 import { ChaveSistemaBanco1700000000155 } from "./migrations/1700000000155-ChaveSistemaBanco.js";
+import { CustoLoteDuplicado1700000000156 } from "./migrations/1700000000156-CustoLoteDuplicado.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -169,6 +170,7 @@ assertMediaStorageEnv();
       ParseNumberTolerante1700000000153,
       PerfisAcessoDePara1700000000154,
       ChaveSistemaBanco1700000000155,
+      CustoLoteDuplicado1700000000156,
     ],
   });
   const ds = await AppDataSource.initialize();

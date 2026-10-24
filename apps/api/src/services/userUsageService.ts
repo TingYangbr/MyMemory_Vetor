@@ -1,6 +1,7 @@
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import type { UserUsageDashboardResponse } from "@mymemory/shared";
 import { pool } from "../db.js";
+import { getUsdToCreditsMultiplier } from "./systemConfigService.js";
 
 function toMysqlLocalStartOfDay(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -63,6 +64,23 @@ async function resolveUserPlanLimits(userId: number): Promise<PlanRow | null> {
 }
 
 /**
+ * Créditos de IA consumidos pelo usuário no mês corrente: custo real em US$ registrado em
+ * api_usage_logs × multiplicador USD→créditos (Config. do Sistema, padrão 100).
+ * (A tabela guarda só o custo em US$; não há coluna de créditos.)
+ */
+export async function getCreditosUsadosNoMes(userId: number, agora = new Date()): Promise<number> {
+  const inicio = toMysqlLocalStartOfDay(new Date(agora.getFullYear(), agora.getMonth(), 1));
+  const fim = toMysqlLocalStartOfDay(new Date(agora.getFullYear(), agora.getMonth() + 1, 1));
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT COALESCE(SUM(costusd), 0) AS s FROM api_usage_logs
+     WHERE userid = ? AND createdat >= ? AND createdat < ?`,
+    [userId, inicio, fim]
+  );
+  const usd = Number(rows[0]?.s ?? 0);
+  return usd * (await getUsdToCreditsMultiplier());
+}
+
+/**
  * Painel de utilização: limites do plano (individual ou grupo do qual o usuario é dono) e consumo do usuario.
  */
 export async function getUserUsageDashboard(userId: number): Promise<UserUsageDashboardResponse> {
@@ -84,19 +102,12 @@ export async function getUserUsageDashboard(userId: number): Promise<UserUsageDa
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
   const nextMonthStart = new Date(now.getFullYear(), now.getMonth() + 1, 1, 0, 0, 0, 0);
-  const startSql = toMysqlLocalStartOfDay(monthStart);
-  const endSql = toMysqlLocalStartOfDay(nextMonthStart);
 
   let creditsUsed = 0;
   try {
-    const [credRows] = await pool.query<RowDataPacket[]>(
-      `SELECT COALESCE(SUM(usedApiCred), 0) AS s FROM api_usage_logs
-       WHERE userId = ? AND createdAt >= ? AND createdAt < ?`,
-      [userId, startSql, endSql]
-    );
-    creditsUsed = Number(credRows[0]?.s ?? 0);
-  } catch {
-    /* tabela ausente em ambientes muito antigos */
+    creditsUsed = await getCreditosUsadosNoMes(userId, now);
+  } catch (err) {
+    console.warn("[userUsage] falha ao somar créditos do mês:", err instanceof Error ? err.message : err);
   }
 
   let downloadMb = 0;
