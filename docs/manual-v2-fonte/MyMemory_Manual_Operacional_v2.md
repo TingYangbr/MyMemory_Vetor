@@ -62,6 +62,8 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Campo dono aplicado também no Catalogar e na edição; pergunta que cita um membro ("agenda do Suporte") mostra os memos dele | Seção 17 |
 | Renomear um campo atualiza os memos já gravados e as queries da categoria | Seção 17 |
 | Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo | Seção 17 |
+| Perguntas comparam texto dos memos por palavras ("sr. Wilson" acha "Sr. Wilson da FAPESP") | Seção 17 |
+| Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa | Seção 17 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
@@ -690,7 +692,7 @@ Cada query mostra o seu número (#id) ao lado do nome. É o mesmo número citado
 ## Tipos de campo e conversão tolerante
 | Tipo | Como é lido nos filtros |
 |---|---|
-| Texto | Comparação "contém", sem acento e sem diferenciar maiúsculas. |
+| Texto | Comparação por palavras: cada palavra da pergunta precisa aparecer inteira no campo, em qualquer ordem, sem acento e sem diferenciar maiúsculas. Tratamentos e palavras de ligação (sr., sra., dr., o, a, de, da, do, com…) são ignorados. Ex.: "sr. Wilson", "Wilson da FAPESP" e "FAPESP" acham "Sr. Wilson da FAPESP"; "Wilson" não acha "Wilsons Ltda". Vale para as queries de memos; nas queries de ERP (SQL Server) a comparação continua exata, salvo quando a pergunta pede "contendo". |
 | Data | mymemory_parse_date: aceita dd/mm/aaaa, aaaa-mm-dd, AAAA/MM/DD, "10 de outubro de 2026" e texto após a data. Data inválida fica fora do filtro, sem erro. |
 | Número | mymemory_parse_number: aceita vírgula decimal e milhar ("R$ 1.500,25" = 1500,25) e o primeiro número do texto ("3 quartos" = 3). Durações viram horas: "4 horas" = 4, "1h30" = "1:30" = "uma hora e meia" = "90 minutos" = 1,5, "meia hora" = 0,5. Sem número, fica fora do filtro, sem erro. |
 NOTA: Em queries editadas à mão, use mymemory_parse_date(...) e mymemory_parse_number(...) em vez de ::date e ::numeric para não quebrar a pergunta quando um memo tiver texto livre.
@@ -708,7 +710,7 @@ Ao trocar o nome de um campo (✎), o sistema leva o novo nome a tudo o que já 
 | Convenção | Uso |
 |---|---|
 | :param (PostgreSQL) / @param (SQL Server) | Placeholder no SQL. O nome do parâmetro é o nome do campo sem acento, em minúsculas, com "_" (ex.: Abrev_Empresa → abrev_empresa). |
-| Operador LIKE | Por padrão o sistema faz comparação exata; usa "contém" só quando a pergunta pede busca parcial ("contendo", "começa com"). |
+| Operador LIKE | Queries de memos: comparação por palavras (ver Tipos de campo). Queries de ERP: comparação exata; "contém" só quando a pergunta pede busca parcial ("contendo", "começa com"). |
 | Sufixos _ini / _fin | Limite inferior e superior de faixa (datas, valores, durações em horas). |
 | Sufixos _in / _nin | Listas para IN / NOT IN. Cadastrar com tipo lista_texto e operador IN ou NOT IN. Necessários para o filtro cruzado. |
 | userId / groupId | Injetados pelo sistema. Nunca são pedidos ao usuário. |
@@ -741,6 +743,9 @@ Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa
 | Citando mais de um membro, ou nome que serve a vários | Os de todos, com aviso na resposta. |
 | "de todos", "do grupo", "da equipe" | Os de todos. |
 A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em "Agenda").
+- Se a pergunta não cita ninguém e nada é encontrado nos seus memos, a busca é refeita nos memos de todos e a resposta avisa: "Nada encontrado nos seus memos; mostrando os de todos."
+- Uma mesma expressão da pergunta ("sr. Wilson da FAPESP") é buscada inteira num só campo (o de descrição mais adequada, ex.: Com quem), nunca dividida entre dois campos.
+- Resposta sem nenhum resultado aparece com confiança baixa: não encontrar não é certeza de que o registro não existe. Tente "Ampliar busca" ou "de todos".
 NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
 - A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 ## Permissões de edição

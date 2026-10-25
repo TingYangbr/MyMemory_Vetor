@@ -4,7 +4,7 @@ Rota: /estrutura-memo
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - :param (PostgreSQL) / @param (SQL Server): Placeholder no SQL. O nome do parâmetro é o nome do campo sem acento, em minúsculas, com "_" (ex.: Abrev_Empresa → abrev_empresa).
-- Operador LIKE: Por padrão o sistema faz comparação exata; usa "contém" só quando a pergunta pede busca parcial ("contendo", "começa com").
+- Operador LIKE: Queries de memos: comparação por palavras (ver Tipos de campo). Queries de ERP: comparação exata; "contém" só quando a pergunta pede busca parcial ("contendo", "começa com").
 - Sufixos _ini / _fin: Limite inferior e superior de faixa (datas, valores, durações em horas).
 - Sufixos _in / _nin: Listas para IN / NOT IN. Cadastrar com tipo lista_texto e operador IN ou NOT IN. Necessários para o filtro cruzado.
 - userId / groupId: Injetados pelo sistema. Nunca são pedidos ao usuário.

@@ -327,6 +327,8 @@ export async function perguntarMemory(input: {
   let restricao: RestricaoMemos | undefined;
   let escopoAutorId: number | null = null;
   let avisoEscopo: string | undefined;
+  let escopoImplicito = false;
+  let restricaoSemAutor: RestricaoMemos | undefined;
   const perfil = input.perfil ?? null;
   if (perfil) {
     const catalogo = input.categories.filter((c) => c.isActive === 1).map((c) => c.name);
@@ -367,6 +369,7 @@ export async function perguntarMemory(input: {
         avisoEscopo = `"${citado.termo}" corresponde a mais de um membro; mostrando os memos de todos em ${cats}.`;
       } else if (perfil.autorEscopoId != null) {
         escopoAutorId = perfil.autorEscopoId;
+        escopoImplicito = true;
         avisoEscopo = `Mostrando só os seus memos em ${cats}; para ver os de todos, peça "de todos".`;
       }
     }
@@ -378,58 +381,106 @@ export async function perguntarMemory(input: {
         categoriasConhecidas: catalogo,
         escopoAutor: escopoAutorId != null ? { categorias: meusClassificadas, userId: escopoAutorId } : undefined,
       };
+      restricaoSemAutor = restrito ? { ...restricao, escopoAutor: undefined } : undefined;
     }
   }
-  /** Informa o escopo aplicado na própria resposta (nas categorias marcadas). */
-  const comEscopo = <R extends PerguntaResposta>(r: R): R =>
-    avisoEscopo ? { ...r, limitacoes: [...(r.limitacoes ?? []), avisoEscopo] } : r;
+  /** Executa o pipe escolhido com um escopo; `vazio` = nenhum memo nem linha encontrada. */
+  const rodar = async (
+    restricao: RestricaoMemos | undefined,
+    escopoAutorId: number | null
+  ): Promise<{ saida: Awaited<ReturnType<typeof perguntarMemory>>; vazio: boolean; podeRepetir: boolean }> => {
+    const thInitial = input.thresholdInitial ?? 0.7;
+    const thMin = input.thresholdMin ?? 0.3;
 
-  const thInitial = input.thresholdInitial ?? 0.7;
-  const thMin = input.thresholdMin ?? 0.3;
+    // Resolve o ID da primeira categoria para lookup de override de prompt nas chamadas 2-5
+    const firstCategoryName = classificacao.categorias[0] ?? null;
+    const firstCategoryId = firstCategoryName
+      ? (input.categories.find((c) => c.isActive === 1 && c.name === firstCategoryName)?.id ?? null)
+      : null;
 
-  // Resolve o ID da primeira categoria para lookup de override de prompt nas chamadas 2-5
-  const firstCategoryName = classificacao.categorias[0] ?? null;
-  const firstCategoryId = firstCategoryName
-    ? (input.categories.find((c) => c.isActive === 1 && c.name === firstCategoryName)?.id ?? null)
-    : null;
+    // ── Pipe 1 — Semântica ────────────────────────────────────────────────────
+    if (classificacao.pipe === "semantica") {
+      const escopoIds = classificacao.escopo_sugerido === "contexto_sessao"
+        ? escopoMemoIdsDoHistorico(input.historico)
+        : undefined;
+      const result = await executarPipe1({
+        pergunta: input.pergunta,
+        userId: input.userId,
+        groupId: input.groupId,
+        filtros: input.filtros,
+        categoriaNames: classificacao.categorias,
+        thresholdInitial: thInitial,
+        thresholdMin: thMin,
+        escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
+        categoryId: firstCategoryId,
+        contextoTela: input.contextoTela,
+        restricao,
+      });
+      const { texto: sugestaoAviso } = gerarSugestaoAviso();
+      const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
+      const saida1 = {
+        resposta: result.resposta,
+        classificacao,
+        apiCost: totalCost + result.apiCost,
+        limiarInicial: result.limiarInicial,
+        limiarUsado: result.limiarUsado,
+        limiarMinimo: result.limiarMinimo,
+        memosEncontrados: result.memosEncontrados,
+        sugestaoAviso,
+        avisoSnapshot,
+      };
+      return { saida: saida1, vazio: result.memosEncontrados === 0, podeRepetir: true };
+    }
 
-  // ── Pipe 1 — Semântica ────────────────────────────────────────────────────
-  if (classificacao.pipe === "semantica") {
-    const escopoIds = classificacao.escopo_sugerido === "contexto_sessao"
+    // ── Pipe 2 — Estruturada ──────────────────────────────────────────────────
+    if (classificacao.pipe === "estruturada") {
+      const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
+      const result = await executarPipe2({
+        pergunta: input.pergunta,
+        userId: input.userId,
+        groupId: input.groupId,
+        filtros: input.filtros,
+        historico: input.historico,
+        classificacao,
+        queriesDisponiveis,
+        categoryId: firstCategoryId,
+        escopoAutorId,
+      });
+      const queriesUsadas = result.queriesParaAviso ?? [];
+      const { texto: sugestaoAviso } = gerarSugestaoAviso();
+      const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "estruturada", queries: queriesUsadas };
+      // Plano reaproveitável ao salvar a pergunta (evita classificação + planejamento na reexecução)
+      let planoSalvavel: PerguntaPlanoSalvo | undefined;
+      if (result.planoExecutado?.queries.length) {
+        const queryHashes: Record<string, string> = {};
+        for (const t of result.planoExecutado.queries) {
+          const q = queriesDisponiveis.find((x) => x.query_id === t.query_id);
+          if (q) queryHashes[t.query_id] = hashQueryDisponivel(q);
+        }
+        planoSalvavel = {
+          versao: 1,
+          classificacao,
+          plano: result.planoExecutado as unknown as PlanoSalvo,
+          queryHashes,
+        };
+      }
+      const saida2 = {
+        resposta: result.resposta,
+        classificacao,
+        apiCost: totalCost + result.apiCost,
+        sugestaoAviso,
+        avisoSnapshot,
+        planoSalvavel,
+      };
+      return { saida: saida2, vazio: (result.dadosEstruturados?.totalLinhas ?? 0) === 0, podeRepetir: true };
+    }
+
+    // ── Pipe 3 — Híbrida ──────────────────────────────────────────────────────
+    const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
+    const escopoIds3 = classificacao.escopo_sugerido === "contexto_sessao"
       ? escopoMemoIdsDoHistorico(input.historico)
       : undefined;
-    const result = await executarPipe1({
-      pergunta: input.pergunta,
-      userId: input.userId,
-      groupId: input.groupId,
-      filtros: input.filtros,
-      categoriaNames: classificacao.categorias,
-      thresholdInitial: thInitial,
-      thresholdMin: thMin,
-      escopoMemoIds: escopoIds?.length ? escopoIds : undefined,
-      categoryId: firstCategoryId,
-      contextoTela: input.contextoTela,
-      restricao,
-    });
-    const { texto: sugestaoAviso } = gerarSugestaoAviso();
-    const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
-    return {
-      resposta: comEscopo(result.resposta),
-      classificacao,
-      apiCost: totalCost + result.apiCost,
-      limiarInicial: result.limiarInicial,
-      limiarUsado: result.limiarUsado,
-      limiarMinimo: result.limiarMinimo,
-      memosEncontrados: result.memosEncontrados,
-      sugestaoAviso,
-      avisoSnapshot,
-    };
-  }
-
-  // ── Pipe 2 — Estruturada ──────────────────────────────────────────────────
-  if (classificacao.pipe === "estruturada") {
-    const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
-    const result = await executarPipe2({
+    const result = await executarPipe3({
       pergunta: input.pergunta,
       userId: input.userId,
       groupId: input.groupId,
@@ -437,75 +488,57 @@ export async function perguntarMemory(input: {
       historico: input.historico,
       classificacao,
       queriesDisponiveis,
+      categoriaNames: classificacao.categorias,
+      thresholdInitial: thInitial,
+      thresholdMin: thMin,
+      escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
       categoryId: firstCategoryId,
+      restricao,
       escopoAutorId,
     });
-    const queriesUsadas = result.queriesParaAviso ?? [];
-    const { texto: sugestaoAviso } = gerarSugestaoAviso();
-    const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "estruturada", queries: queriesUsadas };
-    // Plano reaproveitável ao salvar a pergunta (evita classificação + planejamento na reexecução)
-    let planoSalvavel: PerguntaPlanoSalvo | undefined;
-    if (result.planoExecutado?.queries.length) {
-      const queryHashes: Record<string, string> = {};
-      for (const t of result.planoExecutado.queries) {
-        const q = queriesDisponiveis.find((x) => x.query_id === t.query_id);
-        if (q) queryHashes[t.query_id] = hashQueryDisponivel(q);
-      }
-      planoSalvavel = {
-        versao: 1,
-        classificacao,
-        plano: result.planoExecutado as unknown as PlanoSalvo,
-        queryHashes,
-      };
-    }
-    return {
-      resposta: comEscopo(result.resposta),
+    const queriesUsadas3 = result.queriesParaAviso ?? [];
+    const { texto: sugestaoAviso3 } = gerarSugestaoAviso();
+    const avisoSnapshot3: AvisoExecucaoSnapshot = {
+      tipo: "hibrida",
+      limiar: result.limiarUsado ?? thInitial,
+      queries: queriesUsadas3,
+    };
+    const saida3 = {
+      resposta: result.resposta,
       classificacao,
       apiCost: totalCost + result.apiCost,
-      sugestaoAviso,
-      avisoSnapshot,
-      planoSalvavel,
+      aguardaFase2: result.aguardaFase2,
+      limiarInicial: result.limiarInicial,
+      limiarUsado: result.limiarUsado,
+      limiarMinimo: result.limiarMinimo,
+      memosEncontrados: result.memosEncontrados,
+      sugestaoAviso: sugestaoAviso3,
+      avisoSnapshot: avisoSnapshot3,
     };
-  }
+    const vazio3 = (result.memosEncontrados ?? 0) === 0 && semLinhas(result.resposta.dados_estruturados);
+    return { saida: saida3, vazio: vazio3, podeRepetir: !result.aguardaFase2 };
+  };
 
-  // ── Pipe 3 — Híbrida ──────────────────────────────────────────────────────
-  const queriesDisponiveis = buildQueriesDisponiveis(input.categories, classificacao.categorias);
-  const escopoIds3 = classificacao.escopo_sugerido === "contexto_sessao"
-    ? escopoMemoIdsDoHistorico(input.historico)
-    : undefined;
-  const result = await executarPipe3({
-    pergunta: input.pergunta,
-    userId: input.userId,
-    groupId: input.groupId,
-    filtros: input.filtros,
-    historico: input.historico,
-    classificacao,
-    queriesDisponiveis,
-    categoriaNames: classificacao.categorias,
-    thresholdInitial: thInitial,
-    thresholdMin: thMin,
-    escopoMemoIds: escopoIds3?.length ? escopoIds3 : undefined,
-    categoryId: firstCategoryId,
-    restricao,
-    escopoAutorId,
-  });
-  const queriesUsadas3 = result.queriesParaAviso ?? [];
-  const { texto: sugestaoAviso3 } = gerarSugestaoAviso();
-  const avisoSnapshot3: AvisoExecucaoSnapshot = {
-    tipo: "hibrida",
-    limiar: result.limiarUsado ?? thInitial,
-    queries: queriesUsadas3,
-  };
-  return {
-    resposta: comEscopo(result.resposta),
-    classificacao,
-    apiCost: totalCost + result.apiCost,
-    aguardaFase2: result.aguardaFase2,
-    limiarInicial: result.limiarInicial,
-    limiarUsado: result.limiarUsado,
-    limiarMinimo: result.limiarMinimo,
-    memosEncontrados: result.memosEncontrados,
-    sugestaoAviso: sugestaoAviso3,
-    avisoSnapshot: avisoSnapshot3,
-  };
+  let r = await rodar(restricao, escopoAutorId);
+  // Escopo "Pessoal" implícito sem resultado: repete nos memos de todos (o perfil já permite pedir
+  // "de todos"), para não responder "não existe" quando o memo é de outro membro.
+  if (r.vazio && escopoImplicito && r.podeRepetir) {
+    const r2 = await rodar(restricaoSemAutor, null);
+    if (!r2.vazio) {
+      r2.saida.apiCost += r.saida.apiCost - totalCost;
+      r = r2;
+      avisoEscopo = "Nada encontrado nos seus memos; mostrando os de todos.";
+    }
+  }
+  const resp = r.saida.resposta;
+  const limitacoes = avisoEscopo ? [...(resp.limitacoes ?? []), avisoEscopo] : resp.limitacoes;
+  // Nenhum resultado não é certeza de que "não existe": confiança baixa
+  const confianca = r.vazio ? Math.min(resp.confianca_estimada ?? 0, 0.2) : resp.confianca_estimada;
+  return { ...r.saida, resposta: { ...resp, limitacoes, confianca_estimada: confianca } };
+}
+
+function semLinhas(d: PerguntaResposta["dados_estruturados"]): boolean {
+  if (!d) return true;
+  const lista = Array.isArray(d) ? d : [d];
+  return lista.every((x) => (x?.totalLinhas ?? x?.linhas?.length ?? 0) === 0);
 }
