@@ -1888,3 +1888,35 @@
   line-height: 1;
   cursor: pointer;
 }
+
+.botoesAlterar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.25rem 0 0.9rem;
+}
+
+.botaoAlterar {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--mm-accent, #14b8a6);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--mm-accent, #0d9488);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.botaoAlterar:hover {
+  background: var(--mm-accent-bg, rgba(20, 184, 166, 0.08));
+}
+
+.botoesAlterarMais {
+  font-size: 0.82rem;
+  opacity: 0.75;
+}

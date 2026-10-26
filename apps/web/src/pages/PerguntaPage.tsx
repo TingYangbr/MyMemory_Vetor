@@ -392,6 +392,55 @@ function linhaEncerrada(locais: Record<string, string> | undefined): boolean {
   return !!locais && Object.entries(locais).some(([k, v]) => /situa/i.test(toParamName(k)) && situacaoEncerrada(v));
 }
 
+const MAX_BOTOES_ALTERAR = 5;
+
+/**
+ * Botões no fim do texto da resposta para os memos atualizáveis citados: um memo → "Alterar,
+ * concluir ou cancelar"; vários → um botão por memo com o início do resumo (o resto pela tabela).
+ */
+function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["resposta"] }) {
+  const { alteraveis, abrir } = useContext(AlteracaoCtx);
+  const memos = useMemo(() => {
+    const vistos = new Map<number, string>();
+    const add = (id: unknown, texto: unknown) => {
+      const n = Number(id);
+      if (!Number.isInteger(n) || !alteraveis.has(n) || vistos.has(n)) return;
+      vistos.set(n, typeof texto === "string" ? texto.replace(/\s+/g, " ").trim() : "");
+    };
+    const de = resposta.dados_estruturados;
+    for (const bloco of de ? (Array.isArray(de) ? de : [de]) : []) {
+      for (const linha of bloco.linhas) add(linha["id"], linha["mediatext"] ?? linha["mediaText"]);
+    }
+    for (const d of resposta.dados_usados) add(d.memo_id, d.mediatext);
+    return [...vistos.entries()];
+  }, [resposta, alteraveis]);
+  if (!memos.length) return null;
+  const rotulo = (texto: string, id: number) => {
+    const t = texto || `Memo #${id}`;
+    return t.length > 42 ? `${t.slice(0, 42)}…` : t;
+  };
+  return (
+    <div className={styles.botoesAlterar}>
+      {memos.length === 1 ? (
+        <button type="button" className={styles.botaoAlterar} onClick={() => abrir(memos[0]![0])}>
+          ✎ Alterar, concluir ou cancelar
+        </button>
+      ) : (
+        <>
+          {memos.slice(0, MAX_BOTOES_ALTERAR).map(([id, texto]) => (
+            <button key={id} type="button" className={styles.botaoAlterar} onClick={() => abrir(id)} title={`Alterar, concluir ou cancelar — memo #${id}`}>
+              ✎ {rotulo(texto, id)}
+            </button>
+          ))}
+          {memos.length > MAX_BOTOES_ALTERAR ? (
+            <span className={styles.botoesAlterarMais}>e mais {memos.length - MAX_BOTOES_ALTERAR} — use o ✎ na tabela</span>
+          ) : null}
+        </>
+      )}
+    </div>
+  );
+}
+
 function BotaoAlterar({ memoId }: { memoId: number }) {
   const { alteraveis, abrir } = useContext(AlteracaoCtx);
   if (!alteraveis.has(memoId)) return null;
@@ -2040,6 +2089,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     </p>
                   ) : null}
                   <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
+                  <BotoesAlterarResposta resposta={r.resposta} />
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
