@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Gera os trechos (chunks.jsonl) do Manual técnico a partir de fonte/manual-tecnico.md.
+"""Gera os trechos (chunks-mymemory-tecnico.jsonl) do Manual técnico a partir de fonte/manual-tecnico.md.
 
 Mesmo formato do manual operacional do Softing-erp (Docs/manual-operacional/gerar_trechos.py), para
 importar pelo Admin → Importar conhecimento na categoria "Manual técnico".
 
-Uso:  python gerar_trechos.py            # lê fonte/manual-tecnico.md, grava chunks.jsonl
+Uso:  python gerar_trechos.py            # lê fonte/manual-tecnico.md, grava chunks-mymemory-tecnico.jsonl
 
 Convenções do texto-fonte:
   # SEÇÃO N — Título        (a linha seguinte é "Rota: ...")
@@ -21,7 +21,7 @@ from pathlib import Path
 
 AQUI = Path(__file__).parent
 FONTE = AQUI / "fonte" / "manual-tecnico.md"
-SAIDA = AQUI / "chunks.jsonl"
+SAIDA = AQUI / "chunks-mymemory-tecnico.jsonl"
 VERSAO = "1"
 MODULO = "Integração e perfis"
 PERFIL = "admin"

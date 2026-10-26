@@ -10,14 +10,14 @@ categoria **Manual do usuário**; este vai para a categoria **Manual técnico**,
 | Arquivo | O que é |
 |---|---|
 | `fonte/manual-tecnico.md` | Texto-fonte. É onde se edita. |
-| `gerar_trechos.py` | Gera `chunks.jsonl` a partir do texto-fonte (valida a numeração das seções e os ids). |
-| `chunks.jsonl` | Trechos para importar (mesmo formato do manual operacional do Softing-erp). |
+| `gerar_trechos.py` | Gera `chunks-mymemory-tecnico.jsonl` a partir do texto-fonte (valida a numeração das seções e os ids). |
+| `chunks-mymemory-tecnico.jsonl` | Trechos para importar (mesmo formato do manual operacional do Softing-erp). |
 
 ## Importar (Admin → Importar conhecimento)
 
 1. Em **Estrutura do contexto**, criar a categoria **Manual técnico** (no grupo que vai usá-la).
 2. Criar nela os campos **Seção, Tela, Rota, Perfil, Tipo e Versão** (casam com ou sem acento).
-3. Admin → Importar conhecimento → escolher o grupo, a categoria "Manual técnico" e o arquivo `chunks.jsonl`.
+3. Admin → Importar conhecimento → escolher o grupo, a categoria "Manual técnico" e o arquivo `chunks-mymemory-tecnico.jsonl`.
 4. Manter marcado "Substituir os trechos importados antes nesta categoria" ao reimportar uma versão nova.
 5. Na aba **Perfis**, incluir **Manual técnico** só nos perfis de quem administra (nunca no perfil padrão dos usuários).
 

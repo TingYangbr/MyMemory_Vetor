@@ -27,7 +27,7 @@ function lerTrechos(conteudo: string): Trecho[] {
 }
 
 /**
- * Importa conhecimento em trechos (ex.: docs/manual-chunks/chunks.jsonl do Manual MyMemory) para um
+ * Importa conhecimento em trechos (ex.: docs/manual-chunks/chunks-mymemory-operacional.jsonl do Manual MyMemory) para um
  * grupo: cada trecho vira um memo de texto com categoria, campos e vetores, sem IA de extração.
  */
 export default function AdminConhecimentoPage() {
@@ -170,7 +170,7 @@ export default function AdminConhecimentoPage() {
         <p className={adminStyles.lead}>
           Cada trecho do arquivo vira um memo de texto no grupo escolhido, já com a categoria, os campos
           (Seção, Tela, Rota, Perfil, Tipo, Versão) e os vetores da busca semântica — sem IA de extração.
-          Use o <code>docs/manual-chunks/chunks.jsonl</code> do Manual MyMemory ou outro arquivo no mesmo formato
+          Use o <code>docs/manual-chunks/chunks-mymemory-operacional.jsonl</code> do Manual MyMemory ou outro arquivo no mesmo formato
           (um JSON por linha com <code>id</code> e <code>texto</code>).
         </p>
         {erro ? <p className="mm-error">{erro}</p> : null}

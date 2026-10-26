@@ -6,7 +6,7 @@ import { requireAdmin } from "../lib/adminContext.js";
 import { createKnowledgeTextMemo, REVIEW_FLOW_CONHECIMENTO } from "../services/memoService.js";
 
 /**
- * Importação de conhecimento em trechos (ex.: Manual MyMemory → docs/manual-chunks/chunks.jsonl).
+ * Importação de conhecimento em trechos (ex.: Manual MyMemory → docs/manual-chunks/chunks-mymemory-operacional.jsonl).
  * Cada trecho vira um memo de texto no grupo escolhido, já com categoria, campos e vetores —
  * sem IA de extração. Reimportar com "substituir" desativa só os trechos anteriores da MESMA ORIGEM
  * (nome do manual) na mesma categoria — assim vários manuais podem dividir uma categoria sem se apagarem.
