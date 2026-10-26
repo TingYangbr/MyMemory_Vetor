@@ -25,12 +25,12 @@ const plugin: FastifyPluginAsync = async (app) => {
               ROUND(AVG(ms))::int AS ms_medio,
               (PERCENTILE_CONT(0.9) WITHIN GROUP (ORDER BY ms))::int AS ms_p90,
               ROUND(SUM(custo_usd)::numeric, 6)::float AS custo_total_usd,
-              STRING_AGG(DISTINCT COALESCE(modelo, '?'), ', ') AS modelos
+              STRING_AGG(DISTINCT COALESCE(modelo, '-'), ', ') AS modelos
        FROM llm_chamadas
-       WHERE createdat > NOW() - (? || ' days')::interval
+       WHERE createdat > NOW() - make_interval(days => ?::int)
        GROUP BY etapa
        ORDER BY SUM(custo_usd) DESC, COUNT(*) DESC`,
-      [String(dias)]
+      [dias]
     );
     return {
       dias,
