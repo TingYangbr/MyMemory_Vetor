@@ -84,6 +84,30 @@ async function gravarPendencia(memoId: number, meta: Record<string, unknown>, pe
   await pool.query(`UPDATE memos SET mediametadata = ? WHERE id = ?`, [JSON.stringify(meta), memoId]);
 }
 
+/** Nome do cadastro (sem acento, como os valores dos memos); sem nome, o e-mail. */
+async function nomeDoUsuario(userId: number): Promise<string> {
+  const [rows] = await pool.query<RowDataPacket[]>(`SELECT name, email FROM users WHERE id = ? LIMIT 1`, [userId]);
+  const u = (rows as Record<string, unknown>[])[0];
+  const nome = String(u?.name ?? "").trim() || String(u?.email ?? "").trim();
+  return nome.normalize("NFD").replace(/\p{Mn}/gu, "");
+}
+
+/** Grava o valor no campo dono do memo (JSON e linha de dadosespecificos, se existir). */
+async function preencherCampoDono(memoId: number, campo: string, valor: string): Promise<void> {
+  if (!valor) return;
+  const [rows] = await pool.query<RowDataPacket[]>(`SELECT dadosespecificosjson FROM memos WHERE id = ? LIMIT 1`, [memoId]);
+  const dados = lerJson((rows as Record<string, unknown>[])[0]?.dadosEspecificosJson);
+  const alvo = norm(campo);
+  const chave = Object.keys(dados).find((k) => norm(k) === alvo) ?? campo;
+  dados[chave] = valor;
+  await pool.query(`UPDATE memos SET dadosespecificosjson = ? WHERE id = ?`, [JSON.stringify(dados), memoId]);
+  await pool.query(
+    `UPDATE dadosespecificos SET dadooriginal = COALESCE(NULLIF(dadooriginal, ''), ?), dadopadronizado = ?
+     WHERE id_memo = ? AND label = ? AND COALESCE(dadopadronizado, '') = ''`,
+    [valor, valor, memoId, chave]
+  );
+}
+
 /**
  * Depois de criar um memo na importação: se a categoria é Pessoal, grava o dono pelo campo dono.
  * Sem efeito em memo sem grupo ou categoria que não é Pessoal.
@@ -96,7 +120,7 @@ export async function aplicarDonoPessoal(
 ): Promise<{ status: "atribuido"; userId: number } | { status: "pendente"; motivo: string } | { status: "nao_se_aplica" }> {
   const marcarPendente = opts.marcarPendente ?? true;
   const [mRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, groupid, category, dadosespecificosjson, mediametadata FROM memos WHERE id = ? LIMIT 1`,
+    `SELECT id, userid, groupid, category, dadosespecificosjson, mediametadata FROM memos WHERE id = ? LIMIT 1`,
     [memoId]
   );
   const memo = (mRows as Record<string, unknown>[])[0];
@@ -120,6 +144,12 @@ export async function aplicarDonoPessoal(
     return { status: "pendente", motivo };
   }
   const valor = valorDoCampo(lerJson(memo.dadosEspecificosJson), campo);
+  // Catalogar/edição sem dono no texto: o memo é de quem salvou — grava o nome dele no campo dono
+  if (!marcarPendente && !(valor ?? "").trim()) {
+    const autorId = Number(memo.userId);
+    await preencherCampoDono(memoId, campo, await nomeDoUsuario(autorId));
+    return { status: "atribuido", userId: autorId };
+  }
   const r = resolverMembro(valor, await listarMembrosDoGrupo(groupId));
   if ("motivo" in r) {
     if (marcarPendente) await gravarPendencia(memoId, meta, { campo, valor, motivo: r.motivo });

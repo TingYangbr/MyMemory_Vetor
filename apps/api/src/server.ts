@@ -72,6 +72,7 @@ import { CampoDonoCategoria1700000000157 } from "./migrations/1700000000157-Camp
 import { AutomacaoImportacao1700000000158 } from "./migrations/1700000000158-AutomacaoImportacao.js";
 import { CategoriaAtualizavel1700000000159 } from "./migrations/1700000000159-CategoriaAtualizavel.js";
 import { LlmChamadas1700000000160 } from "./migrations/1700000000160-LlmChamadas.js";
+import { PreencherCampoDonoVazio1700000000161 } from "./migrations/1700000000161-PreencherCampoDonoVazio.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -184,6 +185,7 @@ assertMediaStorageEnv();
       AutomacaoImportacao1700000000158,
       CategoriaAtualizavel1700000000159,
       LlmChamadas1700000000160,
+      PreencherCampoDonoVazio1700000000161,
     ],
   });
   const ds = await AppDataSource.initialize();
