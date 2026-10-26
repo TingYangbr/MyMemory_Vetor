@@ -3,6 +3,7 @@ Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+- Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo: Seção 17
 - Perguntas comparam texto dos memos por palavras ("sr. Wilson" acha "Sr. Wilson da FAPESP"): Seção 17
 - Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa: Seção 17
 - Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Perguntar, com ↶ Desfazer: Seções 8 e 17

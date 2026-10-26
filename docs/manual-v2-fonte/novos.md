@@ -22,6 +22,7 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Ícones ✎ e 🗑 visíveis no tema escuro | Seção 17 |
 | Média (AVG) no SQL Server sem truncar para inteiro | Seção 17 |
 | Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo | Seção 27 |
+| Importar conhecimento: campo "Nome do manual (origem)"; Substituir e Remover agem só nos trechos desse manual, e vários manuais podem dividir a mesma categoria | Seção 27 |
 | Importação automática de pasta (⏱ Automatizar) e lista "Memos sem dono identificado" | Seção 16 |
 | Categoria Pessoal e campo dono configurados na própria categoria | Seção 17 |
 | Campo dono aplicado também no Catalogar e na edição; pergunta que cita um membro ("agenda do Suporte") mostra os memos dele | Seção 17 |
@@ -389,6 +390,7 @@ Na mesma tela, "Limpeza de Arquivos Órfãos" → "Verificar" lista arquivos no 
 Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
 ## Propósito
 Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
+Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
 ## Antes de importar
 1. Na Estrutura do contexto, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
 2. Criar nela os campos Seção, Tela, Rota, Perfil, Tipo e Versão. Os nomes são casados com ou sem acento ("Secao" = "Seção").
@@ -398,22 +400,26 @@ Importa conhecimento já dividido em trechos — por exemplo o próprio Manual M
 2. Escolher o grupo que vai consultar o conhecimento.
 3. Escolher a categoria (as globais aparecem com "(global)"). Uma categoria com "manual" no nome é pré-selecionada.
 4. Escolher o arquivo .jsonl. A tela mostra quantos trechos foram lidos.
-5. Manter marcado "Substituir os trechos importados antes nesta categoria" para trocar a versão anterior.
-6. Clicar Importar. Leva de um a dois minutos para 200 trechos (o sistema gera os vetores de cada um).
+5. Conferir o Nome do manual (origem). Ele vem preenchido com o nome do arquivo; trocar por um nome que identifique o manual (ex.: "Manual e-Pedidos — Suporte"). É obrigatório e deve ser diferente para cada manual.
+6. Manter marcado "Substituir os trechos já importados deste manual nesta categoria" só ao reimportar uma versão nova do mesmo manual. Para acrescentar um manual novo à categoria, o nome diferente já protege os outros.
+7. Clicar Importar. Leva de um a dois minutos para 200 trechos (o sistema gera os vetores de cada um).
 ## Campos da tela
 | Campo / Elemento | Descrição |
 |---|---|
 | Grupo | Grupo onde os memos serão criados. Só os membros desse grupo terão respostas a partir deles. |
 | Categoria | Categoria dos memos. Precisa estar disponível para o grupo (do grupo ou global). |
 | Arquivo de trechos | .jsonl (um JSON por linha) ou .json com uma lista. Cada trecho: id, texto e, opcionalmente, secao, tela, rota, perfil, tipo, versao. |
-| Substituir | Desativa os trechos importados antes na mesma categoria e grupo antes de criar os novos. |
+| Nome do manual (origem) | Identifica de qual manual são os trechos. Aparece depois de escolher o arquivo, preenchido com o nome do arquivo, e é obrigatório. |
+| Substituir | Desativa, antes de criar os novos, apenas os trechos já importados com o mesmo Nome do manual na mesma categoria e grupo. Trechos de outros manuais da categoria não são alterados. |
 | Importar | Cria os memos e mostra o resultado: criados, substituídos e erros. |
-| Já importado neste grupo | Lista categoria, quantidade de trechos, versão e data da última importação, com o botão Remover. |
+| Já importado neste grupo | Lista, por categoria e manual (origem), a quantidade de trechos, a versão e a data da última importação, com o botão Remover de cada manual. |
 ## Regras importantes
 - O texto entra exatamente como no arquivo (sem acentos, como todos os memos do sistema); a IA não reescreve nem classifica.
 - Não há custo de IA de extração; só a geração dos vetores da busca semântica (alguns centavos para 200 trechos).
 - Os memos importados aparecem nos Recentes do grupo e podem ser abertos e editados como qualquer memo de texto.
-- Remover desativa os memos (exclusão lógica); eles deixam de ser usados nas respostas.
+- Remover desativa os memos do manual da linha (exclusão lógica); eles deixam de ser usados nas respostas. Os outros manuais da categoria continuam ativos.
+- Antes desta versão o Substituir e o Remover desativavam todos os trechos importados da categoria, de qualquer manual. Por isso, vale usar um Nome do manual diferente para cada manual e conferir a lista "Já importado" antes de marcar Substituir.
+- Trechos importados antes do campo de origem usam o nome do arquivo como origem.
 - A Importação em Lote (Seção 16) não serve para isso: pelo WebDAV ela não lê o conteúdo dos arquivos e não aplica IA.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
@@ -421,6 +427,7 @@ Importa conhecimento já dividido em trechos — por exemplo o próprio Manual M
 | Linha N não é JSON válido | O arquivo não está no formato JSON Lines. Gerar de novo com docs/manual-v2-fonte/gerar_trechos.py. |
 | Trecho N sem "id" ou "texto" | Cada linha precisa ter os campos id e texto. |
 | Categoria não disponível para este grupo | A categoria é de outro grupo. Usar uma categoria do grupo ou global. |
+| Importei um manual e os trechos de outro sumiram | Importação feita antes desta versão, ou com o mesmo Nome do manual com Substituir marcado. Os trechos só foram desativados: pedir à equipe técnica para reativá-los (script docs/sql/recuperar_conhecimento_substituido.sql) ou reimportar os arquivos originais com outro nome de manual. |
 | Perguntas não usam os trechos importados | Conferir se a pergunta foi feita no mesmo grupo da importação e se a busca semântica está ativa (OPENAI_API_KEY configurada). |
 @@FIM
 
