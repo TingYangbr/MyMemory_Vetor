@@ -12,6 +12,7 @@ import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
 import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
+import { contextoDatas } from "../lib/calendarioPergunta.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -112,6 +113,7 @@ async function gerarRespostaHibrida(input: {
 
   const userMsg = JSON.stringify({
     pergunta: input.pergunta,
+    ...contextoDatas(),
     dados_estruturados: {
       colunas: pipe2.dadosEstruturados.colunas,
       linhas: sortLinhasParaLlm(pipe2.dadosEstruturados.linhas, pipe2.dadosEstruturados.totalLinhas).slice(0, 20),

@@ -10,6 +10,7 @@ import { withSpan } from "../lib/requestTimings.js";
 import { searchMemosByEmbedding, type RestricaoMemos } from "../lib/openaiEmbedding.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
+import { contextoDatas } from "../lib/calendarioPergunta.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -199,6 +200,8 @@ async function gerarRespostaSemantica(input: {
   const userMsg = JSON.stringify(
     {
       pergunta: input.pergunta,
+      // Hoje e períodos relativos ("semana que vem"…) já calculados, no horário de Brasília
+      ...contextoDatas(),
       // Onde o usuário estava no sistema quando abriu a pergunta (tela, filtros ativos, texto
       // selecionado) — use pra resolver referências implícitas ("ele", "esse cliente") que não
       // aparecem no texto da pergunta em si.

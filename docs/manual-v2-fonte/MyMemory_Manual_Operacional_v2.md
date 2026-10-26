@@ -65,6 +65,7 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Perguntas comparam texto dos memos por palavras ("sr. Wilson" acha "Sr. Wilson da FAPESP") | Seção 17 |
 | Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa | Seção 17 |
 | Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Perguntar, com ↶ Desfazer | Seções 8 e 17 |
+| Períodos relativos ("semana que vem", "próxima sexta", "fim de semana"…) calculados pelo sistema no horário de Brasília | Seção 8 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
@@ -319,6 +320,23 @@ O botão "Perguntas salvas" abre a lista do espaço ativo, com busca por texto e
 ## Histórico da sessão
 As perguntas e respostas da sessão ficam como cards na tela e são enviadas como contexto às perguntas seguintes (ex.: "e desses, quais…"). O botão "↺ Nova sessão" limpa o histórico.
 DICA: Ao testar várias vezes a mesma pergunta, use "Nova sessão": respostas anteriores erradas no histórico podem influenciar o planejamento.
+## Períodos relativos
+Expressões de tempo na pergunta são calculadas pelo sistema, no horário de Brasília, e enviadas prontas à IA — a pergunta não é reescrita. A semana vai de segunda a domingo. Exemplo com hoje = segunda-feira, 26/10/2026:
+| Expressão | Período | Exemplo |
+|---|---|---|
+| hoje / amanhã / depois de amanhã / ontem | o dia | 26/10 · 27/10 · 28/10 · 25/10 |
+| esta semana | de hoje até domingo | 26/10 a 01/11 |
+| semana que vem = próxima semana | segunda a domingo seguintes | 02/11 a 08/11 |
+| semana passada | segunda a domingo anteriores | 19/10 a 25/10 |
+| fim de semana | sábado e domingo desta semana (hoje, se já for fim de semana) | 31/10 a 01/11 |
+| próximo fim de semana | o mesmo; num sábado ou domingo, o seguinte | 31/10 a 01/11 |
+| sexta (ou outro dia) | hoje, se hoje for sexta; senão a próxima | 30/10 |
+| próxima sexta | a próxima; numa sexta-feira, a da semana seguinte | 30/10 |
+| próximos 7 / 15 / 30 dias | de hoje até hoje + N | 26/10 a 02/11 (7) |
+| últimos 7 / 15 / 30 dias | de hoje − N até hoje | 19/10 a 26/10 (7) |
+| este mês / mês que vem / mês passado | o mês inteiro | out · nov · set |
+| este ano / ano que vem / ano passado | o ano inteiro | 2026 · 2027 · 2025 |
+NOTA: "Próximos 7 dias" é diferente de "semana que vem": conta a partir de hoje, não da próxima segunda.
 ## Alterar, concluir ou cancelar pela resposta
 Em categorias marcadas como Atualizável (ex.: Agenda), os memos da resposta aparecem com ✎ ao lado do número e a linha da tabela fica clicável. Aparecem só para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
 1. Toque (celular) ou clique (computador) na linha ou no ✎ — abre o cartão do memo com os campos preenchidos.
