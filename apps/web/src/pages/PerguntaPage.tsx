@@ -392,14 +392,13 @@ function linhaEncerrada(locais: Record<string, string> | undefined): boolean {
   return !!locais && Object.entries(locais).some(([k, v]) => /situa/i.test(toParamName(k)) && situacaoEncerrada(v));
 }
 
-const MAX_BOTOES_ALTERAR = 5;
-
 /**
- * Botões no fim do texto da resposta para os memos atualizáveis citados: um memo → "Alterar,
- * concluir ou cancelar"; vários → um botão por memo com o início do resumo (o resto pela tabela).
+ * Ícone ✎ no fim do texto da resposta quando há memo atualizável: um memo → abre o cartão dele;
+ * vários → primeiro a lista para escolher qual alterar.
  */
 function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["resposta"] }) {
   const { alteraveis, abrir } = useContext(AlteracaoCtx);
+  const [escolhendo, setEscolhendo] = useState(false);
   const memos = useMemo(() => {
     const vistos = new Map<number, string>();
     const add = (id: unknown, texto: unknown) => {
@@ -414,29 +413,48 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
     for (const d of resposta.dados_usados) add(d.memo_id, d.mediatext);
     return [...vistos.entries()];
   }, [resposta, alteraveis]);
+  useEffect(() => {
+    if (!escolhendo) return;
+    const esc = (e: KeyboardEvent) => e.key === "Escape" && setEscolhendo(false);
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [escolhendo]);
   if (!memos.length) return null;
-  const rotulo = (texto: string, id: number) => {
-    const t = texto || `Memo #${id}`;
-    return t.length > 42 ? `${t.slice(0, 42)}…` : t;
-  };
   return (
     <div className={styles.botoesAlterar}>
-      {memos.length === 1 ? (
-        <button type="button" className={styles.botaoAlterar} onClick={() => abrir(memos[0]![0])}>
-          ✎ Alterar, concluir ou cancelar
-        </button>
-      ) : (
-        <>
-          {memos.slice(0, MAX_BOTOES_ALTERAR).map(([id, texto]) => (
-            <button key={id} type="button" className={styles.botaoAlterar} onClick={() => abrir(id)} title={`Alterar, concluir ou cancelar — memo #${id}`}>
-              ✎ {rotulo(texto, id)}
-            </button>
-          ))}
-          {memos.length > MAX_BOTOES_ALTERAR ? (
-            <span className={styles.botoesAlterarMais}>e mais {memos.length - MAX_BOTOES_ALTERAR} — use o ✎ na tabela</span>
-          ) : null}
-        </>
-      )}
+      <button
+        type="button"
+        className={styles.botaoAlterar}
+        onClick={() => (memos.length === 1 ? abrir(memos[0]![0]) : setEscolhendo(true))}
+        title={memos.length === 1 ? "Alterar, concluir ou cancelar" : `Alterar, concluir ou cancelar — ${memos.length} memos`}
+        aria-label="Alterar, concluir ou cancelar"
+      >
+        ✎
+      </button>
+      {escolhendo ? (
+        <div className={styles.cellModalOverlay} onClick={() => setEscolhendo(false)}>
+          <div className={styles.escolherMemo} role="dialog" aria-label="Escolha o memo para alterar" onClick={(e) => e.stopPropagation()}>
+            <div className={styles.escolherMemoTopo}>
+              <strong>Qual memo alterar?</strong>
+              <button type="button" className={styles.avisoAlteracaoFechar} onClick={() => setEscolhendo(false)} aria-label="Fechar">×</button>
+            </div>
+            <ul className={styles.escolherMemoLista}>
+              {memos.map(([id, texto]) => (
+                <li key={id}>
+                  <button
+                    type="button"
+                    className={styles.escolherMemoItem}
+                    onClick={() => { setEscolhendo(false); abrir(id); }}
+                  >
+                    <span className={styles.escolherMemoId}>#{id}</span>
+                    <span>{texto || `Memo #${id}`}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
