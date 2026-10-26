@@ -1039,7 +1039,7 @@ Na mesma tela, "Limpeza de Arquivos Órfãos" → "Verificar" lista arquivos no 
 # SEÇÃO 27 — Admin: Importar conhecimento
 Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
 ## Propósito
-Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
+Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks-mymemory-operacional.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
 Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
 ## Antes de importar
 1. Na Estrutura do contexto, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.

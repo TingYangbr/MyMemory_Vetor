@@ -2,7 +2,7 @@
 
 Saída:
   <dest>/trechos/sNN-MM-slug.md   — um arquivo por trecho (texto pronto para virar memo)
-  <dest>/chunks.jsonl             — mesmo conteúdo + metadados estruturados
+  <dest>/chunks-mymemory-operacional.jsonl — mesmo conteúdo + metadados estruturados
 Regras:
   - um trecho por subseção (##); ### viram trechos próprios;
   - cada linha de tabela "Erros frequentes" vira um trecho (sintoma → causa e solução);
@@ -179,7 +179,7 @@ for f in os.listdir(os.path.join(dest, "trechos")):
     os.remove(os.path.join(dest, "trechos", f))
 for t in trechos:
     io.open(os.path.join(dest, "trechos", t["id"] + ".md"), "w", encoding="utf-8").write(t["texto"] + "\n")
-with io.open(os.path.join(dest, "chunks.jsonl"), "w", encoding="utf-8") as fh:
+with io.open(os.path.join(dest, "chunks-mymemory-operacional.jsonl"), "w", encoding="utf-8") as fh:
     for t in trechos:
         fh.write(json.dumps(t, ensure_ascii=False) + "\n")
 
