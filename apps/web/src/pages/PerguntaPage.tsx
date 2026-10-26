@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
@@ -14,12 +14,14 @@ import type {
   PerguntaChip,
   PerguntaChipValor,
 } from "@mymemory/shared";
-import { derivarChips, perguntaComValores } from "@mymemory/shared";
+import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
+import type { MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
+import { MemoAlteracaoCartao } from "../components/MemoAlteracaoCartao";
 import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -366,6 +368,46 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   );
 }
 
+/**
+ * Memos atualizáveis da resposta (✎ para alterar) e os valores alterados nesta tela, para a tabela
+ * mostrar o valor novo sem refazer a pergunta.
+ */
+interface AlteracaoCtxValor {
+  alteraveis: Set<number>;
+  locais: Record<number, Record<string, string>>;
+  abrir: (memoId: number) => void;
+}
+const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {} });
+
+/** Valor alterado nesta tela para a coluna (nome do campo ou o alias da Query padrão). */
+function valorLocal(locais: Record<string, string> | undefined, col: string): string | undefined {
+  if (!locais) return undefined;
+  const alvo = toParamName(col);
+  for (const [k, v] of Object.entries(locais)) if (toParamName(k) === alvo) return v;
+  return undefined;
+}
+
+/** Linha de memo cancelado/concluído nesta tela: algum valor local é uma situação encerrada. */
+function linhaEncerrada(locais: Record<string, string> | undefined): boolean {
+  return !!locais && Object.entries(locais).some(([k, v]) => /situa/i.test(toParamName(k)) && situacaoEncerrada(v));
+}
+
+function BotaoAlterar({ memoId }: { memoId: number }) {
+  const { alteraveis, abrir } = useContext(AlteracaoCtx);
+  if (!alteraveis.has(memoId)) return null;
+  return (
+    <button
+      type="button"
+      className={styles.memoIdBtn}
+      onClick={(e) => { e.stopPropagation(); abrir(memoId); }}
+      title="Alterar, concluir ou cancelar"
+      aria-label={`Alterar memo #${memoId}`}
+    >
+      ✎
+    </button>
+  );
+}
+
 function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
@@ -374,6 +416,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
   loadingFileId?: number | null;
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
+  const alteracao = useContext(AlteracaoCtx);
 
   if (!dados.totalLinhas) return null;
   return (
@@ -395,10 +438,20 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
             </tr>
           </thead>
           <tbody>
-            {dados.linhas.map((linha, i) => (
-              <tr key={i} className={styles.tabelaTr}>
+            {dados.linhas.map((linha, i) => {
+              const idLinha = linha["id"] != null ? Number(linha["id"]) : null;
+              const locais = idLinha != null ? alteracao.locais[idLinha] : undefined;
+              const alteravel = idLinha != null && alteracao.alteraveis.has(idLinha);
+              return (
+              <tr
+                key={i}
+                className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
+                onClick={alteravel ? () => alteracao.abrir(idLinha!) : undefined}
+                title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
+              >
                 {dados.colunas.map((col) => {
-                  const val = linha[col];
+                  const local = valorLocal(locais, col);
+                  const val = local !== undefined ? local : linha[col];
                   const display = (() => {
                     if (col === "mediaType" && typeof val === "string")
                       return MEDIA_TYPE_LABELS[val] ?? val;
@@ -426,7 +479,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                             <button
                               type="button"
                               className={styles.tableFileBtn}
-                              onClick={() => onOpenMemoFile(id)}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemoFile(id); }}
                               disabled={loadingFileId === id}
                               title={`Abrir arquivo — memo #${id}`}
                             >
@@ -437,13 +490,14 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                             <button
                               type="button"
                               className={styles.memoIdBtn}
-                              onClick={() => onOpenMemo(id)}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemo(id); }}
                               disabled={loadingCardId === id}
                               title="Ver detalhes do memo"
                             >
                               {loadingCardId === id ? "…" : `#${id}`}
                             </button>
                           ) : null}
+                          <BotaoAlterar memoId={id} />
                         </span>
                       </td>
                     );
@@ -452,7 +506,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                     <td
                       key={col}
                       className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                      onClick={isLong ? () => setExpandedCell(display) : undefined}
+                      onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
                       title={isLong ? "Clique para ver texto completo" : undefined}
                     >
                       {isLong ? display.slice(0, 80) + "…" : display}
@@ -460,7 +514,8 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                   );
                 })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {dados.totalLinhas > dados.linhas.length ? (
@@ -481,6 +536,7 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
   loadingFileId?: number | null;
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
+  const alteracao = useContext(AlteracaoCtx);
 
   if (dados_usados.length === 0) return null;
 
@@ -496,7 +552,7 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
     return (
       <td
         className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-        onClick={isLong ? () => setExpandedCell(val) : undefined}
+        onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(val); } : undefined}
         title={isLong ? "Clique para ver texto completo" : undefined}
       >
         {isLong ? val.slice(0, 80) + "…" : val}
@@ -523,15 +579,23 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
             </tr>
           </thead>
           <tbody>
-            {dados_usados.map((d, i) => (
-              <tr key={i} className={styles.tabelaTr}>
+            {dados_usados.map((d, i) => {
+              const locais = alteracao.locais[d.memo_id];
+              const alteravel = alteracao.alteraveis.has(d.memo_id);
+              return (
+              <tr
+                key={i}
+                className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
+                onClick={alteravel ? () => alteracao.abrir(d.memo_id) : undefined}
+                title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
+              >
                 <td className={styles.tabelaTd}>
                   <span className={styles.tabelaIdCell}>
                     {onOpenMemoFile ? (
                       <button
                         type="button"
                         className={styles.tableFileBtn}
-                        onClick={() => onOpenMemoFile(d.memo_id)}
+                        onClick={(e) => { e.stopPropagation(); onOpenMemoFile(d.memo_id); }}
                         disabled={loadingFileId === d.memo_id}
                         title={`Abrir arquivo — memo #${d.memo_id}`}
                       >
@@ -542,20 +606,25 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
                       <button
                         type="button"
                         className={styles.memoIdBtn}
-                        onClick={() => onOpenMemo(d.memo_id)}
+                        onClick={(e) => { e.stopPropagation(); onOpenMemo(d.memo_id); }}
                         disabled={loadingCardId === d.memo_id}
                         title="Ver detalhes do memo"
                       >
                         {loadingCardId === d.memo_id ? "…" : `#${d.memo_id}`}
                       </button>
                     ) : `#${d.memo_id}`}
+                    <BotaoAlterar memoId={d.memo_id} />
                   </span>
                 </td>
                 {renderCell(d.mediaType ?? "—")}
                 {renderCell(d.mediatext ?? "—")}
-                {extraKeys.map((k) => renderCell(d.dadosEspecificos?.[k] != null ? String(d.dadosEspecificos![k]) : "—"))}
+                {extraKeys.map((k) => {
+                  const local = valorLocal(locais, k);
+                  return renderCell(local !== undefined ? local || "—" : d.dadosEspecificos?.[k] != null ? String(d.dadosEspecificos![k]) : "—");
+                })}
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>
@@ -671,6 +740,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
   const [filePreviewMemo, setFilePreviewMemo] = useState<MemoRecentCard | null>(null);
   const [loadingCardId, setLoadingCardId] = useState<number | null>(null);
+  // Categoria atualizável: memos da resposta com ✎, cartão aberto, valores alterados e "Desfazer"
+  const [alteraveis, setAlteraveis] = useState<Set<number>>(() => new Set());
+  const [alteracoesLocais, setAlteracoesLocais] = useState<Record<number, Record<string, string>>>({});
+  const [alterandoMemoId, setAlterandoMemoId] = useState<number | null>(null);
+  const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number } | null>(null);
+  const idsVerificadosRef = useRef<Set<number>>(new Set());
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
   const [memoEditMode, setMemoEditMode] = useState(false);
   const [editText, setEditText] = useState("");
@@ -1049,6 +1124,55 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       setPendingQuestion(null);
     }
   }
+
+  // Memos novos nas respostas: pergunta ao servidor quais são atualizáveis (e alteráveis por mim)
+  useEffect(() => {
+    const novos = new Set<number>();
+    for (const r of respostas) {
+      for (const d of r.resposta.dados_usados) novos.add(d.memo_id);
+      const de = r.resposta.dados_estruturados;
+      for (const bloco of de ? (Array.isArray(de) ? de : [de]) : []) {
+        for (const linha of bloco.linhas) if (linha["id"] != null) novos.add(Number(linha["id"]));
+      }
+    }
+    const ids = [...novos].filter((id) => Number.isInteger(id) && id > 0 && !idsVerificadosRef.current.has(id));
+    if (!ids.length) return;
+    for (const id of ids) idsVerificadosRef.current.add(id);
+    apiPostJson<{ ids: number[] }>("/api/memos/alteraveis", { ids: ids.slice(0, 500) })
+      .then((r) => {
+        if (r.ids.length) setAlteraveis((s) => new Set([...s, ...r.ids]));
+      })
+      .catch(() => { /* sem ✎: a resposta continua normal */ });
+  }, [respostas]);
+
+  // "Desfazer" some sozinho
+  useEffect(() => {
+    if (!avisoAlteracao) return;
+    const t = window.setTimeout(() => setAvisoAlteracao(null), 10_000);
+    return () => window.clearTimeout(t);
+  }, [avisoAlteracao]);
+
+  function aplicarAlteracaoLocal(memoId: number, r: MemoAlteracaoResponse) {
+    setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...r.campos } }));
+  }
+
+  async function desfazerAlteracao() {
+    const aviso = avisoAlteracao;
+    if (!aviso?.lote) return;
+    setAvisoAlteracao(null);
+    try {
+      const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/alteracoes/${aviso.lote}/desfazer`, {});
+      aplicarAlteracaoLocal(aviso.memoId, r);
+      setAvisoAlteracao({ texto: "Alteração desfeita.", lote: null, memoId: aviso.memoId });
+    } catch (e) {
+      setAvisoAlteracao({ texto: `Não foi possível desfazer: ${e instanceof Error ? e.message : String(e)}`, lote: null, memoId: aviso.memoId });
+    }
+  }
+
+  const alteracaoCtx = useMemo<AlteracaoCtxValor>(
+    () => ({ alteraveis, locais: alteracoesLocais, abrir: (id: number) => setAlterandoMemoId(id) }),
+    [alteraveis, alteracoesLocais]
+  );
 
   async function openMemoCard(id: number) {
     if (loadingCardId === id) return;
@@ -1449,8 +1573,32 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
   return (
+    <AlteracaoCtx.Provider value={alteracaoCtx}>
     <div className={embedded ? styles.embeddedShell : styles.shell}>
       {!embedded && <Header meRefreshKey={0} />}
+
+      {alterandoMemoId != null ? (
+        <MemoAlteracaoCartao
+          memoId={alterandoMemoId}
+          onFechar={() => setAlterandoMemoId(null)}
+          onAlterado={(memoId, r, texto) => {
+            setAlterandoMemoId(null);
+            if (r.lote) aplicarAlteracaoLocal(memoId, r);
+            setAvisoAlteracao({ texto, lote: r.lote, memoId });
+          }}
+        />
+      ) : null}
+      {avisoAlteracao ? (
+        <div className={styles.avisoAlteracao} role="status">
+          <span>{avisoAlteracao.texto}</span>
+          {avisoAlteracao.lote ? (
+            <button type="button" className={styles.avisoAlteracaoBtn} onClick={() => void desfazerAlteracao()}>
+              ↶ Desfazer
+            </button>
+          ) : null}
+          <button type="button" className={styles.avisoAlteracaoFechar} onClick={() => setAvisoAlteracao(null)} aria-label="Fechar aviso">×</button>
+        </div>
+      ) : null}
 
       {filterModal ? (
         <div className={styles.filterOverlay} onClick={() => setFilterModal(null)}>
@@ -2387,5 +2535,6 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         );
       })() : null}
     </div>
+    </AlteracaoCtx.Provider>
   );
 }

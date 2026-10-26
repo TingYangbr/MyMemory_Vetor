@@ -122,6 +122,8 @@ export default function MemoContextPage() {
   // Categoria "Pessoal" e campo que identifica o dono do memo (importação em lote)
   const [modalPessoal, setModalPessoal] = useState(false);
   const [modalCampoDono, setModalCampoDono] = useState("");
+  // Categoria "Atualizável": memos mudam de situação (Ativo, Concluído, Cancelado) pela resposta
+  const [modalAtualizavel, setModalAtualizavel] = useState(false);
   const [modalNormalizedTerms, setModalNormalizedTerms] = useState("");
   const [modalCampoTipo, setModalCampoTipo] = useState<"text" | "date" | "number">("text");
   const [modalResolucaoNomeAbrev, setModalResolucaoNomeAbrev] = useState(false);
@@ -324,6 +326,7 @@ export default function MemoContextPage() {
     setModalMedia(c.mediaType ?? "");
     setModalPessoal(c.pessoal === true);
     setModalCampoDono(c.campoDono ?? "");
+    setModalAtualizavel(c.atualizavel === true);
     setModalCategoryId(c.id);
     setModalCampoId(null);
     setModalQueryId(null);
@@ -471,7 +474,9 @@ export default function MemoContextPage() {
     const cat = categories.find((c) => c.id === modalCategoryId);
     if (!cat) return;
     // Mesmo gerador do backend: SQL salvo idêntico ao gerado = query automática (atualiza sozinha)
-    const { sql, params } = gerarQueryPadraoMemos(cat.name, cat.campos);
+    const { sql, params } = gerarQueryPadraoMemos(cat.name, cat.campos, {
+      campoSituacao: cat.atualizavel ? cat.campoSituacao : null,
+    });
     if (modal === "query") {
       setModalQueryNome(queryPadraoNome(cat.name));
       setModalQueryDescricao(queryPadraoDescricao(cat.name));
@@ -539,6 +544,7 @@ export default function MemoContextPage() {
           mediaType: modalMedia === "" ? null : modalMedia,
           pessoal: modalPessoal,
           campoDono: modalPessoal ? modalCampoDono || null : null,
+          atualizavel: modalAtualizavel,
         });
       } else if (modal === "sub" && modalCategoryId != null) {
         await apiPostJson(`/api/memo-context/categories/${modalCategoryId}/subcategories`, {
@@ -1206,6 +1212,16 @@ export default function MemoContextPage() {
                     </p>
                   </>
                 ) : null}
+                <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", fontWeight: 600, marginTop: "0.9rem" }}>
+                  <input type="checkbox" checked={modalAtualizavel} onChange={(e) => setModalAtualizavel(e.target.checked)} />
+                  Atualizável — os memos mudam de situação
+                </label>
+                <p className={styles.fieldHelpSmall}>
+                  Para agenda, tarefas, pedidos. Cada memo fica Ativo, Concluído ou Cancelado (campo
+                  {` "${editCategory.campoSituacao ?? "Situação"}"`}, criado se não existir). Nas respostas do Perguntar, os
+                  memos ganham ✎ para alterar campos, concluir ou cancelar; nas perguntas, Concluído e Cancelado só
+                  aparecem quando pedidos, e não geram lembrete.
+                </p>
               </div>
             ) : null}
             {!isQueryParamModal && (

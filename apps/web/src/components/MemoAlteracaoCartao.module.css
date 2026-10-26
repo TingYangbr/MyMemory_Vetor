@@ -1,0 +1,152 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.cartao {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 2rem);
+  overflow-y: auto;
+  padding: 1rem 1.1rem 1.1rem;
+  border: 1px solid var(--mm-border-muted);
+  border-radius: 14px;
+  background: var(--mm-card);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+
+.topo {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.id {
+  color: var(--mm-muted, #64748b);
+  font-size: 0.85rem;
+}
+
+.situacao,
+.situacaoEncerrada {
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  border: 1px solid var(--mm-border-muted);
+}
+
+.situacaoEncerrada {
+  border-color: var(--mm-danger);
+  color: var(--mm-danger);
+}
+
+.fechar {
+  border: none;
+  background: transparent;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  color: inherit;
+}
+
+.carregando {
+  margin: 1rem 0;
+}
+
+.campos {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.campo label {
+  display: block;
+  font-size: 0.82rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.linha {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.linha input {
+  flex: 1;
+  min-width: 0;
+}
+
+.inputOuvindo {
+  border-color: var(--mm-danger) !important;
+}
+
+.inputDestaque {
+  background: rgba(250, 204, 21, 0.28) !important;
+  transition: background 0.4s;
+}
+
+.mic {
+  flex-shrink: 0;
+  padding: 0.35rem 0.6rem;
+  border: 1px solid var(--mm-border-muted);
+  border-radius: 8px;
+  background: var(--mm-card);
+  cursor: pointer;
+}
+
+.micAtivo {
+  background: var(--mm-danger-bg);
+  border-color: var(--mm-danger);
+  animation: pulso 1.2s ease-in-out infinite;
+}
+
+@keyframes pulso {
+  50% {
+    box-shadow: 0 0 0 4px var(--mm-danger-border);
+  }
+}
+
+.dica {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--mm-danger);
+}
+
+.salvar {
+  width: 100%;
+  margin-top: 0.9rem;
+}
+
+.acoes {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 0.9rem;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--mm-border-muted);
+}
+
+.acao {
+  border: none;
+  background: transparent;
+  padding: 0.35rem 0;
+  text-align: left;
+  font-size: 0.92rem;
+  cursor: pointer;
+  color: inherit;
+}
+
+.acao:hover:not(:disabled) {
+  text-decoration: underline;
+}
+
+.acaoCancelar {
+  color: var(--mm-danger);
+}

@@ -29,6 +29,7 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo | Seção 17 |
 | Perguntas comparam texto dos memos por palavras ("sr. Wilson" acha "Sr. Wilson da FAPESP") | Seção 17 |
 | Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa | Seção 17 |
+| Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Perguntar, com ↶ Desfazer | Seções 8 e 17 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
@@ -79,6 +80,16 @@ O botão "Perguntas salvas" abre a lista do espaço ativo, com busca por texto e
 ## Histórico da sessão
 As perguntas e respostas da sessão ficam como cards na tela e são enviadas como contexto às perguntas seguintes (ex.: "e desses, quais…"). O botão "↺ Nova sessão" limpa o histórico.
 DICA: Ao testar várias vezes a mesma pergunta, use "Nova sessão": respostas anteriores erradas no histórico podem influenciar o planejamento.
+## Alterar, concluir ou cancelar pela resposta
+Em categorias marcadas como Atualizável (ex.: Agenda), os memos da resposta aparecem com ✎ ao lado do número e a linha da tabela fica clicável. Aparecem só para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
+1. Toque (celular) ou clique (computador) na linha ou no ✎ — abre o cartão do memo com os campos preenchidos.
+2. Mude os campos digitando ou pelo 🎤 de cada campo (encerra sozinho após 1,5 s de silêncio; no computador o texto aparece enquanto você fala). Hora falada ("15 horas", "15h30") vira 15:00/15:30; data vira dd/mm/aaaa.
+3. Toque em "Salvar alterações". Não há confirmação extra: aparece "Alterado: … ↶ Desfazer" por 10 segundos.
+- "✓ Marcar como concluído" e "✕ Marcar como cancelado" mudam a situação com um toque (também com ↶ Desfazer). Memo concluído ou cancelado mostra "↺ Reativar".
+- O × do cartão (ou Esc) fecha sem alterar nada.
+- A linha alterada mostra os valores novos na própria resposta; cancelada ou concluída aparece riscada.
+- Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
+- Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro.
 ## Avisos a partir da resposta
 O card pode sugerir "🔔 Me avise quando a resposta desta pergunta mudar". Ver Seção 12.
 ## Narração por voz
@@ -452,5 +463,17 @@ A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em 
 - Uma mesma expressão da pergunta ("sr. Wilson da FAPESP") é buscada inteira num só campo (o de descrição mais adequada, ex.: Com quem), nunca dividida entre dois campos.
 - Resposta sem nenhum resultado aparece com confiança baixa: não encontrar não é certeza de que o registro não existe. Tente "Ampliar busca" ou "de todos".
 NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
+## Categoria Atualizável
+Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
+- Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo sem situação conta como Ativo.
+- Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
+- Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
+- Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
+| Situação | Significa | Agenda | Tarefa | Pedido |
+|---|---|---|---|---|
+| Ativo | vale, em andamento | marcado | aberta | em aberto |
+| Concluído | terminou | aconteceu | feita | entregue |
+| Cancelado | não vai acontecer | desmarcado | desistida | cancelado |
+NOTA: Remarcar não é uma situação: o memo continua Ativo e a mudança de data ou hora fica no registro de alterações.
 - A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 @@FIM

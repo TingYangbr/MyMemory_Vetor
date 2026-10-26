@@ -43,9 +43,21 @@ export function toParamName(name: string): string {
     .replace(/^_|_$/g, "");
 }
 
+/** Situações fixas das categorias atualizáveis. Encerradas = Concluído e Cancelado. */
+export const SITUACOES_MEMO = ["Ativo", "Concluído", "Cancelado"] as const;
+export type SituacaoMemo = (typeof SITUACOES_MEMO)[number];
+
+/** Situação encerrada (Concluído/Cancelado, com ou sem acento)? Vazio = Ativo. */
+export function situacaoEncerrada(valor: string | null | undefined): boolean {
+  const v = (valor ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+  return v.startsWith("conclu") || v.startsWith("cancel");
+}
+
 export function gerarQueryPadraoMemos(
   categoriaNome: string,
-  campos: QueryPadraoCampo[]
+  campos: QueryPadraoCampo[],
+  /** Categoria atualizável: sem filtro de situação na pergunta, esconde Concluído e Cancelado. */
+  opts: { campoSituacao?: string | null } = {}
 ): { sql: string; params: QueryPadraoParam[] } {
   const activeCampos = campos.filter((c) => c.isActive === 1);
   const catNameSafe = categoriaNome.replace(/'/g, "''");
@@ -64,6 +76,11 @@ export function gerarQueryPadraoMemos(
     if (!p) continue;
     const jsonExpr = `m.dadosespecificosjson::jsonb->>'${campo.name}'`;
     whereParts.push(`  AND (:${p} IS NULL OR ${jsonExpr} ILIKE :${p})`);
+    if (opts.campoSituacao && campo.name === opts.campoSituacao) {
+      whereParts.push(
+        `  AND (:${p} IS NOT NULL OR NOT (lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'conclu%' OR lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'cancel%'))`
+      );
+    }
     if (campo.tipo === "date") {
       whereParts.push(
         `  AND (:${p}_ini IS NULL OR mymemory_parse_date(${jsonExpr}) >= :${p}_ini)`,

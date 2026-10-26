@@ -125,7 +125,7 @@ export async function aplicarDonoPessoal(
     if (marcarPendente) await gravarPendencia(memoId, meta, { campo, valor, motivo: r.motivo });
     return { status: "pendente", motivo: r.motivo };
   }
-  await pool.query(`UPDATE memos SET userid = ? WHERE id = ?`, [r.userId, memoId]);
+  await pool.query(`UPDATE memos SET criado_por = COALESCE(criado_por, userid), userid = ? WHERE id = ?`, [r.userId, memoId]);
   if (meta.donoPendente) await gravarPendencia(memoId, meta, null);
   return { status: "atribuido", userId: r.userId };
 }
@@ -178,7 +178,7 @@ export async function atribuirDono(memoId: number, groupId: number, novoDonoId: 
   if (!memo) throw new Error("memo_nao_encontrado");
   const meta = lerJson(memo.mediaMetadata);
   delete meta.donoPendente;
-  await pool.query(`UPDATE memos SET userid = ?, mediametadata = ? WHERE id = ?`, [
+  await pool.query(`UPDATE memos SET criado_por = COALESCE(criado_por, userid), userid = ?, mediametadata = ? WHERE id = ?`, [
     novoDonoId,
     JSON.stringify(meta),
     memoId,

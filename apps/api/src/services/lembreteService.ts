@@ -11,6 +11,7 @@ import { config } from "../config.js";
 import { sendLembreteEmail } from "../lib/mail.js";
 import {
   formatarAntecedencia,
+  situacaoEncerrada,
   type LembreteDestinatarioTipo,
   type LembretePreviaItem,
   type LembretePreviaResponse,
@@ -233,11 +234,13 @@ interface Contexto {
   categoria: string;
   groupId: number;
   membros: Membro[];
+  /** Categoria atualizavel: campo da situacao (memos Concluido/Cancelado nao geram aviso). */
+  campoSituacao: string | null;
 }
 
 async function carregarContexto(regra: LembreteRegra): Promise<Contexto | null> {
   const [catRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name, groupid, isactive FROM categories WHERE id = ? LIMIT 1`,
+    `SELECT name, groupid, isactive, atualizavel, campo_situacao AS "campoSituacao" FROM categories WHERE id = ? LIMIT 1`,
     [regra.categoryId]
   );
   const cat = catRows[0];
@@ -250,6 +253,7 @@ async function carregarContexto(regra: LembreteRegra): Promise<Contexto | null> 
     regra,
     categoria: String(cat.name),
     groupId: cat.groupId as number,
+    campoSituacao: Number(cat.atualizavel ?? 0) === 1 ? ((cat.campoSituacao as string | null) ?? null) : null,
     membros: mRows.map((r) => ({ id: r.id as number, nome: String(r.name ?? ""), email: (r.email as string) ?? null, role: String(r.role) })),
   };
 }
@@ -332,7 +336,19 @@ async function calcular(ctx: Contexto, agora: Date): Promise<{ itens: Calculado[
   const itens: Calculado[] = [];
   let semData = 0;
 
+  const encerrado = (r: RowDataPacket): boolean => {
+    if (!ctx.campoSituacao) return false;
+    try {
+      const d = JSON.parse(String(r.dadosEspecificosJson ?? r.dadosespecificosjson ?? "{}")) as Record<string, unknown>;
+      const alvo = semAcento(ctx.campoSituacao);
+      const k = Object.keys(d).find((x) => semAcento(x) === alvo);
+      return k != null && situacaoEncerrada(String(d[k] ?? ""));
+    } catch {
+      return false;
+    }
+  };
   for (const r of memoRows) {
+    if (encerrado(r)) continue;
     const dataIso = r.data_alvo as string | null;
     if (!dataIso) { semData++; continue; }
     const dados = lerJson(r.dadosEspecificosJson);

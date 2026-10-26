@@ -234,6 +234,23 @@ async function trySyncMemoDadosEspecificosRows(input: {
   }
 }
 
+/** Refaz as linhas de dadosespecificos a partir do JSON atual do memo (alteração pela resposta). */
+export async function sincronizarDadosEspecificosDoMemo(memoId: number, categoryId: number | null): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT groupId, mediaType, dadosEspecificosJson FROM memos WHERE id = ? LIMIT 1`,
+    [memoId]
+  );
+  const m = rows[0];
+  if (!m) return;
+  await trySyncMemoDadosEspecificosRows({
+    memoId,
+    groupId: m.groupId != null ? Number(m.groupId) : null,
+    mediaType: m.mediaType as MemoMediaTypeDb,
+    explicitCategoryId: categoryId,
+    dadosEspecificosJson: (m.dadosEspecificosJson as string | null) ?? null,
+  });
+}
+
 async function ensureUploadsDir(sub: string) {
   const dir = path.join(uploadsAbsolutePath(), sub);
   await fs.mkdir(dir, { recursive: true });

@@ -12,7 +12,6 @@ A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em 
 - Uma mesma expressão da pergunta ("sr. Wilson da FAPESP") é buscada inteira num só campo (o de descrição mais adequada, ex.: Com quem), nunca dividida entre dois campos.
 - Resposta sem nenhum resultado aparece com confiança baixa: não encontrar não é certeza de que o registro não existe. Tente "Ampliar busca" ou "de todos".
 NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
-- A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 
 Perguntas que este trecho responde:
 - Quais são as opções de de quem são os memos na pergunta em Estrutura de Contexto / Categorias?

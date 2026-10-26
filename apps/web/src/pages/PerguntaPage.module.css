@@ -1838,3 +1838,53 @@
   background: var(--mm-primary-faint);
   box-shadow: inset 3px 0 0 var(--mm-primary);
 }
+
+/* Categoria atualizável: linha clicável (✎), linha cancelada/concluída e aviso com "Desfazer" */
+.tabelaTrAlteravel {
+  cursor: pointer;
+}
+
+.tabelaTrAlteravel:hover {
+  background: var(--mm-accent-bg, rgba(20, 184, 166, 0.08));
+}
+
+.tabelaTrEncerrada td {
+  opacity: 0.55;
+  text-decoration: line-through;
+}
+
+.avisoAlteracao {
+  position: fixed;
+  left: 50%;
+  bottom: 1.25rem;
+  transform: translateX(-50%);
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  max-width: calc(100vw - 2rem);
+  padding: 0.6rem 0.9rem;
+  border-radius: 10px;
+  background: #1e293b;
+  color: #f8fafc;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  font-size: 0.92rem;
+}
+
+.avisoAlteracaoBtn {
+  border: none;
+  background: transparent;
+  color: #5eead4;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.avisoAlteracaoFechar {
+  border: none;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}

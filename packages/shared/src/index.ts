@@ -600,6 +600,10 @@ export interface MemoContextCategory {
   pessoal?: boolean;
   /** Em categoria Pessoal: campo do memo com o e-mail ou nome do dono (usado na importação em lote). */
   campoDono?: string | null;
+  /** Categoria "Atualizável": os memos mudam de situação (Ativo, Concluído, Cancelado) e são alterados pela resposta. */
+  atualizavel?: boolean;
+  /** Em categoria Atualizável: campo do memo com a situação. */
+  campoSituacao?: string | null;
   createdAt: string;
   updatedAt: string;
   subcategories: MemoContextSubcategory[];
@@ -1477,6 +1481,35 @@ export interface BatchProcessResponse {
 }
 
 export * from "./queryPadrao.js";
+
+/** Cartão de alteração de um memo de categoria atualizável (a partir da resposta do Perguntar). */
+export interface MemoAlteravelCampo {
+  nome: string;
+  /** "text" | "date" | "number" */
+  tipo: string;
+  descricao: string | null;
+  valor: string;
+}
+
+export interface MemoAlteravelResponse {
+  memoId: number;
+  categoria: string;
+  resumo: string;
+  /** Campo da situação (fora da lista `campos`, alterado pelos botões). */
+  campoSituacao: string;
+  situacao: string;
+  campos: MemoAlteravelCampo[];
+}
+
+export interface MemoAlteracaoResponse {
+  ok: true;
+  /** Lote desta alteração — usado no "Desfazer". Nulo quando nada mudou. */
+  lote: string | null;
+  mudancas: { campo: string; antes: string; depois: string }[];
+  /** Valores atuais dos campos depois da alteração. */
+  campos: Record<string, string>;
+  resumo: string;
+}
 export * from "./lembretes.js";
 export * from "./perguntaPlano.js";
 export * from "./dataCampo.js";
