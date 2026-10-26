@@ -6,7 +6,7 @@ import Header from "../components/Header";
 import adminStyles from "./AdminPage.module.css";
 
 type Categoria = { id: number; name: string; global: boolean };
-type Importado = { category: string; total: number; atualizadoEm: string; versao: string | null };
+type Importado = { category: string; origem: string; total: number; atualizadoEm: string; versao: string | null };
 type Trecho = { id: string; texto: string; [k: string]: unknown };
 type Resultado = { criados: number; desativados: number; erros: { id: string; erro: string }[] };
 
@@ -42,6 +42,7 @@ export default function AdminConhecimentoPage() {
   const [categoryId, setCategoryId] = useState<number | null>(null);
   const [trechos, setTrechos] = useState<Trecho[] | null>(null);
   const [arquivo, setArquivo] = useState<string>("");
+  const [origem, setOrigem] = useState<string>("");
   const [substituir, setSubstituir] = useState(true);
   const [importando, setImportando] = useState(false);
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -86,6 +87,7 @@ export default function AdminConhecimentoPage() {
     setResultado(null);
     setTrechos(null);
     setArquivo("");
+    setOrigem("");
     if (!f) return;
     try {
       const lista = lerTrechos(await f.text());
@@ -93,13 +95,14 @@ export default function AdminConhecimentoPage() {
       if (invalido >= 0) throw new Error(`Trecho ${invalido + 1} sem "id" ou "texto".`);
       setTrechos(lista);
       setArquivo(f.name);
+      setOrigem((atual) => atual || f.name.replace(/\.(jsonl|json)$/i, ""));
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Arquivo inválido.");
     }
   }
 
   async function importar() {
-    if (groupId == null || categoryId == null || !trechos?.length) return;
+    if (groupId == null || categoryId == null || !trechos?.length || !origem.trim()) return;
     setImportando(true);
     setErro(null);
     setResultado(null);
@@ -108,7 +111,7 @@ export default function AdminConhecimentoPage() {
         groupId,
         categoryId,
         substituir,
-        origem: arquivo || "importacao",
+        origem: origem.trim(),
         trechos,
       });
       setResultado(r);
@@ -121,11 +124,11 @@ export default function AdminConhecimentoPage() {
     }
   }
 
-  async function remover(category: string) {
+  async function remover(category: string, origemRemover: string) {
     if (groupId == null) return;
-    if (!window.confirm(`Desativar todos os trechos importados da categoria "${category}" neste grupo?`)) return;
+    if (!window.confirm(`Desativar os trechos do manual "${origemRemover}" na categoria "${category}" deste grupo? Os de outros manuais da categoria não são afetados.`)) return;
     try {
-      await apiDeleteJson(`/api/admin/conhecimento?groupId=${groupId}&category=${encodeURIComponent(category)}`);
+      await apiDeleteJson(`/api/admin/conhecimento?groupId=${groupId}&category=${encodeURIComponent(category)}&origem=${encodeURIComponent(origemRemover)}`);
       await carregarGrupo(groupId);
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Falha ao remover.");
@@ -154,7 +157,9 @@ export default function AdminConhecimentoPage() {
   }
 
   const categoria = categorias.find((c) => c.id === categoryId);
-  const jaImportado = categoria ? importados.find((i) => i.category === categoria.name) : undefined;
+  const importadosDaCategoria = categoria ? importados.filter((i) => i.category === categoria.name) : [];
+  const jaImportado = importadosDaCategoria.find((i) => i.origem === origem.trim());
+  const outrosManuais = importadosDaCategoria.filter((i) => i.origem !== origem.trim());
 
   return (
     <div className={adminStyles.shell}>
@@ -200,12 +205,28 @@ export default function AdminConhecimentoPage() {
             </label>
           ) : null}
 
+          {groupId != null && trechos ? (
+            <label style={{ display: "grid", gap: "0.3rem" }}>
+              <strong>Nome do manual (origem)</strong>
+              <input className="mm-field" value={origem} maxLength={200} onChange={(e) => setOrigem(e.target.value)} placeholder="Ex.: Manual e-Pedidos — Suporte" />
+              <span className="mm-muted" style={{ fontSize: "0.82rem" }}>
+                Identifica de qual manual são os trechos. "Substituir" só troca os trechos que tiverem exatamente este nome
+                {" "}nesta categoria; use um nome diferente para cada manual.
+              </span>
+            </label>
+          ) : null}
+
           {groupId != null ? (
-            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+            <label style={{ display: "flex", gap: "0.5rem", alignItems: "center", flexWrap: "wrap" }}>
               <input type="checkbox" checked={substituir} onChange={(e) => setSubstituir(e.target.checked)} />
-              Substituir os trechos importados antes nesta categoria
+              Substituir os trechos já importados deste manual nesta categoria
               {jaImportado ? <span className="mm-muted">({jaImportado.total} hoje)</span> : null}
             </label>
+          ) : null}
+          {groupId != null && categoria && origem.trim() && outrosManuais.length ? (
+            <p className="mm-muted" style={{ fontSize: "0.85rem", margin: 0 }}>
+              Esta categoria também tem {outrosManuais.map((i) => `"${i.origem}" (${i.total})`).join(", ")}, que não serão alterados.
+            </p>
           ) : null}
 
           {groupId != null ? (
@@ -213,7 +234,7 @@ export default function AdminConhecimentoPage() {
               <button
                 type="button"
                 className="mm-btn mm-btn--primary"
-                disabled={importando || categoryId == null || !trechos?.length}
+                disabled={importando || categoryId == null || !trechos?.length || !origem.trim()}
                 onClick={() => void importar()}
               >
                 {importando ? `Importando ${trechos?.length ?? 0} trechos…` : "Importar"}
@@ -238,15 +259,16 @@ export default function AdminConhecimentoPage() {
               <p className="mm-muted">Nenhum conjunto de trechos importado.</p>
             ) : (
               <table className={adminStyles.table}>
-                <thead><tr><th>Categoria</th><th>Trechos</th><th>Versão</th><th>Atualizado</th><th></th></tr></thead>
+                <thead><tr><th>Categoria</th><th>Manual (origem)</th><th>Trechos</th><th>Versão</th><th>Atualizado</th><th></th></tr></thead>
                 <tbody>
                   {importados.map((i) => (
-                    <tr key={i.category}>
+                    <tr key={`${i.category}||${i.origem}`}>
                       <td>{i.category}</td>
+                      <td>{i.origem}</td>
                       <td>{i.total}</td>
                       <td>{i.versao ?? "—"}</td>
                       <td>{new Date(i.atualizadoEm).toLocaleString("pt-BR")}</td>
-                      <td><button type="button" className="mm-btn mm-btn--ghost" onClick={() => void remover(i.category)}>Remover</button></td>
+                      <td><button type="button" className="mm-btn mm-btn--ghost" onClick={() => void remover(i.category, i.origem)}>Remover</button></td>
                     </tr>
                   ))}
                 </tbody>

@@ -8,10 +8,16 @@ import { createKnowledgeTextMemo, REVIEW_FLOW_CONHECIMENTO } from "../services/m
 /**
  * Importação de conhecimento em trechos (ex.: Manual MyMemory → docs/manual-chunks/chunks.jsonl).
  * Cada trecho vira um memo de texto no grupo escolhido, já com categoria, campos e vetores —
- * sem IA de extração. Reimportar com "substituir" desativa os trechos anteriores da mesma categoria.
+ * sem IA de extração. Reimportar com "substituir" desativa só os trechos anteriores da MESMA ORIGEM
+ * (nome do manual) na mesma categoria — assim vários manuais podem dividir uma categoria sem se apagarem.
  */
 
 const MARCA_LIKE = `%"reviewFlow":"${REVIEW_FLOW_CONHECIMENTO}"%`;
+
+/** Escapa %, _ e \ para uso literal em LIKE. */
+const escLike = (v: string) => v.replace(/[\\%_]/g, (c) => `\\${c}`);
+/** Padrão LIKE que casa o par "origem":"<valor>" gravado em mediaMetadata (JSON). */
+const origemLike = (origem: string) => `%"origem":${escLike(JSON.stringify(origem))}%`;
 
 const trechoSchema = z.object({
   id: z.string().min(1).max(200),
@@ -31,7 +37,7 @@ const importarSchema = z.object({
   groupId: z.number().int().positive(),
   categoryId: z.number().int().positive(),
   substituir: z.boolean().default(true),
-  origem: z.string().max(200).default("manual"),
+  origem: z.string().trim().min(1).max(200).default("manual"),
   trechos: z.array(trechoSchema).min(1).max(2000),
 });
 
@@ -72,11 +78,13 @@ const plugin: FastifyPluginAsync = async (app) => {
       [groupId.data]
     );
     const [imps] = await pool.query<RowDataPacket[]>(
-      `SELECT category, COUNT(*)::int AS total, MAX(createdat) AS "atualizadoEm",
+      `SELECT category,
+              COALESCE(substring(mediametadata from '"origem":"([^"]*)"'), 'manual') AS origem,
+              COUNT(*)::int AS total, MAX(createdat) AS "atualizadoEm",
               MAX(substring(mediametadata from '"versao":"([^"]*)"')) AS versao
        FROM memos
        WHERE groupid = ? AND isactive = 1 AND mediametadata LIKE ?
-       GROUP BY category ORDER BY category`,
+       GROUP BY category, 2 ORDER BY category, 2`,
       [groupId.data, MARCA_LIKE]
     );
     return {
@@ -112,9 +120,9 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (substituir) {
       const [r] = await pool.query<RowDataPacket[]>(
         `UPDATE memos SET isactive = 0
-         WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ?
+         WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ? AND mediametadata LIKE ?
          RETURNING id`,
-        [groupId, categoria.name, MARCA_LIKE]
+        [groupId, categoria.name, MARCA_LIKE, origemLike(origem)]
       );
       desativados = (r as unknown[]).length;
     }
@@ -156,18 +164,20 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { criados, desativados, erros };
   });
 
-  // DELETE /api/admin/conhecimento?groupId=N&category=Nome — desativa os trechos importados da categoria
+  // DELETE /api/admin/conhecimento?groupId=N&category=Nome[&origem=Manual] — desativa os trechos
+  // importados da categoria (só os da origem informada, quando houver)
   app.delete("/api/admin/conhecimento", async (req, reply) => {
     const admin = await requireAdmin(req, reply);
     if (admin == null) return;
-    const q = req.query as { groupId?: string; category?: string };
+    const q = req.query as { groupId?: string; category?: string; origem?: string };
     const groupId = z.coerce.number().int().positive().safeParse(q.groupId);
     if (!groupId.success || !q.category) return reply.code(400).send({ error: "invalid_query" });
+    const filtraOrigem = typeof q.origem === "string" && q.origem !== "";
     const [r] = await pool.query<RowDataPacket[]>(
       `UPDATE memos SET isactive = 0
-       WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ?
+       WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ?${filtraOrigem ? " AND mediametadata LIKE ?" : ""}
        RETURNING id`,
-      [groupId.data, q.category, MARCA_LIKE]
+      filtraOrigem ? [groupId.data, q.category, MARCA_LIKE, origemLike(q.origem!)] : [groupId.data, q.category, MARCA_LIKE]
     );
     return { desativados: (r as unknown[]).length };
   });
