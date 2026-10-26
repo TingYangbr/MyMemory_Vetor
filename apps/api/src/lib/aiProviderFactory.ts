@@ -373,21 +373,70 @@ export const OPERATION_VISION = "vision_ia";
  * Chamada de chat roteada pelo provedor configurado em ai_config para a operação dada.
  * Forge (BUILT_IN_FORGE_API_URL) tem prioridade para compatibilidade retroativa.
  */
+/** Registra tamanho, tempo e custo de cada chamada (levantamento do peso dos prompts). Nunca falha a chamada. */
+function registrarChamada(
+  etapa: string,
+  messages: ChatMessage[],
+  r: { provedor: string | null; modelo: string | null; saida: string; ms: number; custo: number; ok: boolean }
+): void {
+  const soma = (role: ChatMessage["role"]) =>
+    messages.filter((m) => m.role === role).reduce((n, m) => n + (m.content?.length ?? 0), 0);
+  pool
+    .query(
+      `INSERT INTO llm_chamadas (etapa, provedor, modelo, chars_sistema, chars_entrada, chars_saida, ms, custo_usd, ok)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        etapa.slice(0, 80),
+        r.provedor,
+        r.modelo?.slice(0, 80) ?? null,
+        soma("system"),
+        soma("user") + soma("assistant"),
+        r.saida.length,
+        Math.round(r.ms),
+        r.custo,
+        r.ok ? 1 : 0,
+      ]
+    )
+    .catch(() => { /* tabela ainda não criada ou banco ocupado: a medição é opcional */ });
+}
+
 export async function chatIa(
   messages: ChatMessage[],
   opts: { source?: string; operation?: string } = {}
 ): Promise<{ content: string; costUsd: number }> {
   const source = opts.source ?? "chatIa";
+  const inicio = Date.now();
+  let provedor: string | null = null;
+  let modelo: string | null = null;
+  try {
+    const r = await chatIaSemMedicao(messages, opts, source, (p, m) => { provedor = p; modelo = m; });
+    registrarChamada(source, messages, { provedor, modelo, saida: r.content ?? "", ms: Date.now() - inicio, custo: r.costUsd ?? 0, ok: true });
+    return r;
+  } catch (e) {
+    registrarChamada(source, messages, { provedor, modelo, saida: "", ms: Date.now() - inicio, custo: 0, ok: false });
+    throw e;
+  }
+}
+
+async function chatIaSemMedicao(
+  messages: ChatMessage[],
+  opts: { source?: string; operation?: string },
+  source: string,
+  anotar: (provedor: string, modelo: string) => void
+): Promise<{ content: string; costUsd: number }> {
   // Forge tem prioridade global (retrocompat)
   const forgeUrl = (process.env.BUILT_IN_FORGE_API_URL ?? "").trim();
   const forgeKey = (process.env.BUILT_IN_FORGE_API_KEY ?? "").trim();
   if (forgeUrl && forgeKey) {
+    const modelo = (process.env.BUILT_IN_FORGE_MODEL ?? "gpt-4o-mini").trim();
+    anotar("manus_proxy", modelo);
     return _manusProxyChat(
-      { operation: opts.operation ?? OPERATION_CHAT, displayName: "", provider: "manus_proxy", model: (process.env.BUILT_IN_FORGE_MODEL ?? "gpt-4o-mini").trim(), isEnabled: true, maxTokens: null, temperature: 0.2 },
+      { operation: opts.operation ?? OPERATION_CHAT, displayName: "", provider: "manus_proxy", model: modelo, isEnabled: true, maxTokens: null, temperature: 0.2 },
       messages, source
     );
   }
   const entry = await getAiConfig(opts.operation ?? OPERATION_CHAT);
+  anotar(entry.provider, entry.model);
   switch (entry.provider) {
     case "google_gemini": return withRetry(() => _geminiChat(entry, messages, source), "google_gemini");
     case "anthropic":     return withRetry(() => _anthropicChat(entry, messages, source), "anthropic");

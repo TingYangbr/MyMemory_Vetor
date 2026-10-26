@@ -71,6 +71,7 @@ import { CustoLoteDuplicado1700000000156 } from "./migrations/1700000000156-Cust
 import { CampoDonoCategoria1700000000157 } from "./migrations/1700000000157-CampoDonoCategoria.js";
 import { AutomacaoImportacao1700000000158 } from "./migrations/1700000000158-AutomacaoImportacao.js";
 import { CategoriaAtualizavel1700000000159 } from "./migrations/1700000000159-CategoriaAtualizavel.js";
+import { LlmChamadas1700000000160 } from "./migrations/1700000000160-LlmChamadas.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -89,6 +90,7 @@ import adminGroupApiKeysRoutes from "./routes/adminGroupApiKeys.js";
 import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
 import donoMemoRoutes from "./routes/donoMemo.js";
 import memoAlteracaoRoutes from "./routes/memoAlteracao.js";
+import adminLlmChamadasRoutes from "./routes/adminLlmChamadas.js";
 import automacaoImportacaoRoutes from "./routes/automacaoImportacao.js";
 import groupDbConnectionsRoutes from "./routes/groupDbConnections.js";
 import perfisAcessoRoutes from "./routes/perfisAcesso.js";
@@ -181,6 +183,7 @@ assertMediaStorageEnv();
       CampoDonoCategoria1700000000157,
       AutomacaoImportacao1700000000158,
       CategoriaAtualizavel1700000000159,
+      LlmChamadas1700000000160,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -254,6 +257,7 @@ await app.register(adminGroupApiKeysRoutes);
 await app.register(adminConhecimentoRoutes);
 await app.register(donoMemoRoutes);
 await app.register(memoAlteracaoRoutes);
+await app.register(adminLlmChamadasRoutes);
 await app.register(automacaoImportacaoRoutes);
 await app.register(groupDbConnectionsRoutes);
 await app.register(perfisAcessoRoutes);
