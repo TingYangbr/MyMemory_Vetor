@@ -4,6 +4,7 @@ Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
 Perfil: admin · Tipo: conceito · Versão do manual: 2
 
 Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
+Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
 
 Perguntas que este trecho responde:
 - Para que serve Admin: Importar conhecimento?
