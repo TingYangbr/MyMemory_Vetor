@@ -1890,25 +1890,24 @@
 }
 
 .botoesAlterar {
-  display: flex;
-  justify-content: flex-end;
-  margin: -0.25rem 0 0.6rem;
+  float: right;
+  margin-left: 0.5rem;
+  white-space: nowrap;
 }
 
 .botaoAlterar {
-  width: 2.1rem;
-  height: 2.1rem;
-  border: 1px solid var(--mm-accent, #14b8a6);
-  border-radius: 999px;
+  padding: 0 0.15rem;
+  border: none;
   background: transparent;
   color: var(--mm-accent, #0d9488);
   font-size: 1.05rem;
-  line-height: 1;
+  line-height: inherit;
   cursor: pointer;
+  opacity: 0.8;
 }
 
 .botaoAlterar:hover {
-  background: var(--mm-accent-bg, rgba(20, 184, 166, 0.08));
+  opacity: 1;
 }
 
 .escolherMemo {
