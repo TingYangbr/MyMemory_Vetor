@@ -1,6 +1,8 @@
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import type { DbConnection } from "@mymemory/shared";
+import { motivoSqlErpCadastro, motivoSqlErpExecucao } from "../lib/sqlErpSomenteLeitura.js";
+import { decryptCredential, encryptCredential } from "../lib/storageEncryption.js";
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
 
@@ -30,7 +32,9 @@ export async function getDbConnectionWithPassword(id: number): Promise<(DbConnec
      FROM db_connections WHERE id = ? LIMIT 1`,
     [id]
   );
-  return (rows[0] as (DbConnection & { password: string })) ?? null;
+  const conn = (rows[0] as (DbConnection & { password: string })) ?? null;
+  // Senha gravada cifrada (STORAGE_ENCRYPTION_KEY); valores antigos em texto passam como estão
+  return conn ? { ...conn, password: decryptCredential(String(conn.password ?? "")) } : null;
 }
 
 export async function createDbConnection(input: {
@@ -56,7 +60,7 @@ export async function createDbConnection(input: {
       input.port,
       input.database.trim(),
       input.username.trim(),
-      input.password,
+      encryptCredential(input.password),
       input.encrypt,
       input.trustServerCertificate,
       input.isPrincipal ?? 0,
@@ -92,7 +96,7 @@ export async function updateDbConnection(
   if (patch.port !== undefined)                   { sets.push("port = ?");                   vals.push(patch.port); }
   if (patch.database !== undefined)               { sets.push("database = ?");               vals.push(patch.database.trim()); }
   if (patch.username !== undefined)               { sets.push("username = ?");               vals.push(patch.username.trim()); }
-  if (patch.password !== undefined && patch.password !== "") { sets.push("password = ?"); vals.push(patch.password); }
+  if (patch.password !== undefined && patch.password !== "") { sets.push("password = ?"); vals.push(encryptCredential(patch.password)); }
   if (patch.encrypt !== undefined)                { sets.push("encrypt = ?");                vals.push(patch.encrypt); }
   if (patch.trustServerCertificate !== undefined) { sets.push("trustservercertificate = ?"); vals.push(patch.trustServerCertificate); }
   if (patch.isPrincipal !== undefined)            { sets.push("isPrincipal = ?");            vals.push(patch.isPrincipal); }
@@ -164,6 +168,9 @@ export async function syntaxCheckMssql(
   conexaoId: number,
   sentencaSql: string
 ): Promise<{ ok: boolean; message: string }> {
+  // Só leitura e um comando: a verificação abaixo junta o SQL a SET NOEXEC na mesma requisição
+  const proibido = motivoSqlErpCadastro(sentencaSql);
+  if (proibido) return { ok: false, message: proibido };
   const conn = await getDbConnectionWithPassword(conexaoId);
   if (!conn) return { ok: false, message: "Conexão não encontrada." };
 
@@ -334,6 +341,8 @@ export async function executeQueryMssql(
   paramDefs?: { nome: string; operadorSql: string }[],
   operadorOverrides?: Record<string, string>
 ): Promise<{ colunas: string[]; linhas: Record<string, unknown>[] }> {
+  const proibido = motivoSqlErpExecucao(sentencaSql);
+  if (proibido) throw new Error(proibido);
   const conn = await getDbConnectionWithPassword(conexaoId);
   if (!conn) throw new Error("db_connection_not_found");
 

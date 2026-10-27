@@ -9,6 +9,16 @@ dotenv.config({ path: path.resolve(__dirname, "../.env"), override: true });
 
 const isProd = process.env.NODE_ENV === "production";
 
+/**
+ * Publicado (URL pública https fora de localhost): os atalhos de desenvolvimento (X-User-Id e
+ * usuário padrão sem login) ficam desligados mesmo se NODE_ENV não vier "production".
+ */
+const publicado = (() => {
+  const url = (process.env.PUBLIC_WEB_URL ?? "").trim().toLowerCase();
+  return url.startsWith("https://") && !/^https:\/\/(localhost|127\.0\.0\.1)(:|\/|$)/.test(url);
+})();
+const atalhosDevPermitidos = !isProd && !publicado;
+
 /** Disco local: `1` = /media estático sem auth (só dev); `0` = sempre com JWT; vazio = público só fora de produção. */
 function mediaLocalPublicFromEnv(): boolean {
   const v = process.env.MEDIA_LOCAL_PUBLIC;
@@ -56,14 +66,12 @@ export const config = {
   uploadsDir: process.env.UPLOADS_DIR ?? "uploads",
   /** ID do usuário em `users` quando não há JWT e o fallback de dev está ativo */
   devUserId: Number(process.env.DEV_USER_ID ?? 1),
-  allowDevUserHeader:
-    process.env.ALLOW_DEV_USER_HEADER === "1" ||
-    process.env.NODE_ENV !== "production",
+  allowDevUserHeader: atalhosDevPermitidos && process.env.ALLOW_DEV_USER_HEADER !== "0",
   /**
    * Em desenvolvimento, sem cookie JWT, usa DEV_USER_ID (comportamento antigo da API).
    * Defina USE_DEV_FALLBACK=0 para forçar login na web em dev.
    */
-  useDevUserFallback: !isProd && process.env.USE_DEV_FALLBACK !== "0",
+  useDevUserFallback: atalhosDevPermitidos && process.env.USE_DEV_FALLBACK !== "0",
 
   jwtSecret: process.env.JWT_SECRET ?? "dev-jwt-secret-change-me",
   cookieSecure: isProd,
@@ -144,8 +152,12 @@ export const config = {
   },
 };
 
-if (isProd && config.jwtSecret === "dev-jwt-secret-change-me") {
-  console.warn("[config] JWT_SECRET não definido — defina um segredo forte em produção.");
+if ((isProd || publicado) && (!config.jwtSecret.trim() || config.jwtSecret === "dev-jwt-secret-change-me")) {
+  // Com o segredo padrão, qualquer um assinaria um login válido: não sobe
+  throw new Error("[config] JWT_SECRET não definido — defina um segredo forte em produção.");
+}
+if ((isProd || publicado) && config.jwtSecret.length < 32) {
+  console.warn("[config] JWT_SECRET curto — use pelo menos 32 caracteres aleatórios.");
 }
 
 /** Falha no boot se S3 estiver ativado sem bucket (não importa o SDK AWS). */

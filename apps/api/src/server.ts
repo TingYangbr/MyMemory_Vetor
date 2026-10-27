@@ -75,6 +75,7 @@ import { LlmChamadas1700000000160 } from "./migrations/1700000000160-LlmChamadas
 import { PreencherCampoDonoVazio1700000000161 } from "./migrations/1700000000161-PreencherCampoDonoVazio.js";
 import { SituacaoVaziaAtivo1700000000162 } from "./migrations/1700000000162-SituacaoVaziaAtivo.js";
 import { QueryIsoladaContextoProtegido1700000000163 } from "./migrations/1700000000163-QueryIsoladaContextoProtegido.js";
+import { CifrarSenhasConexoes1700000000164 } from "./migrations/1700000000164-CifrarSenhasConexoes.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -190,6 +191,7 @@ assertMediaStorageEnv();
       PreencherCampoDonoVazio1700000000161,
       SituacaoVaziaAtivo1700000000162,
       QueryIsoladaContextoProtegido1700000000163,
+      CifrarSenhasConexoes1700000000164,
     ],
   });
   const ds = await AppDataSource.initialize();

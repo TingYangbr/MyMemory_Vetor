@@ -9,6 +9,7 @@ import { hashOpaqueToken, newOpaqueToken } from "../lib/authTokens.js";
 import { sendPasswordResetEmail, sendVerificationEmail } from "../lib/mail.js";
 import { listActiveIndividualPlansPublic } from "../services/subscriptionPlanAdminService.js";
 import { markUserInviteAccepted } from "../services/userInviteAdminService.js";
+import { bloquearSeExcedeu } from "../lib/limiteTentativas.js";
 
 const emailIn = z.string().trim().email();
 const passwordIn = z.string().min(8, "Senha: no mínimo 8 caracteres.");
@@ -91,6 +92,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/register", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "register", { porIp: [10, 60 * 60_000] })) return;
     const parsed = registerBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -287,6 +289,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/login", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "login", { porIp: [60, 15 * 60_000], porEmail: [10, 15 * 60_000] }, (req.body as { email?: unknown } | undefined)?.email)) return;
     const parsed = loginBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -375,6 +378,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/verify-email", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "verify-email", { porIp: [30, 15 * 60_000] })) return;
     const parsed = verifyBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({
@@ -416,6 +420,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/resend-verification", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "resend-verification", { porIp: [20, 60 * 60_000], porEmail: [5, 60 * 60_000] }, (req.body as { email?: unknown } | undefined)?.email)) return;
     const parsed = z.object({ email: z.string(), next: z.string().optional() }).safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({ error: "invalid_body", message: "Dados inválidos." });
@@ -458,6 +463,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/forgot-password", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "forgot-password", { porIp: [20, 60 * 60_000], porEmail: [5, 60 * 60_000] }, (req.body as { email?: unknown } | undefined)?.email)) return;
     try {
       const parsed = forgotBody.safeParse(req.body);
       if (!parsed.success) {
@@ -531,6 +537,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   registerApiRouteMirrored(app, "post", "/api/auth/reset-password", async (req, reply) => {
+    if (bloquearSeExcedeu(req, reply, "reset-password", { porIp: [30, 15 * 60_000] })) return;
     const parsed = resetBody.safeParse(req.body);
     if (!parsed.success) {
       return reply.code(400).send({

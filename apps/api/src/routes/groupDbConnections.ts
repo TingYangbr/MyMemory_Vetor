@@ -1,6 +1,7 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
-import { resolveUserId } from "../lib/userContext.js";
+import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
+import { motivoHostInterno } from "../lib/hostExterno.js";
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import {
@@ -90,6 +91,11 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (uid == null) return;
     const parsed = createBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    // Owner (não admin) só aponta para servidor externo, nunca para a rede interna do MyMemory
+    if (!(await getUserIsAdmin(uid))) {
+      const motivo = await motivoHostInterno(parsed.data.host);
+      if (motivo) return reply.code(400).send({ error: "invalid_host", message: motivo });
+    }
     const id = await createDbConnection({ ...parsed.data, groupId: gid.data });
     return reply.code(201).send({ id });
   });
@@ -106,6 +112,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     catch { return reply.code(404).send({ error: "not_found" }); }
     const parsed = updateBody.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    if (parsed.data.host !== undefined && !(await getUserIsAdmin(uid))) {
+      const motivo = await motivoHostInterno(parsed.data.host);
+      if (motivo) return reply.code(400).send({ error: "invalid_host", message: motivo });
+    }
     await updateDbConnection(cid.data, parsed.data);
     return { ok: true };
   });
