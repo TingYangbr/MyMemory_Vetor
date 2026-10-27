@@ -608,8 +608,17 @@ export function bindTemplateParams(
         result += sentencaSql.slice(pos, token.colStart);
         const wantLike = llmOpMap.get(key) === "LIKE";
         if (wantLike) {
-          result += `unaccent(${token.colExpr}) ILIKE ?::text`;
-          values.push(`%${stripped}%`);
+          // Várias palavras ("Wilson FAPESP" x "Sr. Wilson da FAPESP"): cada palavra precisa estar no
+          // campo, em qualquer ordem e com qualquer coisa entre elas; achar o trecho colado era frágil.
+          // Uma palavra só: busca por trecho, como antes. Aceita tudo que o trecho colado aceitava.
+          const palavrasLike = palavrasDeBusca(stripped);
+          if (palavrasLike.length > 1) {
+            result += `(${palavrasLike.map(() => `unaccent(${token.colExpr}) ILIKE ?::text`).join(" AND ")})`;
+            for (const w of palavrasLike) values.push(`%${w}%`);
+          } else {
+            result += `unaccent(${token.colExpr}) ILIKE ?::text`;
+            values.push(`%${stripped}%`);
+          }
         } else {
           // Memos guardam texto livre extraído pela IA ("Sr. Wilson da FAPESP"): cada palavra
           // relevante do valor precisa aparecer inteira no campo, em qualquer ordem.
