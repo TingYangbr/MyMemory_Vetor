@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
@@ -421,7 +422,8 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
   }, [escolhendo]);
   if (!memos.length) return null;
   return (
-    <div className={styles.botoesAlterar}>
+    // Fica dentro do parágrafo da resposta, flutuando à direita da última linha; a lista vai num portal
+    <span className={styles.botoesAlterar}>
       <button
         type="button"
         className={styles.botaoAlterar}
@@ -431,7 +433,7 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
       >
         ✎
       </button>
-      {escolhendo ? (
+      {escolhendo ? createPortal(
         <div className={styles.cellModalOverlay} onClick={() => setEscolhendo(false)}>
           <div className={styles.escolherMemo} role="dialog" aria-label="Escolha o memo para alterar" onClick={(e) => e.stopPropagation()}>
             <div className={styles.escolherMemoTopo}>
@@ -453,9 +455,10 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
               ))}
             </ul>
           </div>
-        </div>
+        </div>,
+        document.body
       ) : null}
-    </div>
+    </span>
   );
 }
 
@@ -2106,8 +2109,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  <p className={styles.cardRespostaText}>{stripMarkdown(r.resposta.resposta)}</p>
-                  <BotoesAlterarResposta resposta={r.resposta} />
+                  <p className={styles.cardRespostaText}>
+                    {stripMarkdown(r.resposta.resposta).trimEnd()}
+                    <BotoesAlterarResposta resposta={r.resposta} />
+                  </p>
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
