@@ -6,6 +6,7 @@ Perfil: usuário · Tipo: passo a passo · Versão do manual: 2
 1. No card de uma resposta, clicar na sugestão "🔔 Me avise quando a resposta desta pergunta mudar".
 2. Revisar a descrição do aviso e confirmar.
 3. O sistema reexecuta a pergunta periodicamente com o mesmo caminho (semântico, estruturado ou híbrido) e compara o resultado.
+- A cada execução o sistema confere de novo se quem criou o aviso ainda é membro do grupo e se as queries e o perfil de acesso permitem. Se não permitem mais, o aviso é pausado e nada é enviado.
 
 Perguntas que este trecho responde:
 - Como como criar em Avisos?

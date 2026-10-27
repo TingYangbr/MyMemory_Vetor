@@ -22,7 +22,7 @@ from pathlib import Path
 AQUI = Path(__file__).parent
 FONTE = AQUI / "fonte" / "manual-tecnico.md"
 SAIDA = AQUI / "chunks-mymemory-tecnico.jsonl"
-VERSAO = "1"
+VERSAO = "2"
 MODULO = "Integração e perfis"
 PERFIL = "admin"
 PREFIXO = "Manual técnico"

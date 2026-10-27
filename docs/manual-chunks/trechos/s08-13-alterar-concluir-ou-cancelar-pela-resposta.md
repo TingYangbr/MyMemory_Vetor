@@ -3,8 +3,8 @@ Seção: Seção 8 — Perguntar ao MyMemory
 Rota: / (aba Perguntar) · Componente: PerguntaPage
 Perfil: usuário · Tipo: passo a passo · Versão do manual: 2
 
-Em categorias marcadas como Atualizável (ex.: Agenda), os memos da resposta aparecem com ✎ ao lado do número e a linha da tabela fica clicável. Aparecem só para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
-1. Toque (celular) ou clique (computador) na linha ou no ✎ — abre o cartão do memo com os campos preenchidos.
+Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎ discreto, sem contorno, alinhado à direita na última linha do texto. Nas tabelas da resposta, o memo também aparece com ✎ ao lado do número e a linha fica clicável. O ✎ só aparece para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
+1. Toque (celular) ou clique (computador) no ✎ do fim da resposta. Com um só memo atualizável, abre direto o cartão do memo com os campos preenchidos. Com vários, abre antes a lista "Qual memo alterar?" para escolher. Nas tabelas, a linha ou o ✎ dela abre o cartão daquele memo.
 2. Mude os campos digitando ou pelo 🎤 de cada campo (encerra sozinho após 1,5 s de silêncio; no computador o texto aparece enquanto você fala). Hora falada ("15 horas", "15h30") vira 15:00/15:30; data vira dd/mm/aaaa.
 3. Toque em "Salvar alterações". Não há confirmação extra: aparece "Alterado: … ↶ Desfazer" por 10 segundos.
 - "✓ Marcar como concluído" e "✕ Marcar como cancelado" mudam a situação com um toque (também com ↶ Desfazer). Memo concluído ou cancelado mostra "↺ Reativar".

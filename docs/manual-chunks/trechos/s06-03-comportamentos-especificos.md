@@ -7,6 +7,7 @@ Perfil: usuário · Tipo: conceito · Versão do manual: 2
 - Memo Imagem: exibe a imagem em miniatura e o texto extraído pelo OCR (se houver).
 - Memo Vídeo: exibe miniatura do vídeo.
 - Memo Documento: exibe o nome do arquivo e tamanho.
+- Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
 NOTA: Se o usuário fechar o navegador antes de confirmar, o arquivo não é salvo. Nenhuma ação de recuperação é possível.
 
 Perguntas que este trecho responde:

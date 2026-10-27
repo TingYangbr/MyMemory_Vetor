@@ -49,6 +49,20 @@ def trocar(ls: list[str], antigo: str, novo: str) -> list[str]:
 saida_secoes = []  # (titulo, linhas) — números atribuídos no fim
 for num, titulo, ls in secoes:
     ls = [renumerar(l) for l in ls]
+    if num == 1:
+        ls = inserir_antes(ls, "## Erros frequentes", bloco("SEC1ADD"))
+        i = ls.index("| Senha ou e-mail incorretos | Credenciais erradas. Usuário deve tentar novamente ou usar 'Esqueci a senha'. |")
+        ls[i + 1:i + 1] = bloco("SEC1ERRO")
+    if num == 6:
+        i = ls.index("- Memo Documento: exibe o nome do arquivo e tamanho.")
+        ls[i + 1:i + 1] = bloco("SEC6ADD")
+    if num == 13:
+        ls = trocar(ls, "| Host * | Endereço do servidor SQL Server. |", bloco("SEC14CONEXAO")[0])
+        ls = trocar(ls, "| Senha * | Senha SQL. Não exibida após salvar. |", "| Senha * | Senha SQL. Guardada cifrada; não exibida após salvar. |")
+        i = ls.index("| Botão Desativar | Desativa a conexão (soft delete). |")
+        ls[i + 1:i + 1] = [""] + bloco("SEC14CONEXAO_ADD")
+        i = ls.index("| Teste de conexão BD falhou | Verificar host, porta, credenciais e se o SQL Server está acessível da rede do servidor. |")
+        ls[i + 1:i + 1] = bloco("SEC14ERRO")
     if num == 5:
         ls = inserir_antes(ls, "## Erros frequentes", bloco("SEC5ADD"))
         ls = trocar(ls, "| Documento | PDF, Word, Excel, PowerPoint e similares. |",

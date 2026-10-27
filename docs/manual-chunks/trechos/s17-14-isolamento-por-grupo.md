@@ -3,7 +3,7 @@ Seção: Seção 17 — Estrutura de Contexto / Categorias
 Rota: /estrutura-memo
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
-Queries internas (PostgreSQL) rodam em modo somente leitura e com papel restrito: cada grupo só enxerga os próprios memos, mesmo que o SQL da query tente ler outros grupos.
+Queries internas (PostgreSQL) rodam em modo somente leitura e com papel restrito: cada grupo só enxerga os próprios memos, mesmo que o SQL da query tente ler outros grupos. O SQL não pode usar set_config, current_setting nem funções pg_*; a query é recusada ao salvar e ao executar.
 
 Perguntas que este trecho responde:
 - O que é isolamento por grupo em Estrutura de Contexto / Categorias?

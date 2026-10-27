@@ -7,7 +7,6 @@ Tela de diagnóstico: mostra fielmente o último payload enviado à API de IA (m
 - Último prompt: Provedor, modelo e origem (classificação, planejamento, extração…) da última chamada.
 - Mensagens: Conteúdo exato enviado e recebido.
 - Atualizar: Recarrega o último registro.
-NOTA: A edição dos prompts (com override por categoria) fica no Painel Admin → aba Prompts LLM. Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
 
 Perguntas que este trecho responde:
 - Para que serve Admin: Último prompt LLM?

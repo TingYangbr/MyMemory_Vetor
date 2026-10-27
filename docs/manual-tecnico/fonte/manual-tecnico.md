@@ -253,3 +253,47 @@ A chave de integração (começa com mmk_) autentica o ERP no myMemory de servid
 | Esta chave não pertence a este grupo. | A pergunta pediu um grupo diferente do grupo da chave. Confira o Group ID na tela Integração myMemory do Softing-erp: deve ser o grupo da chave. |
 | unauthorized (401) ao perguntar pelo ERP | A chave é inválida, foi revogada ou expirou. Crie uma chave nova e regrave-a na tela Integração myMemory do Softing-erp. |
 | Integração habilitada mas sem grupo do myMemory configurado | O Group ID está em branco na tela Integração myMemory do Softing-erp. Preencha com o grupo do cliente. |
+
+# SEÇÃO 11 — Segurança do acesso aos dados
+Rota: servidor do myMemory (não há tela; vale para todos os grupos)
+
+## Propósito
+Além do perfil (Seção 9), o servidor confere o acesso em todos os caminhos que executam consultas ou entregam arquivos. Nenhuma dessas conferências depende do que o navegador envia: o servidor refaz tudo a partir do usuário logado.
+
+## Avisos, perguntas salvas e sugestões
+- Avisos, perguntas salvas com parâmetros e as sugestões dos chips trazem só os números das queries. Antes de executar, o servidor confere: a pessoa é membro do grupo, a query é do grupo (ou global), a conexão do ERP é do grupo e as categorias estão no perfil dela.
+- A conferência é repetida a cada execução agendada do aviso. Se a pessoa perdeu o acesso (saiu do grupo, perfil mudou, query mudou de grupo), o aviso é pausado e nada é enviado.
+- O e-mail de destino do aviso só pode ser o da própria pessoa ou o de um membro do grupo.
+
+## Queries internas (memos)
+- Rodam em transação somente leitura, com um papel de banco restrito e regras por linha: cada grupo só lê os próprios memos.
+- O grupo e o usuário da execução ficam numa tabela de contexto controlada pelo servidor, lida por funções protegidas. O SQL da query não consegue trocá-los.
+- SQL com set_config, current_setting, funções pg_* ou texto em escape Unicode (U&) é recusado ao salvar e ao executar.
+
+## Queries e conexões do ERP
+- SQL de ERP só com SELECT ou WITH, um único comando. São recusados comandos que gravam (INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, CREATE, TRUNCATE…), EXEC, procedures xp_ e sp_, OPENROWSET, OPENQUERY e SELECT INTO em tabela que não seja temporária (#).
+- A conferência vale ao salvar, ao verificar a sintaxe e a cada execução. Mesmo assim, o usuário SQL da conexão deve ter só permissão de leitura.
+- O dono do grupo só cadastra conexão com endereço público (domínio ou IP público). Endereços internos (localhost, 127.x, 10.x, 172.16 a 31.x, 192.168.x, nomes sem ponto) só pelo administrador do sistema, para que o servidor do myMemory não seja usado para alcançar a rede interna dele.
+- A senha da conexão é guardada cifrada (exige STORAGE_ENCRYPTION_KEY no servidor) e nunca volta para a tela.
+
+## Arquivos dos memos
+- O bucket do S3 é privado: o link direto do arquivo responde Access Denied.
+- Memo salvo: o arquivo é entregue pelo servidor em /api/memos/:id/file, conforme o acesso ao memo.
+- Tela de revisão do Catalogar: /api/media-revisao entrega o arquivo recém-enviado só para quem o enviou.
+
+## Login e configuração do servidor
+- Tentativas limitadas por rede e por e-mail no login (60 e 10 a cada 15 minutos), cadastro (10 por hora), esqueci a senha e reenvio da confirmação (20 e 5 por hora), confirmação de e-mail e nova senha (30 a cada 15 minutos).
+- Em produção a API não sobe com JWT_SECRET vazio ou com o valor padrão. Os atalhos de desenvolvimento (cabeçalho de usuário e login automático) ficam desligados em servidor publicado com https.
+
+## Ponto de atenção: chave de integração
+Quem tem a chave de integração do grupo (Seção 10) pode perguntar como qualquer pessoa ligada no de-para, informando o id dela no ERP. Por isso a chave fica só no servidor do ERP, cifrada, nunca no navegador. Restrição por IP, validade e registro de uso da chave ainda não estão disponíveis.
+
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Fora do seu perfil de acesso: (categoria) | Pergunta salva ou aviso usa query de categoria fora do perfil da pessoa. Incluir a categoria no perfil (aba Perfis) ou dar outro perfil. |
+| Query #N usa uma conexão de outro grupo | Query clonada ainda apontando para a conexão do grupo de origem. Escolher a conexão do grupo atual na Estrutura do contexto. |
+| A query do ERP contém "palavra". Queries do ERP são somente leitura. | O SQL tem comando de gravação ou proibido. Reescrever como SELECT puro (use #tabela temporária se precisar de INTO). |
+| Endereço interno não é permitido | Conexão de owner apontando para a rede interna. Usar o endereço público do servidor do ERP ou pedir ao administrador do sistema. |
+| Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado. |
+| Aviso ficou Pausado sozinho | Na execução agendada a pessoa não tinha mais acesso às queries do aviso. Ajustar o acesso e reativar, ou excluir o aviso. |

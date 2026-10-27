@@ -4,6 +4,8 @@ Rota: /grupo/:groupId/painel
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 Gerenciamento de conexões SQL Server para query templates do grupo.
+- A senha da conexão é guardada cifrada no banco do MyMemory e nunca volta para a tela.
+- As queries que usam a conexão são somente leitura (Seção 17).
 - Confiar no certificado: Bypass de verificação de certificado (útil em dev/testes).
 - Conexão principal: Marcada como principal para resolução de Nome/Abreviatura.
 - Botão Testar: Testa a conexão e exibe latência.

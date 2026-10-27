@@ -67,6 +67,14 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa | Seção 17 |
 | Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Perguntar, com ↶ Desfazer | Seções 8 e 17 |
 | Períodos relativos ("semana que vem", "próxima sexta", "fim de semana"…) calculados pelo sistema no horário de Brasília | Seção 8 |
+| ✎ no fim da resposta para alterar memo atualizável; com vários memos, abre a escolha "Qual memo alterar?" | Seção 8 |
+| Campo dono vazio é preenchido com o nome de quem salvou; Situação vazia é gravada como Ativo (também nos memos antigos) | Seção 17 |
+| Busca com várias palavras exige cada palavra no campo, em qualquer ordem | Seção 17 |
+| Avisos e perguntas salvas conferem grupo, query e perfil de acesso a cada execução; aviso só para o próprio e-mail ou de membro do grupo | Seções 9 e 12 |
+| Queries do ERP somente leitura (SELECT/WITH); conexões BD de owner só com endereço público; senhas das conexões guardadas cifradas | Seções 14 e 17 |
+| Limite de tentativas no login, cadastro e recuperação de senha | Seção 1 |
+| Arquivos guardados no S3 só abrem pelo MyMemory, com login (bucket privado) | Seções 6 e 26 |
+| Relatório de chamadas de IA por etapa (admin) | Seção 24 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
@@ -86,10 +94,17 @@ Permite que um usuário cadastrado acesse o sistema inserindo e-mail e senha.
 - Após login bem-sucedido, redireciona para a página de origem (parâmetro ?next=) ou para / (home).
 - Se o e-mail não estiver verificado, exibe erro com código email_not_verified e botão 'Reenviar e-mail de confirmação'.
 - O reenvio chama o endpoint /api/auth/resend-verification e exibe mensagem de sucesso ou falha inline.
+## Limite de tentativas
+Para dificultar adivinhação de senha, o sistema limita as tentativas por endereço de rede e por e-mail:
+- Login: até 60 tentativas a cada 15 minutos por rede e 10 por e-mail.
+- Criar conta: até 10 por hora por rede.
+- Esqueci a senha e reenvio da confirmação: até 20 por hora por rede e 5 por e-mail.
+- Confirmação de e-mail e nova senha: até 30 a cada 15 minutos por rede.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | Senha ou e-mail incorretos | Credenciais erradas. Usuário deve tentar novamente ou usar 'Esqueci a senha'. |
+| Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado; se esqueceu a senha, usar 'Esqueci a senha' depois da espera. |
 | Confirme seu e-mail antes de entrar | Conta criada mas e-mail não verificado. Usar botão 'Reenviar' exibido na mesma tela. |
 | Não foi possível conectar à API | Servidor da API inacessível. Verificar se o container da API está em execução (docker compose ps). |
 
@@ -244,6 +259,7 @@ Essas telas são exibidas quando confirmEnabled=true (preferência do usuário).
 - Memo Imagem: exibe a imagem em miniatura e o texto extraído pelo OCR (se houver).
 - Memo Vídeo: exibe miniatura do vídeo.
 - Memo Documento: exibe o nome do arquivo e tamanho.
+- Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
 NOTA: Se o usuário fechar o navegador antes de confirmar, o arquivo não é salvo. Nenhuma ação de recuperação é possível.
 # SEÇÃO 7 — Buscar Memos
 Rota: / (aba Buscar) · Componente: MemoSearchPage
@@ -339,8 +355,8 @@ Expressões de tempo na pergunta são calculadas pelo sistema, no horário de Br
 | este ano / ano que vem / ano passado | o ano inteiro | 2026 · 2027 · 2025 |
 NOTA: "Próximos 7 dias" é diferente de "semana que vem": conta a partir de hoje, não da próxima segunda.
 ## Alterar, concluir ou cancelar pela resposta
-Em categorias marcadas como Atualizável (ex.: Agenda), os memos da resposta aparecem com ✎ ao lado do número e a linha da tabela fica clicável. Aparecem só para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
-1. Toque (celular) ou clique (computador) na linha ou no ✎ — abre o cartão do memo com os campos preenchidos.
+Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎ discreto, sem contorno, alinhado à direita na última linha do texto. Nas tabelas da resposta, o memo também aparece com ✎ ao lado do número e a linha fica clicável. O ✎ só aparece para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
+1. Toque (celular) ou clique (computador) no ✎ do fim da resposta. Com um só memo atualizável, abre direto o cartão do memo com os campos preenchidos. Com vários, abre antes a lista "Qual memo alterar?" para escolher. Nas tabelas, a linha ou o ✎ dela abre o cartão daquele memo.
 2. Mude os campos digitando ou pelo 🎤 de cada campo (encerra sozinho após 1,5 s de silêncio; no computador o texto aparece enquanto você fala). Hora falada ("15 horas", "15h30") vira 15:00/15:30; data vira dd/mm/aaaa.
 3. Toque em "Salvar alterações". Não há confirmação extra: aparece "Alterado: … ↶ Desfazer" por 10 segundos.
 - "✓ Marcar como concluído" e "✕ Marcar como cancelado" mudam a situação com um toque (também com ↶ Desfazer). Memo concluído ou cancelado mostra "↺ Reativar".
@@ -403,6 +419,8 @@ Chips alterados ficam com borda tracejada. Os botões ao lado da frase são: ✎
 | Chip sem sugestões | Parâmetro não ligado a uma coluna do SELECT, ou termo com menos de 2 letras. Digitar o valor completo. |
 | Microfone não funciona no chip | Permissão de microfone negada ou navegador sem reconhecimento de voz (no desktop usar Chrome ou Edge). |
 | A pergunta foi replanejada em vez de reexecutada | A query mudou desde o salvamento. Comportamento esperado; salvar de novo para atualizar o plano. |
+| Fora do seu perfil de acesso: categoria | A pergunta salva usa uma query de categoria que não está no seu perfil. A conferência é feita a cada execução, não só ao salvar. Pedir ao owner do grupo para incluir a categoria no perfil. |
+| Query #N não pertence a este grupo | A pergunta salva foi feita em outro grupo. Trocar para o grupo dela ou refazer a pergunta no grupo atual. |
 # SEÇÃO 10 — Editar Memo
 Rota: /memo/:id/editar
 ## Acesso
@@ -490,12 +508,13 @@ Avisos monitoram uma pergunta e notificam o usuário quando a resposta dela muda
 1. No card de uma resposta, clicar na sugestão "🔔 Me avise quando a resposta desta pergunta mudar".
 2. Revisar a descrição do aviso e confirmar.
 3. O sistema reexecuta a pergunta periodicamente com o mesmo caminho (semântico, estruturado ou híbrido) e compara o resultado.
+- A cada execução o sistema confere de novo se quem criou o aviso ainda é membro do grupo e se as queries e o perfil de acesso permitem. Se não permitem mais, o aviso é pausado e nada é enviado.
 ## Tela Meus Avisos
 | Campo / Elemento | Descrição |
 |---|---|
 | Lista de avisos | Cada aviso mostra a descrição, o tipo de resposta (semântica, estruturada ou híbrida) e a situação: Ativo ou Pausado. |
 | Frequência | Intervalo em que a pergunta é reexecutada. |
-| Canal | Destino da notificação (e-mail). |
+| Canal | Destino da notificação (e-mail): o seu ou o de um membro do grupo. |
 | Próxima execução | Data e hora da próxima verificação. |
 | Ver resposta | Mostra a última resposta obtida. |
 | Pausar / Reativar | Suspende ou retoma o monitoramento. |
@@ -505,6 +524,9 @@ Avisos monitoram uma pergunta e notificam o usuário quando a resposta dela muda
 |---|---|
 | Nenhum aviso disponível | Situação normal — nenhum aviso foi criado. |
 | Aviso nunca dispara | A resposta não mudou, ou a query usada mudou de formato. Recriar o aviso a partir de uma nova pergunta. |
+| O aviso só pode ser enviado para o seu e-mail ou de um membro do grupo | E-mail de destino fora do grupo. Usar o próprio e-mail ou o de um membro. |
+| Aviso ficou Pausado sozinho | Na execução agendada, o sistema conferiu de novo grupo, queries e perfil e o usuário não tem mais acesso (saiu do grupo, perfil mudou ou query foi movida). Ajustar o acesso e Reativar, ou excluir o aviso. |
+| Fora do seu perfil de acesso (ao criar) | A pergunta usa query de categoria fora do seu perfil. O aviso não é criado. |
 # SEÇÃO 13 — Grupos: Criar / Entrar
 Rotas: /grupo/novo · /grupo/entrar
 ## Criar novo grupo (/grupo/novo)
@@ -559,16 +581,19 @@ Gerenciamento de conexões SQL Server para query templates do grupo.
 |---|---|
 | Nome * | Identificador amigável da conexão. |
 | Descrição | Texto opcional. |
-| Host * | Endereço do servidor SQL Server. |
+| Host * | Endereço público do servidor SQL Server (domínio ou IP público; aceita SERVIDOR\INSTANCIA). Para owners, endereços internos (localhost, 127.x, 10.x, 172.16–31.x, 192.168.x, nomes sem ponto) são recusados; só o administrador cadastra conexão com endereço interno. |
 | Porta | Padrão: 1433. |
 | Banco de dados * | Nome do banco. |
 | Usuário * | Login SQL. |
-| Senha * | Senha SQL. Não exibida após salvar. |
+| Senha * | Senha SQL. Guardada cifrada; não exibida após salvar. |
 | Criptografar | Ativa TLS/SSL na conexão. |
 | Confiar no certificado | Bypass de verificação de certificado (útil em dev/testes). |
 | Conexão principal | Marcada como principal para resolução de Nome/Abreviatura. |
 | Botão Testar | Testa a conexão e exibe latência. |
 | Botão Desativar | Desativa a conexão (soft delete). |
+
+- A senha da conexão é guardada cifrada no banco do MyMemory e nunca volta para a tela.
+- As queries que usam a conexão são somente leitura (Seção 17).
 
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
@@ -576,6 +601,9 @@ Gerenciamento de conexões SQL Server para query templates do grupo.
 | Não é possível carregar o painel | Token expirado ou usuário não é owner deste grupo. |
 | Convite: e-mail não enviado | Falha no Resend. Convite registrado no banco — usuário pode acessar pelo link direto se disponível. |
 | Teste de conexão BD falhou | Verificar host, porta, credenciais e se o SQL Server está acessível da rede do servidor. |
+| Endereço interno não é permitido | Host da conexão aponta para a rede interna. Usar o endereço público do servidor do ERP, ou pedir ao administrador. |
+| Use o endereço completo do servidor | Host sem ponto (ex.: SRV01). Informar o domínio completo ou o IP público. |
+| Não foi possível localizar o servidor | Nome do host não existe no DNS. Conferir a digitação. |
 
 # SEÇÃO 15 — Aceitar Convite de Grupo
 Rota: /convite/grupo
@@ -740,7 +768,7 @@ Ao trocar o nome de um campo (✎), o sistema leva o novo nome a tudo o que já 
 | Convenção | Uso |
 |---|---|
 | :param (PostgreSQL) / @param (SQL Server) | Placeholder no SQL. O nome do parâmetro é o nome do campo sem acento, em minúsculas, com "_" (ex.: Abrev_Empresa → abrev_empresa). |
-| Operador LIKE | Queries de memos: comparação por palavras (ver Tipos de campo). Queries de ERP: comparação exata; "contém" só quando a pergunta pede busca parcial ("contendo", "começa com"). |
+| Operador LIKE | Queries de memos: comparação por palavras (ver Tipos de campo); com várias palavras, cada uma precisa estar no campo, em qualquer ordem ("Wilson FAPESP" acha "Sr. Wilson da FAPESP"). Queries de ERP: comparação exata; "contém" só quando a pergunta pede busca parcial ("contendo", "começa com"). |
 | Sufixos _ini / _fin | Limite inferior e superior de faixa (datas, valores, durações em horas). |
 | Sufixos _in / _nin | Listas para IN / NOT IN. Cadastrar com tipo lista_texto e operador IN ou NOT IN. Necessários para o filtro cruzado. |
 | userId / groupId | Injetados pelo sistema. Nunca são pedidos ao usuário. |
@@ -753,7 +781,13 @@ Quando a pergunta encadeia consultas (ex.: "dos pedidos do período, qual o esto
 ## Clonar estrutura e conexão pendente
 Ao clonar categorias de um grupo para outro, as queries de SQL Server clonadas ficam com "conexão pendente" (destacadas na lista). Até escolher a "Conexão BD externa" do grupo destino, elas não executam e a pergunta informa o motivo.
 ## Isolamento por grupo
-Queries internas (PostgreSQL) rodam em modo somente leitura e com papel restrito: cada grupo só enxerga os próprios memos, mesmo que o SQL da query tente ler outros grupos.
+Queries internas (PostgreSQL) rodam em modo somente leitura e com papel restrito: cada grupo só enxerga os próprios memos, mesmo que o SQL da query tente ler outros grupos. O SQL não pode usar set_config, current_setting nem funções pg_*; a query é recusada ao salvar e ao executar.
+## Queries do ERP somente leitura
+Queries de SQL Server são conferidas ao salvar, ao verificar a sintaxe e a cada execução.
+- Devem começar com SELECT ou WITH e ter um único comando (sem ; no meio).
+- São recusadas se contiverem comandos que gravam ou alteram (INSERT, UPDATE, DELETE, MERGE, DROP, ALTER, CREATE, TRUNCATE…), EXEC, procedures xp_/sp_ ou OPENROWSET/OPENQUERY.
+- SELECT … INTO só é aceito para tabela temporária (#tabela).
+- Mesmo assim, o usuário SQL da conexão deve ter só permissão de leitura no banco do ERP.
 ## Agregações no SQL Server
 Médias (AVG) são calculadas com casas decimais; antes, colunas inteiras eram truncadas (0,8 dia virava 0).
 ## Ícones de ação
@@ -763,6 +797,7 @@ Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa
 - Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo como "Dono Agenda" se não existir).
 - Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
 - No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
+- Campo dono vazio é preenchido com o nome de quem salvou (ex.: "Dono Agenda" = Ting). Os memos antigos com o campo vazio foram preenchidos da mesma forma.
 - Só o dono edita o memo: depois de passar para outro membro, quem catalogou não consegue mais editá-lo.
 - O membro é reconhecido pelo e-mail, pelo nome completo ou pelo primeiro nome (quando único no grupo), sem diferenciar acento e maiúsculas.
 ### De quem são os memos na pergunta
@@ -779,7 +814,7 @@ A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em 
 NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
 ## Categoria Atualizável
 Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
-- Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo sem situação conta como Ativo.
+- Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo salvo sem situação é gravado como Ativo; os memos antigos com Situação vazia também foram marcados como Ativo.
 - Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
@@ -976,6 +1011,8 @@ Tela de diagnóstico: mostra fielmente o último payload enviado à API de IA (m
 | Último prompt | Provedor, modelo e origem (classificação, planejamento, extração…) da última chamada. |
 | Mensagens | Conteúdo exato enviado e recebido. |
 | Atualizar | Recarrega o último registro. |
+## Relatório de chamadas de IA
+Toda chamada de IA fica registrada (etapa, modelo, tamanho do prompt e da resposta em caracteres, tempo, falha e custo). O admin consulta o resumo por etapa em /api/admin/llm-chamadas?dias=7 (JSON; dias de 1 a 90). Serve para ver quais prompts pesam mais e onde enxugar.
 NOTA: A edição dos prompts (com override por categoria) fica no Painel Admin → aba Prompts LLM. Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
 # SEÇÃO 25 — Admin: Assinaturas
 Rota: /admin/assinaturas
@@ -1028,6 +1065,11 @@ DICA: Para gerar uma chave segura: openssl rand -hex 32. Inserir no .env do serv
 - Ao selecionar WebDAV como origem, se o grupo ativo tiver configs, aparece dropdown de seleção em vez de campo manual de URL.
 ## Limpeza de arquivos órfãos
 Na mesma tela, "Limpeza de Arquivos Órfãos" → "Verificar" lista arquivos no armazenamento que não pertencem mais a nenhum memo, para remoção. Quando não há nada a limpar, exibe "Nenhum arquivo órfão encontrado".
+## Bucket S3 privado
+O bucket do S3 fica fechado ao público. O link direto do arquivo (https://…s3…amazonaws.com/memos/…) responde Access Denied. Os arquivos abrem só pelo MyMemory, com login:
+- memo salvo: pelo card (linha do nome do arquivo ou miniatura), via /api/memos/:id/file, conforme o acesso ao memo;
+- tela de revisão do Catalogar: via /api/media-revisao, só para quem enviou o arquivo (áudio e vídeo podem avançar e voltar).
+NOTA: A janela "Armazenamento do arquivo" da edição do memo mostra a localização no S3 só como informação; esse endereço não abre no navegador.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
