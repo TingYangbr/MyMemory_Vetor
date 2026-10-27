@@ -92,8 +92,8 @@ async function nomeDoUsuario(userId: number): Promise<string> {
   return nome.normalize("NFD").replace(/\p{Mn}/gu, "");
 }
 
-/** Grava o valor no campo dono do memo (JSON e linha de dadosespecificos, se existir). */
-async function preencherCampoDono(memoId: number, campo: string, valor: string): Promise<void> {
+/** Grava o valor num campo do memo (JSON e linha de dadosespecificos, se existir). */
+async function preencherCampo(memoId: number, campo: string, valor: string): Promise<void> {
   if (!valor) return;
   const [rows] = await pool.query<RowDataPacket[]>(`SELECT dadosespecificosjson FROM memos WHERE id = ? LIMIT 1`, [memoId]);
   const dados = lerJson((rows as Record<string, unknown>[])[0]?.dadosEspecificosJson);
@@ -109,6 +109,24 @@ async function preencherCampoDono(memoId: number, campo: string, valor: string):
 }
 
 /**
+ * Categoria atualizável: situação vazia vira "Ativo" (filtros "situacao = Ativo" não acham vazio).
+ */
+export async function preencherSituacaoPadrao(memoId: number): Promise<void> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT c.campo_situacao AS "campoSituacao" FROM memos m
+     JOIN categories c ON c.name = m.category AND (c.groupid = m.groupid OR c.groupid IS NULL)
+     WHERE m.id = ? AND c.isactive = 1 AND c.atualizavel = 1 AND c.campo_situacao IS NOT NULL
+     ORDER BY c.groupid NULLS LAST LIMIT 1`,
+    [memoId]
+  );
+  const campo = (rows as Record<string, unknown>[])[0]?.campoSituacao as string | undefined;
+  if (!campo) return;
+  const [mRows] = await pool.query<RowDataPacket[]>(`SELECT dadosespecificosjson FROM memos WHERE id = ? LIMIT 1`, [memoId]);
+  if (valorDoCampo(lerJson((mRows as Record<string, unknown>[])[0]?.dadosEspecificosJson), campo)?.trim()) return;
+  await preencherCampo(memoId, campo, "Ativo");
+}
+
+/**
  * Depois de criar um memo na importação: se a categoria é Pessoal, grava o dono pelo campo dono.
  * Sem efeito em memo sem grupo ou categoria que não é Pessoal.
  * `marcarPendente: false` (Catalogar/edição): quem salvou já é o dono natural — sem pessoa reconhecida
@@ -119,6 +137,10 @@ export async function aplicarDonoPessoal(
   opts: { marcarPendente?: boolean } = {}
 ): Promise<{ status: "atribuido"; userId: number } | { status: "pendente"; motivo: string } | { status: "nao_se_aplica" }> {
   const marcarPendente = opts.marcarPendente ?? true;
+  // Chamada em todo salvamento (Catalogar, edição, lote): aproveita para a situação padrão
+  await preencherSituacaoPadrao(memoId).catch((e: unknown) =>
+    console.warn("[dono] situação padrão:", e instanceof Error ? e.message : e)
+  );
   const [mRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, userid, groupid, category, dadosespecificosjson, mediametadata FROM memos WHERE id = ? LIMIT 1`,
     [memoId]
@@ -147,7 +169,7 @@ export async function aplicarDonoPessoal(
   // Catalogar/edição sem dono no texto: o memo é de quem salvou — grava o nome dele no campo dono
   if (!marcarPendente && !(valor ?? "").trim()) {
     const autorId = Number(memo.userId);
-    await preencherCampoDono(memoId, campo, await nomeDoUsuario(autorId));
+    await preencherCampo(memoId, campo, await nomeDoUsuario(autorId));
     return { status: "atribuido", userId: autorId };
   }
   const r = resolverMembro(valor, await listarMembrosDoGrupo(groupId));
