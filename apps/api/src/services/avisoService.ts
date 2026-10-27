@@ -9,6 +9,7 @@ import { bindTemplateParams, type PlanoParam } from "./perguntaPipe2.js";
 import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { config } from "../config.js";
+import { motivoQueriesNaoPermitidas } from "./acessoQueriesService.js";
 
 // ── Tipos internos ─────────────────────────────────────────────────────────────
 
@@ -94,6 +95,13 @@ export async function reexecutarSnapshot(
   userId: number,
   groupId: number | null
 ): Promise<ResultadoExecucao> {
+  // O snapshot é gravado a partir do navegador: confere grupo, queries e perfil a cada execução
+  const motivo = await motivoQueriesNaoPermitidas({
+    userId,
+    groupId,
+    queryIds: (snapshot.queries ?? []).map((q) => Number(q.queryId)),
+  });
+  if (motivo) throw Object.assign(new Error(motivo), { semPermissao: true });
   const resultado: ResultadoExecucao = {};
 
   if (snapshot.tipo === "semantica" || snapshot.tipo === "hibrida") {
@@ -286,8 +294,18 @@ export async function executarAviso(avisoId: number): Promise<{ mudanca: boolean
 
   let totalCustoUsd = 0;
 
-  // Re-executa
-  const resultadoAtual = await reexecutarSnapshot(snapshot, perguntaOriginal, userId, groupId);
+  // Re-executa; sem permissão (saiu do grupo, perfil mudou, query de outro grupo) → pausa o aviso
+  let resultadoAtual: ResultadoExecucao;
+  try {
+    resultadoAtual = await reexecutarSnapshot(snapshot, perguntaOriginal, userId, groupId);
+  } catch (e) {
+    if ((e as { semPermissao?: boolean }).semPermissao) {
+      console.warn(`[avisos] aviso ${avisoId} pausado: ${(e as Error).message}`);
+      await pool.query(`UPDATE avisos SET status = 'pausado' WHERE id = ?`, [avisoId]);
+      return { mudanca: false, custoUsd: 0 };
+    }
+    throw e;
+  }
   const proxima = calcularProximaExecucao(frequenciaTipo, frequenciaHoras);
 
   // Sem estado anterior — salva estado inicial e agenda

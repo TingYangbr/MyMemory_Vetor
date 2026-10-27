@@ -4,6 +4,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
 import { calcularProximaExecucao, executarAviso, reexecutarSnapshot } from "../services/avisoService.js";
+import { emailDestinoPermitido, motivoQueriesNaoPermitidas } from "../services/acessoQueriesService.js";
 
 const criarSchema = z.object({
   descricao: z.string().min(1).max(500),
@@ -36,6 +37,12 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const { descricao, perguntaOriginal, pipe, execucaoSnapshot, frequenciaTipo, frequenciaHoras, canalDestino, workspaceGroupId, textoRespostaInicial } = parsed.data;
     const groupId = workspaceGroupId ?? null;
+    const queryIds = (((execucaoSnapshot as { queries?: { queryId?: unknown }[] }).queries) ?? []).map((q) => Number(q?.queryId));
+    const motivo = await motivoQueriesNaoPermitidas({ userId, groupId, queryIds });
+    if (motivo) return reply.code(403).send({ error: "forbidden", message: motivo });
+    if (!(await emailDestinoPermitido(userId, groupId, canalDestino))) {
+      return reply.code(400).send({ error: "invalid_email", message: "O aviso só pode ser enviado para o seu e-mail ou de um membro do grupo." });
+    }
     const proxima = calcularProximaExecucao(frequenciaTipo, frequenciaHoras);
 
     // Captura o estado atual como baseline antes de gravar, para que o primeiro
@@ -132,12 +139,16 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
 
     const [existing] = await pool.query<RowDataPacket[]>(
-      `SELECT userid FROM avisos WHERE id = ?`, [id]
+      `SELECT userid, groupid FROM avisos WHERE id = ?`, [id]
     );
     if (!(existing as unknown[]).length) return reply.code(404).send({ error: "not_found" });
     if ((existing as Record<string, unknown>[])[0].userId !== userId) return reply.code(403).send({ error: "forbidden" });
 
     const { status, frequenciaTipo, frequenciaHoras, descricao, canalDestino } = parsed.data;
+    const avisoGroupId = ((existing as Record<string, unknown>[])[0].groupId as number | null) ?? null;
+    if (canalDestino !== undefined && !(await emailDestinoPermitido(userId, avisoGroupId, canalDestino))) {
+      return reply.code(400).send({ error: "invalid_email", message: "O aviso só pode ser enviado para o seu e-mail ou de um membro do grupo." });
+    }
     const sets: string[] = [];
     const vals: unknown[] = [];
 

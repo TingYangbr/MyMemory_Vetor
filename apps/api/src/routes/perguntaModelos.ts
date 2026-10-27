@@ -20,6 +20,7 @@ import { getUserIsAdmin } from "../lib/userContext.js";
 import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { buildQueriesDisponiveis, hashQueryDisponivel } from "../services/perguntaService.js";
 import { executarPlanoSalvo, sugerirValoresParam, type PlanoConsulta, type QueryDisponivel } from "../services/perguntaPipe2.js";
+import { motivoQueriesNaoPermitidas } from "../services/acessoQueriesService.js";
 import { gerarSugestaoAviso } from "../services/avisoService.js";
 import { runWithTraces } from "../lib/invokeLlm.js";
 import { runWithTimings } from "../lib/requestTimings.js";
@@ -275,6 +276,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
 
     const plano = aplicarValoresNoPlano(salvo.plano, chips, valores) as unknown as PlanoConsulta;
+    // Plano salvo pula classificação e corte: confere grupo, queries e perfil de quem executa
+    const semPermissao = await motivoQueriesNaoPermitidas({
+      userId,
+      groupId: modelo.groupId,
+      queryIds: plano.queries.map((q) => Number(q.query_id)),
+    });
+    if (semPermissao) return reply.code(403).send({ error: "forbidden", message: semPermissao });
     const primeira = salvo.classificacao.categorias[0];
     const categoryId = primeira ? categories.find((c) => c.isActive === 1 && c.name === primeira)?.id ?? null : null;
 
@@ -349,6 +357,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     const template = buildQueriesDisponiveis(categories, modelo.plano.classificacao.categorias)
       .find((x) => x.query_id === chip.queryId);
     if (!template || template.conexaoPendente) return reply.send({ valores: [] });
+    // Sugestões vêm direto da base (ERP): mesmo corte de perfil da execução
+    if (await motivoQueriesNaoPermitidas({ userId, groupId: modelo.groupId, queryIds: [Number(chip.queryId)] })) {
+      return reply.send({ valores: [] });
+    }
 
     try {
       const valores = await sugerirValoresParam({ template, param: chip.param, termo, userId, groupId: modelo.groupId });
