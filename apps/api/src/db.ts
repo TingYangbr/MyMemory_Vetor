@@ -156,18 +156,36 @@ export const QUERY_READER_ROLE = "mm_query_reader";
  *   - queryMode "extended": um único comando — impede "; COMMIT; RESET ROLE; ..." no texto.
  * O app conecta como superusuário (dono das tabelas), por isso o isolamento depende do SET ROLE.
  */
+/**
+ * Funções/construções que a query do owner não pode usar: trocar configurações da sessão, ler
+ * catálogo do sistema ou o contexto do isolamento, e identificadores com escape Unicode (U&"…"),
+ * que esconderiam esses nomes de qualquer verificação por texto.
+ */
+const SQL_ISOLADO_PROIBIDO =
+  /\b(set_config|current_setting|pg_[a-z0-9_]*|mm_query_contexto|mm_ctx_[a-z_]*|dblink[a-z_]*|lo_[a-z_]+)\b|\bU&\s*["']/i;
+
+export function motivoSqlIsoladoProibido(sql: string): string | null {
+  const m = SQL_ISOLADO_PROIBIDO.exec(sql);
+  return m ? `A query usa "${m[0].trim()}", que não é permitido em queries sobre os memos.` : null;
+}
+
 export async function queryIsoladaPorGrupo<T>(
   sql: string,
   params: unknown[],
   ctx: { userId: number; groupId: number | null }
 ): Promise<[T, pg.FieldDef[]]> {
+  const proibido = motivoSqlIsoladoProibido(sql);
+  if (proibido) throw new Error(proibido);
   const client = await pgPool.connect();
   try {
-    await client.query("BEGIN READ ONLY");
+    // Grupo/usuário da execução numa tabela que o papel restrito não altera (lida pelas funções
+    // mm_ctx_* na RLS) — gravado antes da transação READ ONLY e do SET ROLE
     await client.query(
-      "SELECT set_config('mymemory.group_id', $1, true), set_config('mymemory.user_id', $2, true)",
-      [ctx.groupId == null ? "" : String(ctx.groupId), String(ctx.userId)]
+      `INSERT INTO mm_query_contexto (pid, group_id, user_id) VALUES (pg_backend_pid(), $1, $2)
+       ON CONFLICT (pid) DO UPDATE SET group_id = EXCLUDED.group_id, user_id = EXCLUDED.user_id, atualizado = NOW()`,
+      [ctx.groupId, ctx.userId]
     );
+    await client.query("BEGIN READ ONLY");
     await client.query(`SET LOCAL ROLE ${QUERY_READER_ROLE}`);
     // queryMode existe no pg 8.20, mas ainda não nos tipos (@types/pg)
     const result: pg.QueryResult = await client.query({
@@ -181,6 +199,7 @@ export async function queryIsoladaPorGrupo<T>(
     await client.query("ROLLBACK").catch(() => {});
     throw err;
   } finally {
+    await client.query("DELETE FROM mm_query_contexto WHERE pid = pg_backend_pid()").catch(() => {});
     client.release();
   }
 }

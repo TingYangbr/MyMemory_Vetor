@@ -50,6 +50,8 @@ function mapErr(reply: { code: (n: number) => { send: (b: unknown) => unknown } 
       message:
         "A coluna categories.groupId ainda não aceita NULL. Execute no MySQL o arquivo docs/migrations/007_categories_null_group_context.sql e volte a tentar.",
     });
+  const status = (e as { statusCode?: number } | null)?.statusCode;
+  if (status === 400 || status === 409) return reply.code(status).send({ error: "invalid", message: msg });
   return reply.code(500).send({ error: "internal", message: msg });
 }
 

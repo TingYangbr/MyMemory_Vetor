@@ -11,7 +11,7 @@ import type {
   WorkspaceGroupItem,
 } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
-import { pool, queryIsoladaPorGrupo } from "../db.js";
+import { motivoSqlIsoladoProibido, pool, queryIsoladaPorGrupo } from "../db.js";
 import {
   gerarQueryPadraoMemos,
   SITUACOES_MEMO,
@@ -891,6 +891,12 @@ export async function syntaxCheckPostgres(
   }
 }
 
+/** Query sobre os memos (PostgreSQL interno) não pode usar funções que furam o isolamento por grupo. */
+function assertSqlIsoladoPermitido(sql: string): void {
+  const motivo = motivoSqlIsoladoProibido(sql);
+  if (motivo) throw Object.assign(new Error(motivo), { statusCode: 400 });
+}
+
 export async function createQueryCategoria(
   userId: number,
   categoryId: number,
@@ -899,6 +905,7 @@ export async function createQueryCategoria(
   await assertCategoryInAccessibleGroup(userId, categoryId);
   // Criada pelo botão "Gerar Query padrão" sem edição → nasce automática (os parâmetros vêm do web)
   const gerada = input.conexaoId == null ? await gerarQueryPadraoDaCategoria(categoryId) : null;
+  if ((input.conexaoId ?? null) == null) assertSqlIsoladoPermitido(input.sentencaSql);
   const sqlGerado = gerada && input.sentencaSql.trim() === gerada.sql ? gerada.sql : null;
   const [rows] = await pool.query<{ id: number }[]>(
     `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, isactive)
@@ -929,7 +936,17 @@ export async function updateQueryCategoria(
   const vals: (string | number | null)[] = [];
   if (patch.nome !== undefined) { sets.push("nome = ?"); vals.push(patch.nome.trim()); }
   if (patch.descricao !== undefined) { sets.push("descricao = ?"); vals.push(patch.descricao?.trim() ?? null); }
-  if (patch.sentencaSql !== undefined) { sets.push("sentencasql = ?"); vals.push(patch.sentencaSql.trim()); }
+  if (patch.sentencaSql !== undefined) {
+    // Query interna (sem conexão ERP, agora ou depois do patch): barra funções proibidas ao salvar
+    let conexaoFinal = patch.conexaoId;
+    if (conexaoFinal === undefined) {
+      const [cRows] = await pool.query<RowDataPacket[]>(`SELECT conexaoid AS "conexaoId" FROM queries_categoria WHERE id = ?`, [queryId]);
+      conexaoFinal = (cRows[0]?.conexaoId as number | null | undefined) ?? null;
+    }
+    if (conexaoFinal == null) assertSqlIsoladoPermitido(patch.sentencaSql);
+    sets.push("sentencasql = ?");
+    vals.push(patch.sentencaSql.trim());
+  }
   if (patch.conexaoId !== undefined) {
     // Escolha explícita da conexão (inclusive PostgreSQL interno) resolve a pendência do clone
     sets.push("conexaoid = ?", "conexaopendente = 0");
