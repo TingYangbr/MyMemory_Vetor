@@ -65,7 +65,8 @@ export function searchCardPrimaryLabel(m: MemoRecentCard): string {
 export function resolvePublicMediaSrc(apiBase: string, mediaFileUrl: string | null | undefined): string {
   const u = mediaFileUrl?.trim();
   if (!u) return "";
-  if (u.startsWith("http://") || u.startsWith("https://")) return u;
+  // URL absoluta (S3, WebDAV): o bucket/servidor é privado — usa /api/memos/:id/file (vazio aqui)
+  if (u.startsWith("http://") || u.startsWith("https://")) return "";
   return `${apiBase}${u.startsWith("/") ? u : `/${u}`}`;
 }
 

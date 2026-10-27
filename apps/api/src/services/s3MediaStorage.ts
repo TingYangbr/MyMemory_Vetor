@@ -115,6 +115,29 @@ export async function downloadMemoObjectFromS3(key: string): Promise<Buffer> {
   return Buffer.from(bytes);
 }
 
+/**
+ * Abre o objeto em fluxo (com Range, para áudio/vídeo avançarem) usando as credenciais da API —
+ * para servir arquivos pelo servidor com o bucket privado.
+ */
+export async function abrirObjetoS3(
+  key: string,
+  range?: string
+): Promise<{ stream: NodeJS.ReadableStream; contentType?: string; contentLength?: number; contentRange?: string }> {
+  if (!config.s3.bucket.trim()) throw new Error("s3_not_configured");
+  const aws = (await import("@aws-sdk/client-s3")) as S3Mod;
+  if (!s3Client) s3Client = buildS3Client(aws);
+  const out = await s3Client.send(
+    new aws.GetObjectCommand({ Bucket: config.s3.bucket, Key: key, ...(range ? { Range: range } : {}) })
+  );
+  if (!out.Body) throw new Error("s3_empty_body");
+  return {
+    stream: out.Body as unknown as NodeJS.ReadableStream,
+    contentType: out.ContentType ?? undefined,
+    contentLength: out.ContentLength ?? undefined,
+    contentRange: out.ContentRange ?? undefined,
+  };
+}
+
 /** Remove objeto do bucket (hard delete). Ignora objeto inexistente. */
 export async function deleteMemoObjectFromS3(key: string): Promise<void> {
   if (!config.s3.bucket.trim()) return;

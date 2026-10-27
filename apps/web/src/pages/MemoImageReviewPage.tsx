@@ -13,6 +13,7 @@ import {
 } from "../components/MemoReviewChrome";
 import { useMemoReviewVoiceAssistant } from "../hooks/useMemoReviewVoiceAssistant";
 import styles from "./MemoTextReviewPage.module.css";
+import { urlMediaRevisao } from "../lib/mediaRevisao";
 
 const SOURCE_LABELS: Record<ImageMemoReviewNavState["source"], string> = {
   none: "Sem IA / sem extração automática",
@@ -257,7 +258,7 @@ export default function MemoImageReviewPage() {
         </div>
 
         <section className={styles.panel} style={{ marginBottom: "1.25rem" }}>
-          <ReviewImageLightboxThumb src={state.mediaImageUrl} alt={`Imagem: ${state.originalFilename}`} />
+          <ReviewImageLightboxThumb src={urlMediaRevisao(state.mediaImageUrl)} alt={`Imagem: ${state.originalFilename}`} />
         </section>
 
         {showOriginalTextReference ? (

@@ -8,6 +8,7 @@ import Header from "../components/Header";
 import { ReviewHero, formatReviewBytes, reviewFileKindExtension } from "../components/MemoReviewChrome";
 import { useMemoReviewVoiceAssistant } from "../hooks/useMemoReviewVoiceAssistant";
 import styles from "./MemoTextReviewPage.module.css";
+import { urlMediaRevisao } from "../lib/mediaRevisao";
 
 const SOURCE_LABELS: Record<AudioMemoReviewNavState["source"], string> = {
   none: "Sem IA / sem transcrição automática",
@@ -283,7 +284,7 @@ export default function MemoAudioReviewPage() {
             className={styles.originalBox}
             style={{ minHeight: "auto", maxHeight: "none", padding: "0.75rem", background: "#f8fafc", border: "1px solid #e2e8f0" }}
           >
-            <audio src={state.mediaAudioUrl} controls preload="metadata" style={{ width: "100%", maxWidth: "520px" }} />
+            <audio src={urlMediaRevisao(state.mediaAudioUrl)} controls preload="metadata" style={{ width: "100%", maxWidth: "520px" }} />
           </div>
         </section>
 
