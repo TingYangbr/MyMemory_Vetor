@@ -10,6 +10,8 @@ import { createKnowledgeTextMemo, REVIEW_FLOW_CONHECIMENTO } from "../services/m
  * Cada trecho vira um memo de texto no grupo escolhido, já com categoria, campos e vetores —
  * sem IA de extração. Reimportar com "substituir" desativa só os trechos anteriores da MESMA ORIGEM
  * (nome do manual) na mesma categoria — assim vários manuais podem dividir uma categoria sem se apagarem.
+ * Ordem segura: cria todos os trechos novos primeiro e só então desativa os anteriores (pelos ids
+ * lidos antes). Se algum trecho falhar, os novos são desativados e o manual anterior fica inteiro.
  */
 
 const MARCA_LIKE = `%"reviewFlow":"${REVIEW_FLOW_CONHECIMENTO}"%`;
@@ -116,18 +118,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     const porNorm = new Map((campos as { name: string }[]).map((c) => [normNome(c.name), c.name]));
     const campo = (nome: string) => porNorm.get(normNome(nome)) ?? nome;
 
-    let desativados = 0;
+    // ids dos trechos anteriores, lidos ANTES de criar os novos (os novos nunca entram nesta lista)
+    let anteriores: number[] = [];
     if (substituir) {
       const [r] = await pool.query<RowDataPacket[]>(
-        `UPDATE memos SET isactive = 0
-         WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ? AND mediametadata LIKE ?
-         RETURNING id`,
+        `SELECT id FROM memos
+         WHERE groupid = ? AND category = ? AND isactive = 1 AND mediametadata LIKE ? AND mediametadata LIKE ?`,
         [groupId, categoria.name, MARCA_LIKE, origemLike(origem)]
       );
-      desativados = (r as unknown[]).length;
+      anteriores = r.map((x) => Number(x.id));
     }
 
-    let criados = 0;
+    const novos: number[] = [];
     const erros: { id: string; erro: string }[] = [];
     await emParalelo(trechos, 4, async (t) => {
       const dados: Record<string, string> = {};
@@ -142,7 +144,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       por("Versão", t.versao);
       const keywords = [t.tela, t.subsecao, t.tipo, t.perfil].filter(Boolean).join(", ");
       try {
-        await createKnowledgeTextMemo({
+        const id = await createKnowledgeTextMemo({
           userId: admin,
           groupId,
           categoryId,
@@ -154,14 +156,31 @@ const plugin: FastifyPluginAsync = async (app) => {
           versao: t.versao ?? null,
           origem,
         });
-        criados++;
+        novos.push(id);
       } catch (err) {
         erros.push({ id: t.id, erro: err instanceof Error ? err.message : String(err) });
       }
     });
 
-    req.log.info({ groupId, categoryId, criados, desativados, erros: erros.length }, "[conhecimento] importação");
-    return { criados, desativados, erros };
+    const desativa = async (ids: number[]) => {
+      if (!ids.length) return 0;
+      const [r] = await pool.query<RowDataPacket[]>(
+        `UPDATE memos SET isactive = 0 WHERE id = ANY(?::int[]) AND isactive = 1 RETURNING id`,
+        [ids]
+      );
+      return (r as unknown[]).length;
+    };
+
+    // falhou algum trecho e havia manual anterior: desfaz os novos e mantém o anterior inteiro
+    if (erros.length && anteriores.length) {
+      await desativa(novos);
+      req.log.warn({ groupId, categoryId, erros: erros.length }, "[conhecimento] importação desfeita; anterior mantido");
+      return { criados: 0, desativados: 0, erros, anteriorMantido: true };
+    }
+
+    const desativados = await desativa(anteriores);
+    req.log.info({ groupId, categoryId, criados: novos.length, desativados, erros: erros.length }, "[conhecimento] importação");
+    return { criados: novos.length, desativados, erros };
   });
 
   // DELETE /api/admin/conhecimento?groupId=N&category=Nome[&origem=Manual] — desativa os trechos

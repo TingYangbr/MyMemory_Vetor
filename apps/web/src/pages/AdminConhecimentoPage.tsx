@@ -8,7 +8,7 @@ import adminStyles from "./AdminPage.module.css";
 type Categoria = { id: number; name: string; global: boolean };
 type Importado = { category: string; origem: string; total: number; atualizadoEm: string; versao: string | null };
 type Trecho = { id: string; texto: string; [k: string]: unknown };
-type Resultado = { criados: number; desativados: number; erros: { id: string; erro: string }[] };
+type Resultado = { criados: number; desativados: number; erros: { id: string; erro: string }[]; anteriorMantido?: boolean };
 
 /** Lê um .jsonl (um trecho por linha) ou um .json com array de trechos. */
 function lerTrechos(conteudo: string): Trecho[] {
@@ -245,9 +245,10 @@ export default function AdminConhecimentoPage() {
 
           {resultado ? (
             <p className={resultado.erros.length ? "mm-error" : ""} role="status">
-              {resultado.criados} trecho(s) importado(s)
+              {resultado.anteriorMantido ? "Importação desfeita: o manual anterior continua valendo. " : ""}
+              {resultado.anteriorMantido ? "" : `${resultado.criados} trecho(s) importado(s)`}
               {resultado.desativados ? `, ${resultado.desativados} anterior(es) substituído(s)` : ""}
-              {resultado.erros.length ? `, ${resultado.erros.length} erro(s): ${resultado.erros.slice(0, 3).map((e) => `${e.id} (${e.erro})`).join("; ")}` : "."}
+              {resultado.erros.length ? `${resultado.anteriorMantido ? "" : ", "}${resultado.erros.length} erro(s): ${resultado.erros.slice(0, 3).map((e) => `${e.id} (${e.erro})`).join("; ")}` : "."}
             </p>
           ) : null}
         </div>
