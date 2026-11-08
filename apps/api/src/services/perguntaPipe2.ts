@@ -769,11 +769,13 @@ async function planejarConsultaEstruturada(input: {
           for (const p of qObj.parametros) {
             if (p && typeof p === "object") {
               const pObj = p as Record<string, unknown>;
+              const tipoParam = String(pObj.tipo ?? "texto");
               parametros.push({
                 nome: String(pObj.nome ?? ""),
                 termo_usuario: String(pObj.termo_usuario ?? ""),
-                valor: pObj.valor ?? null,
-                tipo: String(pObj.tipo ?? "texto"),
+                // Data inexistente do LLM (2026-02-29) já é corrigida aqui: plano salvo, rótulos e execução ficam coerentes
+                valor: (ehTipoData(tipoParam) ? coerceDateParam(pObj.valor) : pObj.valor) ?? null,
+                tipo: tipoParam,
                 operador_sugerido: String(pObj.operador_sugerido ?? "="),
                 obrigatorio: Boolean(pObj.obrigatorio ?? false),
                 precisa_normalizacao: Boolean(pObj.precisa_normalizacao ?? false),
