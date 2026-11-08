@@ -416,20 +416,28 @@ export async function perguntarMemory(input: {
         contextoTela: input.contextoTela,
         restricao,
       });
-      const { texto: sugestaoAviso } = gerarSugestaoAviso();
-      const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
-      const saida1 = {
-        resposta: result.resposta,
-        classificacao,
-        apiCost: totalCost + result.apiCost,
-        limiarInicial: result.limiarInicial,
-        limiarUsado: result.limiarUsado,
-        limiarMinimo: result.limiarMinimo,
-        memosEncontrados: result.memosEncontrados,
-        sugestaoAviso,
-        avisoSnapshot,
-      };
-      return { saida: saida1, vazio: result.memosEncontrados === 0, podeRepetir: true };
+      // "Por que o faturamento aumentou?" cai aqui pelo "por que", mas a explicação precisa dos números do ERP:
+      // sem nenhum memo e com queries cadastradas na categoria, promove para híbrida (Pipe 2 + Pipe 1).
+      const temQueries = result.memosEncontrados === 0 && buildQueriesDisponiveis(input.categories, classificacao.categorias).length > 0;
+      if (temQueries) {
+        classificacao.pipe = "hibrida";
+        totalCost += result.apiCost;
+      } else {
+        const { texto: sugestaoAviso } = gerarSugestaoAviso();
+        const avisoSnapshot: AvisoExecucaoSnapshot = { tipo: "semantica", limiar: result.limiarUsado ?? thInitial };
+        const saida1 = {
+          resposta: result.resposta,
+          classificacao,
+          apiCost: totalCost + result.apiCost,
+          limiarInicial: result.limiarInicial,
+          limiarUsado: result.limiarUsado,
+          limiarMinimo: result.limiarMinimo,
+          memosEncontrados: result.memosEncontrados,
+          sugestaoAviso,
+          avisoSnapshot,
+        };
+        return { saida: saida1, vazio: result.memosEncontrados === 0, podeRepetir: true };
+      }
     }
 
     // ── Pipe 2 — Estruturada ──────────────────────────────────────────────────
