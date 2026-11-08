@@ -151,6 +151,23 @@ function coerceNumericParam(val: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Data inexistente gerada pelo LLM (ex.: 2026-02-29, 2026-04-31) estoura no banco com erro de conversão.
+ * Ajusta o dia para o último do mês; valores que não são YYYY-MM-DD passam como vieram.
+ */
+function coerceDateParam(val: unknown): unknown {
+  if (typeof val !== "string") return val;
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(val.trim());
+  if (!m) return val;
+  const [ano, mes, dia] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  if (mes < 1 || mes > 12 || dia < 1) return val;
+  const ultimoDia = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const diaOk = Math.min(dia, ultimoDia);
+  return `${m[1]}-${m[2]}-${String(diaOk).padStart(2, "0")}`;
+}
+
+const ehTipoData = (tipo: string | undefined | null) => /^(date|data)$/i.test(tipo ?? "");
+
 function safeParseJson<T>(raw: string, fallback: T): T {
   try {
     const t = raw.trim();
@@ -460,7 +477,9 @@ export function bindTemplateParams(
       const key = p.nome.toLowerCase();
       const def = defByName.get(key);
       const isNumeric = /^(number|numeric|numero)$/i.test(def?.tipo ?? p.tipo ?? "");
-      paramMap[key] = isNumeric ? coerceNumericParam(p.valor) : (p.valor ?? null);
+      paramMap[key] = isNumeric
+        ? coerceNumericParam(p.valor)
+        : ehTipoData(def?.tipo ?? p.tipo) ? (coerceDateParam(p.valor) ?? null) : (p.valor ?? null);
       if (p.operador_sugerido) llmOpMap.set(key, p.operador_sugerido);
     }
   }
@@ -949,7 +968,9 @@ async function executarConsultasPlano(input: {
           const key = p.nome.toLowerCase();
           const paramDef = template.params.find((d) => d.nome.toLowerCase() === key);
           const isNumeric = /^(number|numeric|numero)$/i.test(paramDef?.tipo ?? p.tipo ?? "");
-          paramValues[key] = isNumeric ? coerceNumericParam(p.valor) : (p.valor ?? null);
+          paramValues[key] = isNumeric
+            ? coerceNumericParam(p.valor)
+            : ehTipoData(paramDef?.tipo ?? p.tipo) ? (coerceDateParam(p.valor) ?? null) : (p.valor ?? null);
           if (p.operador_sugerido) operadorOverrides[key] = p.operador_sugerido;
         }
       }
