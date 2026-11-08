@@ -13,6 +13,7 @@ import { executarPipe1, type Pipe1Input } from "./perguntaPipe1.js";
 import { executarPipe2, type Pipe2Input, type QueryDisponivel } from "./perguntaPipe2.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 import { contextoDatas } from "../lib/calendarioPergunta.js";
+import { comparacaoParaLlm } from "../lib/comparacaoPeriodos.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -119,6 +120,7 @@ async function gerarRespostaHibrida(input: {
       linhas: sortLinhasParaLlm(pipe2.dadosEstruturados.linhas, pipe2.dadosEstruturados.totalLinhas).slice(0, 20),
       total_linhas: pipe2.dadosEstruturados.totalLinhas,
       resumo_analitico: pipe2.resposta.resposta,
+      ...(pipe2.comparacao ? { comparacao_calculada: comparacaoParaLlm(pipe2.comparacao) } : {}),
     },
     memos_semanticos: pipe1.resposta.dados_usados.map((d) => ({
       memo_id: d.memo_id,

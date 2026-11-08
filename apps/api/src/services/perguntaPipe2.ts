@@ -16,6 +16,12 @@ import { getActiveSystemPrompt } from "./llmPromptConfigService.js";
 import { setLastLlmPromptTrace } from "./llmPromptTraceStore.js";
 import { parseRespostaStr, parseStringArray } from "./perguntaParseUtils.js";
 import { contextoDatas, REGRA_CALENDARIO } from "../lib/calendarioPergunta.js";
+import {
+  comparacaoParaLlm,
+  comparacaoParaTabela,
+  detectarComparacaoPeriodos,
+  type ComparacaoPeriodos,
+} from "../lib/comparacaoPeriodos.js";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -63,6 +69,8 @@ export interface Pipe2Result {
   queriesParaAviso?: AvisoQuerySnapshot[];
   /** Plano efetivamente executado (só queries executáveis) — guardado nas perguntas salvas. */
   planoExecutado?: PlanoConsulta;
+  /** Comparação entre dois períodos calculada em código (null/ausente = consulta comum). */
+  comparacao?: ComparacaoPeriodos | null;
 }
 
 export interface PlanoParam {
@@ -1207,6 +1215,8 @@ async function gerarRespostaEstruturada(input: {
   categoryId?: number | null;
   /** Queries que não puderam ser executadas e o motivo */
   avisosExecucao?: string[];
+  /** Comparação entre períodos já calculada: o LLM só narra, sem recalcular. */
+  comparacao?: ComparacaoPeriodos | null;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const queries_executadas = input.plano.queries.map((q) => ({
     query_id: q.query_id,
@@ -1224,7 +1234,7 @@ async function gerarRespostaEstruturada(input: {
   }));
 
   // Aviso injetado pelo backend quando o resultado foi truncado
-  const avisosTruncamento: string[] = input.porQuery
+  const avisosTruncamento: string[] = input.comparacao ? [] : input.porQuery
     .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM)
     .map(
       (r) =>
@@ -1245,7 +1255,7 @@ async function gerarRespostaEstruturada(input: {
       pergunta: input.pergunta,
       ...contextoDatas(),
       queries_executadas,
-      resultados,
+      ...(input.comparacao ? { comparacao_calculada: comparacaoParaLlm(input.comparacao) } : { resultados }),
       parametros_aplicados,
       normalizacoes_aplicadas,
       ...(avisosTruncamento.length > 0 ? { avisos_truncamento: avisosTruncamento } : {}),
@@ -1294,6 +1304,7 @@ async function gerarRespostaEstruturada(input: {
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
     dados_estruturados: (() => {
+      if (input.comparacao) return comparacaoParaTabela(input.comparacao);
       const comLinhas = input.porQuery.filter((r) => r.linhas.length > 0);
       if (comLinhas.length <= 1) {
         const r = comLinhas[0] ?? input.porQuery[0];
@@ -1372,6 +1383,9 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     escopoAutorId: input.escopoAutorId,
   }));
 
+  // Comparação simples entre dois períodos: contas feitas em código (null = consulta comum, fluxo inalterado)
+  const comparacao = detectarComparacaoPeriodos(planoExec, porQuery);
+
   const { resposta, costUsd: c2 } = await withSpan("Síntese da resposta (estruturada)", () => gerarRespostaEstruturada({
     pergunta: input.pergunta,
     plano: planoExec,
@@ -1379,12 +1393,20 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     agregado,
     categoryId: input.categoryId,
     avisosExecucao: avisos,
+    comparacao,
   }));
   totalCost += c2;
 
   const queriesParaAviso = montarQueriesParaAviso(planoExec, input.queriesDisponiveis);
 
-  return { resposta, apiCost: totalCost, dadosEstruturados: agregado, queriesParaAviso, planoExecutado: planoExec };
+  return {
+    resposta,
+    apiCost: totalCost,
+    dadosEstruturados: comparacao ? comparacaoParaTabela(comparacao) : agregado,
+    queriesParaAviso,
+    planoExecutado: planoExec,
+    comparacao,
+  };
 }
 
 function montarQueriesParaAviso(plano: PlanoConsulta, queriesDisponiveis: QueryDisponivel[]): AvisoQuerySnapshot[] {
