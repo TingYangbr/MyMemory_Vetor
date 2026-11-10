@@ -278,6 +278,38 @@ export async function storeMemoBinaryAndGetUrl(input: {
  * Retorna a URL final a ser gravada no banco.
  * O storedName é extraído do último segmento da URL — funciona para S3 e local.
  */
+/** Erro do WebDAV do grupo ao salvar → mensagem para o usuário (503), sem o JSON técnico. */
+function erroWebDavLegivel(e: unknown): Error {
+  const err = e as { code?: string; status?: number; response?: { status?: number }; message?: string };
+  const status = err.status ?? err.response?.status;
+  const semResposta = ["ECONNREFUSED", "ENOTFOUND", "ETIMEDOUT", "ECONNRESET", "EHOSTUNREACH", "ENETUNREACH", "EAI_AGAIN"];
+  let msg: string;
+  if ((err.code && semResposta.includes(err.code)) || /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|EHOSTUNREACH/.test(err.message ?? "")) {
+    msg =
+      "O servidor de arquivos do grupo (WebDAV) não respondeu. Verifique se ele está no ar e clique em Salvar de novo — o que você revisou continua na tela.";
+  } else if (status === 401 || status === 403) {
+    msg =
+      "O servidor de arquivos do grupo (WebDAV) recusou o usuário ou a senha. Peça ao dono do grupo para conferir o armazenamento do grupo.";
+  } else {
+    msg = `Não foi possível gravar o arquivo no servidor de arquivos do grupo (WebDAV)${status ? ` — resposta ${status}` : ""}. Tente salvar de novo.`;
+  }
+  console.warn("[webdav] falha ao salvar:", err.code ?? status ?? "", err.message ?? "");
+  return Object.assign(new Error(msg), { statusCode: 503 });
+}
+
+async function enviarAoWebDav(
+  push: (cfg: never, buffer: Buffer, storedName: string) => Promise<string>,
+  cfg: unknown,
+  buffer: Buffer,
+  storedName: string
+): Promise<string> {
+  try {
+    return await push(cfg as never, buffer, storedName);
+  } catch (e) {
+    throw erroWebDavLegivel(e);
+  }
+}
+
 export async function finalizeMediaToWebDavIfNeeded(
   tempUrl: string,
   userId: number,
@@ -297,7 +329,7 @@ export async function finalizeMediaToWebDavIfNeeded(
     const { downloadMemoObjectFromS3, deleteMemoObjectFromS3 } = await import("./s3MediaStorage.js");
     const s3Key = `memos/${userId}/${storedName}`;
     buffer = await downloadMemoObjectFromS3(s3Key);
-    const webdavUrl = await pushFileToWebDav(webdavCfg, buffer, storedName);
+    const webdavUrl = await enviarAoWebDav(pushFileToWebDav, webdavCfg, buffer, storedName);
     await deleteMemoObjectFromS3(s3Key);
     return webdavUrl;
   }
@@ -306,7 +338,7 @@ export async function finalizeMediaToWebDavIfNeeded(
   const userDir = await ensureUploadsDir(String(userId));
   const absPath = path.join(userDir, storedName);
   buffer = await fs.readFile(absPath);
-  const webdavUrl = await pushFileToWebDav(webdavCfg, buffer, storedName);
+  const webdavUrl = await enviarAoWebDav(pushFileToWebDav, webdavCfg, buffer, storedName);
   await fs.unlink(absPath).catch(() => {});
   return webdavUrl;
 }

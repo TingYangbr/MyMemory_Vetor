@@ -8,7 +8,7 @@ import type {
   TextMemoProcessResponse,
 } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, SEMIA_PLACEHOLDER_PREFIX, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
-import { apiDeleteJson, apiGetOptional, apiPostJson } from "../api";
+import { apiDeleteJson, apiGetOptional, apiPostJson, mensagemDeErro } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import BotaoReextrair from "../components/BotaoReextrair";
@@ -224,7 +224,7 @@ export default function MemoDocumentReviewPage() {
       });
       navigate("/", { replace: true, state: { memoSavedAt: Date.now() } });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Falha ao salvar.");
+      setError(mensagemDeErro(e, "Falha ao salvar."));
     } finally {
       setBusy(false);
     }

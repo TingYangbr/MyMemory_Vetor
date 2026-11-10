@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { MeResponse, MemoCreatedResponse, TextMemoReviewNavState, TextMemoProcessResponse } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
-import { apiGetOptional, apiPostJson } from "../api";
+import { apiGetOptional, apiPostJson, mensagemDeErro } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import BotaoReextrair from "../components/BotaoReextrair";
@@ -166,7 +166,7 @@ export default function MemoTextReviewPage() {
       }
       navigate("/", { replace: true, state: { memoSavedAt: Date.now() } });
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Falha ao salvar.");
+      setError(mensagemDeErro(e, "Falha ao salvar."));
     } finally {
       setBusy(false);
     }
