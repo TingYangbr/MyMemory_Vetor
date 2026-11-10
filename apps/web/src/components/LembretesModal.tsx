@@ -264,8 +264,14 @@ export default function LembretesModal({ categoryId, categoryName, campos, onClo
               ) : null}
               <span className={styles.espaco} />
               {regra ? (
-                <button type="button" className="mm-btn mm-btn--ghost" disabled={carregandoPrevia} onClick={() => void verPrevia()}>
-                  {carregandoPrevia ? "Calculando…" : "Prévia"}
+                <button
+                  type="button"
+                  className="mm-btn mm-btn--ghost"
+                  disabled={carregandoPrevia}
+                  onClick={() => void verPrevia()}
+                  title="Lista os lembretes dos próximos 60 dias: quando cada um sai e para quem vai"
+                >
+                  {carregandoPrevia ? "Calculando…" : "Ver próximos envios"}
                 </button>
               ) : null}
               <button type="button" className="mm-btn mm-btn--ghost" onClick={onClose}>Fechar</button>

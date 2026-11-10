@@ -5,7 +5,7 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - Campos que sobrepõem o padrão (avançado): Seção recolhida "Campos do memo que sobrepõem o padrão": indica quais campos da categoria o sistema lê para "Lembrar antes", "Destinatário" e "Lembrete" (sim/não).
 - Texto da mensagem: Modelo do e-mail com variáveis. Padrão: "Lembrete: {categoria} em {data} às {hora}". Aceita nomes de campos, ex.: {Com quem}, {Aonde}.
-- Próximos lembretes (até 60 dias): Prévia dos envios: memo, compromisso, antecedência, envio, para e situação.
+- Próximos lembretes (até 60 dias): Aparece ao clicar em "Ver próximos envios". Lista os envios: memo, compromisso, antecedência, envio, para e situação.
 - Salvar / Excluir / Fechar: Grava, remove a configuração ou fecha sem salvar.
 
 Perguntas que este trecho responde:
