@@ -303,6 +303,16 @@ Na Estrutura do contexto, clicar no ícone de lembrete da categoria. Disponível
 | Texto da mensagem | Modelo do e-mail com variáveis. Padrão: "Lembrete: {categoria} em {data} às {hora}". Aceita nomes de campos, ex.: {Com quem}, {Aonde}. |
 | Próximos lembretes (até 60 dias) | Prévia dos envios: memo, compromisso, antecedência, envio, para e situação. |
 | Salvar / Excluir / Fechar | Grava, remove a configuração ou fecha sem salvar. |
+## Destinatário por memo (campo "Avisar também")
+Um campo do memo ligado ao seletor "Destinatário" avisa outras pessoas além de quem registrou.
+| Texto no campo | Quem recebe |
+|---|---|
+| Nome de membro ("Suporte", "Dr. João") | O membro e quem registrou |
+| Vários nomes e e-mails ("Suporte e João", "Maria; ana@empresa.com") | Todos eles e quem registrou (separe por vírgula, ";", "/" ou "e") |
+| "grupo", "todos", "equipe" | Todos do grupo |
+| Nome que não é de membro, ou que serve a vários | Os demais encontrados e quem registrou; a prévia mostra o nome não encontrado |
+| Vazio | O destinatário padrão da categoria |
+NOTA: Renomear um campo na Estrutura do contexto atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
 ## Antecedência por memo (campo "Lembrar antes")
 Cada memo pode ter a própria antecedência, no lugar da antecedência padrão da categoria.
 1. Na categoria (ex.: Agenda), criar o campo "Lembrar antes", do tipo texto, com uma descrição como "Antecedência do lembrete, ex.: 30 min, 2 horas, 1 dia; 2 dias; 1 hora".
