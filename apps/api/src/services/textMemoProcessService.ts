@@ -18,7 +18,11 @@ import {
 const LLM_INPUT_MAX = 48_000;
 
 /** Regra repetida nos prompts de extração (o código também converte depois, mas o prompt reduz a variação). */
-const REGRA_CAMPO_DATA = "- Campos de data: grave SEMPRE no formato AAAA-MM-DD (ex.: 2026-06-30), nunca DD/MM/AAAA nem por extenso.";
+const REGRA_CAMPO_DATA = [
+  "- Campos de data: grave SEMPRE no formato AAAA-MM-DD (ex.: 2026-06-30), nunca DD/MM/AAAA nem por extenso.",
+  "- Datas do texto estão no padrão brasileiro DIA/MÊS: \"12/11\" é 12 de novembro (→ AAAA-11-12), nunca 11 de dezembro nem 12 de janeiro.",
+  "- Data sem ano: use o ano da DATA DE REGISTRO; se a data já passou em relação a ela, use o ano seguinte. Quando o texto traz o dia da semana (\"12/11 (quinta-feira)\"), confira que a data escolhida cai nesse dia.",
+].join("\n");
 
 /** Fidelidade dos valores extraídos: o modelo tendia a "corrigir" endereços e trocar duração por antecedência. */
 const REGRAS_FIDELIDADE = [
