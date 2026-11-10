@@ -297,3 +297,45 @@ Quem tem a chave de integração do grupo (Seção 10) pode perguntar como qualq
 | Endereço interno não é permitido | Conexão de owner apontando para a rede interna. Usar o endereço público do servidor do ERP ou pedir ao administrador do sistema. |
 | Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado. |
 | Aviso ficou Pausado sozinho | Na execução agendada a pessoa não tinha mais acesso às queries do aviso. Ajustar o acesso e reativar, ou excluir o aviso. |
+
+# SEÇÃO 12 — Renomear campo de categoria: o que muda
+Rota: Estrutura do contexto → categoria → ✎ no campo (admin ou dono do grupo)
+
+## Propósito
+Explica, para o suporte, o que o sistema atualiza sozinho quando o nome de um campo de categoria é trocado, o que fica para revisar à mão e como conferir. O nome do campo é a chave usada nos memos, nas queries de memos, no campo dono, na situação e nos lembretes; por isso a troca é propagada.
+
+## Passo a passo
+1. Na Estrutura do contexto, escolher o grupo e a categoria.
+2. Clicar em ✎ na linha do campo e trocar o Nome (a Descrição pode ser ajustada junto).
+3. Salvar. Uma janela do navegador informa: Campo "antigo" renomeado para "novo". Atualizados: N memo(s) já gravado(s) e N query(s) da categoria.
+4. Conferir os itens da subseção "O que revisar à mão".
+5. Se a categoria tem lembretes, abrir o 🔔 e clicar em "Ver próximos envios" para confirmar que os envios continuam saindo para as pessoas certas.
+
+## O que é atualizado automaticamente
+| Campo / Elemento | Descrição |
+|---|---|
+| Memos já gravados | A chave do campo é trocada nos dados de cada memo da categoria, mantendo o valor e a ordem dos campos. |
+| Rótulo dos dados específicos | O rótulo gravado junto aos dados do memo passa a ter o nome novo. |
+| Campo dono e campo de situação | Se o campo renomeado era o "Campo dono do memo" (categoria Pessoal) ou o campo de situação (categoria Atualizável), a categoria passa a apontar para o nome novo. |
+| Queries de memos | Parâmetros ligados ao campo e o nome entre aspas simples no SQL escrito à mão. A Query padrão é regerada sozinha. |
+| Regra de lembrete | Campo de data, de horário, "Lembrar antes", "Destinatário" e "Lembrete" escolhidos na regra, e as variáveis {campo} do texto da mensagem. |
+
+## O que revisar à mão
+- Queries do ERP: não mudam, porque os nomes ali são colunas do banco do ERP.
+- Descrições de outros campos que citem o nome antigo (ex.: "use o mesmo valor de Proprietario").
+- Textos de prompt personalizados da categoria (Painel Admin → Prompts LLM).
+- Trechos de manual importados (Importar conhecimento) que citem o nome antigo: corrigir a fonte e reimportar.
+- Perguntas salvas com parâmetros que usavam o campo: são replanejadas sozinhas na próxima execução; para voltar a ter chips, salvar de novo.
+
+## Pontos importantes
+- A mensagem só aparece quando o nome muda. Trocar só a descrição não gera mensagem nem propagação.
+- Antes de 10/11/2026 a regra de lembrete não era atualizada: uma categoria renomeada antes disso pode ter a regra apontando para um nome que não existe mais. Abrir o 🔔 e escolher os campos de novo.
+- Prefira nomes que não se confundam com campos de outras categorias (ex.: "Dono Agenda" em vez de "Proprietario"; "Avisar também" em vez de "Lembrete_Adicional").
+
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Não apareceu a mensagem de memos atualizados | Só o nome dispara a propagação; confira se o Nome mudou. Se mudou, o navegador pode estar bloqueando caixas de diálogo do site: conferir na lista de campos se o nome novo aparece. |
+| Lembretes pararam depois de renomear um campo | Renomeação feita antes de 10/11/2026: a regra continuou com o nome antigo. Abrir o 🔔 da categoria, escolher os campos de novo e salvar. |
+| Pergunta não acha mais memos pelo campo renomeado | Query do ERP ou query de memos montada fora da categoria ainda usa o nome antigo. Ajustar o SQL à mão. |
+| E-mail do lembrete mostra {NomeAntigo} sem preencher | Texto da mensagem gravado antes da correção. Editar o texto da mensagem no 🔔 e trocar pela variável nova. |

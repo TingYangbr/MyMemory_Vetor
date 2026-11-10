@@ -2,7 +2,7 @@
 
 Manual para quem administra o myMemory (administrador do sistema e dono do grupo): como configurar perfis de acesso,
 a marca "Pessoal", o limite de membros, a ligação dos usuários do ERP (de-para), as chaves do grupo e a chave
-de integração, e a segurança do acesso aos dados. Cobre 11 seções e 72 trechos (versão 2).
+de integração, a segurança do acesso aos dados e a renomeação de campos. Cobre 12 seções (versão 2).
 
 Não é o manual do usuário. O manual do usuário do ERP (por exemplo `Softing-erp/Docs/manual-operacional`) vai para a
 categoria **Manual do usuário**; este vai para a categoria **Manual técnico**, que só deve estar em perfis técnicos.
