@@ -62,6 +62,18 @@ function parseJsonBody<T>(text: string, path: string): T {
   }
 }
 
+/** Texto do erro para mostrar ao usuário: usa o campo `message` quando a API devolveu JSON. */
+export function mensagemDeErro(e: unknown, padrao: string): string {
+  const bruto = e instanceof Error ? e.message : "";
+  if (!bruto) return padrao;
+  try {
+    const j = JSON.parse(bruto) as { message?: unknown };
+    return typeof j.message === "string" && j.message.trim() ? j.message : bruto;
+  } catch {
+    return bruto;
+  }
+}
+
 export async function apiPostJson<T>(
   path: string,
   body: unknown,
