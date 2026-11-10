@@ -429,6 +429,8 @@ export async function processTextMemoForReview(input: {
   iaUseTexto?: UserIaUseLevel | null;
   /** Ex.: limite da linha `media_settings` para imagem. */
   maxSummaryChars?: number | null;
+  /** Categoria escolhida pelo usuário na revisão: a IA extrai os campos só dela. */
+  categoriaForcadaId?: number | null;
 }): Promise<TextMemoProcessResponse> {
   const pipelineText = input.rawText.trim();
   if (!pipelineText) {
@@ -445,7 +447,10 @@ export async function processTextMemoForReview(input: {
   const iaLevel = input.iaUseTexto ?? dbLevel;
   const allowFreeSpecificFieldsWithoutCategoryMatch =
     await resolveAllowFreeSpecificFieldsWithoutCategoryMatch(input.userId, input.groupId);
-  const cats = await loadCategoryContext(input.userId, input.groupId, input.isAdmin);
+  const todasCats = await loadCategoryContext(input.userId, input.groupId, input.isAdmin);
+  const cats =
+    input.categoriaForcadaId != null ? todasCats.filter((c) => c.id === input.categoriaForcadaId) : todasCats;
+  if (input.categoriaForcadaId != null && !cats.length) throw new Error("categoria_invalida");
   const forLlm = pipelineText.length > LLM_INPUT_MAX ? pipelineText.slice(0, LLM_INPUT_MAX) : pipelineText;
   const truncatedNote = pipelineText.length > LLM_INPUT_MAX;
 

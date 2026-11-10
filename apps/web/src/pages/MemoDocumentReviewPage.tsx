@@ -5,11 +5,13 @@ import type {
   DocumentMemoReviewLocationState,
   MeResponse,
   MemoCreatedResponse,
+  TextMemoProcessResponse,
 } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, SEMIA_PLACEHOLDER_PREFIX, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiDeleteJson, apiGetOptional, apiPostJson } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
+import BotaoReextrair from "../components/BotaoReextrair";
 import MemoProcessOverlay, {
   DOCUMENT_MEMO_PROCESS_STEPS,
   STANDARD_MEMO_PROCESS_STEPS,
@@ -67,6 +69,17 @@ export default function MemoDocumentReviewPage() {
   const [dadosEntries, setDadosEntries] = useState<Array<{ key: string; value: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  /** ↻ Reextrair: categoria dos campos na tela, custo das reextrações e campos originais refeitos. */
+  const [reextr, setReextr] = useState<{ catId: number | null; custo: number; originais?: string | null }>({
+    catId: null,
+    custo: 0,
+  });
+  const aplicarReextracao = useCallback((r: TextMemoProcessResponse, categoryId: number) => {
+    setMediaText(r.suggestedMediaText);
+    setKeywords(dedupeMemoKeywordsCommaSeparated(r.suggestedKeywords));
+    setDadosEntries(parseDadosEntries(r.dadosEspecificosJson));
+    setReextr((p) => ({ catId: categoryId, custo: p.custo + (r.apiCost || 0), originais: r.dadosEspecificosOriginaisJson ?? null }));
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
@@ -119,6 +132,7 @@ export default function MemoDocumentReviewPage() {
         setKeywords(dedupeMemoKeywordsCommaSeparated(out.suggestedKeywords));
         setDadosEntries(parseDadosEntries(out.dadosEspecificosJson));
         setSelectedCategoryId(out.matchedCategoryId ?? null);
+        setReextr({ catId: out.matchedCategoryId ?? null, custo: 0 });
         setSelectedCategoryName(out.category ?? null);
       })
       .catch((e) => {
@@ -194,11 +208,12 @@ export default function MemoDocumentReviewPage() {
         dadosEspecificosJson: dadosEntries.length > 0
           ? JSON.stringify(Object.fromEntries(dadosEntries.map(e => [e.key, e.value])))
           : null,
-        dadosEspecificosOriginaisJson: st.dadosEspecificosOriginaisJson ?? null,
+        dadosEspecificosOriginaisJson:
+          reextr.originais !== undefined ? reextr.originais : st.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: selectedCategoryId,
         category: selectedCategoryName,
         groupId: locState.groupId,
-        apiCost: st.apiCost,
+        apiCost: st.apiCost + reextr.custo,
         originalText: st.originalText,
         iaLevel: st.iaLevel,
         mediaDocumentUrl: st.mediaDocumentUrl,
@@ -213,7 +228,7 @@ export default function MemoDocumentReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, locState, processResult, navigate]);
+  }, [overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, locState, processResult, reextr, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -345,6 +360,15 @@ export default function MemoDocumentReviewPage() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <BotaoReextrair
+          texto={state.originalText.trim() || mediaText}
+          groupId={locState?.groupId}
+          categoryId={selectedCategoryId}
+          categoriaExtraidaId={reextr.catId}
+          maxSummaryChars={state.maxSummaryChars}
+          disabled={busy}
+          onResultado={aplicarReextracao}
+        />
       </div>
 
       <div className={styles.grid}>

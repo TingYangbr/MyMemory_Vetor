@@ -1221,6 +1221,61 @@ export default function MemoRegisterPanel({
     ]
   );
 
+  /** Print da tela copiado (PrintScreen, Win+Shift+S) entra como imagem, igual ao seletor de arquivo. */
+  const catalogarImagemColada = useCallback(
+    (blob: Blob) => {
+      const tipo = blob.type || "image/png";
+      const ext = (tipo.split("/")[1] || "png").replace("jpeg", "jpg");
+      const d = new Date();
+      const z = (n: number) => String(n).padStart(2, "0");
+      const nome = `print-${d.getFullYear()}${z(d.getMonth() + 1)}${z(d.getDate())}-${z(d.getHours())}${z(d.getMinutes())}.${ext}`;
+      handleFileFromDropzone(new File([blob], nome, { type: tipo }));
+    },
+    [handleFileFromDropzone]
+  );
+
+  const colarBloqueado =
+    busy || captureConfirmOpen || textOpen || urlOpen || photoCamOpen || videoCamOpen || audioRecModalOpen;
+
+  // Ctrl+V em qualquer ponto do Catalogar (fora de campos de texto) com imagem na área de transferência
+  useEffect(() => {
+    const onPaste = (e: ClipboardEvent) => {
+      if (colarBloqueado) return;
+      const alvo = e.target as HTMLElement | null;
+      if (alvo && (alvo.closest("input, textarea, select") || alvo.isContentEditable)) return;
+      const item = Array.from(e.clipboardData?.items ?? []).find((i) => i.kind === "file" && i.type.startsWith("image/"));
+      const blob = item?.getAsFile();
+      if (!blob) return;
+      e.preventDefault();
+      catalogarImagemColada(blob);
+    };
+    document.addEventListener("paste", onPaste);
+    return () => document.removeEventListener("paste", onPaste);
+  }, [colarBloqueado, catalogarImagemColada]);
+
+  const podeLerClipboard =
+    typeof navigator !== "undefined" &&
+    typeof navigator.clipboard?.read === "function" &&
+    typeof window !== "undefined" &&
+    window.matchMedia?.("(pointer: fine)").matches;
+
+  const colarPrint = useCallback(async () => {
+    setError(null);
+    try {
+      const itens = await navigator.clipboard.read();
+      for (const it of itens) {
+        const tipo = it.types.find((t) => t.startsWith("image/"));
+        if (tipo) {
+          catalogarImagemColada(await it.getType(tipo));
+          return;
+        }
+      }
+      setError("Nenhuma imagem copiada. Tire o print (PrintScreen ou Win+Shift+S) e clique de novo, ou use Ctrl+V.");
+    } catch {
+      setError("O navegador não liberou a área de transferência. Use Ctrl+V nesta tela para colar o print.");
+    }
+  }, [catalogarImagemColada]);
+
   const confirmPendingImageFileCapture = useCallback(() => {
     const f = pendingImageFileConfirm;
     if (!f) return;
@@ -1452,6 +1507,21 @@ export default function MemoRegisterPanel({
             }}
           />
         </label>
+
+        {podeLerClipboard ? (
+          <button
+            type="button"
+            className="mm-icon-action"
+            disabled={colarBloqueado}
+            onClick={() => void colarPrint()}
+            title="Catalogar o print da tela copiado (PrintScreen ou Win+Shift+S). Também funciona com Ctrl+V nesta tela."
+          >
+            <span className={styles.iconEmoji} aria-hidden>
+              📋
+            </span>
+            Colar print
+          </button>
+        ) : null}
 
         <button
           type="button"

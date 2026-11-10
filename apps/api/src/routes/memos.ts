@@ -130,6 +130,13 @@ const textProcessBody = z.object({
   iaUseTexto: userIaTextoEnum.optional(),
 });
 
+const reextrairBody = z.object({
+  texto: z.string().min(1).max(65_000),
+  groupId: z.number().int().positive().nullable().optional(),
+  categoryId: z.number().int().positive(),
+  maxSummaryChars: z.number().int().positive().max(65_000).optional(),
+});
+
 const textConfirmBody = z.object({
   mediaText: z.string().min(1).max(65_000),
   keywords: z.string().max(8000).optional().default(""),
@@ -278,6 +285,39 @@ const plugin: FastifyPluginAsync = async (app) => {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "empty_text") {
         return reply.code(400).send({ error: "empty_text", message: "Informe um texto." });
+      }
+      throw e;
+    }
+  });
+
+  // Revisão do Catalogar: o usuário trocou a categoria — refaz resumo, palavras-chave e campos
+  // a partir do texto já extraído, só com a categoria escolhida (uma chamada de texto, sem reler a mídia).
+  app.post("/api/memos/reextrair", async (req, reply) => {
+    const parsed = reextrairBody.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    }
+    const userId = await resolveUserId(req);
+    if (userId === null) {
+      return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    }
+    const isAdmin = await getUserIsAdmin(userId);
+    const nivel = await getUserIaUseTexto(userId);
+    try {
+      return await processTextMemoForReview({
+        userId,
+        groupId: parsed.data.groupId ?? null,
+        isAdmin,
+        rawText: parsed.data.texto,
+        iaUseTexto: nivel === "semIA" ? "basico" : nivel,
+        maxSummaryChars: parsed.data.maxSummaryChars ?? null,
+        categoriaForcadaId: parsed.data.categoryId,
+      });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "empty_text") return reply.code(400).send({ error: "empty_text", message: "Sem texto para reextrair." });
+      if (msg === "categoria_invalida") {
+        return reply.code(400).send({ error: "categoria_invalida", message: "Categoria não disponível neste grupo." });
       }
       throw e;
     }
