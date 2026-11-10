@@ -40,6 +40,8 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Limite de tentativas no login, cadastro e recuperação de senha | Seção 1 |
 | Arquivos guardados no S3 só abrem pelo MyMemory, com login (bucket privado) | Seções 6 e 26 |
 | Relatório de chamadas de IA por etapa (admin) | Seção 24 |
+| "📋 Colar print" e Ctrl+V no Catalogar para catalogar o print da tela | Seção 5 |
+| ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida | Seção 6 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
@@ -212,6 +214,10 @@ Avisos monitoram uma pergunta e notificam o usuário quando a resposta dela muda
 @@SEC5ADD
 ## Guarda própria
 O último tile do Catalogar, "📂 Guarda própria ↗ — arquivos no seu servidor", abre a Importação em Lote (Seção 16). Serve para catalogar arquivos que continuam no disco, na rede ou no WebDAV do cliente, sem copiá-los para o MyMemory. Substitui o antigo tile "Documento / arquivo"; documentos avulsos continuam sendo enviados pelo seletor de arquivo.
+## Colar print da tela
+No computador, o tile "📋 Colar print" cataloga a imagem que está na área de transferência, como o print tirado com PrintScreen ou Win+Shift+S. Também basta apertar Ctrl+V na tela do Catalogar, fora de um campo de texto. A imagem segue o mesmo caminho do seletor de arquivo, com o nome print-AAAAMMDD-HHMM.png.
+- Na primeira vez, o navegador pede permissão para ler a área de transferência. Se negar, o Ctrl+V continua funcionando.
+- No celular o tile não aparece: o print vai para a galeria e é escolhido pelo seletor de arquivo.
 @@FIM
 
 @@SEC17ADD
@@ -546,6 +552,8 @@ Para dificultar adivinhação de senha, o sistema limita as tentativas por ender
 
 @@SEC6ADD
 - Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
+- Ao trocar a categoria no combo, aparece ao lado o botão ↻ Reextrair. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria, e refaz o resumo, as palavras-chave e os campos dessa categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
+- O ↻ Reextrair substitui o que estiver na tela, inclusive campos editados à mão. Por isso não roda sozinho ao trocar o combo.
 @@FIM
 
 @@SEC14CONEXAO
