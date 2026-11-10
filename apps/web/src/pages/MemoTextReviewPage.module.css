@@ -710,3 +710,19 @@
   outline: 2px solid color-mix(in srgb, var(--mm-danger) 25%, transparent);
   outline-offset: 1px;
 }
+
+.reextrairBtn {
+  padding: 0.3rem 0.65rem;
+  border: 1px solid var(--mm-accent);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--mm-accent);
+  font-size: 0.85rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.reextrairBtn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}

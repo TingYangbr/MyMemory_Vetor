@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import type { AudioMemoReviewNavState, MeResponse, MemoCreatedResponse } from "@mymemory/shared";
+import type { AudioMemoReviewNavState, MeResponse, MemoCreatedResponse, TextMemoProcessResponse } from "@mymemory/shared";
 import { USER_IA_USE_LABELS, SEMIA_PLACEHOLDER_PREFIX, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGetOptional, apiPostJson } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
+import BotaoReextrair from "../components/BotaoReextrair";
 import { ReviewHero, formatReviewBytes, reviewFileKindExtension } from "../components/MemoReviewChrome";
 import { useMemoReviewVoiceAssistant } from "../hooks/useMemoReviewVoiceAssistant";
 import styles from "./MemoTextReviewPage.module.css";
@@ -141,6 +142,17 @@ export default function MemoAudioReviewPage() {
   const [dadosEntries, setDadosEntries] = useState<Array<{ key: string; value: string }>>([]);
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  /** ↻ Reextrair: categoria dos campos na tela, custo das reextrações e campos originais refeitos. */
+  const [reextr, setReextr] = useState<{ catId: number | null; custo: number; originais?: string | null }>({
+    catId: null,
+    custo: 0,
+  });
+  const aplicarReextracao = useCallback((r: TextMemoProcessResponse, categoryId: number) => {
+    setMediaText(r.suggestedMediaText);
+    setKeywords(dedupeMemoKeywordsCommaSeparated(r.suggestedKeywords));
+    setDadosEntries(parseDadosEntries(r.dadosEspecificosJson));
+    setReextr((p) => ({ catId: categoryId, custo: p.custo + (r.apiCost || 0), originais: r.dadosEspecificosOriginaisJson ?? null }));
+  }, []);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showApiCost, setShowApiCost] = useState(true);
@@ -181,6 +193,7 @@ export default function MemoAudioReviewPage() {
     setKeywords(dedupeMemoKeywordsCommaSeparated(state.suggestedKeywords));
     setDadosEntries(parseDadosEntries(state.dadosEspecificosJson));
     setSelectedCategoryId(state.matchedCategoryId ?? null);
+    setReextr({ catId: state.matchedCategoryId ?? null, custo: 0 });
     setSelectedCategoryName(state.category ?? null);
   }, [state]);
 
@@ -199,13 +212,14 @@ export default function MemoAudioReviewPage() {
         mediaText: mediaText.trim(),
         keywords: keywords.trim(),
         groupId: state.groupId,
-        apiCost: state.apiCost,
+        apiCost: state.apiCost + reextr.custo,
         originalText: state.originalText,
         iaLevel: state.iaLevel,
         dadosEspecificosJson: dadosEntries.length > 0
           ? JSON.stringify(Object.fromEntries(dadosEntries.map(e => [e.key, e.value])))
           : null,
-        dadosEspecificosOriginaisJson: state.dadosEspecificosOriginaisJson ?? null,
+        dadosEspecificosOriginaisJson:
+          reextr.originais !== undefined ? reextr.originais : state.dadosEspecificosOriginaisJson ?? null,
         matchedCategoryId: selectedCategoryId,
         category: selectedCategoryName,
         mediaAudioUrl: state.mediaAudioUrl,
@@ -219,7 +233,7 @@ export default function MemoAudioReviewPage() {
     } finally {
       setBusy(false);
     }
-  }, [state, overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, navigate]);
+  }, [state, overLimit, mediaText, keywords, dadosEntries, selectedCategoryId, selectedCategoryName, reextr, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
@@ -321,6 +335,15 @@ export default function MemoAudioReviewPage() {
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
         </select>
+        <BotaoReextrair
+          texto={state.originalText.trim() || mediaText}
+          groupId={state.groupId}
+          categoryId={selectedCategoryId}
+          categoriaExtraidaId={reextr.catId}
+          maxSummaryChars={state.maxSummaryChars}
+          disabled={busy}
+          onResultado={aplicarReextracao}
+        />
       </div>
 
       <div className={styles.grid}>
