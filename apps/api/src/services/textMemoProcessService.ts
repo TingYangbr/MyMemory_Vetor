@@ -57,7 +57,9 @@ type CatCtx = {
 export async function loadCategoryContext(
   userId: number,
   groupId: number | null,
-  isAdmin: boolean
+  isAdmin: boolean,
+  /** Só esta categoria (escolhida pelo usuário na revisão), sem filtro de tipo de mídia nem de nome repetido. */
+  somenteId?: number | null
 ): Promise<CatCtx[]> {
   if (groupId != null) {
     await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
@@ -65,7 +67,11 @@ export async function loadCategoryContext(
   /* Sempre carrega globais (groupId IS NULL) + categorias do grupo do usuário.
      Categorias do grupo têm prioridade sobre globais de mesmo nome (ORDER BY groupId IS NULL). */
   const [catRows] = await pool.query<RowDataPacket[]>(
-    groupId != null
+    somenteId != null
+      ? `SELECT id, name FROM categories
+         WHERE id = ? AND isActive = 1
+           AND (groupId IS NULL OR ${groupId != null ? "groupId = ?" : "groupId IN (SELECT groupId FROM group_members WHERE userId = ?)"})`
+      : groupId != null
       ? `SELECT id, name FROM categories
          WHERE (groupId IS NULL OR groupId = ?)
            AND isActive = 1
@@ -76,7 +82,7 @@ export async function loadCategoryContext(
            AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
          ORDER BY id ASC`,
-    [groupId != null ? groupId : userId]
+    somenteId != null ? [somenteId, groupId != null ? groupId : userId] : [groupId != null ? groupId : userId]
   );
   if (!catRows.length) return [];
   // Deduplica por nome: mantém a primeira ocorrência (grupo específico tem prioridade sobre global).
@@ -501,9 +507,7 @@ export async function processTextMemoForReview(input: {
   const iaLevel = input.iaUseTexto ?? dbLevel;
   const allowFreeSpecificFieldsWithoutCategoryMatch =
     await resolveAllowFreeSpecificFieldsWithoutCategoryMatch(input.userId, input.groupId);
-  const todasCats = await loadCategoryContext(input.userId, input.groupId, input.isAdmin);
-  const cats =
-    input.categoriaForcadaId != null ? todasCats.filter((c) => c.id === input.categoriaForcadaId) : todasCats;
+  const cats = await loadCategoryContext(input.userId, input.groupId, input.isAdmin, input.categoriaForcadaId);
   if (input.categoriaForcadaId != null && !cats.length) throw new Error("categoria_invalida");
   const forLlm = pipelineText.length > LLM_INPUT_MAX ? pipelineText.slice(0, LLM_INPUT_MAX) : pipelineText;
   const truncatedNote = pipelineText.length > LLM_INPUT_MAX;
