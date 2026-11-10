@@ -839,6 +839,14 @@ async function renomearCampoNosDados(
   await pool.query(`UPDATE dadosespecificos SET label = ? WHERE id_categoria = ? AND label = ?`, [para, categoryId, de]);
   await pool.query(`UPDATE categories SET campo_dono = ? WHERE id = ? AND campo_dono = ?`, [para, categoryId, de]);
   await pool.query(`UPDATE categories SET campo_situacao = ? WHERE id = ? AND campo_situacao = ?`, [para, categoryId, de]);
+  // Regra de lembrete: campos escolhidos e variáveis {campo} do texto da mensagem
+  for (const col of ["campo_data", "campo_horario", "campo_antecedencia", "campo_destinatario", "campo_lembrete"]) {
+    await pool.query(`UPDATE lembrete_regras SET ${col} = ? WHERE categoryid = ? AND ${col} = ?`, [para, categoryId, de]);
+  }
+  await pool.query(
+    `UPDATE lembrete_regras SET modelo_texto = REPLACE(modelo_texto, ?::text, ?::text) WHERE categoryid = ? AND POSITION(?::text IN modelo_texto) > 0`,
+    [`{${de}}`, `{${para}}`, categoryId, `{${de}}`]
+  );
 
   // Queries de memos (sem conexão ERP): parâmetros e literais '<nome>' no SQL
   let queries = 0;

@@ -271,26 +271,34 @@ function resolverDestinatarios(
   const lista = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x).map((x) => x.toLowerCase()))];
 
   if (valorCampo) {
-    const t = semAcento(valorCampo);
-    if (/\b(grupo|todos|todas|equipe|time)\b/.test(t)) {
+    if (/\b(grupo|todos|todas|equipe|time)\b/.test(semAcento(valorCampo))) {
       return { emails: lista(ctx.membros.map((m) => m.email)), observacao: null };
     }
-    const emails = valorCampo.match(RE_EMAIL);
-    if (emails?.length) return { emails: lista([...emails, autor]), observacao: null };
-    // Nome de membro: "Dr. João" → membro cujo nome contém "joao" (ou o nome inteiro está no texto)
-    const alvo = t.replace(/\b(dr|dra|sr|sra|prof|profa|doutor|doutora|senhor|senhora)\.?\s*/g, "").trim();
-    const candidatos = alvo
-      ? ctx.membros.filter((m) => {
-          const nome = semAcento(m.nome);
-          return !!nome && (nome.includes(alvo) || alvo.includes(nome) || nome.split(/\s+/)[0] === alvo.split(/\s+/)[0]);
-        })
-      : [];
-    if (candidatos.length === 1 && candidatos[0].email) {
-      return { emails: lista([candidatos[0].email, autor]), observacao: null };
+    // Vários destinatários: e-mails em qualquer lugar do texto + nomes separados por vírgula, ";", "/" ou " e "
+    const achados: string[] = [...(valorCampo.match(RE_EMAIL) ?? [])];
+    const naoAchados: string[] = [];
+    const partes = valorCampo
+      .replace(RE_EMAIL, " ")
+      .split(/[,;/]|\s+e\s+/i)
+      .map((p) => p.trim())
+      .filter((p) => /[a-z0-9]/i.test(p));
+    for (const parte of partes) {
+      // Nome de membro: "Dr. João" → membro cujo nome contém "joao" (ou o nome inteiro está no texto)
+      const alvo = semAcento(parte).replace(/\b(dr|dra|sr|sra|prof|profa|doutor|doutora|senhor|senhora)\.?\s*/g, "").trim();
+      const candidatos = alvo
+        ? ctx.membros.filter((m) => {
+            const nome = semAcento(m.nome);
+            return !!nome && (nome.includes(alvo) || alvo.includes(nome) || nome.split(/\s+/)[0] === alvo.split(/\s+/)[0]);
+          })
+        : [];
+      if (candidatos.length === 1 && candidatos[0].email) achados.push(candidatos[0].email);
+      else naoAchados.push(`"${parte}"${candidatos.length > 1 ? " (mais de um nome parecido)" : ""}`);
     }
     return {
-      emails: lista([autor]),
-      observacao: `Destinatário "${valorCampo}" não encontrado entre os membros do grupo${candidatos.length > 1 ? " (mais de um nome parecido)" : ""} — enviado para quem registrou.`,
+      emails: lista([...achados, autor]),
+      observacao: naoAchados.length
+        ? `Destinatário ${naoAchados.join(", ")} não encontrado entre os membros do grupo — ${achados.length ? "enviado aos demais e a" : "enviado para"} quem registrou.`
+        : null,
     };
   }
 
