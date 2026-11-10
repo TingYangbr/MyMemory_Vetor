@@ -234,6 +234,8 @@ interface Contexto {
   categoria: string;
   groupId: number;
   membros: Membro[];
+  /** E-mail de autores de memo que não estão em group_members (ex.: admin do sistema). */
+  emailsForaDoGrupo?: Map<number, string | null>;
   /** Categoria atualizavel: campo da situacao (memos Concluido/Cancelado nao geram aviso). */
   campoSituacao: string | null;
 }
@@ -266,7 +268,8 @@ function resolverDestinatarios(
   autorId: number,
   valorCampo: string
 ): { emails: string[]; observacao: string | null } {
-  const emailDe = (id: number) => ctx.membros.find((m) => m.id === id)?.email ?? null;
+  const emailDe = (id: number) =>
+    ctx.membros.find((m) => m.id === id)?.email ?? ctx.emailsForaDoGrupo?.get(id) ?? null;
   const autor = emailDe(autorId);
   const lista = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x).map((x) => x.toLowerCase()))];
 
@@ -329,6 +332,15 @@ async function calcular(ctx: Contexto, agora: Date): Promise<{ itens: Calculado[
      ) x`,
     [regra.campoData, ctx.categoria, ctx.groupId]
   );
+
+  // Autor que não é membro do grupo (admin do sistema catalogando no grupo): busca o e-mail direto
+  const foraDoGrupo = [...new Set(memoRows.map((r) => Number(r.userId)))].filter(
+    (id) => Number.isFinite(id) && !ctx.membros.some((m) => m.id === id)
+  );
+  if (foraDoGrupo.length) {
+    const [uRows] = await pool.query<RowDataPacket[]>(`SELECT id, email FROM users WHERE id = ANY(?::int[])`, [foraDoGrupo]);
+    ctx.emailsForaDoGrupo = new Map(uRows.map((u) => [Number(u.id), (u.email as string) ?? null]));
+  }
 
   const [envRows] = await pool.query<RowDataPacket[]>(
     `SELECT chave_item, (EXTRACT(EPOCH FROM momento_alvo) * 1000)::bigint AS ms, antecedencia_min, situacao
