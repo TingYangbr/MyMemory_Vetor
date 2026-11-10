@@ -27,6 +27,7 @@ const REGRA_CAMPO_DATA = [
 /** Fidelidade dos valores extraídos: o modelo tendia a "corrigir" endereços e trocar duração por antecedência. */
 const REGRAS_FIDELIDADE = [
   "- Copie nomes, endereços, números e valores EXATAMENTE como estão no texto (só ajuste maiúsculas e acentos). Nunca troque, complete ou \"corrija\" um endereço ou nome com conhecimento próprio (ex.: \"av. Butanta 500\" → \"Av. Butantã 500\", nunca outra rua).",
+  "- Horários: copie a hora exatamente como está no texto (\"09h00 (Brasília)\" → 09:00). Nunca converta fuso horário nem arredonde.",
   "- Valores de tempo levam SEMPRE a unidade (\"2 horas\", \"30 minutos\", \"1 dia\"), nunca só o número.",
   "- Não confunda grandezas: duração do evento (\"deve demorar 1 hora\") é diferente da antecedência do aviso (\"me avisar 2 horas antes\"). Cada campo recebe só o valor que corresponde à sua descrição.",
   "- Primeira pessoa (eu, me, meu, minha, comigo) refere-se ao AUTOR DO MEMO: em campos de pessoa/dono/responsável que se refiram a ele, preencha com o nome (ou e-mail) do autor.",
