@@ -14,6 +14,22 @@ import {
   resolveMaxSummaryCharsForText,
 } from "./textMemoMaxSummary.js";
 
+/** Regras de data e horário dos campos (datas dd/mm brasileiras, ano de referência, hora sem conversão de fuso). */
+function regrasDataHora(): string {
+  const hoje = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+  return [
+    `- Data de hoje (Brasília): ${hoje}.`,
+    "- Datas do texto estão no padrão brasileiro DIA/MÊS: \"12/11\" é 12 de novembro (→ AAAA-11-12), nunca 11 de dezembro nem 12 de janeiro.",
+    "- Data sem ano: use o ano de hoje; se a data já passou, use o ano seguinte. Quando o texto traz o dia da semana (\"12/11 (quinta-feira)\"), confira que a data escolhida cai nesse dia.",
+    "- Horários: copie a hora exatamente como está no texto (\"09h00 (Brasília)\" → 09:00). Nunca converta fuso horário nem arredonde.",
+  ].join("\n");
+}
+
 const LLM_INPUT_MAX = 48_000;
 
 type CatCtx = {
@@ -212,6 +228,7 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string):
     "- Se um campo não for identificado no texto, retorne o campo com string vazia.",
     "- Não inventar campos fora da lista.",
     "- Campos de data devem ser gravados SEMPRE no formato ISO: AAAA-MM-DD (ex: 2026-06-30). Nunca use DD/MM/AAAA, MM/DD/AAAA ou qualquer outro formato.",
+    regrasDataHora(),
     "",
     "SAIDA ESPERADA (EM UMA UNICA RESPOSTA JSON): categoria + subcategorias + palavras_chave + dados_especificos.campos.",
     "",
@@ -633,6 +650,10 @@ Subcategorias permitidas (use só estes nomes em subcategorias_lista): ${subName
 
 CAMPOS A PREENCHER — use os nomes de campo EXATAMENTE como indicado e siga a instrução de cada campo:
 ${campoInstructions}
+
+REGRAS DE DATA E HORÁRIO:
+- Campos de data: AAAA-MM-DD.
+${regrasDataHora()}
 
 RESUMO PT-BR:
 ${resumo}
