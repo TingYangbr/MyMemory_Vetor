@@ -202,6 +202,7 @@
 
 .reviewCategoryRow {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 1rem;
@@ -227,7 +228,7 @@
 
 .reviewCategorySelect {
   flex: 1;
-  min-width: 0;
+  min-width: 10rem;
   max-width: 320px;
   padding: 0.3rem 0.6rem;
   border: 1px solid var(--mm-border);
@@ -725,4 +726,9 @@
 .reextrairBtn:disabled {
   opacity: 0.6;
   cursor: default;
+}
+
+.reextrairErro {
+  flex-basis: 100%;
+  margin: 0;
 }

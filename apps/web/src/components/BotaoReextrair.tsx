@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TextMemoProcessResponse } from "@mymemory/shared";
 import { apiPostJson } from "../api";
 import styles from "../pages/MemoTextReviewPage.module.css";
@@ -21,8 +21,9 @@ export default function BotaoReextrair(props: {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const { categoryId } = props;
+  useEffect(() => setErro(null), [categoryId]);
   if (categoryId == null || categoryId === props.categoriaExtraidaId || !props.texto.trim()) {
-    return erro ? <span className="mm-error">{erro}</span> : null;
+    return erro ? <span className={`mm-error ${styles.reextrairErro}`}>{erro}</span> : null;
   }
 
   const reextrair = async () => {
@@ -37,7 +38,13 @@ export default function BotaoReextrair(props: {
       });
       props.onResultado(r, categoryId);
     } catch (e) {
-      setErro(e instanceof Error ? e.message : "Falha ao reextrair.");
+      let msg = e instanceof Error ? e.message : "Falha ao reextrair.";
+      try {
+        msg = (JSON.parse(msg) as { message?: string }).message || msg;
+      } catch {
+        /* mensagem já em texto */
+      }
+      setErro(msg);
     } finally {
       setBusy(false);
     }
@@ -54,7 +61,7 @@ export default function BotaoReextrair(props: {
       >
         {busy ? "Reextraindo…" : "↻ Reextrair"}
       </button>
-      {erro ? <span className="mm-error">{erro}</span> : null}
+      {erro ? <span className={`mm-error ${styles.reextrairErro}`}>{erro}</span> : null}
     </>
   );
 }
