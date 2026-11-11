@@ -1077,6 +1077,8 @@ export interface PerguntaResultadoEstruturado {
   linhas: Record<string, unknown>[];
   totalLinhas: number;
   nome?: string;
+  /** Todas as linhas (até 2.000) quando a tela mostra só as primeiras — usadas no PDF da resposta. */
+  linhasCompletas?: Record<string, unknown>[];
 }
 
 export interface PerguntaResposta {

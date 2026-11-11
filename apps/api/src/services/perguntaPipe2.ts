@@ -1077,6 +1077,9 @@ async function gerarRespostaEstruturada(input: {
   }));
 
   const LIMITE_LINHAS_LLM = 20;
+  /** A tela mostra 20 linhas; o PDF da resposta leva todas (até 2.000). */
+  const linhasParaPdf = (linhas: Record<string, unknown>[]) =>
+    linhas.length > LIMITE_LINHAS_LLM ? { linhasCompletas: linhas.slice(0, 2000) } : {};
 
   const resultados = input.porQuery.map((r) => ({
     query_id: r.query_id,
@@ -1157,13 +1160,16 @@ async function gerarRespostaEstruturada(input: {
       const comLinhas = input.porQuery.filter((r) => r.linhas.length > 0);
       if (comLinhas.length <= 1) {
         const r = comLinhas[0] ?? input.porQuery[0];
-        return r ? { colunas: r.colunas, linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas } : input.agregado;
+        return r
+          ? { colunas: r.colunas, linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas) }
+          : input.agregado;
       }
       return comLinhas.map((r) => ({
         nome: r.query_id,
         colunas: r.colunas,
         linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
         totalLinhas: r.totalLinhas,
+        ...linhasParaPdf(r.linhas),
       }));
     })(),
   };
