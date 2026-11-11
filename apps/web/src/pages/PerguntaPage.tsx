@@ -114,6 +114,16 @@ function IconLightbulb({ className }: { className?: string }) {
 }
 
 
+function IconPdf({ className }: { className?: string }) {
+  return (
+    <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <text x="12" y="17.5" textAnchor="middle" fontSize="6.5" fontWeight="700" fill="currentColor" stroke="none">PDF</text>
+    </svg>
+  );
+}
+
 function IconRepoIn({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -226,6 +236,21 @@ const CHART_MAX_BARRAS = 25;
 const CHART_MAX_SERIES = 3;
 
 /** Colunas de identificação (Num_Nota_Fiscal, Codigo_Produto, id…) não são medidas — nunca viram barra. */
+/** Texto de uma célula da tabela estruturada — mesma formatação na tela e no PDF. */
+function textoCelula(col: string, val: unknown): string {
+  if (col === "mediaType" && typeof val === "string") return MEDIA_TYPE_LABELS[val] ?? val;
+  if (val == null) return "—";
+  if (typeof val === "string") {
+    const data = formatDateCell(val);
+    if (data) return data;
+  }
+  if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
+    const num = typeof val === "number" ? val : Number(val);
+    return formatNumericCell(num, col);
+  }
+  return String(val);
+}
+
 function isColunaIdentificador(col: string): boolean {
   return /(^|_)(id|num|numero|nro|nr|cod|codigo)(_|$)/.test(col.toLowerCase());
 }
@@ -359,7 +384,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   if (!grafico) return <TabelaEstruturada {...props} />;
   return (
     <div className={styles.chartTableRow}>
-      <div className={styles.chartWrap}>
+      <div className={styles.chartWrap} data-grafico>
         <GraficoBarrasEstruturado dados={grafico} />
       </div>
       <div className={styles.tabelaScrollItem}>
@@ -522,20 +547,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                 {dados.colunas.map((col) => {
                   const local = valorLocal(locais, col);
                   const val = local !== undefined ? local : linha[col];
-                  const display = (() => {
-                    if (col === "mediaType" && typeof val === "string")
-                      return MEDIA_TYPE_LABELS[val] ?? val;
-                    if (val == null) return "—";
-                    if (typeof val === "string") {
-                      const data = formatDateCell(val);
-                      if (data) return data;
-                    }
-                    if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
-                      const num = typeof val === "number" ? val : Number(val);
-                      return formatNumericCell(num, col);
-                    }
-                    return String(val);
-                  })();
+                  const display = textoCelula(col, val);
                   const isLong = display.length > 80;
                   if (col === "id" && val != null) {
                     const id = Number(val);
@@ -1411,6 +1423,77 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     return pipe;
   }
 
+  const [pdfGerandoIdx, setPdfGerandoIdx] = useState<number | null>(null);
+
+  /** PDF da resposta: texto, gráficos capturados da tela e tabelas com todos os registros. */
+  async function baixarPdf(r: (typeof respostas)[number], i: number, origem: HTMLElement) {
+    setPdfGerandoIdx(i);
+    try {
+      const { gerarPdfResposta, svgParaPng } = await import("../lib/respostaPdf");
+      type PdfTabela = import("../lib/respostaPdf").PdfTabela;
+      const card = origem.closest("[data-resposta-card]");
+      const svgs = card ? Array.from(card.querySelectorAll<SVGSVGElement>("[data-grafico] svg.recharts-surface")) : [];
+      const ds = r.resposta.dados_estruturados;
+      const lista = ds ? (Array.isArray(ds) ? ds : [ds]) : [];
+      const tabelas: PdfTabela[] = [];
+      let iSvg = 0;
+      for (const [k, d] of lista.entries()) {
+        if (!d.totalLinhas) continue;
+        const g = buildDadosGrafico(d, r.perguntaTexto);
+        let grafico: PdfTabela["grafico"] = null;
+        if (g) {
+          const svg = svgs[iSvg++];
+          const png = svg ? await svgParaPng(svg).catch(() => null) : null;
+          if (png) {
+            grafico = {
+              ...png,
+              legenda: g.valueCols.map((c, idx) => ({ nome: COLUNA_LABELS[c] ?? c, cor: CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length] })),
+            };
+          }
+        }
+        const linhas = d.linhasCompletas ?? d.linhas;
+        tabelas.push({
+          titulo: lista.length > 1 ? `Dados ${k + 1}` : "Dados",
+          colunas: d.colunas,
+          rotulos: d.colunas.map((c) => COLUNA_LABELS[c] ?? c),
+          linhas: linhas.map((l) => d.colunas.map((c) => textoCelula(c, l[c]))),
+          totalLinhas: d.totalLinhas,
+          grafico,
+        });
+      }
+      if (r.classificacao.pipe === "semantica" && r.resposta.dados_usados.length) {
+        const usados = r.resposta.dados_usados;
+        const extras = Array.from(new Set(usados.flatMap((d) => (d.dadosEspecificos ? Object.keys(d.dadosEspecificos) : [])))).sort();
+        const cols = ["Memo", "Tipo", "Conteúdo", ...extras];
+        tabelas.push({
+          titulo: "Memos usados",
+          colunas: cols,
+          rotulos: cols,
+          linhas: usados.map((d) => [
+            `#${d.memo_id}`,
+            MEDIA_TYPE_LABELS[d.mediaType ?? ""] ?? d.mediaType ?? "—",
+            d.mediatext ?? "—",
+            ...extras.map((k) => (d.dadosEspecificos?.[k] != null ? String(d.dadosEspecificos[k]) : "—")),
+          ]),
+          totalLinhas: usados.length,
+        });
+      }
+      await gerarPdfResposta({
+        pergunta: r.perguntaTexto,
+        resposta: stripMarkdown(r.resposta.resposta).trim(),
+        tipo: renderPipeLabel(r.classificacao.pipe),
+        confianca: r.resposta.confianca_estimada ?? null,
+        geradoEm: new Date(),
+        tabelas,
+        limitacoes: r.resposta.limitacoes,
+      });
+    } catch (e) {
+      setError(`Não foi possível gerar o PDF: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setPdfGerandoIdx(null);
+    }
+  }
+
   const chaveUltimoModelo = `mm_pergunta_modelo_ultimo:${workspaceGroupId ?? "pessoal"}`;
 
   function lerUltimoModelo(): { id: number; filterCat: string | null; busca: string; showCatFilter: boolean } | null {
@@ -2010,7 +2093,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     )}
                   </div>
                 </div>
-                <div className={styles.cardResposta}>
+                <div className={styles.cardResposta} data-resposta-card>
                   <div className={styles.cardRespostaMeta}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
@@ -2047,6 +2130,15 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         ↓ Busca ampliada
                       </span>
                     ) : null}
+                    <button
+                      type="button"
+                      className={styles.modeloBtn}
+                      onClick={(e) => void baixarPdf(r, i, e.currentTarget)}
+                      disabled={pdfGerandoIdx === i}
+                      title="Baixar a resposta em PDF (texto, gráfico e tabela com todos os registros)"
+                    >
+                      {pdfGerandoIdx === i ? "…" : <IconPdf />}
+                    </button>
                     {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
                       <button
                         type="button"
