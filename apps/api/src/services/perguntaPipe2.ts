@@ -1298,8 +1298,12 @@ async function gerarRespostaEstruturada(input: {
     "Se o resultado tiver mais de 5 linhas, NÃO liste os registros no texto: escreva de 1 a 3 frases com o que foi encontrado " +
     "(quantidade de registros e filtros/período), o total quando fizer sentido (de somas_todas_linhas, quando existir) e no máximo 3 destaques " +
     "(ex.: os maiores), e termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
-    "Nunca escreva \"primeiros N registros\".";
-  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}\n\nRetorne somente JSON:\n{"resposta":"","tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
+    "Nunca escreva \"primeiros N registros\".\n\n" +
+    "COLUNAS DA TABELA: em colunas_exibir, liste (nomes exatos de colunas) só as colunas que respondem à pergunta, na ordem de leitura: " +
+    "as que identificam o registro (ex.: data, número da nota, código e descrição do produto, cliente) e as medidas pedidas (ex.: valor faturado). " +
+    "No máximo 8. Se a pergunta pedir campos específicos (\"incluir X e Y\", \"com o vendedor\"), inclua-os. " +
+    "Deixe vazio para mostrar todas (resultados com poucas colunas, ex.: agregações).";
+  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}\n\nRetorne somente JSON:\n{"resposta":"","colunas_exibir":[],"tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
 
   // Trace dedicado mostrando as linhas do resultado entregues ao LLM de síntese
   setLastLlmPromptTrace({
@@ -1322,6 +1326,7 @@ async function gerarRespostaEstruturada(input: {
 
   type RawResp = {
     resposta?: string;
+    colunas_exibir?: unknown;
     dados_usados?: { query_id?: string; linhas_usadas?: number }[];
     limitacoes?: string[];
     confianca_estimada?: number;
@@ -1339,16 +1344,27 @@ async function gerarRespostaEstruturada(input: {
       : 1.0,
     dados_estruturados: (() => {
       if (input.comparacao) return comparacaoParaTabela(input.comparacao);
+      // Colunas escolhidas pela IA (as que respondem à pergunta); as linhas seguem completas
+      const pedidas = parseStringArray(parsed.colunas_exibir).map((c) => c.toLowerCase());
+      const colunasDe = (colunas: string[]) => {
+        if (colunas.length <= 6 || !pedidas.length) return colunas;
+        const escolhidas = pedidas
+          .map((c) => colunas.find((col) => col.toLowerCase() === c))
+          .filter((c): c is string => !!c);
+        if (!escolhidas.length) return colunas;
+        const id = colunas.find((c) => c.toLowerCase() === "id");
+        return id && !escolhidas.includes(id) ? [id, ...escolhidas] : [...new Set(escolhidas)];
+      };
       const comLinhas = input.porQuery.filter((r) => r.linhas.length > 0);
       if (comLinhas.length <= 1) {
         const r = comLinhas[0] ?? input.porQuery[0];
         return r
-          ? { colunas: r.colunas, linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas) }
+          ? { colunas: colunasDe(r.colunas), linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas) }
           : input.agregado;
       }
       return comLinhas.map((r) => ({
         nome: r.query_id,
-        colunas: r.colunas,
+        colunas: colunasDe(r.colunas),
         linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
         totalLinhas: r.totalLinhas,
         ...linhasParaPdf(r.linhas),
