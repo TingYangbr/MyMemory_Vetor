@@ -38,6 +38,10 @@ export async function svgParaPng(svg: SVGSVGElement): Promise<{ png: string; lar
   clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
   clone.setAttribute("width", String(largura));
   clone.setAttribute("height", String(altura));
+  // Fora da página o SVG perde a fonte do site (caía em Times): fixa uma sem serifa
+  const estilo = document.createElementNS("http://www.w3.org/2000/svg", "style");
+  estilo.textContent = "text{font-family:Helvetica,Arial,sans-serif}";
+  clone.insertBefore(estilo, clone.firstChild);
   const xml = new XMLSerializer()
     .serializeToString(clone)
     .replace(/var\(--[\w-]+,\s*([^)]+)\)/g, "$1")
@@ -143,10 +147,11 @@ export async function gerarPdfResposta(dados: PdfResposta): Promise<void> {
     tituloSecao(t.titulo || "Dados");
 
     if (t.grafico) {
-      const largura = Math.min(larguraUtil, 180);
+      // Tamanho real da tela (96 dpi → 0,2646 mm/px): esticar o gráfico aumentava as letras dos rótulos
+      const largura = Math.min(larguraUtil, 170, t.grafico.largura * 0.2646);
       const altura = (t.grafico.altura / t.grafico.largura) * largura;
       garantirEspaco(altura + (t.grafico.legenda.length > 1 ? 8 : 2));
-      doc.addImage(t.grafico.png, "JPEG", MARGEM, y, largura, altura);
+      doc.addImage(t.grafico.png, "JPEG", MARGEM + (larguraUtil - largura) / 2, y, largura, altura);
       y += altura + 2;
       if (t.grafico.legenda.length > 1) {
         let x = MARGEM;
