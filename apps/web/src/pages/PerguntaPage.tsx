@@ -384,7 +384,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   if (!grafico) return <TabelaEstruturada {...props} />;
   return (
     <div className={styles.chartTableRow}>
-      <div className={styles.chartWrap} data-grafico>
+      <div className={styles.chartWrap}>
         <GraficoBarrasEstruturado dados={grafico} />
       </div>
       <div className={styles.tabelaScrollItem}>
@@ -1426,31 +1426,27 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [pdfGerandoIdx, setPdfGerandoIdx] = useState<number | null>(null);
 
   /** PDF da resposta: texto, gráficos capturados da tela e tabelas com todos os registros. */
-  async function baixarPdf(r: (typeof respostas)[number], i: number, origem: HTMLElement) {
+  async function baixarPdf(r: (typeof respostas)[number], i: number) {
     setPdfGerandoIdx(i);
     try {
-      const { gerarPdfResposta, svgParaPng } = await import("../lib/respostaPdf");
+      const { gerarPdfResposta } = await import("../lib/respostaPdf");
       type PdfTabela = import("../lib/respostaPdf").PdfTabela;
-      const card = origem.closest("[data-resposta-card]");
-      const svgs = card ? Array.from(card.querySelectorAll<SVGSVGElement>("[data-grafico] svg.recharts-surface")) : [];
       const ds = r.resposta.dados_estruturados;
       const lista = ds ? (Array.isArray(ds) ? ds : [ds]) : [];
       const tabelas: PdfTabela[] = [];
-      let iSvg = 0;
       for (const [k, d] of lista.entries()) {
         if (!d.totalLinhas) continue;
         const g = buildDadosGrafico(d, r.perguntaTexto);
-        let grafico: PdfTabela["grafico"] = null;
-        if (g) {
-          const svg = svgs[iSvg++];
-          const png = svg ? await svgParaPng(svg).catch(() => null) : null;
-          if (png) {
-            grafico = {
-              ...png,
-              legenda: g.valueCols.map((c, idx) => ({ nome: COLUNA_LABELS[c] ?? c, cor: CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length] })),
-            };
-          }
-        }
+        const grafico: PdfTabela["grafico"] = g
+          ? {
+              rotulos: g.rows.map((row) => String(row.label)),
+              series: g.valueCols.map((c, idx) => ({
+                nome: COLUNA_LABELS[c] ?? c,
+                cor: CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length],
+                valores: g.rows.map((row) => Number(row[c]) || 0),
+              })),
+            }
+          : null;
         const linhas = d.linhasCompletas ?? d.linhas;
         tabelas.push({
           titulo: lista.length > 1 ? `Dados ${k + 1}` : "Dados",
@@ -2093,7 +2089,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     )}
                   </div>
                 </div>
-                <div className={styles.cardResposta} data-resposta-card>
+                <div className={styles.cardResposta}>
                   <div className={styles.cardRespostaMeta}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
@@ -2133,7 +2129,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     <button
                       type="button"
                       className={styles.modeloBtn}
-                      onClick={(e) => void baixarPdf(r, i, e.currentTarget)}
+                      onClick={() => void baixarPdf(r, i)}
                       disabled={pdfGerandoIdx === i}
                       title="Baixar a resposta em PDF (texto, gráfico e tabela com todos os registros)"
                     >
