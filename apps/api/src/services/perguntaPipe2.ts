@@ -1299,9 +1299,10 @@ async function gerarRespostaEstruturada(input: {
     "(quantidade de registros e filtros/período), o total quando fizer sentido (de somas_todas_linhas, quando existir) e no máximo 3 destaques " +
     "(ex.: os maiores), e termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
     "Nunca escreva \"primeiros N registros\".\n\n" +
-    "COLUNAS DA TABELA: em colunas_exibir, liste (nomes exatos de colunas) só as colunas que respondem à pergunta, na ordem de leitura: " +
-    "as que identificam o registro (ex.: data, número da nota, código e descrição do produto, cliente) e as medidas pedidas (ex.: valor faturado). " +
-    "No máximo 8. Se a pergunta pedir campos específicos (\"incluir X e Y\", \"com o vendedor\"), inclua-os. " +
+    "COLUNAS DA TABELA: em colunas_exibir, liste (nomes exatos de colunas) SOMENTE o que a pergunta pede: " +
+    "o item perguntado (ex.: \"produtos\" → código e descrição do produto) e a medida pedida (ex.: \"faturados\"/\"faturamento\" → valor faturado). " +
+    "NÃO acrescente outras colunas (data, nota, cliente, vendedor, impostos…) a menos que a pergunta as cite " +
+    "(ex.: \"incluir o cliente\", \"com o número da nota\"). " +
     "Deixe vazio para mostrar todas (resultados com poucas colunas, ex.: agregações).";
   const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}\n\nRetorne somente JSON:\n{"resposta":"","colunas_exibir":[],"tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
 
