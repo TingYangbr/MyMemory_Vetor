@@ -1084,11 +1084,34 @@ async function gerarRespostaEstruturada(input: {
   const linhasParaPdf = (linhas: Record<string, unknown>[]) =>
     linhas.length > LIMITE_LINHAS_LLM ? { linhasCompletas: linhas.slice(0, 2000) } : {};
 
+  /** Somas das colunas numéricas sobre TODAS as linhas (a IA só recebe 20) — para o total do resumo. */
+  const somasTodasLinhas = (colunas: string[], linhas: Record<string, unknown>[]) => {
+    const somas: Record<string, number> = {};
+    for (const col of colunas) {
+      if (/(^|_)(id|num|numero|nro|nr|cod|codigo|ano|mes|dia)(_|$)/i.test(col)) continue;
+      let total = 0;
+      let numerica = linhas.length > 0;
+      for (const l of linhas) {
+        const v = l[col];
+        if (v == null || v === "") continue;
+        const n = typeof v === "number" ? v : Number(v);
+        if (typeof v === "boolean" || !Number.isFinite(n)) {
+          numerica = false;
+          break;
+        }
+        total += n;
+      }
+      if (numerica) somas[col] = Math.round(total * 100) / 100;
+    }
+    return somas;
+  };
+
   const resultados = input.porQuery.map((r) => ({
     query_id: r.query_id,
     colunas: r.colunas,
     linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
     total_linhas: r.totalLinhas,
+    ...(r.totalLinhas > LIMITE_LINHAS_LLM ? { somas_todas_linhas: somasTodasLinhas(r.colunas, r.linhas) } : {}),
   }));
 
   // Aviso injetado pelo backend quando o resultado foi truncado
@@ -1096,7 +1119,7 @@ async function gerarRespostaEstruturada(input: {
     .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM)
     .map(
       (r) =>
-        `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Valores de soma, contagem ou total calculados a partir dessas linhas estão incompletos e podem estar incorretos. Informe essa limitação ao usuário e sugira usar um filtro mais específico ou reformular a pergunta com agregação.`
+        `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Para totais use somas_todas_linhas (somam todas as ${r.totalLinhas} linhas) e total_linhas para a contagem; não some as linhas recebidas. Para outras contas sobre todas as linhas, informe a limitação e sugira um filtro mais específico ou reformular a pergunta com agregação.`
     );
 
   const parametros_aplicados = input.plano.queries.map((q) => ({
@@ -1121,7 +1144,13 @@ async function gerarRespostaEstruturada(input: {
     2
   );
 
-  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\nRetorne somente JSON:\n{"resposta":"","tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
+  const regraApresentacao =
+    "REGRA DE APRESENTAÇÃO: os registros já aparecem numa tabela completa logo abaixo da resposta (na tela e no PDF). " +
+    "Se o resultado tiver mais de 5 linhas, NÃO liste os registros no texto: escreva de 1 a 3 frases com o que foi encontrado " +
+    "(quantidade de registros e filtros/período), o total quando fizer sentido (de somas_todas_linhas, quando existir) e no máximo 3 destaques " +
+    "(ex.: os maiores), e termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
+    "Nunca escreva \"primeiros N registros\".";
+  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}\n\nRetorne somente JSON:\n{"resposta":"","tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
 
   // Trace dedicado mostrando as linhas do resultado entregues ao LLM de síntese
   setLastLlmPromptTrace({
