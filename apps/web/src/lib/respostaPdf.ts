@@ -1,5 +1,5 @@
 /**
- * PDF da resposta do Perguntar: pergunta, resposta, gráficos (capturados da tela) e tabelas completas
+ * PDF da resposta do Perguntar: pergunta, resposta, gráficos (desenhados no próprio PDF) e tabelas completas
  * (todas as linhas, não só as 20 da tela). jsPDF e autotable são carregados só ao clicar no ícone.
  */
 
@@ -10,7 +10,8 @@ export interface PdfTabela {
   rotulos: string[];
   linhas: string[][];
   totalLinhas: number;
-  grafico?: { png: string; largura: number; altura: number; legenda: { nome: string; cor: string }[] } | null;
+  /** Barras desenhadas no PDF (vetorial, fonte e tamanho controlados — a captura do SVG aumentava as letras). */
+  grafico?: { rotulos: string[]; series: { nome: string; cor: string; valores: number[] }[] } | null;
 }
 
 export interface PdfResposta {
@@ -27,42 +28,6 @@ const MARGEM = 14;
 const COR_TITULO: [number, number, number] = [15, 118, 110];
 const COR_TEXTO: [number, number, number] = [30, 41, 59];
 const COR_SUAVE: [number, number, number] = [100, 116, 139];
-
-/** Converte o gráfico (SVG do recharts) em imagem JPEG para o PDF (PNG sem compressão deixava o arquivo com MBs). Variáveis CSS viram a cor de reserva. */
-export async function svgParaPng(svg: SVGSVGElement): Promise<{ png: string; largura: number; altura: number } | null> {
-  const r = svg.getBoundingClientRect();
-  const largura = Math.round(r.width);
-  const altura = Math.round(r.height);
-  if (!largura || !altura) return null;
-  const clone = svg.cloneNode(true) as SVGSVGElement;
-  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
-  clone.setAttribute("width", String(largura));
-  clone.setAttribute("height", String(altura));
-  // Fora da página o SVG perde a fonte do site (caía em Times): fixa uma sem serifa
-  const estilo = document.createElementNS("http://www.w3.org/2000/svg", "style");
-  estilo.textContent = "text{font-family:Helvetica,Arial,sans-serif}";
-  clone.insertBefore(estilo, clone.firstChild);
-  const xml = new XMLSerializer()
-    .serializeToString(clone)
-    .replace(/var\(--[\w-]+,\s*([^)]+)\)/g, "$1")
-    .replace(/var\(--[\w-]+\)/g, "#94a3b8");
-  const img = new Image();
-  await new Promise<void>((ok, falha) => {
-    img.onload = () => ok();
-    img.onerror = () => falha(new Error("svg"));
-    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`;
-  });
-  const escala = 2;
-  const canvas = document.createElement("canvas");
-  canvas.width = largura * escala;
-  canvas.height = altura * escala;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  ctx.fillStyle = "#ffffff";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-  return { png: canvas.toDataURL("image/jpeg", 0.92), largura, altura };
-}
 
 function nomeArquivo(pergunta: string, quando: Date): string {
   const slug = pergunta
@@ -143,29 +108,96 @@ export async function gerarPdfResposta(dados: PdfResposta): Promise<void> {
     paragrafo(meta, 8, COR_SUAVE);
   }
 
+  /** Valor curto para o eixo Y: 240 mil, 1,5 mi. */
+  const compacto = (v: number) => v.toLocaleString("pt-BR", { notation: "compact", maximumFractionDigits: 1 });
+  const passoBonito = (max: number) => {
+    const bruto = max / 4;
+    const mag = Math.pow(10, Math.floor(Math.log10(bruto || 1)));
+    const n = bruto / mag;
+    return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10) * mag;
+  };
+
+  const desenharGrafico = (g: NonNullable<PdfTabela["grafico"]>) => {
+    const n = g.rotulos.length;
+    if (!n || !g.series.length) return;
+    const FONTE_EIXO = 6.5;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(FONTE_EIXO);
+    const rotulos = g.rotulos.map((r) => (r.length > 22 ? `${r.slice(0, 21)}…` : r));
+    const maiorRotulo = Math.max(...rotulos.map((r) => doc.getTextWidth(r)));
+    const larguraPlot = Math.min(larguraUtil, 175) - 16;
+    const larguraGrupo = larguraPlot / n;
+    // Rótulos inclinados (45°) só quando não cabem na horizontal
+    const inclinar = rotulos.some((r) => doc.getTextWidth(r) > larguraGrupo - 1);
+    const alturaRotulos = inclinar ? Math.min(maiorRotulo * 0.71 + 3, 30) : 5;
+    const alturaPlot = 62;
+    const legenda = g.series.length > 1 ? 6 : 0;
+    garantirEspaco(alturaPlot + alturaRotulos + legenda + 4);
+
+    const x0 = MARGEM + (larguraUtil - Math.min(larguraUtil, 175)) / 2 + 16;
+    const yTopo = y + 2;
+    const yBase = yTopo + alturaPlot;
+    const maximo = Math.max(0, ...g.series.flatMap((s) => s.valores.filter((v) => Number.isFinite(v))));
+    const passo = passoBonito(maximo || 1);
+    const topo = Math.max(passo, Math.ceil((maximo || 1) / passo) * passo);
+
+    // grade e eixo Y
+    doc.setLineWidth(0.15);
+    for (let v = 0; v <= topo + passo / 2; v += passo) {
+      const yy = yBase - (v / topo) * alturaPlot;
+      doc.setDrawColor(226, 232, 240);
+      doc.line(x0, yy, x0 + larguraPlot, yy);
+      doc.setTextColor(...COR_SUAVE);
+      doc.text(compacto(v), x0 - 1.5, yy + 1, { align: "right" });
+    }
+    doc.setDrawColor(148, 163, 184);
+    doc.line(x0, yTopo, x0, yBase);
+    doc.line(x0, yBase, x0 + larguraPlot, yBase);
+
+    // barras
+    const larguraBarra = (larguraGrupo * 0.72) / g.series.length;
+    g.series.forEach((serie, si) => {
+      doc.setFillColor(serie.cor);
+      serie.valores.forEach((v, i) => {
+        if (!Number.isFinite(v) || v <= 0) return;
+        const h = (v / topo) * alturaPlot;
+        const x = x0 + i * larguraGrupo + larguraGrupo * 0.14 + si * larguraBarra;
+        doc.rect(x, yBase - h, larguraBarra, h, "F");
+      });
+    });
+
+    // rótulos do eixo X
+    doc.setTextColor(...COR_TEXTO);
+    rotulos.forEach((r, i) => {
+      const xc = x0 + i * larguraGrupo + larguraGrupo / 2;
+      if (inclinar) {
+        const w = doc.getTextWidth(r);
+        // texto termina no ponto do eixo, subindo da esquerda para a direita
+        doc.text(r, xc - w * 0.71 + 1, yBase + 2 + w * 0.71, { angle: 45 });
+      } else {
+        doc.text(r, xc, yBase + 3.5, { align: "center" });
+      }
+    });
+    y = yBase + alturaRotulos + 2;
+
+    if (legenda) {
+      let x = x0;
+      doc.setFontSize(7.5);
+      for (const serie of g.series) {
+        doc.setFillColor(serie.cor);
+        doc.rect(x, y, 3, 3, "F");
+        doc.setTextColor(...COR_TEXTO);
+        doc.text(serie.nome, x + 4.5, y + 2.6);
+        x += 4.5 + doc.getTextWidth(serie.nome) + 6;
+      }
+      y += legenda;
+    }
+  };
+
   for (const t of dados.tabelas) {
     tituloSecao(t.titulo || "Dados");
 
-    if (t.grafico) {
-      // Tamanho real da tela (96 dpi → 0,2646 mm/px): esticar o gráfico aumentava as letras dos rótulos
-      const largura = Math.min(larguraUtil, 170, t.grafico.largura * 0.2646);
-      const altura = (t.grafico.altura / t.grafico.largura) * largura;
-      garantirEspaco(altura + (t.grafico.legenda.length > 1 ? 8 : 2));
-      doc.addImage(t.grafico.png, "JPEG", MARGEM + (larguraUtil - largura) / 2, y, largura, altura);
-      y += altura + 2;
-      if (t.grafico.legenda.length > 1) {
-        let x = MARGEM;
-        doc.setFontSize(8);
-        for (const item of t.grafico.legenda) {
-          doc.setFillColor(item.cor);
-          doc.rect(x, y, 3, 3, "F");
-          doc.setTextColor(...COR_TEXTO);
-          doc.text(item.nome, x + 4.5, y + 2.6);
-          x += 4.5 + doc.getTextWidth(item.nome) + 6;
-        }
-        y += 6;
-      }
-    }
+    if (t.grafico) desenharGrafico(t.grafico);
 
     autoTable(doc, {
       startY: y,
