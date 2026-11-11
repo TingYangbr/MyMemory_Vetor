@@ -1085,11 +1085,13 @@ async function gerarRespostaEstruturada(input: {
     linhas.length > LIMITE_LINHAS_LLM ? { linhasCompletas: linhas.slice(0, 2000) } : {};
 
   /** Somas das colunas numéricas sobre TODAS as linhas (a IA só recebe 20) — para o total do resumo. */
+  const ehColunaDeValor = (col: string) =>
+    /(valor|vlr|total|qtde|qtd|quantidade|lucro|saldo|receita|despesa|montante|juros)/i.test(col) &&
+    !/(preco|unit|taxa|indice|prazo|perc|aliq|media|data)/i.test(col);
   const somasTodasLinhas = (colunas: string[], linhas: Record<string, unknown>[]) => {
     const somas: Record<string, number> = {};
     for (const col of colunas) {
-      if (!/(valor|vlr|total|qtde|qtd|quantidade|lucro|saldo|receita|despesa|montante|juros)/i.test(col)) continue;
-      if (/(preco|unit|taxa|indice|prazo|perc|aliq|media|data)/i.test(col)) continue;
+      if (!ehColunaDeValor(col)) continue;
       let total = 0;
       let numerica = linhas.length > 0;
       for (const l of linhas) {
@@ -1107,12 +1109,46 @@ async function gerarRespostaEstruturada(input: {
     return somas;
   };
 
+  /**
+   * Maiores e menores de cada coluna de valor sobre TODAS as linhas (a IA só recebe 20 e
+   * erra ao comparar números de cabeça) — para os destaques do resumo.
+   */
+  const destaquesTodasLinhas = (colunas: string[], linhas: Record<string, unknown>[]) => {
+    const somas = somasTodasLinhas(colunas, linhas);
+    const rotulos = colunas
+      .filter((c) => !(c in somas) && c.toLowerCase() !== "id")
+      .filter((c) => linhas.some((l) => typeof l[c] === "string"))
+      .slice(0, 3);
+    const out: Record<string, { maiores: Record<string, unknown>[]; menores: Record<string, unknown>[] }> = {};
+    for (const col of Object.keys(somas)) {
+      const ord = linhas
+        .map((l) => ({ l, n: l[col] == null || l[col] === "" ? NaN : Number(l[col]) }))
+        .filter((x) => Number.isFinite(x.n))
+        .sort((a, b) => b.n - a.n);
+      const proj = (x: { l: Record<string, unknown>; n: number }, pos: number) => ({
+        posicao: pos,
+        ...Object.fromEntries(rotulos.map((c) => [c, x.l[c]])),
+        [col]: Math.round(x.n * 100) / 100,
+      });
+      out[col] = {
+        maiores: ord.slice(0, 5).map((x, i) => proj(x, i + 1)),
+        menores: ord.slice(-3).reverse().map((x, i) => proj(x, ord.length - i)),
+      };
+    }
+    return out;
+  };
+
   const resultados = input.porQuery.map((r) => ({
     query_id: r.query_id,
     colunas: r.colunas,
     linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
     total_linhas: r.totalLinhas,
-    ...(r.totalLinhas > LIMITE_LINHAS_LLM ? { somas_todas_linhas: somasTodasLinhas(r.colunas, r.linhas) } : {}),
+    ...(r.totalLinhas > LIMITE_LINHAS_LLM
+      ? {
+          somas_todas_linhas: somasTodasLinhas(r.colunas, r.linhas),
+          destaques_todas_linhas: destaquesTodasLinhas(r.colunas, r.linhas),
+        }
+      : {}),
   }));
 
   // Aviso injetado pelo backend quando o resultado foi truncado
@@ -1120,7 +1156,7 @@ async function gerarRespostaEstruturada(input: {
     .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM)
     .map(
       (r) =>
-        `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Para totais use somas_todas_linhas (somam todas as ${r.totalLinhas} linhas) e total_linhas para a contagem; não some as linhas recebidas. Para outras contas sobre todas as linhas, informe a limitação e sugira um filtro mais específico ou reformular a pergunta com agregação.`
+        `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Para totais use somas_todas_linhas (somam todas as ${r.totalLinhas} linhas) e total_linhas para a contagem; não some as linhas recebidas. Para maiores/menores/ranking use SOMENTE destaques_todas_linhas (já calculados sobre todas as linhas, em ordem) — nunca escolha os maiores olhando as linhas recebidas. Para outras contas sobre todas as linhas, diga na resposta que não é possível e sugira reformular a pergunta com agregação.`
     );
 
   const parametros_aplicados = input.plano.queries.map((q) => ({
@@ -1148,8 +1184,9 @@ async function gerarRespostaEstruturada(input: {
   const regraApresentacao =
     "REGRA DE APRESENTAÇÃO: os registros já aparecem numa tabela completa logo abaixo da resposta (na tela e no PDF). " +
     "Se o resultado tiver mais de 5 linhas, NÃO liste os registros no texto: escreva de 1 a 3 frases com o que foi encontrado " +
-    "(quantidade de registros e filtros/período), o total quando fizer sentido (de somas_todas_linhas, quando existir) e no máximo 3 destaques " +
-    "(ex.: os maiores), e termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
+    "(quantidade de registros e filtros/período), o total quando fizer sentido (de somas_todas_linhas, quando existir) e, só se a pergunta pedir ranking/maiores/menores, " +
+    "no máximo 3 destaques — copiados de destaques_todas_linhas quando existir (nunca compare valores você mesmo); se a pergunta não pediu, não invente destaques. " +
+    "Termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
     "Nunca escreva \"primeiros N registros\" nem registre em limitacoes que a tabela mostra só parte das linhas (a tabela e o PDF trazem todas).\n\n" +
     "COLUNAS DA TABELA: em colunas_exibir, liste (nomes exatos de colunas) SOMENTE o que a pergunta pede: " +
     "o item perguntado (ex.: \"produtos\" → código e descrição do produto) e a medida pedida (ex.: \"faturados\"/\"faturamento\" → valor faturado). " +
@@ -1191,7 +1228,11 @@ async function gerarRespostaEstruturada(input: {
     resposta: parseRespostaStr(parsed.resposta, respostaFallback),
     tipo_resposta: "estruturada",
     dados_usados: [] as PerguntaMemoUsado[],
-    limitacoes: parseStringArray(parsed.limitacoes),
+    limitacoes: [
+      ...parseStringArray(parsed.limitacoes).filter(
+        (t) => !t.split(/\D+/).includes(String(LIMITE_LINHAS_LLM)) || !/(linha|registro|exibid|visualiza|entregue)/i.test(t)
+      ),
+    ],
     confianca_estimada: typeof parsed.confianca_estimada === "number"
       ? Math.min(Math.max(parsed.confianca_estimada, 0), 1)
       : 1.0,
