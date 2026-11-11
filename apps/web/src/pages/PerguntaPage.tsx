@@ -1270,7 +1270,14 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         limitacoes: r.resposta.limitacoes,
       });
     } catch (e) {
-      setError(`Não foi possível gerar o PDF: ${e instanceof Error ? e.message : String(e)}`);
+      const msg = e instanceof Error ? e.message : String(e);
+      // Página aberta antes de uma atualização pede o arquivo da versão anterior, que não existe mais
+      const versaoAntiga = /dynamically imported module|Importing a module script failed|Loading chunk/i.test(msg);
+      setError(
+        versaoAntiga
+          ? "O myMemory foi atualizado enquanto esta página estava aberta. Recarregue a página (Ctrl+F5) e clique no PDF de novo."
+          : `Não foi possível gerar o PDF: ${msg}`
+      );
     } finally {
       setPdfGerandoIdx(null);
     }
