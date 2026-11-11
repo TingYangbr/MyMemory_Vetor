@@ -17,6 +17,8 @@ export default function BotaoReextrair(props: {
   maxSummaryChars?: number;
   disabled?: boolean;
   onResultado: (r: TextMemoProcessResponse, categoryId: number) => void;
+  /** Avisa a página enquanto reextrai (a página suspende o microfone). */
+  onOcupado?: (ocupado: boolean) => void;
 }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -28,6 +30,7 @@ export default function BotaoReextrair(props: {
 
   const reextrair = async () => {
     setBusy(true);
+    props.onOcupado?.(true);
     setErro(null);
     try {
       const r = await apiPostJson<TextMemoProcessResponse>("/api/memos/reextrair", {
@@ -47,6 +50,7 @@ export default function BotaoReextrair(props: {
       setErro(msg);
     } finally {
       setBusy(false);
+      props.onOcupado?.(false);
     }
   };
 

@@ -70,6 +70,7 @@ export default function MemoDocumentReviewPage() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
   /** ↻ Reextrair: categoria dos campos na tela, custo das reextrações e campos originais refeitos. */
+  const [reextraindo, setReextraindo] = useState(false);
   const [reextr, setReextr] = useState<{ catId: number | null; custo: number; originais?: string | null }>({
     catId: null,
     custo: 0,
@@ -233,6 +234,7 @@ export default function MemoDocumentReviewPage() {
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled,
     active: Boolean(processResult),
+    suspenso: reextraindo,
     mediaText,
     setMediaText,
     keywords,
@@ -368,6 +370,7 @@ export default function MemoDocumentReviewPage() {
           maxSummaryChars={state.maxSummaryChars}
           disabled={busy}
           onResultado={aplicarReextracao}
+          onOcupado={setReextraindo}
         />
       </div>
 

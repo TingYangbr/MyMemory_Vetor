@@ -76,6 +76,8 @@ export interface UseMemoReviewVoiceAssistantOptions {
   soundEnabled: boolean;
   /** Página pronta para revisar (ex.: não em loading de documento). */
   active: boolean;
+  /** Microfone suspenso por um tempo (ex.: ↻ Reextrair em andamento); volta sozinho quando false. */
+  suspenso?: boolean;
   mediaText: string;
   setMediaText: Dispatch<SetStateAction<string>>;
   keywords: string;
@@ -543,6 +545,7 @@ export function useMemoReviewVoiceAssistant(
   const enabled =
     options.soundEnabled &&
     options.active &&
+    !options.suspenso &&
     srAvailable &&
     localMicOn &&
     typeof window !== "undefined";
