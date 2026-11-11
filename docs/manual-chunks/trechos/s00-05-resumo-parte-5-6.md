@@ -9,8 +9,8 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 - Arquivos guardados no S3 só abrem pelo MyMemory, com login (bucket privado): Seções 6 e 26
 - Relatório de chamadas de IA por etapa (admin): Seção 24
 - "📋 Colar print" e Ctrl+V no Catalogar para catalogar o print da tela: Seção 5
+- Ícone de PDF na resposta: texto, gráfico e tabela com todos os registros: Seção 8
 - ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida: Seção 6
-- Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela: Seção 28
 
 Perguntas que este trecho responde:
 - O que mudou na versão 2 do MyMemory?

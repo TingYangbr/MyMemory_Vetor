@@ -3,6 +3,7 @@ Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+- Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela: Seção 28
 - Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1): Seções 20 a 24
 
 Perguntas que este trecho responde:

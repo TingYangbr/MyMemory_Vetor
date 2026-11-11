@@ -76,6 +76,7 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Arquivos guardados no S3 só abrem pelo MyMemory, com login (bucket privado) | Seções 6 e 26 |
 | Relatório de chamadas de IA por etapa (admin) | Seção 24 |
 | "📋 Colar print" e Ctrl+V no Catalogar para catalogar o print da tela | Seção 5 |
+| Ícone de PDF na resposta: texto, gráfico e tabela com todos os registros | Seção 8 |
 | ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida | Seção 6 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
@@ -362,6 +363,15 @@ Expressões de tempo na pergunta são calculadas pelo sistema, no horário de Br
 | este mês / mês que vem / mês passado | o mês inteiro | out · nov · set |
 | este ano / ano que vem / ano passado | o ano inteiro | 2026 · 2027 · 2025 |
 NOTA: "Próximos 7 dias" é diferente de "semana que vem": conta a partir de hoje, não da próxima segunda.
+## PDF da resposta
+O ícone de PDF no cabeçalho da resposta (ao lado do alto-falante) baixa a resposta como documento PDF:
+- cabeçalho com data e hora, a pergunta e o texto da resposta, com o tipo (semântico, estruturado ou híbrido) e a confiança;
+- o gráfico, como aparece na tela, seguido da tabela;
+- a tabela com TODOS os registros (até 2.000), não só os 20 mostrados na tela; o cabeçalho da tabela se repete em cada página;
+- nas respostas semânticas, a tabela dos memos usados;
+- as observações (limitações) da resposta e o número da página no rodapé.
+Tabelas com mais de 6 colunas saem em paisagem. O arquivo se chama resposta-<início da pergunta>-AAAAMMDD-HHMM.pdf.
+NOTA: Respostas dadas antes desta versão trazem só as 20 linhas que já tinham; refaça a pergunta para o PDF levar todas.
 ## Alterar, concluir ou cancelar pela resposta
 Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎ discreto, sem contorno, alinhado à direita na última linha do texto. Nas tabelas da resposta, o memo também aparece com ✎ ao lado do número e a linha fica clicável. O ✎ só aparece para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
 1. Toque (celular) ou clique (computador) no ✎ do fim da resposta. Com um só memo atualizável, abre direto o cartão do memo com os campos preenchidos. Com vários, abre antes a lista "Qual memo alterar?" para escolher. Nas tabelas, a linha ou o ✎ dela abre o cartão daquele memo.
