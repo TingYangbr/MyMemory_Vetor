@@ -12,6 +12,7 @@ categoria **Manual do usuário**; este vai para a categoria **Manual técnico**,
 | `fonte/manual-tecnico.md` | Texto-fonte. É onde se edita. |
 | `gerar_trechos.py` | Gera `chunks-mymemory-tecnico.jsonl` a partir do texto-fonte (valida a numeração das seções e os ids). |
 | `chunks-mymemory-tecnico.jsonl` | Trechos para importar (mesmo formato do manual operacional do Softing-erp). |
+| `gerar_docx_pdf.py` | Gera `MyMemory_Manual_Tecnico.docx` e `.pdf` na raiz do repositório (capa + índice + seções; PDF exportado pelo Word). |
 
 ## Importar (Admin → Importar conhecimento)
 
@@ -35,3 +36,12 @@ python gerar_trechos.py
   `Mensagem / Sintoma | Causa e solução` (um trecho por linha). Nunca usar `|` dentro de uma célula.
 - Subseção chamada "Passo a passo" vira trecho do tipo "passo a passo"; as demais, "conceito".
 - Ao mudar a tela de Perfis ou as mensagens de erro da API, atualizar a seção correspondente e regerar.
+
+## Gerar o Word e o PDF
+
+Precisa do pacote `docx` do npm (o mesmo do manual operacional) e do Word instalado (Windows):
+
+```bash
+cd docs/manual-tecnico
+python gerar_docx_pdf.py <pasta node_modules que contém o pacote docx>
+```

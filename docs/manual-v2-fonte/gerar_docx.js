@@ -8,6 +8,9 @@ const {
 
 const src = process.argv[2];
 const out = process.argv[3];
+// Opcionais: título do documento e texto do cabeçalho (padrão = manual operacional)
+const TITULO = process.argv[4] || "MyMemory — Manual Operacional de Suporte — Versão 2";
+const CABECALHO = process.argv[5] || "MyMemory — Manual Operacional · Versão 2";
 const linhas = fs.readFileSync(src, "utf8").split(/\r?\n/);
 
 const AZUL = "1E3A5F";
@@ -117,7 +120,7 @@ while (i < linhas.length) {
 
 const doc = new Document({
   creator: "MyMemory",
-  title: "MyMemory — Manual Operacional de Suporte — Versão 2",
+  title: TITULO,
   styles: {
     default: { document: { run: { font: "Calibri", size: 21 } } },
     paragraphStyles: [
@@ -138,7 +141,7 @@ const doc = new Document({
   sections: [{
     properties: { page: { size: { width: 11906, height: 16838 }, margin: { top: 1080, right: 900, bottom: 1080, left: 900 } } },
     headers: {
-      default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [texto("MyMemory — Manual Operacional · Versão 2", { size: 16, color: CINZA })] })] }),
+      default: new Header({ children: [new Paragraph({ alignment: AlignmentType.RIGHT, children: [texto(CABECALHO, { size: 16, color: CINZA })] })] }),
     },
     footers: {
       default: new Footer({ children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [
