@@ -42,7 +42,42 @@ function nomeArquivo(pergunta: string, quando: Date): string {
   return `resposta-${slug || "mymemory"}-${carimbo}.pdf`;
 }
 
-export async function gerarPdfResposta(dados: PdfResposta): Promise<void> {
+/**
+ * A fonte padrão do jsPDF (Helvetica) só tem os caracteres do WinAnsi. Um caractere fora dele (ex.: "−" U+2212,
+ * "→", "≥") faz o jsPDF gravar a linha inteira em outra codificação: as letras saem espaçadas e o símbolo vira lixo.
+ * Troca os comuns por equivalentes e o resto por "?".
+ */
+const TROCAS: Record<string, string> = {
+  "−": "-", "‐": "-", "‑": "-", "‒": "-", "⁃": "-",
+  "→": "->", "←": "<-", "↔": "<->", "⇒": "=>",
+  "≤": "<=", "≥": ">=", "≠": "!=", "≈": "~",
+  " ": " ", " ": " ", " ": " ", " ": " ", " ": " ", "​": "",
+  "′": "'", "″": "\"", "✓": "v", "✔": "v", "✗": "x", "✕": "x",
+};
+// Acima de 255, o WinAnsi só tem estes
+const WINANSI_EXTRA = new Set("€‚ƒ„…†‡ˆ‰Š‹ŒŽ‘’“”•–—˜™š›œžŸ");
+function paraWinAnsi(s: string): string {
+  let out = "";
+  for (const ch of s) {
+    const t = TROCAS[ch];
+    if (t !== undefined) out += t;
+    else if (ch.codePointAt(0)! <= 255 || WINANSI_EXTRA.has(ch)) out += ch;
+    else if (/\p{Extended_Pictographic}|[️‍]/u.test(ch)) continue; // emoji: some
+    else out += "?";
+  }
+  return out;
+}
+function limparTextos<T>(v: T): T {
+  if (typeof v === "string") return paraWinAnsi(v) as T;
+  if (Array.isArray(v)) return v.map(limparTextos) as T;
+  if (v && typeof v === "object" && Object.getPrototypeOf(v) === Object.prototype) {
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, limparTextos(x)])) as T;
+  }
+  return v; // Date, números etc.
+}
+
+export async function gerarPdfResposta(dadosOriginais: PdfResposta): Promise<void> {
+  const dados = limparTextos(dadosOriginais);
   const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const autoTable = autoTableMod.default;
 
