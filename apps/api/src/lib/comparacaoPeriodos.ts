@@ -102,7 +102,9 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
   const [a, b] = qs;
   if (a.query_id !== b.query_id) return null;
   if (qs.some((q) => q.cross_query_filter?.length)) return null;
-  if (qs.some((q) => /percentual|total geral/i.test(q.motivo_uso))) return null;
+  // "% do total geral" (subconjunto × total) não é comparação de períodos. Não testar só "percentual":
+  // "variação percentual de fev sobre jan" É comparação e cairia aqui.
+  if (qs.some((q) => /total geral/i.test(q.motivo_uso))) return null;
 
   const ag = a.agregacao;
   const ag2 = b.agregacao;
