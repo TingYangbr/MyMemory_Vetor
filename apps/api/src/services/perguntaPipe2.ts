@@ -130,6 +130,8 @@ export interface PlanoConsulta {
   dados_insuficientes: boolean;
   pergunta_para_usuario: string | null;
   observacoes: string[];
+  /** Comparação entre períodos: só itens com movimento nos dois períodos. */
+  comparacao_somente_em_ambos?: boolean;
 }
 
 interface QueryExecResultado {
@@ -137,6 +139,8 @@ interface QueryExecResultado {
   colunas: string[];
   linhas: Record<string, unknown>[];
   totalLinhas: number;
+  /** Consulta usada só como filtro (cross_query_filter) de outra — não vira tabela na resposta. */
+  auxiliar?: boolean;
 }
 
 // Parâmetros injetados automaticamente pelo backend — nunca expostos ao LLM
@@ -740,7 +744,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. Nas queries de memos (PostgreSQL interno) o backend compara texto por PALAVRAS (cada palavra do valor precisa estar no campo, ignorando "sr.", "da", "de"): envie o valor como o usuário disse, sem cortar nem completar. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 6 — FATURADO/FATURAMENTO = VALOR: Os termos "faturado", "faturamento", "faturou" ou "total faturado", sozinhos, significam por padrão o VALOR MONETÁRIO faturado — use a coluna de valor da nota/produto faturado (ex: Valor_NF, Valor_Prod_Fat) como campo_medida. Use colunas de quantidade (Qtde_xxx) SOMENTE quando a pergunta explicitar quantidade (ex: "quantidade faturada", "qtde faturada", "quantas unidades faturadas"). Preço unitário, custo, impostos etc. só quando citados explicitamente.\n\nREGRA CRÍTICA 7 — ORIGEM DO CROSS_QUERY_FILTER: from_field DEVE ser uma coluna presente em colunas_select da query de ORIGEM (a de prioridade from_priority). Se a query de origem não tiver essa coluna (ex.: cabeçalho de pedido sem Codigo_Produto), use como origem outra query que a tenha (ex.: a versão detalhada por produto). Sem query de origem adequada, não use cross_query_filter e registre a limitação em observacoes.\n\nREGRA CRÍTICA 8 — DURAÇÃO EM HORAS: Parâmetros _INI/_FIN de campos de duração ou tempo (ex.: duracao_ini, tempo_fin) são comparados em HORAS decimais. Converta o que o usuário disser: "uma hora e meia" → 1.5; "90 minutos" → 1.5; "meia hora" → 0.5; "mais que 2 horas" → _INI = 2.\n\nREGRA CRÍTICA 9 — UMA EXPRESSÃO, UM PARÂMETRO: Os parâmetros de uma query são combinados com E. Uma mesma expressão da pergunta que identifica alguém ou algo (ex.: "sr. Wilson da FAPESP" = pessoa + empresa dela) vai INTEIRA para um único parâmetro — o do campo cuja descrição melhor corresponde (ex.: Com quem). NUNCA a divida entre dois parâmetros (ex.: Wilson em com_quem e FAPESP em assunto): se a outra parte não estiver no segundo campo, o resultado fica vazio.\n\nREGRA CRÍTICA 11 — ORDENAÇÃO: Quando a pergunta pedir ordem ("ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor", "mais recentes primeiro"), a ordenação é feita NO BANCO: preencha agregacao com order_by [{"campo": coluna exata de colunas_select, "direcao": "asc"|"desc"}]. Numa listagem sem agrupamento use medida null, group_by [] e limit null (a lista vem inteira, só ordenada). NUNCA deixe a ordenação para o frontend ou para a síntese — ninguém ordena depois.\n\n${REGRA_CALENDARIO}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[]}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. Nas queries de memos (PostgreSQL interno) o backend compara texto por PALAVRAS (cada palavra do valor precisa estar no campo, ignorando "sr.", "da", "de"): envie o valor como o usuário disse, sem cortar nem completar. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 6 — FATURADO/FATURAMENTO = VALOR: Os termos "faturado", "faturamento", "faturou" ou "total faturado", sozinhos, significam por padrão o VALOR MONETÁRIO faturado — use a coluna de valor da nota/produto faturado (ex: Valor_NF, Valor_Prod_Fat) como campo_medida. Use colunas de quantidade (Qtde_xxx) SOMENTE quando a pergunta explicitar quantidade (ex: "quantidade faturada", "qtde faturada", "quantas unidades faturadas"). Preço unitário, custo, impostos etc. só quando citados explicitamente.\n\nREGRA CRÍTICA 7 — ORIGEM DO CROSS_QUERY_FILTER: from_field DEVE ser uma coluna presente em colunas_select da query de ORIGEM (a de prioridade from_priority). Se a query de origem não tiver essa coluna (ex.: cabeçalho de pedido sem Codigo_Produto), use como origem outra query que a tenha (ex.: a versão detalhada por produto). Sem query de origem adequada, não use cross_query_filter e registre a limitação em observacoes.\n\nREGRA CRÍTICA 8 — DURAÇÃO EM HORAS: Parâmetros _INI/_FIN de campos de duração ou tempo (ex.: duracao_ini, tempo_fin) são comparados em HORAS decimais. Converta o que o usuário disser: "uma hora e meia" → 1.5; "90 minutos" → 1.5; "meia hora" → 0.5; "mais que 2 horas" → _INI = 2.\n\nREGRA CRÍTICA 9 — UMA EXPRESSÃO, UM PARÂMETRO: Os parâmetros de uma query são combinados com E. Uma mesma expressão da pergunta que identifica alguém ou algo (ex.: "sr. Wilson da FAPESP" = pessoa + empresa dela) vai INTEIRA para um único parâmetro — o do campo cuja descrição melhor corresponde (ex.: Com quem). NUNCA a divida entre dois parâmetros (ex.: Wilson em com_quem e FAPESP em assunto): se a outra parte não estiver no segundo campo, o resultado fica vazio.\n\nREGRA CRÍTICA 11 — ORDENAÇÃO: Quando a pergunta pedir ordem ("ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor", "mais recentes primeiro"), a ordenação é feita NO BANCO: preencha agregacao com order_by [{"campo": coluna exata de colunas_select, "direcao": "asc"|"desc"}]. Numa listagem sem agrupamento use medida null, group_by [] e limit null (a lista vem inteira, só ordenada). NUNCA deixe a ordenação para o frontend ou para a síntese — ninguém ordena depois.\n\nREGRA CRÍTICA 12 — COMPARAÇÃO/VARIAÇÃO ENTRE PERÍODOS: Quando a pergunta pedir variação, evolução ou comparação entre dois períodos (ex.: "% variação de fevereiro sobre janeiro", "comparar março com abril"), monte EXATAMENTE DUAS entradas com o MESMO query_id, parâmetros idênticos exceto as datas (_INI/_FIN de cada período, a mais antiga com prioridade 1), e a MESMA agregacao nas duas: group_by pelo item (ex.: código e descrição do produto), medida "sum" (ou medidas[] com várias somas, ex.: faturamento e custo total, na mesma ordem nas duas), limit 1000, sem cross_query_filter. O sistema cruza os dois períodos e calcula as variações em valor e %. Se a pergunta pedir só os itens presentes nos DOIS períodos (ex.: "somente produtos que tiveram faturamento em janeiro e também em fevereiro"), preencha "comparacao_somente_em_ambos": true — NÃO use cross_query_filter nem consultas extras para isso.\n\n${REGRA_CALENDARIO}\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[],"comparacao_somente_em_ambos":false}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -755,6 +759,7 @@ async function planejarConsultaEstruturada(input: {
     dados_insuficientes?: boolean;
     pergunta_para_usuario?: string | null;
     observacoes?: string[];
+    comparacao_somente_em_ambos?: boolean;
   };
 
   const parsed = safeParseJson<RawPlano>(text, {});
@@ -868,6 +873,7 @@ async function planejarConsultaEstruturada(input: {
     pergunta_para_usuario:
       typeof parsed.pergunta_para_usuario === "string" ? parsed.pergunta_para_usuario : null,
     observacoes: parseStringArray(parsed.observacoes),
+    ...(parsed.comparacao_somente_em_ambos === true ? { comparacao_somente_em_ambos: true } : {}),
   };
 
   return { plano, costUsd };
@@ -994,8 +1000,14 @@ async function executarConsultasPlano(input: {
   /** Mapa de prioridade → resultado. Usado para resolver cross_query_filter de tasks subsequentes. */
   const resultadosPorPrioridade = new Map<number, QueryExecResultado>();
 
+  /** Prioridades usadas como origem de cross_query_filter: são só filtro, não resposta. */
+  const prioridadesAuxiliares = new Set(
+    plano.queries.flatMap((q) => (q.cross_query_filter ?? []).map((f) => f.from_priority))
+  );
+
   for (const task of plano.queries) {
     const template = queriesDisponiveis.find((q) => q.query_id === task.query_id);
+    const auxiliar = prioridadesAuxiliares.has(task.prioridade) ? { auxiliar: true as const } : {};
     if (!template) continue;
     if (template.conexaoPendente) {
       throw new Error(
@@ -1063,6 +1075,23 @@ async function executarConsultasPlano(input: {
         if (operador === "IN") { resultadoVazio = true; break; }
         continue;
       }
+      // Dois filtros no mesmo parâmetro (ex.: produtos de janeiro E de fevereiro): IN cruza as listas
+      // (só o que está nas duas); NOT IN junta as listas (exclui o que está em qualquer uma)
+      const jaExiste = parametrosResolvidos.find(
+        (p) => p.nome.toLowerCase() === nomeParam.toLowerCase() && Array.isArray(p.valor)
+      );
+      if (jaExiste) {
+        const anteriores = (jaExiste.valor as unknown[]).map((v) => String(v));
+        if ((operador ?? "IN") === "IN") {
+          const nova = new Set(valores);
+          jaExiste.valor = anteriores.filter((v) => nova.has(v));
+          if ((jaExiste.valor as unknown[]).length === 0) { resultadoVazio = true; break; }
+        } else {
+          jaExiste.valor = Array.from(new Set([...anteriores, ...valores]));
+        }
+        jaExiste.termo_usuario = `${jaExiste.termo_usuario} + (de query prioridade ${ref.from_priority}.${ref.from_field})`;
+        continue;
+      }
       parametrosResolvidos.push({
         nome: nomeParam,
         termo_usuario: `(de query prioridade ${ref.from_priority}.${ref.from_field})`,
@@ -1078,7 +1107,7 @@ async function executarConsultasPlano(input: {
       continue;
     }
     if (resultadoVazio) {
-      const vazio: QueryExecResultado = { query_id: task.query_id, colunas: [], linhas: [], totalLinhas: 0 };
+      const vazio: QueryExecResultado = { query_id: task.query_id, colunas: [], linhas: [], totalLinhas: 0, ...auxiliar };
       porQuery.push(vazio);
       resultadosPorPrioridade.set(task.prioridade, vazio);
       continue;
@@ -1175,7 +1204,7 @@ async function executarConsultasPlano(input: {
       allValues.push(...values);
     }
 
-    const resultado: QueryExecResultado = { query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length };
+    const resultado: QueryExecResultado = { query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length, ...auxiliar };
     porQuery.push(resultado);
     resultadosPorPrioridade.set(task.prioridade, resultado);
 
@@ -1285,7 +1314,11 @@ async function gerarRespostaEstruturada(input: {
     return out;
   };
 
-  const resultados = input.porQuery.map((r) => ({
+  const resultados = input.porQuery.map((r) => r.auxiliar ? {
+    query_id: r.query_id,
+    papel: "consulta auxiliar: só serviu de filtro para a consulta seguinte (não é a resposta; não comente seus registros)",
+    total_linhas: r.totalLinhas,
+  } : ({
     query_id: r.query_id,
     colunas: r.colunas,
     linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
@@ -1300,7 +1333,7 @@ async function gerarRespostaEstruturada(input: {
 
   // Aviso injetado pelo backend quando o resultado foi truncado
   const avisosTruncamento: string[] = input.comparacao ? [] : input.porQuery
-    .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM)
+    .filter((r) => r.totalLinhas > LIMITE_LINHAS_LLM && !r.auxiliar)
     .map(
       (r) =>
         `Query ${r.query_id}: resultado contém ${r.totalLinhas} linhas mas apenas ${LIMITE_LINHAS_LLM} foram entregues ao modelo. Para totais use somas_todas_linhas (somam todas as ${r.totalLinhas} linhas) e total_linhas para a contagem; não some as linhas recebidas. Para maiores/menores/ranking use SOMENTE destaques_todas_linhas (já calculados sobre todas as linhas, em ordem) — nunca escolha os maiores olhando as linhas recebidas. Para outras contas sobre todas as linhas, diga na resposta que não é possível e sugira reformular a pergunta com agregação.`
@@ -1351,7 +1384,9 @@ async function gerarRespostaEstruturada(input: {
     source: "resultado_sql",
     messages: resultados.map((r) => ({
       role: "assistant" as const,
-      content: `[${r.query_id}] ${r.total_linhas} linha(s) total — ${r.linhas.length} entregue(s) ao LLM\ncolunas: ${r.colunas.join(", ")}\n\n${JSON.stringify(r.linhas, null, 2)}`,
+      content: "linhas" in r
+        ? `[${r.query_id}] ${r.total_linhas} linha(s) total — ${r.linhas.length} entregue(s) ao LLM\ncolunas: ${r.colunas.join(", ")}\n\n${JSON.stringify(r.linhas, null, 2)}`
+        : `[${r.query_id}] ${r.total_linhas} linha(s) — consulta auxiliar (só filtro), não entregue ao LLM`,
     })),
   });
 
@@ -1399,9 +1434,10 @@ async function gerarRespostaEstruturada(input: {
         const id = colunas.find((c) => c.toLowerCase() === "id");
         return id && !escolhidas.includes(id) ? [id, ...escolhidas] : [...new Set(escolhidas)];
       };
-      const comLinhas = input.porQuery.filter((r) => r.linhas.length > 0);
+      const principais = input.porQuery.filter((r) => !r.auxiliar);
+      const comLinhas = (principais.length ? principais : input.porQuery).filter((r) => r.linhas.length > 0);
       if (comLinhas.length <= 1) {
-        const r = comLinhas[0] ?? input.porQuery[0];
+        const r = comLinhas[0] ?? principais[0] ?? input.porQuery[0];
         return r
           ? { colunas: colunasDe(r.colunas), linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas) }
           : input.agregado;

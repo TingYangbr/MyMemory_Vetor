@@ -12,7 +12,7 @@ interface ParamMin { nome: string; valor: unknown; tipo: string }
 interface AgregacaoMin {
   medida: string | null;
   campo_medida: string | null;
-  medidas?: unknown[];
+  medidas?: { medida: string; campo: string; alias?: string }[];
   group_by: string[];
   group_by_trunc?: unknown[];
 }
@@ -23,7 +23,11 @@ interface QueryPlanoMin {
   agregacao?: AgregacaoMin | null;
   cross_query_filter?: unknown[];
 }
-interface PlanoMin { queries: QueryPlanoMin[] }
+interface PlanoMin {
+  queries: QueryPlanoMin[];
+  /** "só itens que tiveram movimento nos dois períodos" */
+  comparacao_somente_em_ambos?: boolean;
+}
 interface ResultadoMin { colunas: string[]; linhas: Record<string, unknown>[] }
 
 export interface ItemComparacao {
@@ -34,6 +38,16 @@ export interface ItemComparacao {
   variacao: number;
   variacaoPct: number | null;
   situacao: "aumento" | "reducao" | "estavel" | "novo" | "sem_movimento_atual";
+  /** Demais medidas (quando a consulta tem mais de uma, ex.: faturamento e CMV), na ordem de medidasExtras. */
+  extras?: { base: number; atual: number; variacao: number; variacaoPct: number | null }[];
+}
+
+export interface MedidaExtraComparacao {
+  coluna: string;
+  totalBase: number;
+  totalAtual: number;
+  variacaoTotal: number;
+  variacaoTotalPct: number | null;
 }
 
 export interface ComparacaoPeriodos {
@@ -41,6 +55,12 @@ export interface ComparacaoPeriodos {
   periodoAtual: string;
   colunaChave: string;
   colunaDescricao: string | null;
+  /** Coluna da medida principal (a primeira). */
+  colunaMedida?: string;
+  /** Medidas além da principal (ex.: CMV ao lado do faturamento). */
+  medidasExtras?: MedidaExtraComparacao[];
+  /** Só entraram itens presentes nos dois períodos. */
+  somenteEmAmbos?: boolean;
   totalBase: number;
   totalAtual: number;
   variacaoTotal: number;
@@ -87,9 +107,14 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
   const ag = a.agregacao;
   const ag2 = b.agregacao;
   if (!ag || !ag2) return null;
-  if (ag.medidas?.length || ag2.medidas?.length || ag.group_by_trunc?.length || ag2.group_by_trunc?.length) return null;
-  if (ag.medida !== "sum" && ag.medida !== "count") return null;
-  if (ag.medida !== ag2.medida || (ag.campo_medida ?? null) !== (ag2.campo_medida ?? null)) return null;
+  if (ag.group_by_trunc?.length || ag2.group_by_trunc?.length) return null;
+  const assinatura = (x: AgregacaoMin) =>
+    x.medidas?.length
+      ? x.medidas.map((m) => `${m.medida}:${m.campo}`.toLowerCase()).join("|")
+      : `${x.medida}:${x.campo_medida ?? ""}`.toLowerCase();
+  if (assinatura(ag) !== assinatura(ag2)) return null;
+  const funcoes = ag.medidas?.length ? ag.medidas.map((m) => m.medida) : [ag.medida];
+  if (funcoes.some((f) => f !== "sum" && f !== "count")) return null;
   if (!ag.group_by.length || ag.group_by.join("|").toLowerCase() !== ag2.group_by.join("|").toLowerCase()) return null;
 
   // Parâmetros: iguais, exceto datas; ao menos uma data diferente
@@ -113,8 +138,10 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
   if (colsGrupo.some((c) => !c)) return null;
   const grupo = colsGrupo as string[];
   const medidas = cols.filter((c) => !grupo.includes(c));
-  if (medidas.length !== 1) return null;
+  if (medidas.length < 1 || medidas.length > 4) return null;
   const colMedida = medidas[0];
+  const colsExtras = medidas.slice(1);
+  const somenteEmAmbos = plano.comparacao_somente_em_ambos === true;
 
   // Ordena os períodos pela data inicial: base = mais antigo
   const iniDe = (q: QueryPlanoMin) => dataIso(q.parametros.find((p) => /_ini$/i.test(p.nome) && eData(p))?.valor);
@@ -129,25 +156,44 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
   // Chave de junção = primeira coluna do group_by (ex.: código); as demais viram descrição
   const colChave = grupo[0];
   const colsDesc = grupo.slice(1);
+  const num = (v: unknown) => {
+    const n = Number(v ?? 0);
+    if (!Number.isFinite(n)) throw new Error("medida não numérica");
+    return n;
+  };
   const juntar = (linhas: Record<string, unknown>[]) => {
-    const m = new Map<string, { valor: number; desc: string | null }>();
+    const m = new Map<string, { valor: number; extras: number[]; desc: string | null }>();
     for (const l of linhas) {
-      const v = Number(l[colMedida] ?? 0);
-      if (!Number.isFinite(v)) throw new Error("medida não numérica");
-      const chave = String(l[colChave] ?? "");
+      const v = num(l[colMedida]);
+      const ex = colsExtras.map((c) => num(l[c]));
+      const chave = String(l[colChave] ?? "").trim();
       const desc = colsDesc.map((c) => l[c]).filter((x) => !vazio(x)).join(" | ") || null;
       const ant = m.get(chave);
-      m.set(chave, { valor: (ant?.valor ?? 0) + v, desc: ant?.desc ?? desc });
+      m.set(chave, {
+        valor: (ant?.valor ?? 0) + v,
+        extras: ex.map((x, i) => (ant?.extras[i] ?? 0) + x),
+        desc: ant?.desc ?? desc,
+      });
     }
     return m;
   };
   const mBase = juntar(resultados[ib].linhas);
   const mAtual = juntar(resultados[ia].linhas);
+  // "Só os que tiveram movimento nos dois períodos": descarta os que aparecem em um só
+  if (somenteEmAmbos) {
+    for (const k of [...mBase.keys()]) if (!mAtual.has(k)) mBase.delete(k);
+    for (const k of [...mAtual.keys()]) if (!mBase.has(k)) mAtual.delete(k);
+  }
 
   const itens: ItemComparacao[] = [];
   for (const chave of new Set([...mBase.keys(), ...mAtual.keys()])) {
     const vb = mBase.get(chave)?.valor ?? 0;
     const va = mAtual.get(chave)?.valor ?? 0;
+    const extras = colsExtras.map((_, i) => {
+      const eb = mBase.get(chave)?.extras[i] ?? 0;
+      const ea = mAtual.get(chave)?.extras[i] ?? 0;
+      return { base: r2(eb), atual: r2(ea), variacao: r2(ea - eb), variacaoPct: pct(ea - eb, eb) };
+    });
     const variacao = va - vb;
     const situacao: ItemComparacao["situacao"] =
       !mBase.has(chave) ? "novo" : !mAtual.has(chave) ? "sem_movimento_atual" : Math.abs(variacao) < 0.005 ? "estavel" : variacao > 0 ? "aumento" : "reducao";
@@ -159,17 +205,26 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
       variacao: r2(variacao),
       variacaoPct: pct(variacao, vb),
       situacao,
+      ...(extras.length ? { extras } : {}),
     });
   }
   itens.sort((x, y) => Math.abs(y.variacao) - Math.abs(x.variacao));
 
   const totalBase = r2([...mBase.values()].reduce((s, x) => s + x.valor, 0));
   const totalAtual = r2([...mAtual.values()].reduce((s, x) => s + x.valor, 0));
+  const medidasExtras: MedidaExtraComparacao[] = colsExtras.map((coluna, i) => {
+    const tb = r2([...mBase.values()].reduce((s, x) => s + x.extras[i], 0));
+    const ta = r2([...mAtual.values()].reduce((s, x) => s + x.extras[i], 0));
+    return { coluna, totalBase: tb, totalAtual: ta, variacaoTotal: r2(ta - tb), variacaoTotalPct: pct(ta - tb, tb) };
+  });
   return {
     periodoBase,
     periodoAtual,
     colunaChave: colChave,
     colunaDescricao: colsDesc.length ? colsDesc.join(" | ") : null,
+    colunaMedida: colMedida,
+    ...(medidasExtras.length ? { medidasExtras } : {}),
+    ...(somenteEmAmbos ? { somenteEmAmbos } : {}),
     totalBase,
     totalAtual,
     variacaoTotal: r2(totalAtual - totalBase),
@@ -197,6 +252,8 @@ export function comparacaoParaLlm(c: ComparacaoPeriodos) {
     aviso: "Valores calculados pelo sistema sobre TODAS as linhas dos dois períodos. Use exatamente estes números; não recalcule nem arredonde de outra forma.",
     periodo_base: c.periodoBase,
     periodo_atual: c.periodoAtual,
+    ...(c.somenteEmAmbos ? { filtro: "somente itens com movimento nos dois períodos" } : {}),
+    ...(c.colunaMedida ? { medida_principal: c.colunaMedida } : {}),
     total_base: c.totalBase,
     total_atual: c.totalAtual,
     variacao_total: c.variacaoTotal,
@@ -206,11 +263,24 @@ export function comparacaoParaLlm(c: ComparacaoPeriodos) {
     itens_com_reducao: c.itens.filter((i) => i.variacao < 0).length,
     maiores_aumentos: aumentos,
     maiores_reducoes: reducoes,
+    ...(c.medidasExtras?.length
+      ? {
+          outras_medidas: c.medidasExtras.map((m) => ({
+            medida: m.coluna,
+            total_base: m.totalBase,
+            total_atual: m.totalAtual,
+            variacao_total: m.variacaoTotal,
+            variacao_total_pct: m.variacaoTotalPct,
+          })),
+          aviso_outras_medidas: "Nos itens, 'extras' traz as outras medidas na mesma ordem de outras_medidas.",
+        }
+      : {}),
   };
 }
 
 /** Tabela completa no formato que a tela já exibe (colunas/linhas), ordenada pelo maior impacto. */
 export function comparacaoParaTabela(c: ComparacaoPeriodos) {
+  if (c.medidasExtras?.length) return tabelaVariasMedidas(c);
   const colunas = [c.colunaChave, ...(c.colunaDescricao ? [c.colunaDescricao] : []), c.periodoBase, c.periodoAtual, "Variação", "Variação %"];
   const linhas = c.itens.map((i) => {
     const linha: Record<string, unknown> = { [c.colunaChave]: i.chave };
@@ -219,6 +289,25 @@ export function comparacaoParaTabela(c: ComparacaoPeriodos) {
     linha[c.periodoAtual] = i.atual;
     linha["Variação"] = i.variacao;
     linha["Variação %"] = i.variacaoPct;
+    return linha;
+  });
+  return { colunas, linhas, totalLinhas: linhas.length };
+}
+
+/** Mais de uma medida: por medida, valor no período base, no atual e a variação %. */
+function tabelaVariasMedidas(c: ComparacaoPeriodos) {
+  const nomes = [c.colunaMedida ?? "valor", ...(c.medidasExtras ?? []).map((m) => m.coluna)];
+  const colunas = [c.colunaChave, ...(c.colunaDescricao ? [c.colunaDescricao] : [])];
+  for (const n of nomes) colunas.push(`${n} ${c.periodoBase}`, `${n} ${c.periodoAtual}`, `${n} var. %`);
+  const linhas = c.itens.map((i) => {
+    const linha: Record<string, unknown> = { [c.colunaChave]: i.chave };
+    if (c.colunaDescricao) linha[c.colunaDescricao] = i.descricao;
+    const vals = [{ base: i.base, atual: i.atual, variacaoPct: i.variacaoPct }, ...(i.extras ?? [])];
+    nomes.forEach((n, k) => {
+      linha[`${n} ${c.periodoBase}`] = vals[k]?.base ?? 0;
+      linha[`${n} ${c.periodoAtual}`] = vals[k]?.atual ?? 0;
+      linha[`${n} var. %`] = vals[k]?.variacaoPct ?? null;
+    });
     return linha;
   });
   return { colunas, linhas, totalLinhas: linhas.length };
