@@ -134,6 +134,8 @@ interface QueryExecResultado {
   totalLinhas: number;
   /** Consulta usada só como filtro (cross_query_filter) de outra — não vira tabela na resposta. */
   auxiliar?: boolean;
+  /** Prioridade da tarefa do plano que gerou este resultado. */
+  prioridade?: number;
 }
 
 // Parâmetros injetados automaticamente pelo backend — nunca expostos ao LLM
@@ -686,7 +688,7 @@ async function planejarConsultaEstruturada(input: {
     2
   );
 
-  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 11 — ORDENAÇÃO: Quando a pergunta pedir ordem ("ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor", "mais recentes primeiro"), a ordenação é feita NO BANCO: preencha agregacao com order_by [{"campo": coluna exata de colunas_select, "direcao": "asc"|"desc"}]. Numa listagem sem agrupamento use medida null, group_by [] e limit null (a lista vem inteira, só ordenada). NUNCA deixe a ordenação para o frontend ou para a síntese — ninguém ordena depois.\n\nREGRA CRÍTICA 12 — COMPARAÇÃO/VARIAÇÃO ENTRE PERÍODOS: Quando a pergunta pedir variação, evolução ou comparação entre dois períodos (ex.: "% variação de fevereiro sobre janeiro", "comparar março com abril"), monte EXATAMENTE DUAS entradas com o MESMO query_id, parâmetros idênticos exceto as datas (_INI/_FIN de cada período, a mais antiga com prioridade 1), e a MESMA agregacao nas duas: group_by pelo item (ex.: código e descrição do produto), medida "sum" (ou medidas[] com várias somas, ex.: faturamento e custo total, na mesma ordem e com o MESMO alias nas duas — sem o mês no alias, ex.: \"faturamento\", \"cmv\"), limit 1000, sem cross_query_filter. O sistema cruza os dois períodos e calcula as variações em valor e %. Se a pergunta pedir só os itens presentes nos DOIS períodos (ex.: "somente produtos que tiveram faturamento em janeiro e também em fevereiro"), preencha "comparacao_somente_em_ambos": true — NÃO use cross_query_filter nem consultas extras para isso.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[],"comparacao_somente_em_ambos":false}`;
+  const user = `Planeje a execução estruturada.\n\nEntrada:\n${entradaJson}\n\nREGRA CRÍTICA 1: campo_medida e group_by DEVEM usar SOMENTE nomes exatos de colunas presentes em colunas_select da query selecionada. Nunca invente ou reutilize nomes de colunas de outra query. Para medidas sum/avg/min/max, campo_medida DEVE ser uma coluna numérica (ex: Valor_xxx, Qtde_xxx, Custo_xxx, Total_xxx, Saldo_xxx). NUNCA aplique sum/avg/min/max a colunas de texto como nomes, códigos ou descrições.\n\nREGRA CRÍTICA 2 — ÚLTIMO/MAIS RECENTE/PRIMEIRO: Quando a pergunta pede o ÚLTIMO, MAIS RECENTE, MAIS ANTIGO, PRIMEIRO ou um único registro específico por ordem (ex: "último pagamento", "nota mais recente", "primeiro lançamento"), você DEVE SEMPRE preencher agregacao com order_by na coluna de data apropriada e limit:1. NUNCA retorne agregacao:null nesses casos — sem order_by o banco retorna registros em ordem arbitrária e a resposta será errada.\n\nREGRA CRÍTICA 3 — MATCH EXATO vs PARCIAL: Para parâmetros de texto cujo operadorSql é LIKE, o backend usa match EXATO por padrão (sem wildcards, operador =). Use operador_sugerido: "LIKE" SOMENTE quando o usuário pedir busca PARCIAL com palavras como "contendo", "que tem X no nome", "começando com", "parecido com", "coringa", "parte do nome". Para todos os outros casos (código, nome exato, referência, CPF, CNPJ, busca normal), use operador_sugerido: "=" — o backend aplicará match exato. PROIBIÇÕES ABSOLUTAS: (1) NUNCA inclua "%" ou qualquer wildcard no campo "valor" do parâmetro — o backend gerencia wildcards internamente; (2) NUNCA use contexto de perguntas anteriores da sessão para decidir usar LIKE — baseie-se EXCLUSIVAMENTE na intenção explícita da pergunta atual.\n\nREGRA CRÍTICA 4 — HAVING: Use having_gt quando o usuário pedir para excluir grupos com resultado de agregação zero ou negativo (ex: "desconsiderar zeros", "somente com estoque", "apenas com saldo positivo"). Defina having_gt:0 para filtrar grupos cujo SUM/COUNT/etc. seja <= 0. Não use having_gt para filtros de linha individual — esses vão nos parâmetros da query.\n\nREGRA CRÍTICA 5 — CROSS_QUERY_FILTER: O campo to_param DEVE ser o nome de um parâmetro com operadorSql "IN" ou "NOT IN". Nunca aponte to_param para um parâmetro com operadorSql "=" ou "LIKE". Quando a query destino tiver dois parâmetros para o mesmo conceito (ex: abrev_cliente com operador = e abrev_cliente_IN com operador IN), use SEMPRE o parâmetro com operador IN.\n\nREGRA CRÍTICA 11 — ORDENAÇÃO: Quando a pergunta pedir ordem ("ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor", "mais recentes primeiro"), a ordenação é feita NO BANCO: preencha agregacao com order_by [{"campo": coluna exata de colunas_select, "direcao": "asc"|"desc"}]. Numa listagem sem agrupamento use medida null, group_by [] e limit null (a lista vem inteira, só ordenada). NUNCA deixe a ordenação para o frontend ou para a síntese — ninguém ordena depois.\n\nREGRA CRÍTICA 12 — COMPARAÇÃO/VARIAÇÃO ENTRE PERÍODOS: Quando a pergunta pedir variação, evolução ou comparação entre dois períodos (ex.: "% variação de fevereiro sobre janeiro", "comparar março com abril"), monte EXATAMENTE DUAS entradas com o MESMO query_id, parâmetros idênticos exceto as datas (_INI/_FIN de cada período, a mais antiga com prioridade 1), e a MESMA agregacao nas duas: group_by pelo item (ex.: código e descrição do produto), medida "sum" (ou medidas[] com várias somas, ex.: faturamento e custo total, na mesma ordem e com o MESMO alias nas duas — sem o mês no alias, ex.: \"faturamento\", \"cmv\"), limit 1000, sem cross_query_filter. O sistema cruza os dois períodos e calcula as variações em valor e %. Se a pergunta pedir só os itens presentes nos DOIS períodos (ex.: "somente produtos que tiveram faturamento em janeiro e também em fevereiro"), preencha "comparacao_somente_em_ambos": true — NÃO use cross_query_filter nem consultas extras para isso. SÉRIE (cada mês sobre o anterior, "crescimento mensal", "variação mês a mês", "evolução mensal"): NÃO é a comparação acima — use UMA só consulta com group_by [data] e group_by_trunc mensal (ou a granularidade pedida) cobrindo todo o período pedido, order_by na data asc; o sistema acrescenta a coluna de variação % de cada período sobre o anterior. Nunca divida a série em várias consultas nem crie consulta para meses sem dados.\n\nRetorne somente JSON neste formato:\n{"queries":[{"query_id":"","motivo_uso":"","prioridade":1,"parametros":[{"nome":"","termo_usuario":"","valor":null,"tipo":"texto|lista_texto|data|numero|boolean","operador_sugerido":"=|IN|NOT IN|BETWEEN|>=|<=|LIKE","obrigatorio":true,"precisa_normalizacao":true}],"agregacao":{"medida":"count|sum|avg|min|max|null","campo_medida":"nome_coluna_ou_null","group_by":["coluna"],"group_by_trunc":[{"campo":"coluna_data","granularidade":"year|month|week|day"}],"order_by":[{"campo":"coluna","direcao":"asc|desc"}],"limit":50,"having_gt":null},"cross_query_filter":[{"from_priority":1,"from_field":"nome_coluna_query_origem","to_param":"nome_param_query_destino"}]}],"dados_insuficientes":false,"pergunta_para_usuario":null,"observacoes":[],"comparacao_somente_em_ambos":false}`;
 
   const systemPrompt = await getActiveSystemPrompt("perguntas_pipe2_planejamento_estruturado_system", input.categoryId);
   const { text, costUsd } = await invokeLLM({
@@ -1072,7 +1074,7 @@ async function executarConsultasPlano(input: {
       allValues.push(...values);
     }
 
-    const resultado: QueryExecResultado = { query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length, ...auxiliar };
+    const resultado: QueryExecResultado = { query_id: task.query_id, colunas: colunasQuery, linhas, totalLinhas: linhas.length, prioridade: task.prioridade, ...auxiliar };
     porQuery.push(resultado);
     resultadosPorPrioridade.set(task.prioridade, resultado);
 
@@ -1127,7 +1129,7 @@ async function gerarRespostaEstruturada(input: {
   /** Somas das colunas numéricas sobre TODAS as linhas (a IA só recebe 20) — para o total do resumo. */
   const ehColunaDeValor = (col: string) =>
     /(valor|vlr|total|qtde|qtd|quantidade|lucro|saldo|receita|despesa|montante|juros)/i.test(col) &&
-    !/(preco|unit|taxa|indice|prazo|perc|aliq|media|data)/i.test(col);
+    !/(preco|unit|taxa|indice|prazo|perc|aliq|media|data|%)/i.test(col);
   const somasTodasLinhas = (colunas: string[], linhas: Record<string, unknown>[]) => {
     const somas: Record<string, number> = {};
     for (const col of colunas) {
@@ -1232,6 +1234,8 @@ async function gerarRespostaEstruturada(input: {
     "no máximo 3 destaques — copiados de destaques_todas_linhas quando existir (nunca compare valores você mesmo); se a pergunta não pediu, não invente destaques. " +
     "Termine dizendo que a lista completa está na tabela. Com até 5 linhas, pode citar cada uma. " +
     "Nunca escreva \"primeiros N registros\" nem registre em limitacoes que a tabela mostra só parte das linhas (a tabela e o PDF trazem todas).\n\n" +
+    "VARIAÇÃO JÁ CALCULADA: colunas terminadas em \"var. %\" trazem a variação de cada linha sobre a ANTERIOR, calculada pelo sistema (vazia na primeira). " +
+    "Copie esses valores; nunca recalcule a variação. Não comente meses ou períodos sem dados que a pergunta não citou.\n\n" +
     "COLUNAS DA TABELA: em colunas_exibir, liste (nomes exatos de colunas) SOMENTE o que a pergunta pede: " +
     "o item perguntado (ex.: \"produtos\" → código e descrição do produto) e a medida pedida (ex.: \"faturados\"/\"faturamento\" → valor faturado). " +
     "NÃO acrescente outras colunas (data, nota, cliente, vendedor, impostos…) a menos que a pergunta as cite " +
@@ -1379,6 +1383,15 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   // Comparação simples entre dois períodos: contas feitas em código (null = consulta comum, fluxo inalterado)
   const comparacao = detectarComparacaoPeriodos(planoExec, porQuery);
 
+  // Série temporal (agrupada por mês/ano/semana) e pergunta de variação: a var. % de cada período
+  // sobre o anterior é calculada aqui, não pela IA
+  if (!comparacao && /varia|cresc|evolu|queda|aumento|percent|%/i.test(input.pergunta)) {
+    for (const r of porQuery) {
+      const task = planoExec.queries.find((q) => q.prioridade === r.prioridade);
+      if (task) adicionarVariacaoSequencial(task, r);
+    }
+  }
+
   const { resposta, costUsd: c2 } = await withSpan("Síntese da resposta (estruturada)", () => gerarRespostaEstruturada({
     pergunta: input.pergunta,
     plano: planoExec,
@@ -1414,4 +1427,31 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     queriesParaAviso,
     comparacao,
   };
+}
+
+/**
+ * Numa série temporal (uma única coluna de agrupamento, truncada por mês/ano/semana/dia) acrescenta, ao lado de
+ * cada medida, a coluna "<medida> var. %" com a variação de cada linha sobre a anterior (vazia na primeira).
+ * Ordena as linhas pela data. Fora desse formato não faz nada.
+ */
+function adicionarVariacaoSequencial(task: PlanoQuery, r: QueryExecResultado): void {
+  const ag = task.agregacao;
+  if (!ag || ag.group_by.length !== 1 || ag.group_by_trunc?.length !== 1 || r.linhas.length < 2) return;
+  const colData = r.colunas.find((c) => c.toLowerCase() === ag.group_by[0].toLowerCase());
+  if (!colData) return;
+  const medidas = r.colunas.filter(
+    (c) => c !== colData && r.linhas.every((l) => l[c] == null || Number.isFinite(Number(l[c])))
+  );
+  if (!medidas.length) return;
+  const chave = (v: unknown) => (v instanceof Date ? v.toISOString() : String(v ?? ""));
+  r.linhas.sort((a, b) => chave(a[colData]).localeCompare(chave(b[colData])));
+  const nomeVar = (m: string) => `${m} var. %`;
+  r.linhas.forEach((l, i) => {
+    for (const m of medidas) {
+      const ant = i > 0 ? Number(r.linhas[i - 1][m] ?? 0) : NaN;
+      const atual = Number(l[m] ?? 0);
+      l[nomeVar(m)] = i === 0 || !ant ? null : Math.round(((atual - ant) / Math.abs(ant)) * 1000) / 10;
+    }
+  });
+  r.colunas = r.colunas.flatMap((c) => (medidas.includes(c) ? [c, nomeVar(c)] : [c]));
 }

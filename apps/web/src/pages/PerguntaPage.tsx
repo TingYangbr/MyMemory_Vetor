@@ -239,6 +239,8 @@ function textoCelula(col: string, val: unknown): string {
   }
   if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
     const num = typeof val === "number" ? val : Number(val);
+    // Colunas de variação ("var. %", "Variação %"): número com uma casa e o sinal de %
+    if (/%\s*$/.test(col)) return `${num.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
     return formatNumericCell(num, col);
   }
   return String(val);
@@ -313,6 +315,8 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
+    // % não vai para o gráfico: barras de % ao lado de valores em R$ ficam invisíveis
+    if (/%\s*$/.test(col)) return false;
     const vals = dados.linhas.map((l) => l[col]).filter((v) => v != null);
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
