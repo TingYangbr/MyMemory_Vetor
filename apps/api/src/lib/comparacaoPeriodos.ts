@@ -274,8 +274,12 @@ export function comparacaoParaLlm(c: ComparacaoPeriodos) {
     itens_comparados: c.totalItens,
     itens_com_aumento: c.itens.filter((i) => i.variacao > 0).length,
     itens_com_reducao: c.itens.filter((i) => i.variacao < 0).length,
-    maiores_aumentos: aumentos,
-    maiores_reducoes: reducoes,
+    aviso_destaques:
+      "maiores_aumentos_em_valor e maiores_reducoes_em_valor estão ordenados pela variação em VALOR (R$), não pelo %. " +
+      "Ao citá-los, diga que são os maiores \"em valor\" e mostre a variação em R$ e o %, ex.: \"PROD X: −R$ 48.917,58 (−98,0%)\". " +
+      "Nunca os apresente como ranking de percentual.",
+    maiores_aumentos_em_valor: aumentos,
+    maiores_reducoes_em_valor: reducoes,
     ...(c.medidasExtras?.length
       ? {
           outras_medidas: c.medidasExtras.map((m) => ({
