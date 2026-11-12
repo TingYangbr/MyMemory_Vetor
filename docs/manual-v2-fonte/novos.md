@@ -42,6 +42,10 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | Relatório de chamadas de IA por etapa (admin) | Seção 24 |
 | "📋 Colar print" e Ctrl+V no Catalogar para catalogar o print da tela | Seção 5 |
 | Ícone de PDF na resposta: texto, gráfico e tabela com todos os registros | Seção 8 |
+| Resposta estruturada em resumo (sem repetir a tabela no texto); tabela só com as colunas pedidas; totais e maiores/menores calculados sobre todas as linhas | Seção 8 |
+| "Ordene por X" ordena no banco | Seção 8 |
+| Comparação entre dois períodos (variação % de um mês sobre outro), com várias medidas e "só itens presentes nos dois períodos" | Seção 8 |
+| Consultas que só servem de filtro não aparecem mais como tabela | Seção 8 |
 | ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida | Seção 6 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
@@ -70,6 +74,30 @@ NOTA: O tipo é escolhido pela IA. No card da resposta há botões para refazer 
 2. Planejamento: escolhe as queries da categoria e preenche os parâmetros (cliente, período, produto…).
 3. Execução: roda as queries (PostgreSQL interno ou SQL Server do ERP).
 4. Síntese: a IA redige a resposta usando somente as linhas retornadas.
+## Texto da resposta e tabela
+A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o PDF) traz os registros.
+- Com até 5 registros, o texto pode citar cada um.
+- Com mais de 5, o texto tem de 1 a 3 frases: quantos registros, o filtro e o período, e o total quando fizer sentido. Termina dizendo que a lista completa está na tabela. A lista não é repetida no texto.
+- Totais (ex.: faturamento total) são somados pelo sistema sobre TODAS as linhas, não só as 20 que a IA recebe.
+- Maiores e menores ("os 3 produtos mais faturados") também são calculados pelo sistema sobre todas as linhas. A IA só cita destaques quando a pergunta pede ranking, maiores ou menores.
+- A tabela mostra só as colunas que a pergunta pede: o item (ex.: código e descrição do produto) e a medida (ex.: valor faturado). Para ver outras, peça na pergunta: "incluir o cliente", "com o número da nota".
+DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento") para que os destaques venham no texto.
+## Ordenação
+"Ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor" e "mais recentes primeiro" são aplicados no próprio banco de dados: a tabela e o PDF já chegam na ordem pedida.
+- Exemplo: "Listar faturamento por produto de abril de 2026, incluir abrev do cliente e ordenar por abrev cliente de A a Z".
+## Comparação entre dois períodos
+Perguntas de variação entre dois períodos têm as contas feitas pelo sistema, não pela IA.
+- Exemplo: "Faturamento e CMV total por produto, variação % de fevereiro sobre janeiro de 2026, somente produtos faturados nos dois meses".
+- A tabela traz, para cada medida, o valor do período mais antigo, o do mais recente e a variação % (ex.: faturamento 01/2026, faturamento 02/2026, faturamento var. %, cmv 01/2026, cmv 02/2026, cmv var. %).
+- As linhas vêm do maior impacto em valor (R$) para o menor.
+- "Somente … nos dois meses" (ou "que tiveram movimento nos dois períodos") deixa de fora os itens que aparecem em um período só. Sem essa expressão, os itens novos e os que pararam também entram.
+- O texto informa os totais de cada período com a variação, quantos itens subiram e quantos caíram, e os maiores aumentos e quedas EM VALOR, com R$ e % lado a lado (ex.: "LB-DI-773: −R$ 48.917,58 (−98,0%)").
+- Até 4 medidas por comparação (ex.: faturamento, CMV, quantidade).
+NOTA: Os destaques do texto seguem o impacto em R$. Um item com queda percentual maior, mas de valor pequeno, pode não ser citado; ordene a tabela pela coluna "var. %" para ver o ranking em percentual.
+DICA: O CMV total depende de a query da categoria ter a coluna de custo total (custo unitário × quantidade). Se só houver o custo unitário, a soma não representa o CMV. Ver Seção 17.
+## Consultas auxiliares
+Algumas perguntas fazem uma consulta só para obter uma lista que filtra outra (ex.: "dos clientes insatisfeitos, mostrar o faturamento"). Essas consultas auxiliares não aparecem como tabela na tela nem no PDF; só a consulta final aparece.
+- Quando duas listas filtram o mesmo campo (ex.: produtos de janeiro E produtos de fevereiro), valem só os itens presentes nas duas.
 ## Ver etapas (trace)
 Para usuários com o trace habilitado, o card mostra o botão de trace com o número de chamadas. Ele abre a janela "LLM Trace" com cada etapa: classificação, planejamento, SQL executado com os parâmetros, linhas entregues à IA e síntese. O cabeçalho da janela mostra a pergunta daquele card.
 - Quando a pergunta dá erro, a mensagem de erro traz o botão "ver etapas (N)" com as etapas que rodaram até a falha, incluindo o SQL que falhou e o número da query (ex.: Query #56).
@@ -113,7 +141,7 @@ NOTA: "Próximos 7 dias" é diferente de "semana que vem": conta a partir de hoj
 ## PDF da resposta
 O ícone de PDF no cabeçalho da resposta (ao lado do alto-falante) baixa a resposta como documento PDF:
 - cabeçalho com data e hora, a pergunta e o texto da resposta, com o tipo (semântico, estruturado ou híbrido) e a confiança;
-- o gráfico, como aparece na tela, seguido da tabela;
+- o gráfico de barras, desenhado no próprio PDF (letras pequenas; rótulos inclinados só quando não cabem; nomes longos encurtados com "…"), seguido da tabela;
 - a tabela com TODOS os registros (até 2.000), não só os 20 mostrados na tela; o cabeçalho da tabela se repete em cada página;
 - nas respostas semânticas, a tabela dos memos usados;
 - as observações (limitações) da resposta e o número da página no rodapé.
@@ -145,6 +173,8 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | A query "X" foi clonada e ainda não tem conexão definida | Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela na Estrutura do contexto. |
 | Resposta traz registros de outros clientes | Filtro do template não está sendo aplicado (ex.: nome de parâmetro digitado errado no SQL, como @Abrev_Abrev_Empresa). Conferir o SQL em "ver etapas". |
 | Resposta cita dados fora do contexto | O planejador associou o termo ao campo errado. Preencher a descrição do campo (Seção 17) e refazer em Nova sessão. |
+| Variação entre períodos: "não é possível cruzar os dois meses" | A comparação não foi montada (ex.: períodos com filtros diferentes, ou mais de dois períodos). Refazer em Nova sessão, citando os dois períodos e as medidas: "faturamento por produto, variação % de fevereiro sobre janeiro de 2026". Se repetir, enviar o trace ao suporte. |
+| CMV total muito baixo perto do faturamento | A soma usou o custo unitário. Incluir na query a coluna de custo total (custo unitário × quantidade) e descrevê-la como CMV total (Seção 17). |
 | Os servidores de IA estão temporariamente sobrecarregados | Provedor de IA indisponível. Tentar novamente em alguns segundos ou minutos. |
 | Créditos de IA esgotados | Limite do plano atingido. Aguardar renovação ou fazer upgrade. |
 @@FIM

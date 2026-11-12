@@ -10,7 +10,7 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 - Relatório de chamadas de IA por etapa (admin): Seção 24
 - "📋 Colar print" e Ctrl+V no Catalogar para catalogar o print da tela: Seção 5
 - Ícone de PDF na resposta: texto, gráfico e tabela com todos os registros: Seção 8
-- ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida: Seção 6
+- Resposta estruturada em resumo (sem repetir a tabela no texto); tabela só com as colunas pedidas; totais e maiores/menores calculados sobre todas as linhas: Seção 8
 
 Perguntas que este trecho responde:
 - O que mudou na versão 2 do MyMemory?

@@ -5,7 +5,7 @@ Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 O ícone de PDF no cabeçalho da resposta (ao lado do alto-falante) baixa a resposta como documento PDF:
 - cabeçalho com data e hora, a pergunta e o texto da resposta, com o tipo (semântico, estruturado ou híbrido) e a confiança;
-- o gráfico, como aparece na tela, seguido da tabela;
+- o gráfico de barras, desenhado no próprio PDF (letras pequenas; rótulos inclinados só quando não cabem; nomes longos encurtados com "…"), seguido da tabela;
 - a tabela com TODOS os registros (até 2.000), não só os 20 mostrados na tela; o cabeçalho da tabela se repete em cada página;
 - nas respostas semânticas, a tabela dos memos usados;
 - as observações (limitações) da resposta e o número da página no rodapé.

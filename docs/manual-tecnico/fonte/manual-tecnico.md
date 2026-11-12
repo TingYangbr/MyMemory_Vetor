@@ -339,3 +339,59 @@ Explica, para o suporte, o que o sistema atualiza sozinho quando o nome de um ca
 | Lembretes pararam depois de renomear um campo | Renomeação feita antes de 10/11/2026: a regra continuou com o nome antigo. Abrir o 🔔 da categoria, escolher os campos de novo e salvar. |
 | Pergunta não acha mais memos pelo campo renomeado | Query do ERP ou query de memos montada fora da categoria ainda usa o nome antigo. Ajustar o SQL à mão. |
 | E-mail do lembrete mostra {NomeAntigo} sem preencher | Texto da mensagem gravado antes da correção. Editar o texto da mensagem no 🔔 e trocar pela variável nova. |
+
+# SEÇÃO 13 — Resposta estruturada: o que a IA recebe e o que o sistema calcula
+Rota: / (aba Perguntar) → card da resposta → ver etapas (trace)
+
+## Propósito
+Explica, para o suporte, como a resposta estruturada é montada: quais contas são feitas pelo sistema e quais ficam com a IA, como funcionam a ordenação, a comparação entre períodos e as consultas auxiliares, e como diagnosticar pelo trace quando a resposta vem errada.
+
+## Linhas entregues à IA
+| Campo / Elemento | Descrição |
+|---|---|
+| Linhas para a IA | A IA de síntese recebe no máximo 20 linhas de cada consulta. A tabela da tela mostra as mesmas 20; o PDF leva todas (até 2.000). |
+| somas_todas_linhas | Total de cada coluna de valor ou quantidade (valor, total, qtde, lucro, saldo, receita…) somado sobre TODAS as linhas. Colunas de preço unitário, taxa, índice, prazo, percentual, média e data não são somadas. |
+| destaques_todas_linhas | Os 5 maiores e os 3 menores de cada coluna de valor, ordenados pelo sistema sobre todas as linhas. A IA só pode copiar estes números para citar maiores, menores ou ranking. |
+| colunas_exibir | Colunas que a IA escolhe para a tabela quando o resultado tem mais de 6: só o item perguntado e a medida pedida, mais o que a pergunta citar ("incluir o cliente"). |
+| Observações | A frase "foram exibidas 20 linhas" é retirada das observações pelo sistema: a tabela e o PDF trazem todas. |
+
+## Ordenação no banco
+Quando a pergunta pede ordem ("ordene por X", "de A a Z", "do maior para o menor"), o planejador preenche order_by na agregação e o banco devolve as linhas já ordenadas (REGRA CRÍTICA 11). Numa listagem sem agrupamento vai medida null, group_by vazio e limit null (sem TOP): a lista vem inteira.
+- No trace, conferir em planejamento_estruturado o order_by com a coluna exata, e em consulta_sql o ORDER BY no SQL gerado.
+
+## Comparação entre dois períodos
+Perguntas de variação entre dois períodos (ex.: "% variação de fevereiro sobre janeiro") são calculadas em código; a IA só narra os números prontos.
+1. O planejador monta duas consultas com o mesmo query_id: parâmetros iguais exceto as datas, a mesma agregação (soma por item; medidas[] com até 4 somas) e limit 1000 (REGRA CRÍTICA 12).
+2. "Somente itens nos dois períodos" vira comparacao_somente_em_ambos = true no plano. O sistema descarta os itens que aparecem em um período só.
+3. O sistema junta os dois resultados pela primeira coluna do agrupamento (ex.: código do produto) e casa as medidas pela posição. Apelidos diferentes por mês (faturamento_janeiro × faturamento_fevereiro) são aceitos.
+4. A IA recebe comparacao_calculada: totais de cada período com a variação, quantos itens subiram e caíram, e os maiores aumentos e quedas EM VALOR (R$), que ela cita com R$ e %.
+5. A tabela traz, por medida, o período base, o período atual e a var. %, do maior impacto em R$ para o menor.
+
+## Quando a comparação não é ativada
+A comparação só é ativada quando o plano tem exatamente as duas consultas descritas acima. Ela fica desligada e a IA recebe as duas listas soltas (e costuma responder que "não é possível cruzar") quando:
+- há uma terceira consulta ou um cross_query_filter no plano;
+- os parâmetros diferem em algo além das datas (ex.: um cliente só em um dos períodos);
+- o motivo_uso cita "total geral" (cálculo de % sobre o total, que é outro caso);
+- as agregações diferem (outra medida, outro group_by, agrupamento por mês com group_by_trunc);
+- alguma medida não é soma nem contagem (média, mínimo, máximo).
+DICA: No trace, a etapa resposta_estruturada mostra comparacao_calculada quando a comparação foi ativada; se aparecer resultados com duas listas, conferir o plano em planejamento_estruturado contra os itens acima.
+
+## Consultas auxiliares e filtro cruzado
+Uma consulta cuja lista só serve de filtro para outra (origem de cross_query_filter) é marcada como auxiliar.
+- Não vira tabela na tela nem no PDF, e a IA recebe só o número de linhas dela, com o papel "consulta auxiliar".
+- Dois filtros cruzados no mesmo parâmetro IN (ex.: produtos de janeiro e produtos de fevereiro em codigo_produto_in) são cruzados: valem só os itens das duas listas. Em NOT IN as listas são somadas. Interseção vazia devolve resultado vazio.
+- No trace, consulta_sql mostra a lista final enviada ao IN; resultado_sql marca a consulta auxiliar como "consulta auxiliar (só filtro)".
+
+## Pontos importantes
+- CMV total: a query da categoria precisa de uma coluna de custo total (ex.: Custo_Unitario * Qtde_Produto_Fatura AS Custo_Total_Prod_Fat), com a descrição dizendo que ela é o CMV total. Somar Custo_Unitario dá um número sem sentido.
+- Descrições de query e de campo orientam o planejador: termos como "CMV", "faturado", "cliente" devem apontar para a coluna certa na descrição.
+- Destaques citados em valor podem não coincidir com o ranking em %; isso é esperado. O usuário ordena a tabela pela coluna var. % se quiser o ranking percentual.
+
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Texto cita um "terceiro maior" que não é o terceiro | Resposta anterior a 11/11/2026, quando a IA comparava valores de cabeça só nas 20 linhas recebidas. Refazer a pergunta. |
+| Aparecem tabelas de códigos com "contagem" | Resposta anterior a 12/11/2026: consultas auxiliares eram mostradas. Refazer a pergunta. |
+| Variação: "não é possível cruzar os dois meses" | A comparação não foi ativada. Ver "Quando a comparação não é ativada" e o plano no trace. Pedir ao usuário para refazer em Nova sessão citando os dois períodos e as medidas. |
+| "Ordene por X" não foi respeitado | O plano veio sem order_by. Conferir em planejamento_estruturado; refazer em Nova sessão. Se repetir, enviar o trace para análise. |
+| CMV total muito menor que o faturamento | A soma foi feita sobre Custo_Unitario. Incluir na query a coluna de custo total e descrevê-la como CMV total. |

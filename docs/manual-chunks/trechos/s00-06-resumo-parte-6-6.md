@@ -3,6 +3,10 @@ Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+- "Ordene por X" ordena no banco: Seção 8
+- Comparação entre dois períodos (variação % de um mês sobre outro), com várias medidas e "só itens presentes nos dois períodos": Seção 8
+- Consultas que só servem de filtro não aparecem mais como tabela: Seção 8
+- ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida: Seção 6
 - Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela: Seção 28
 - Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1): Seções 20 a 24
 
