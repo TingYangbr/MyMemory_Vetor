@@ -134,15 +134,25 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
   }
   if (!dataDiferente) return null;
 
-  const cols = resultados[0].colunas;
-  if (cols.length === 0 || cols.join("|").toLowerCase() !== resultados[1].colunas.join("|").toLowerCase()) return null;
-  const colsGrupo = ag.group_by.map((g) => acharColuna(cols, g));
-  if (colsGrupo.some((c) => !c)) return null;
-  const grupo = colsGrupo as string[];
-  const medidas = cols.filter((c) => !grupo.includes(c));
-  if (medidas.length < 1 || medidas.length > 4) return null;
-  const colMedida = medidas[0];
-  const colsExtras = medidas.slice(1);
+  // Colunas de cada resultado: as do group_by + as medidas, casadas pela POSIÇÃO — o planejador às vezes
+  // dá apelidos diferentes por período (ex.: faturamento_janeiro × faturamento_fevereiro)
+  const estrutura = (colunas: string[]) => {
+    const g = ag.group_by.map((x) => acharColuna(colunas, x));
+    if (colunas.length === 0 || g.some((c) => !c)) return null;
+    const grupoR = g as string[];
+    return { grupo: grupoR, medidas: colunas.filter((c) => !grupoR.includes(c)) };
+  };
+  const e0 = estrutura(resultados[0].colunas);
+  const e1 = estrutura(resultados[1].colunas);
+  if (!e0 || !e1) return null;
+  if (e0.medidas.length < 1 || e0.medidas.length > 4 || e0.medidas.length !== e1.medidas.length) return null;
+  const grupo = e0.grupo;
+  // Nome exibido da medida: o apelido, se igual nos dois; senão a coluna somada (ex.: Valor_Prod_Fat)
+  const nomesMedidas = e0.medidas.map((c, k) =>
+    c.toLowerCase() === e1.medidas[k].toLowerCase() ? c : (ag.medidas?.[k]?.campo ?? (k === 0 ? ag.campo_medida : null) ?? c)
+  );
+  const colMedida = nomesMedidas[0];
+  const colsExtras = nomesMedidas.slice(1);
   const somenteEmAmbos = plano.comparacao_somente_em_ambos === true;
 
   // Ordena os períodos pela data inicial: base = mais antigo
@@ -163,13 +173,13 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
     if (!Number.isFinite(n)) throw new Error("medida não numérica");
     return n;
   };
-  const juntar = (linhas: Record<string, unknown>[]) => {
+  const juntar = (linhas: Record<string, unknown>[], est: { grupo: string[]; medidas: string[] }) => {
     const m = new Map<string, { valor: number; extras: number[]; desc: string | null }>();
     for (const l of linhas) {
-      const v = num(l[colMedida]);
-      const ex = colsExtras.map((c) => num(l[c]));
-      const chave = String(l[colChave] ?? "").trim();
-      const desc = colsDesc.map((c) => l[c]).filter((x) => !vazio(x)).join(" | ") || null;
+      const v = num(l[est.medidas[0]]);
+      const ex = est.medidas.slice(1).map((c) => num(l[c]));
+      const chave = String(l[est.grupo[0]] ?? "").trim();
+      const desc = est.grupo.slice(1).map((c) => l[c]).filter((x) => !vazio(x)).join(" | ") || null;
       const ant = m.get(chave);
       m.set(chave, {
         valor: (ant?.valor ?? 0) + v,
@@ -179,8 +189,9 @@ function calcular(plano: PlanoMin, resultados: ResultadoMin[]): ComparacaoPeriod
     }
     return m;
   };
-  const mBase = juntar(resultados[ib].linhas);
-  const mAtual = juntar(resultados[ia].linhas);
+  const estr = [e0, e1];
+  const mBase = juntar(resultados[ib].linhas, estr[ib]);
+  const mAtual = juntar(resultados[ia].linhas, estr[ia]);
   // "Só os que tiveram movimento nos dois períodos": descarta os que aparecem em um só
   if (somenteEmAmbos) {
     for (const k of [...mBase.keys()]) if (!mAtual.has(k)) mBase.delete(k);
