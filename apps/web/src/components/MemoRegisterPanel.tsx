@@ -24,6 +24,7 @@ import memoProcessOverlayStyles from "./MemoProcessOverlay.module.css";
 import IaTextoLevelFieldset from "./IaTextoLevelFieldset";
 import MediaCaptureConfirmModal from "./MediaCaptureConfirmModal";
 import styles from "./MemoRegisterPanel.module.css";
+import { IconCamera, IconClipboard, IconDownload, IconLink, IconMic, IconServer, IconText, IconVideo } from "./icons";
 
 function sleepMs(ms: number, signal: AbortSignal): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -1400,8 +1401,9 @@ export default function MemoRegisterPanel({
         </div>
       </div>
 
+      <div className={styles.captura}>
       <div
-        className={`mm-dropzone ${drag ? "mm-dropzone--active" : ""}`}
+        className={`mm-dropzone ${styles.dropzone} ${drag ? "mm-dropzone--active" : ""}`}
         onDragOver={(e) => {
           e.preventDefault();
           setDrag(true);
@@ -1409,16 +1411,18 @@ export default function MemoRegisterPanel({
         onDragLeave={() => setDrag(false)}
         onDrop={onDrop}
       >
+        <IconDownload size={26} className={styles.dropIcon} />
         <p className={styles.dropzoneTitle}>
-          <strong>Selecionar arquivo</strong> ou <strong>arraste para cá</strong>
+          <strong>Arraste arquivos para cá</strong>
         </p>
+        <p className={styles.dropzoneSub}>PDF, Word, planilhas, imagens, áudio e vídeo</p>
         <button
           type="button"
           className={`mm-btn mm-btn--primary ${styles.dropBtn}`}
           disabled={busy || captureConfirmOpen}
           onClick={() => fileInputRef.current?.click()}
         >
-          Abrir seletor de arquivo
+          Escolher arquivo
         </button>
         <input
           ref={fileInputRef}
@@ -1432,24 +1436,25 @@ export default function MemoRegisterPanel({
         />
       </div>
 
-      <div className="mm-icon-grid">
+      <div className={`mm-icon-grid ${styles.metodos}`}>
         <button
           type="button"
-          className="mm-icon-action"
+          className={`mm-icon-action ${styles.metodo}`}
           disabled={
             busy || photoCamLoading || videoCamOpen || videoCamLoading || audioRecModalOpen || captureConfirmOpen
           }
           onClick={() => void openPhotoCamera()}
         >
-          <span className={styles.iconEmoji} aria-hidden>
-            📷
+          <IconCamera size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>{photoCamLoading ? "Abrindo câmera…" : "Foto"}</b>
+            <small>câmera</small>
           </span>
-          {photoCamLoading ? "Abrindo câmera…" : "Foto (câmera)"}
         </button>
 
         <button
           type="button"
-          className={`mm-icon-action ${
+          className={`mm-icon-action ${styles.metodo} ${
             videoRecState === "recording" || videoRecState === "paused" ? "mm-recording-pulse" : ""
           }`}
           disabled={
@@ -1463,15 +1468,16 @@ export default function MemoRegisterPanel({
           }
           onClick={() => void openVideoRecordCamera()}
         >
-          <span className={styles.iconEmoji} aria-hidden>
-            🎥
+          <IconVideo size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>{videoCamLoading ? "Abrindo câmera…" : "Vídeo"}</b>
+            <small>câmera</small>
           </span>
-          {videoCamLoading ? "Abrindo câmera…" : "Vídeo (câmera)"}
         </button>
 
         <button
           type="button"
-          className="mm-icon-action"
+          className={`mm-icon-action ${styles.metodo}`}
           disabled={
             busy ||
             videoCamOpen ||
@@ -1483,71 +1489,75 @@ export default function MemoRegisterPanel({
           }
           onClick={() => void openAudioRecorderModal()}
         >
-          <span className={styles.iconEmoji} aria-hidden>
-            🎙
+          <IconMic size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>Gravar áudio</b>
+            <small>dite um memo</small>
           </span>
-          Gravar áudio
         </button>
 
         {podeLerClipboard ? (
           <button
             type="button"
-            className="mm-icon-action"
+            className={`mm-icon-action ${styles.metodo}`}
             disabled={colarBloqueado}
             onClick={() => void colarPrint()}
             title="Catalogar o print da tela copiado (PrintScreen ou Win+Shift+S). Também funciona com Ctrl+V nesta tela."
           >
-            <span className={styles.iconEmoji} aria-hidden>
-              📋
+            <IconClipboard size={22} className={styles.metodoIcon} />
+            <span className={styles.metodoTexto}>
+              <b>Colar print</b>
+              <small>Ctrl+V</small>
             </span>
-            Colar print
           </button>
         ) : null}
 
         <button
           type="button"
-          className="mm-icon-action"
+          className={`mm-icon-action ${styles.metodo}`}
           disabled={busy || captureConfirmOpen}
           onClick={() => {
             setTextIaUseLevel(prefs.iaUseTexto);
             setTextOpen(true);
           }}
         >
-          <span className={styles.iconEmoji} aria-hidden>
-            📝
+          <IconText size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>Texto</b>
+            <small>digite ou cole</small>
           </span>
-          Texto
         </button>
 
         <button
           type="button"
-          className="mm-icon-action"
+          className={`mm-icon-action ${styles.metodo}`}
           disabled={busy || captureConfirmOpen}
           onClick={() => {
             setUrlIaUseLevel(prefs.iaUseUrl);
             setUrlOpen(true);
           }}
         >
-          <span className={styles.iconEmoji} aria-hidden>
-            🔗
+          <IconLink size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>Página web</b>
+            <small>endereço (URL)</small>
           </span>
-          URL
         </button>
 
         {/* Guarda própria: catalogar arquivos que continuam no servidor do cliente (Importação em Lote).
             Substitui o antigo «Documento / arquivo», redundante com o seletor de arquivo acima. */}
         <Link
           to="/importar-lote"
-          className={`mm-icon-action ${styles.guardaPropriaTile}`}
+          className={`mm-icon-action ${styles.metodo}`}
           title="Catalogar arquivos do seu disco, rede ou WebDAV sem copiá-los para o myMemory"
         >
-          <span className={styles.guardaPropriaSeta} aria-hidden>↗</span>
-          <span className={styles.iconEmoji} aria-hidden>
-            📂
+          <IconServer size={22} className={styles.metodoIcon} />
+          <span className={styles.metodoTexto}>
+            <b>Guarda própria</b>
+            <small>arquivos no seu servidor</small>
           </span>
-          Guarda própria
-          <span className={styles.guardaPropriaLegenda}>arquivos no seu servidor</span>
         </Link>
+      </div>
       </div>
 
       {error ? <p className="mm-error">{error}</p> : null}

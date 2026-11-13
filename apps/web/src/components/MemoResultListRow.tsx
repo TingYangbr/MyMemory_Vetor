@@ -57,7 +57,7 @@ export function MemoResultListRow({
   const isOwner = currentUserId != null && m.userId > 0 && m.userId === currentUserId;
   const bodyText = m.mediaText ?? "";
   const textLen = bodyText.length;
-  const kwCount = parseKeywordList(m.keywords).length;
+  const kws = parseKeywordList(m.keywords);
   const { xx, yy } = dadosFilledCounts(m.dadosEspecificosJson);
   const label = searchCardPrimaryLabel(m);
   const dateStr = formatSearchCardDate(m.createdAt);
@@ -78,15 +78,6 @@ export function MemoResultListRow({
           {noNavigate ? (
             <a href={`/memo/${m.id}/editar?returnTo=${encodeURIComponent(returnTo)}`} target="_blank" rel="noopener noreferrer" className={styles.listRow1Link} title="Abrir memo em nova aba">
               <span className={styles.listFilename}>{label}</span>
-              {m.iaUseLevel === "semIA" && (
-                <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
-              )}
-              {m.iaUseLevel === "basico" && (
-                <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
-              )}
-              {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
-                <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
-              )}
               <time className={styles.listDate} dateTime={m.createdAt}>
                 {dateStr}
               </time>
@@ -94,15 +85,6 @@ export function MemoResultListRow({
           ) : (
             <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} className={styles.listRow1Link} title="Abrir memo">
               <span className={styles.listFilename}>{label}</span>
-              {m.iaUseLevel === "semIA" && (
-                <span className={`${styles.metricChip} ${styles.metricChipSemIA}`} title="Processado sem IA">sem IA</span>
-              )}
-              {m.iaUseLevel === "basico" && (
-                <span className={`${styles.metricChip} ${styles.metricChipBasico}`} title="IA básica">IA básica</span>
-              )}
-              {(m.iaUseLevel === "completo" || m.hasSemanticChunks) && (
-                <span className={`${styles.metricChip} ${styles.metricChipSemantic}`} title="Semântico">⊛ semântico</span>
-              )}
               <time className={styles.listDate} dateTime={m.createdAt}>
                 {dateStr}
               </time>
@@ -110,20 +92,13 @@ export function MemoResultListRow({
           )}
         </div>
         <div className={styles.listRow2}>
-          <div className={styles.listMetrics}>
-            <span className={styles.metricChip}>
-              <span className={styles.metricLbl}>Texto</span>
-              <span className={styles.metricVal}>{textLen}</span>
-            </span>
-            <span className={styles.metricChip}>
-              <span className={styles.metricLbl}>keywords</span>
-              <span className={styles.metricVal}>{kwCount}</span>
-            </span>
-            <span className={styles.metricChip}>
-              <span className={styles.metricLbl}>dados</span>
-              <span className={styles.metricVal}>{xx}/{yy}</span>
-            </span>
-          </div>
+          {kws.slice(0, 3).map((k) => (
+            <span key={k} className={styles.listTag}>{k}</span>
+          ))}
+          {kws.length > 3 ? (
+            <span className={styles.listTagMais} title={kws.slice(3).join(", ")}>+{kws.length - 3}</span>
+          ) : null}
+          <span className={styles.listRef} title={`${textLen} caracteres · ${kws.length} palavras-chave · dados ${xx}/${yy}`}>#{m.id}</span>
         </div>
       </div>
       {isOwner ? (

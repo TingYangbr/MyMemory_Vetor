@@ -20,6 +20,7 @@ import type {
 } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPostJson } from "../api";
 import Header from "../components/Header";
+import { IconPause as IconPauseUi } from "../components/icons";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import recentListStyles from "../components/RecentMemos.module.css";
@@ -1345,79 +1346,22 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
             Vírgulas separam trechos de pesquisa. E ou OU aplica-se entre trechos. Nova e Mais usam voz em português.
           </p>
           <div className={styles.searchBlock}>
-            <div className={styles.topBar}>
-              <h2 id={panelTitleId} className={styles.panelTitle}>
-                Buscar Memo
-              </h2>
-              <div className={styles.filterPills}>
-                <button
-                  type="button"
-                  className={`${styles.filterPill} ${quandoAtivo ? styles.filterPillOn : styles.filterPillOff}`}
-                  title={quandoTitle}
-                  onClick={() => {
-                    setDraftDateFrom(filterDateFrom);
-                    setDraftDateTo(filterDateTo);
-                    setFilterModal("quando");
-                  }}
-                >
-                  <IconCalendar className={styles.filterPillIcon} aria-hidden />
-                  <span className={styles.filterPillLabel}>Quando</span>
-                </button>
-                {!isPersonalWorkspace ? (
-                  <button
-                    type="button"
-                    className={`${styles.filterPill} ${quemAtivo ? styles.filterPillOn : styles.filterPillOff}`}
-                    title={quemTitle}
-                    onClick={() => {
-                      setDraftAuthorId(filterAuthorUserId);
-                      setFilterModal("quem");
-                    }}
-                  >
-                    <IconUser className={styles.filterPillIcon} aria-hidden />
-                    <span className={styles.filterPillLabel}>Quem</span>
-                  </button>
-                ) : null}
-              </div>
-            </div>
+            <h2 id={panelTitleId} className={styles.visuallyHidden}>
+              Buscar memos
+            </h2>
 
-            <div className={styles.modeSwitcher} role="tablist" aria-label="Modo de busca">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "textual"}
-                className={`${styles.modeSwitcherBtn} ${activeTab === "textual" ? styles.modeSwitcherTextualOn : ""}`}
-                onClick={() => { setActiveTab("textual"); setMicState("idle"); setShowTimeoutPopup(false); setSemanticThresholdUsed(null); }}
-              >
-                <span className={styles.modeSwitcherIcon} aria-hidden>🔤</span>
-                Busca por Texto
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={activeTab === "semantic"}
-                className={`${styles.modeSwitcherBtn} ${activeTab === "semantic" ? styles.modeSwitcherSemanticOn : ""}`}
-                onClick={() => { setActiveTab("semantic"); setMicState("idle"); setShowTimeoutPopup(false); }}
-              >
-                <span className={styles.modeSwitcherIcon} aria-hidden>⊛</span>
-                Busca Semântica
-              </button>
-            </div>
-
+            {/* Linha 1: texto + microfone em destaque + E/OU pequeno e vertical */}
             <div className={styles.searchRow}>
               <div
-                className={styles.searchFieldWrap}
-                style={{
-                  borderWidth: micState === "listening" || micState === "paused" ? "1.5px" : undefined,
-                  borderColor:
-                    micState === "paused" ? "#BA7517" :
-                    micState === "listening" ? (activeTab === "semantic" ? "#7F77DD" : "#1D9E75") :
-                    undefined,
-                }}
+                className={`${styles.searchFieldWrap} ${
+                  micState === "listening" ? styles.searchFieldListening : micState === "paused" ? styles.searchFieldPaused : ""
+                }`}
               >
                 <button
                   type="button"
                   className={styles.searchIconBtn}
                   aria-label={searchBusy ? "A buscar…" : "Buscar"}
+                  title="Buscar (Enter)"
                   disabled={searchBusy || !query.trim()}
                   onClick={() => void runSearch(undefined, undefined, activeTab === "semantic" ? "semantic" : "all")}
                 >
@@ -1448,24 +1392,56 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
                   aria-describedby={searchFormId}
                   aria-label="Termo de pesquisa"
                 />
+                <button
+                  type="button"
+                  className={styles.undoTermBtn}
+                  title={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho (última vírgula) e voltar a buscar"}
+                  aria-label={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho da pesquisa"}
+                  disabled={activeTab === "semantic" ? (!query.trim() || searchBusy) : (querySegmentCount <= 1 || searchBusy || !query.trim())}
+                  onClick={() => activeTab === "semantic" ? (setQuery(""), setMicState("idle")) : undoLastSearchTerm()}
+                >
+                  <IconUndoTerm className={styles.undoTermIcon} />
+                </button>
               </div>
-              <button
-                type="button"
-                className={styles.undoTermBtn}
-                title={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho (última vírgula) e voltar a buscar"}
-                aria-label={activeTab === "semantic" ? "Limpar campo de busca" : "Desfazer último trecho da pesquisa"}
-                disabled={activeTab === "semantic" ? (!query.trim() || searchBusy) : (querySegmentCount <= 1 || searchBusy || !query.trim())}
-                onClick={() => activeTab === "semantic" ? (setQuery(""), setMicState("idle")) : undoLastSearchTerm()}
-              >
-                <IconUndoTerm className={styles.undoTermIcon} />
-              </button>
+              <div className={styles.micWrap}>
+                <button
+                  type="button"
+                  className={`${styles.micBig} ${
+                    micState === "listening" ? styles.micBigListening : micState === "paused" ? styles.micBigPaused : ""
+                  }`}
+                  title={
+                    micState === "idle" || micState === "done" ? "Falar (nova gravação)" :
+                    micState === "listening" ? "Pausar gravação" :
+                    "Retomar gravação"
+                  }
+                  aria-label={
+                    micState === "idle" || micState === "done" ? "Falar a busca" :
+                    micState === "listening" ? "Pausar gravação" :
+                    "Retomar gravação"
+                  }
+                  aria-pressed={micState === "listening"}
+                  onClick={() => {
+                    if (micState === "done" || micState === "idle") {
+                      if (micState === "done") setQuery("");
+                      startListening("nova");
+                    } else if (micState === "listening") {
+                      pauseMic();
+                    } else {
+                      if (pauseTimeoutRef.current) { clearTimeout(pauseTimeoutRef.current); pauseTimeoutRef.current = null; }
+                      startListening("mais");
+                    }
+                  }}
+                >
+                  {micState === "listening" ? <IconPauseUi size={20} /> : <IconMic className={styles.micBigIcon} />}
+                </button>
+              </div>
               {activeTab === "textual" ? (
               <div className={styles.logicGroup} role="group" aria-label="Operador entre trechos separados por vírgula">
                 <button
                   type="button"
                   className={styles.logicBtn}
-                  title="Selecione E para restrigir a busca ou OU para acrescentar a busca com proximo ou útimo texto"
-                  aria-label="Selecione E para restrigir a busca ou OU para acrescentar a busca com proximo ou útimo texto"
+                  title="E: todos os trechos (separados por vírgula) precisam aparecer"
+                  aria-label="E: todos os trechos precisam aparecer"
                   aria-pressed={logic === "and"}
                   onClick={() => setLogic("and")}
                 >
@@ -1474,8 +1450,8 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
                 <button
                   type="button"
                   className={styles.logicBtn}
-                  title="Selecione E para restrigir a busca ou OU para acrescentar a busca com proximo ou útimo texto"
-                  aria-label="Selecione E para restrigir a busca ou OU para acrescentar a busca com proximo ou útimo texto"
+                  title="OU: basta um dos trechos (separados por vírgula) aparecer"
+                  aria-label="OU: basta um dos trechos aparecer"
                   aria-pressed={logic === "or"}
                   onClick={() => setLogic("or")}
                 >
@@ -1485,133 +1461,119 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
               ) : null}
             </div>
 
+            {/* Gravação em andamento: estado e ações da voz */}
+            {micState === "listening" || micState === "paused" || (activeTab === "semantic" && micState === "done" && query.trim()) ? (
+              <div className={styles.voiceRowBelow}>
+                {micState === "listening" ? (
+                  <span className={styles.micStatus} role="status">Ouvindo…</span>
+                ) : micState === "paused" ? (
+                  <span className={`${styles.micStatus} ${styles.micStatusPaused}`} role="status">Pausado</span>
+                ) : null}
+                {activeTab === "textual" && (micState === "listening" || micState === "paused") ? (
+                  <button
+                    type="button"
+                    className={`${styles.voiceBtn} ${styles.voiceBtnCancelar}`}
+                    title="Cancelar gravação e descartar transcrição"
+                    onClick={() => {
+                      voiceTranscriptRef.current = "";
+                      stopListening("idle");
+                      setQuery("");
+                    }}
+                  >
+                    Cancelar
+                  </button>
+                ) : null}
+                {activeTab === "semantic" && (micState === "listening" || micState === "paused") ? (
+                  <button
+                    type="button"
+                    className={`${styles.voiceBtn} ${styles.voiceBtnFinalizarNarrativa}`}
+                    title="Finalizar narrativa e buscar imediatamente"
+                    onClick={() => {
+                      const qV = voiceTranscriptRef.current.trim() || query.trim();
+                      stopListening("done");
+                      if (qV) void runSearchRef.current(qV, undefined, "semantic");
+                    }}
+                  >
+                    Finalizar narrativa
+                  </button>
+                ) : null}
+                {activeTab === "semantic" && micState === "done" && query.trim() ? (
+                  <button
+                    type="button"
+                    className={`${styles.voiceBtn} ${styles.voiceBtnBuscarSemantic}`}
+                    disabled={searchBusy}
+                    title="Executar busca semântica"
+                    onClick={() => void runSearch(undefined, undefined, "semantic")}
+                  >
+                    {searchBusy ? "Buscando…" : "Buscar"}
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
 
-            <div className={styles.voiceRowBelow}>
-              {/* Botão Nova (ambos os modos) */}
-              <button
-                type="button"
-                className={`${styles.voiceBtn} ${
-                  micState === "listening"
-                    ? styles.voiceBtnListening
-                    : micState === "paused"
-                      ? styles.voiceBtnPaused
-                      : activeTab === "semantic"
-                        ? styles.voiceBtnSemantic
-                        : styles.voiceBtnNova
-                }`}
-                title={
-                  micState === "idle" || micState === "done" ? "Iniciar nova gravação" :
-                  micState === "listening" ? "Pausar gravação" :
-                  "Retomar gravação"
-                }
-                onClick={() => {
-                  if (micState === "done" || micState === "idle") {
-                    if (micState === "done") setQuery("");
-                    startListening("nova");
-                  } else if (micState === "listening") {
-                    pauseMic();
-                  } else {
-                    if (pauseTimeoutRef.current) { clearTimeout(pauseTimeoutRef.current); pauseTimeoutRef.current = null; }
-                    startListening("mais");
-                  }
-                }}
-              >
-                <IconMic />
-                {micState === "idle" || micState === "done" ? "Nova" : micState === "listening" ? "Pausar" : "Retomar"}
-              </button>
-
-              {/* + Mais / Cancelar — só textual */}
-              {activeTab === "textual" && (micState === "listening" || micState === "paused") ? (
+            {/* Linha 2: tipo de busca | Sugestões, ampliar, mais por voz · Filtros à direita */}
+            <div className={styles.optionsRow}>
+              <div className={styles.modeSeg} role="radiogroup" aria-label="Tipo de busca">
                 <button
                   type="button"
-                  className={`${styles.voiceBtn} ${styles.voiceBtnCancelar}`}
-                  title="Cancelar gravação e descartar transcrição"
-                  onClick={() => {
-                    voiceTranscriptRef.current = "";
-                    stopListening("idle");
-                    setQuery("");
-                  }}
+                  role="radio"
+                  aria-checked={activeTab === "textual"}
+                  className={`${styles.modeSegBtn} ${activeTab === "textual" ? styles.modeSegBtnOn : ""}`}
+                  title="Texto: encontra as palavras digitadas"
+                  onClick={() => { setActiveTab("textual"); setMicState("idle"); setShowTimeoutPopup(false); setSemanticThresholdUsed(null); }}
                 >
-                  Cancelar
+                  <span className={styles.modeSegDot} aria-hidden />
+                  Texto
                 </button>
-              ) : activeTab === "textual" && items.length > 0 ? (
                 <button
                   type="button"
-                  className={`${styles.voiceBtn} ${listeningMode === "mais" ? styles.voiceBtnListening : styles.voiceBtnMais}`}
-                  title="Acrescentar texto por voz à pesquisa"
-                  onClick={() => (listeningMode === "mais" ? pauseMic() : startListening("mais"))}
+                  role="radio"
+                  aria-checked={activeTab === "semantic"}
+                  className={`${styles.modeSegBtn} ${activeTab === "semantic" ? styles.modeSegBtnOn : ""}`}
+                  title="Semântica: encontra pelo sentido, mesmo com outras palavras"
+                  onClick={() => { setActiveTab("semantic"); setMicState("idle"); setShowTimeoutPopup(false); }}
                 >
-                  <IconMic />
-                  + Mais
+                  <span className={styles.modeSegDot} aria-hidden />
+                  Semântica
                 </button>
-              ) : null}
-
-              {/* Finalizar narrativa — só semântico, visível em listening/paused */}
-              {activeTab === "semantic" && (micState === "listening" || micState === "paused") ? (
+              </div>
+              <span className={styles.vsep} aria-hidden />
+              {activeTab === "textual" && items.length > 0 ? (
                 <button
                   type="button"
-                  className={`${styles.voiceBtn} ${styles.voiceBtnFinalizarNarrativa}`}
-                  title="Finalizar narrativa e buscar imediatamente"
-                  onClick={() => {
-                    const qV = voiceTranscriptRef.current.trim() || query.trim();
-                    stopListening("done");
-                    if (qV) void runSearchRef.current(qV, undefined, "semantic");
-                  }}
-                >
-                  Finalizar narrativa
-                </button>
-              ) : null}
-
-              {/* Buscar — só semântico, após finalizar via botão */}
-              {activeTab === "semantic" && micState === "done" && query.trim() ? (
-                <button
-                  type="button"
-                  className={`${styles.voiceBtn} ${styles.voiceBtnBuscarSemantic}`}
+                  className={styles.optBtn}
+                  aria-label="Sugestões: textos relacionados aos memos encontrados, com número de ocorrências"
                   disabled={searchBusy}
-                  title="Executar busca semântica"
-                  onClick={() => void runSearch(undefined, undefined, "semantic")}
+                  title="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
+                  onClick={() => {
+                    setSuggestionSort("relevance");
+                    setSuggestionViewMode("all");
+                    const raw = suggestionPanelPos ?? loadSuggestionPanelPos() ?? defaultSuggestionPanelPos();
+                    const { w, h } = suggestionPanelDimensions();
+                    setSuggestionPanelPos(clampSuggestionPanelPos(raw, w, h));
+                    setSuggestionModalOpen(true);
+                  }}
                 >
-                  {searchBusy ? "Buscando…" : "Buscar"}
+                  <IconBulb className={styles.optSvg} />
+                  <span className={styles.optLabel}>Sugestões</span>
                 </button>
               ) : null}
-            </div>
-
-            <div className={styles.secondaryRow}>
-              {activeTab === "textual" ? (
-              <button
-                type="button"
-                className={`${styles.secondaryBtn} ${styles.btnSugestao}`}
-                aria-label="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
-                disabled={items.length === 0 || searchBusy}
-                title="Visualizar os textos relacionados aos memos pesquisados com número de ocorrências."
-                onClick={() => {
-                  setSuggestionSort("relevance");
-                  setSuggestionViewMode("all");
-                  const raw = suggestionPanelPos ?? loadSuggestionPanelPos() ?? defaultSuggestionPanelPos();
-                  const { w, h } = suggestionPanelDimensions();
-                  setSuggestionPanelPos(clampSuggestionPanelPos(raw, w, h));
-                  setSuggestionModalOpen(true);
-                }}
-              >
-                <IconBulb className={styles.secondarySvg} />
-                Sugestão
-              </button>
-              ) : <div className={styles.secondaryPlaceholder} aria-hidden />}
               {showBuscaExpandida && activeTab === "textual" ? (
                 <button
                   type="button"
-                  className={`${styles.secondaryBtn} ${styles.btnBuscaExpandida}`}
+                  className={styles.optBtn}
                   disabled={expandBusy}
-                  title="Expandir a busca usando mais 2 sinonimos do último texto de busca"
+                  title="Expandir a busca usando mais 2 sinônimos do último texto de busca"
+                  aria-label="Busca expandida"
                   onClick={() => void handleExpandSearch()}
                 >
-                  <IconExpandSearch className={styles.secondarySvg} />
-                  {expandBusy ? "A expandir…" : "Busca expandida"}
+                  <IconExpandSearch className={styles.optSvg} />
+                  <span className={styles.optLabel}>{expandBusy ? "A expandir…" : "Busca expandida"}</span>
                 </button>
               ) : activeTab === "semantic" && semanticThresholdUsed !== null && semanticThresholdUsed > 0 ? (
                 <button
                   type="button"
-                  className={`${styles.secondaryBtn} ${styles.btnAmpliarBusca}`}
+                  className={`${styles.optBtn} ${styles.optBtnWarn}`}
                   disabled={searchBusy}
                   title={`Ampliar busca: reduz o limiar de ${Math.round(semanticThresholdUsed * 100)}% para ${Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 100))}%`}
                   onClick={() => {
@@ -1619,10 +1581,53 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
                     void runSearch(undefined, undefined, "semantic", newThreshold);
                   }}
                 >
-                  <IconExpandSearch className={styles.secondarySvg} />
-                  {searchBusy ? "Buscando…" : `Ampliar Busca (${Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 100))}%)`}
+                  <IconExpandSearch className={styles.optSvg} />
+                  {searchBusy ? "Buscando…" : `Ampliar (${Math.max(0, Math.round((semanticThresholdUsed - 0.1) * 100))}%)`}
                 </button>
-              ) : <div className={styles.secondaryPlaceholder} aria-hidden />}
+              ) : null}
+              {activeTab === "textual" && items.length > 0 && micState !== "listening" && micState !== "paused" ? (
+                <button
+                  type="button"
+                  className={`${styles.optBtn} ${listeningMode === "mais" ? styles.optBtnOn : ""}`}
+                  title="Acrescentar texto por voz à pesquisa"
+                  aria-label="Acrescentar por voz"
+                  onClick={() => (listeningMode === "mais" ? pauseMic() : startListening("mais"))}
+                >
+                  <IconMic className={styles.optSvg} />
+                  <span className={styles.optLabel}>+ Mais</span>
+                </button>
+              ) : null}
+              <div className={styles.filtros} role="group" aria-label="Filtros">
+                <button
+                  type="button"
+                  className={`${styles.filtroBtn} ${quandoAtivo ? styles.filtroBtnOn : ""}`}
+                  title={quandoTitle}
+                  aria-label={`Filtrar por período${quandoAtivo ? " (ativo)" : ""}`}
+                  onClick={() => {
+                    setDraftDateFrom(filterDateFrom);
+                    setDraftDateTo(filterDateTo);
+                    setFilterModal("quando");
+                  }}
+                >
+                  <IconCalendar className={styles.optSvg} />
+                  <span className={styles.optLabel}>Quando</span>
+                </button>
+                {!isPersonalWorkspace ? (
+                  <button
+                    type="button"
+                    className={`${styles.filtroBtn} ${quemAtivo ? styles.filtroBtnOn : ""}`}
+                    title={quemTitle}
+                    aria-label={`Filtrar por autor${quemAtivo ? " (ativo)" : ""}`}
+                    onClick={() => {
+                      setDraftAuthorId(filterAuthorUserId);
+                      setFilterModal("quem");
+                    }}
+                  >
+                    <IconUser className={styles.optSvg} />
+                    <span className={styles.optLabel}>Quem</span>
+                  </button>
+                ) : null}
+              </div>
             </div>
           </div>
 
