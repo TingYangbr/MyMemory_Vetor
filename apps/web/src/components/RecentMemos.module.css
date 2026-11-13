@@ -833,3 +833,9 @@
   .listTag { max-width: 140px; }
   .listIconActions { flex-direction: column; gap: 0; }
 }
+
+/* Cartões: o nome do memo ocupa a 1ª linha inteira; nº e ícones (editar, lixeira) vão para a linha de baixo */
+.cardTop { flex-wrap: wrap; align-items: center; row-gap: 0.35rem; }
+.cardTopPrimary { flex: 1 1 100%; }
+.cardTop .memoRef { margin-right: auto; }
+.cardTop .cardIconActions { margin-left: 0; }
