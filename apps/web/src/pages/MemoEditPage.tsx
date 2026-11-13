@@ -353,9 +353,9 @@ export default function MemoEditPage() {
         </label>
 
         <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-titulo">
-          Título curto
+          Assunto
           <span className={styles.hint}>
-            Até 5 palavras, aparece ao lado da categoria no Buscar e no Catalogar. A IA sugere sozinha; você pode trocar.
+            Até 5 palavras, aparece ao lado da categoria no Buscar e no Catalogar. A IA sugere; você pode trocar.
           </span>
           <input
             id="memo-edit-titulo"
@@ -364,7 +364,7 @@ export default function MemoEditPage() {
             maxLength={80}
             value={tituloCurto}
             onChange={(e) => setTituloCurto(e.target.value)}
-            placeholder={tituloCurtoOriginal ? "" : "a IA vai sugerir em alguns minutos"}
+            placeholder="ex.: Visita técnica na fazenda"
             autoComplete="off"
           />
         </label>
