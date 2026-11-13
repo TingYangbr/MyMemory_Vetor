@@ -402,12 +402,11 @@ export default function GroupOwnerPanelPage() {
         { limite: 50 }
       );
       setSemTitulo(r.restantes);
-      setTitulosMsg(
-        `${r.gerados} título(s) criado(s)` +
-          (r.vazios ? `, ${r.vazios} memo(s) sem texto ou sem IA` : "") +
-          (r.erros ? `, ${r.erros} com erro (tente de novo)` : "") +
-          `. Faltam ${r.restantes}.`
-      );
+      const partes = [`Pronto: ${r.gerados} memo(s) ganharam título.`];
+      if (r.vazios) partes.push(`${r.vazios} não têm texto para resumir e ficaram sem título.`);
+      if (r.erros) partes.push(`${r.erros} deram erro e serão tentados no próximo clique.`);
+      partes.push(r.restantes ? `Ainda faltam ${r.restantes} memos sem título.` : "Todos os memos já têm título.");
+      setTitulosMsg(partes.join(" "));
     } catch (e) {
       setTitulosErr(e instanceof Error ? e.message : "Falha ao gerar títulos.");
     } finally {
