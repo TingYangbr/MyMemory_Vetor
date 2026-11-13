@@ -26,114 +26,55 @@
   line-height: 1.4;
 }
 
-/* --- Seleção de contexto (substitui o modal) --- */
+/* --- Seleção do espaço de trabalho (substitui o modal) --- */
 .pickerMain {
   flex: 1;
   width: 100%;
-  max-width: 1100px;
+  max-width: 1040px;
   margin: 0 auto;
-  padding: 0.65rem 1.35rem 3rem;
+  padding: 1rem 1.35rem 3rem;
 }
 
 .pickerHead {
-  margin-bottom: 1.5rem;
-  text-align: center;
-  max-width: 640px;
-  margin-left: auto;
-  margin-right: auto;
+  margin-bottom: 1.25rem;
 }
 
 .pickerBack {
   appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
   background: none;
   border: none;
   cursor: pointer;
-  font-size: 0.88rem;
+  font: inherit;
+  font-size: 0.86rem;
   font-weight: 600;
-  color: var(--mm-accent);
-  padding: 0.3rem 0;
-  margin-bottom: 0.75rem;
-  display: block;
-  text-align: left;
+  color: var(--mm-primary);
+  padding: 0.3rem 0.45rem;
+  margin: 0 0 0.6rem -0.45rem;
+  border-radius: var(--mm-radius-sm);
 }
 
 .pickerBack:hover {
-  opacity: 0.75;
+  background: var(--mm-primary-faint);
 }
 
 .pickerTitle {
-  margin: 0 0 0.5rem;
-  font-size: clamp(1.35rem, 3vw, 1.65rem);
-  font-weight: 750;
+  margin: 0 0 0.3rem;
+  font-size: clamp(1.3rem, 3vw, 1.55rem);
+  font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--mm-text);
 }
 
-.pickerBottomBar {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-  margin-top: 0.25rem;
-  justify-items: stretch;
-}
-
-@media (max-width: 720px) {
-  .pickerBottomBar {
-    grid-template-columns: 1fr;
-  }
-}
-
-.pickerBottomBtn {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.pickerCta {
-  text-decoration: none;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.65rem 1.15rem;
-  font-weight: 700;
-}
-
-.pickerCtaSecondary {
-  text-decoration: none;
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  padding: 0.65rem 1.15rem;
-  font-weight: 700;
-  border: 2px solid var(--mm-accent);
-  background: transparent;
-  color: var(--mm-accent);
-  border-radius: var(--mm-radius-sm);
-}
-
-.pickerCtaLead {
-  font-weight: 700;
-  opacity: 0.85;
-}
-
-.pickerCancelBtn {
-  font-weight: 600;
-  border: 1px solid var(--mm-border));
-  background: var(--mm-card);
-  color: var(--mm-text);
-}
-
-.pickerCancelBtn:hover:not(:disabled) {
-  border-color: var(--mm-accent);
-  background: var(--mm-primary-faint));
-}
-
-.pickerCtaSecondary:hover {
-  background: var(--mm-primary-faint));
+.pickerSub {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--mm-text-secondary);
 }
 
 .pickerMuted {
-  text-align: center;
   color: var(--mm-muted);
   font-size: 0.9rem;
   margin: 0 0 1rem;
@@ -141,101 +82,176 @@
 
 .pickerGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 1.1rem;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.9rem;
   margin-bottom: 2rem;
 }
 
 .pickerCard {
   display: flex;
   flex-direction: column;
-  padding: 1.2rem 1.15rem;
-  border-radius: 14px;
-  border: 1px solid var(--mm-border));
+  gap: 0.9rem;
+  padding: 1rem;
+  border-radius: var(--mm-radius);
+  border: 1px solid var(--mm-border);
   background: var(--mm-card);
-  box-shadow: var(--mm-shadow));
-  transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
+  box-shadow: var(--mm-shadow);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.pickerCard:hover {
+  border-color: var(--mm-primary-soft);
 }
 
 .pickerCardActive {
-  border-color: var(--mm-accent);
-  box-shadow: 0 0 0 1px var(--mm-accent), var(--mm-shadow));
+  border-color: var(--mm-primary);
+  box-shadow: 0 0 0 1px var(--mm-primary), var(--mm-shadow);
 }
 
 .pickerCardHead {
   flex: 1;
-  margin-bottom: 1rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.75rem;
+}
+
+.pickerAvatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+.pickerAvatar0 { background: var(--mm-accent-alt-bg); color: var(--mm-accent-alt); }
+.pickerAvatar1 { background: var(--mm-primary-soft); color: var(--mm-primary-hover); }
+.pickerAvatar2 { background: var(--mm-warning-bg); color: var(--mm-warning); }
+.pickerAvatar3 { background: color-mix(in srgb, var(--mm-danger) 12%, transparent); color: var(--mm-danger); }
+.pickerAvatarPessoal { background: var(--mm-bg); color: var(--mm-text-secondary); border: 1px solid var(--mm-border); }
+
+.pickerCardInfo {
+  flex: 1;
+  min-width: 0;
 }
 
 .pickerCardTitle {
-  margin: 0 0 0.35rem;
-  font-size: 1.08rem;
+  margin: 0 0 0.15rem;
+  font-size: 1.02rem;
   font-weight: 700;
-  line-height: 1.35;
+  line-height: 1.3;
   color: var(--mm-text);
-}
-
-.pickerCardTitleIcon {
-  margin-right: 0.15rem;
-}
-
-.pickerCardTitleName {
-  font-weight: 700;
-}
-
-.pickerCardTitleSuffix {
-  font-weight: 400;
-  font-size: 0.92em;
-  color: var(--mm-muted);
+  overflow-wrap: anywhere;
 }
 
 .pickerCardDesc {
   margin: 0;
-  font-size: 0.86rem;
-  line-height: 1.45;
+  font-size: 0.84rem;
+  line-height: 1.4;
   color: var(--mm-muted);
 }
 
 .pickerOwnerHint {
-  margin: 0.45rem 0 0;
-  font-size: 0.8rem;
-  line-height: 1.35;
+  margin: 0.3rem 0 0;
+  font-size: 0.78rem;
   color: var(--mm-muted);
-  font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
-.pickerIdHint {
-  margin: 0.35rem 0 0;
+.pickerAtual {
+  flex-shrink: 0;
+  padding: 0.12rem 0.5rem;
+  border-radius: 999px;
+  background: var(--mm-primary-faint);
+  color: var(--mm-primary);
   font-size: 0.72rem;
-  line-height: 1.3;
-  color: var(--mm-muted);
-  opacity: 0.85;
+  font-weight: 700;
 }
 
 .pickerCardActions {
   display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--mm-border);
 }
 
-.pickerCardBtn {
-  width: 100%;
-  justify-content: center;
+.pickerRole {
+  padding: 0.12rem 0.5rem;
+  border-radius: 6px;
+  background: var(--mm-bg);
+  border: 1px solid var(--mm-border);
+  color: var(--mm-text-secondary);
+  font-size: 0.74rem;
+  font-weight: 700;
 }
 
-.pickerOwnerLink {
-  width: 100%;
-  justify-content: center;
-  text-decoration: none;
-  text-align: center;
-  border: 1px solid var(--mm-border));
+.pickerAdminLink {
+  font-size: 0.84rem;
   font-weight: 600;
+  color: var(--mm-primary);
+  text-decoration: none;
 }
 
-.pickerOwnerLink:hover {
-  border-color: var(--mm-accent);
+.pickerAdminLink:hover {
+  text-decoration: underline;
+}
+
+.pickerCardActions .pickerCardBtn {
+  margin-left: auto;
+  padding: 0.38rem 1.1rem;
+  min-height: 0;
+  font-size: 0.88rem;
+}
+
+.pickerNovo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 130px;
+  padding: 1rem;
+  border: 1.5px dashed var(--mm-border-muted);
+  border-radius: var(--mm-radius);
+  text-align: center;
+}
+
+.pickerNovoLink {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-weight: 700;
+  color: var(--mm-primary);
+  text-decoration: none;
+  padding: 0.3rem 0.5rem;
+  border-radius: var(--mm-radius-sm);
+}
+
+.pickerNovoLink:hover {
+  background: var(--mm-primary-faint);
+}
+
+.pickerNovoSub {
+  font-size: 0.82rem;
+  color: var(--mm-text-secondary);
+}
+
+.pickerNovoSub:hover {
+  color: var(--mm-primary);
+}
+
+@media (max-width: 640px) {
+  .pickerMain {
+    padding: 0.75rem 0.75rem 2rem;
+  }
+
+  .pickerGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* --- Abas (ficam no cabeçalho; no celular, no rodapé) --- */

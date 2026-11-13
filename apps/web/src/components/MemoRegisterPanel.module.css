@@ -607,3 +607,61 @@
     opacity: 1;
   }
 }
+
+/* ── Novo visual: área de arrastar à esquerda, jeitos de capturar à direita ── */
+.panelHead { text-align: left; margin-bottom: 0.85rem; }
+.title { text-align: left; font-size: 1.1rem; margin: 0; }
+
+.captura {
+  display: grid;
+  grid-template-columns: minmax(240px, 0.9fr) minmax(0, 1.4fr);
+  gap: 1rem;
+  align-items: stretch;
+}
+
+.dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  border-width: 1.5px;
+  border-color: var(--mm-primary-soft);
+  background: var(--mm-primary-faint);
+  padding: 1.25rem 1rem;
+}
+
+.dropIcon { color: var(--mm-primary); margin-bottom: 0.25rem; }
+.dropzone .dropzoneTitle { margin: 0; font-size: 0.98rem; }
+.dropzoneSub { margin: 0; font-size: 0.8rem; color: var(--mm-text-secondary); }
+.dropzone .dropBtn { margin-top: 0.7rem; }
+
+.captura .metodos {
+  margin-top: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.metodos .metodo {
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.65rem;
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-radius: 10px;
+}
+
+.metodos .metodo:hover:not(:disabled) { box-shadow: none; border-color: var(--mm-primary); }
+
+.metodoIcon { color: var(--mm-primary); flex-shrink: 0; }
+
+.metodoTexto { display: grid; min-width: 0; line-height: 1.25; }
+.metodoTexto b { font-size: 0.86rem; font-weight: 700; color: var(--mm-text); }
+.metodoTexto small { font-size: 0.74rem; font-weight: 500; color: var(--mm-muted); }
+
+
+@media (max-width: 760px) {
+  .captura { grid-template-columns: 1fr; gap: 0.75rem; }
+  .dropzone { padding: 1rem; }
+}
