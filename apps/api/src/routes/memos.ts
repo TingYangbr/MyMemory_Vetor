@@ -81,6 +81,7 @@ const patchMemoBody = z
     dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
     matchedCategoryId: z.number().int().positive().nullable().optional(),
     category: z.string().max(255).nullable().optional(),
+    tituloCurto: z.string().max(80).nullable().optional(),
     apiCostAdicional: z.number().min(0).max(100).optional(),
   })
   .refine(
@@ -88,8 +89,9 @@ const patchMemoBody = z
       o.mediaText !== undefined ||
       o.keywords !== undefined ||
       o.dadosEspecificosJson !== undefined ||
-      o.category !== undefined,
-    { message: "Informe ao menos um campo: mediaText, keywords, dadosEspecificosJson ou category." }
+      o.category !== undefined ||
+      o.tituloCurto !== undefined,
+    { message: "Informe ao menos um campo: mediaText, keywords, dadosEspecificosJson, category ou tituloCurto." }
   );
 
 const userIaTextoEnum = z.enum(["semIA", "basico", "completo"]);
@@ -1425,6 +1427,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
         category: parsed.data.category,
+        tituloCurto: parsed.data.tituloCurto,
         apiCostAdicional: parsed.data.apiCostAdicional,
       });
       await donoAoSalvar(memo.id);

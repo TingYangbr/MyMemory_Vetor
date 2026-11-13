@@ -2085,3 +2085,46 @@
   .cardPerguntaExtra { padding-left: 0; }
   .cardResposta { padding: 0.85rem 0.8rem; }
 }
+
+/* Etapa 2: perguntas salvas fixadas (atalhos embaixo da caixa) */
+.fixadasRow {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px dashed var(--mm-border);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.fixadasRow::-webkit-scrollbar { display: none; }
+.fixadasLbl {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--mm-muted);
+}
+.fixadaChip {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  max-width: 280px;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--mm-border);
+  background: var(--mm-card);
+  font: inherit;
+  font-size: 0.8rem;
+  color: var(--mm-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.fixadaChip:hover { border-color: var(--mm-primary); color: var(--mm-primary); background: var(--mm-primary-faint); }
+.modeloItemPinOn { color: var(--mm-primary) !important; }
+.modeloItemPinOn svg { fill: currentColor; }

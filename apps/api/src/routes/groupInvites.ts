@@ -18,6 +18,8 @@ import {
   getGroupOwnerPanelData,
   updateGroupOwnerSettings,
 } from "../services/groupInviteService.js";
+import { assertUserCanAccessGroup } from "../services/memoContextService.js";
+import { contarSemTitulo, gerarTitulosDoGrupo } from "../services/tituloCurtoService.js";
 
 const groupIdParam = z.coerce.number().int().positive();
 
@@ -133,6 +135,41 @@ const plugin: FastifyPluginAsync = async (app) => {
         temConta: result.temConta,
       };
       return reply.code(201).send(resBody);
+    } catch (e) {
+      if (mapServiceError(reply, e)) return;
+      throw e;
+    }
+  });
+
+  /** Títulos curtos: quantos memos do grupo ainda estão sem título (dono ou admin). */
+  app.get("/api/groups/:groupId/titulos-curtos", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const isAdmin = await getUserIsAdmin(userId);
+    const gid = groupIdParam.safeParse((req.params as { groupId: string }).groupId);
+    if (!gid.success) return reply.code(400).send({ error: "invalid_group", message: "Grupo inválido." });
+    try {
+      await assertUserCanAccessGroup(userId, gid.data, isAdmin);
+      return { ok: true, semTitulo: await contarSemTitulo(gid.data) };
+    } catch (e) {
+      if (mapServiceError(reply, e)) return;
+      throw e;
+    }
+  });
+
+  /** Títulos curtos: gera por IA para um lote de memos antigos do grupo (gasta créditos). */
+  app.post("/api/groups/:groupId/titulos-curtos/gerar", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const isAdmin = await getUserIsAdmin(userId);
+    const gid = groupIdParam.safeParse((req.params as { groupId: string }).groupId);
+    if (!gid.success) return reply.code(400).send({ error: "invalid_group", message: "Grupo inválido." });
+    const body = z.object({ limite: z.coerce.number().int().min(1).max(200).default(50) }).safeParse(req.body ?? {});
+    if (!body.success) return reply.code(400).send({ error: "invalid_body", message: "Limite inválido (1 a 200)." });
+    try {
+      await assertUserCanAccessGroup(userId, gid.data, isAdmin);
+      const r = await gerarTitulosDoGrupo(gid.data, body.data.limite);
+      return { ok: true, ...r };
     } catch (e) {
       if (mapServiceError(reply, e)) return;
       throw e;

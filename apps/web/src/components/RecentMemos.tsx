@@ -6,6 +6,7 @@ import { parseKeywordList, parseMemoDadosEspecificosEntries } from "../memo/memo
 import { MemoDadosEspecificosDisplay } from "../memo/MemoDadosEspecificosDisplay";
 import { MemoCardMediaMini } from "../memo/MemoCardMediaMini";
 import { MemoCardPrimaryRow } from "../memo/MemoCardPrimaryRow";
+import { MemoTituloCategoria } from "../memo/MemoTituloCategoria";
 import { MemoFilePreviewModal } from "./MemoFilePreviewModal";
 import { MemoResultListRow } from "./MemoResultListRow";
 import styles from "./RecentMemos.module.css";
@@ -112,6 +113,9 @@ function normalizeRecentItem(raw: Record<string, unknown>): MemoRecentCard | nul
     usedApiCred: Number.isFinite(usedApiCred) ? usedApiCred : 0,
     iaUseLevel: typeof raw.iaUseLevel === "string" ? raw.iaUseLevel : null,
     hasSemanticChunks: Boolean(raw.hasSemanticChunks),
+    category: typeof raw.category === "string" ? raw.category : null,
+    tituloCurto: typeof raw.tituloCurto === "string" ? raw.tituloCurto : null,
+    authorName: typeof raw.authorName === "string" ? raw.authorName : null,
   };
 }
 
@@ -280,6 +284,7 @@ export default function RecentMemos({
             </div>
           ) : null}
         </header>
+        <MemoTituloCategoria m={m} />
 
         {(m.iaUseLevel || m.hasSemanticChunks) ? (
           <div className={styles.metaBadges}>

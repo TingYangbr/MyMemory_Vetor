@@ -20,7 +20,7 @@ import type { MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
-import { IconBell, IconChat, IconChatPlus, IconInfo, IconMic, IconRefresh, IconSend, IconStar, IconStop, IconVolume, IconX } from "../components/icons";
+import { IconBell, IconChat, IconChatPlus, IconInfo, IconMic, IconPin, IconRefresh, IconSend, IconStar, IconStop, IconVolume, IconX } from "../components/icons";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
@@ -1018,6 +1018,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }).catch(() => setReady(true));
   }, [navigate]);
 
+  // Perguntas salvas fixadas como atalho (por usuário, no espaço atual)
+  const [fixadas, setFixadas] = useState<PerguntaModelo[]>([]);
+  useEffect(() => {
+    if (!me) return;
+    const gid = workspaceGroupId != null ? `?workspaceGroupId=${workspaceGroupId}` : "";
+    apiGet<{ modelos: PerguntaModelo[] }>(`/api/pergunta-modelos${gid}`)
+      .then((d) => setFixadas(d.modelos.filter((m) => m.fixada)))
+      .catch(() => setFixadas([]));
+  }, [me, workspaceGroupId]);
+
   useEffect(() => {
     if (!isGroup) return;
     apiGetOptional<{ authors: SearchAuthorOption[] }>("/api/memos/search-authors?groupId=" + workspaceGroupId)
@@ -1653,6 +1663,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }
   }
 
+  async function alternarFixada(m: PerguntaModelo) {
+    const fixada = !m.fixada;
+    try {
+      await apiPostJson(`/api/pergunta-modelos/${m.id}/fixar`, { fixada });
+      const atualizado = { ...m, fixada };
+      setModelos((prev) => prev.map((x) => (x.id === m.id ? atualizado : x)));
+      setFixadas((prev) => (fixada ? [...prev.filter((x) => x.id !== m.id), atualizado] : prev.filter((x) => x.id !== m.id)));
+    } catch { /* silencia: o ícone só não muda */ }
+  }
+
   function selecionarModelo(m: PerguntaModelo) {
     setPergunta(m.pergunta);
     setChipValores({});
@@ -2056,6 +2076,23 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               </button>
             ) : null}
           </div>
+          {fixadas.length > 0 && !busy && micState === "idle" && !modeloAtivo ? (
+            <div className={styles.fixadasRow} aria-label="Perguntas fixadas">
+              <span className={styles.fixadasLbl}><IconPin size={13} /> Fixadas</span>
+              {fixadas.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  className={styles.fixadaChip}
+                  title={m.pergunta}
+                  onClick={() => { guardarUltimoModelo(m.id); selecionarModelo(m); }}
+                >
+                  {m.plano ? <span aria-hidden>⚡</span> : null}
+                  {m.pergunta.length > 48 ? `${m.pergunta.slice(0, 46)}…` : m.pergunta}
+                </button>
+              ))}
+            </div>
+          ) : null}
           {embedded && showFilters && (
             <div className={styles.filterPopover}>
               {isGroup ? (
@@ -2719,6 +2756,14 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                             ) : null}
                             <span className={styles.modeloItemText}>{m.plano ? <span title="Com plano salvo: troque os valores e reexecute direto">⚡ </span> : null}{m.pergunta}</span>
                           </button>
+                          <button
+                            type="button"
+                            className={`${styles.modeloItemEditBtn} ${m.fixada ? styles.modeloItemPinOn : ""}`}
+                            title={m.fixada ? "Desafixar do Perguntar" : "Fixar no Perguntar (atalho embaixo da caixa)"}
+                            aria-label={m.fixada ? "Desafixar pergunta" : "Fixar pergunta"}
+                            aria-pressed={Boolean(m.fixada)}
+                            onClick={(e) => { e.stopPropagation(); void alternarFixada(m); }}
+                          ><IconPin size={14} /></button>
                           <button
                             type="button"
                             className={styles.modeloItemEditBtn}

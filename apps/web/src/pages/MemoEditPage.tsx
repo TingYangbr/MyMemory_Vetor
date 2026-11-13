@@ -89,6 +89,9 @@ export default function MemoEditPage() {
   const [showApiCost, setShowApiCost] = useState(true);
   const [credMult, setCredMult] = useState(100);
   const [showStorageModal, setShowStorageModal] = useState(false);
+  /** Título curto (IA); só é enviado ao salvar se o usuário o alterou. */
+  const [tituloCurto, setTituloCurto] = useState("");
+  const [tituloCurtoOriginal, setTituloCurtoOriginal] = useState("");
 
   const loadMemo = useCallback(() => {
     if (!validId) {
@@ -103,6 +106,8 @@ export default function MemoEditPage() {
         setKeywords(dedupeMemoKeywordsCommaSeparated(m.keywords ?? ""));
         setDadosEspecificosJson(m.dadosEspecificosJson ?? "");
         setSelectedCategoryName(m.category ?? null);
+        setTituloCurto(m.tituloCurto ?? "");
+        setTituloCurtoOriginal(m.tituloCurto ?? "");
         setSelectedCategoryId(null);
         setCatCamposId(null);
         setOriginaisJson(null);
@@ -172,6 +177,7 @@ export default function MemoEditPage() {
         ...(custoReextr > 0 ? { apiCostAdicional: custoReextr } : {}),
         ...(selectedCategoryId != null ? { matchedCategoryId: selectedCategoryId } : {}),
         category: selectedCategoryName,
+        ...(tituloCurto.trim() !== tituloCurtoOriginal.trim() ? { tituloCurto: tituloCurto.trim() } : {}),
       });
       leaveMemoEdit(navigate, cancelTo, true);
     } catch (e) {
@@ -344,6 +350,23 @@ export default function MemoEditPage() {
             onOcupado={setBusy}
           />
           </span>
+        </label>
+
+        <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-titulo">
+          Título curto
+          <span className={styles.hint}>
+            Até 5 palavras, aparece ao lado da categoria no Buscar e no Catalogar. A IA sugere sozinha; você pode trocar.
+          </span>
+          <input
+            id="memo-edit-titulo"
+            className={styles.keywordsInput}
+            type="text"
+            maxLength={80}
+            value={tituloCurto}
+            onChange={(e) => setTituloCurto(e.target.value)}
+            placeholder={tituloCurtoOriginal ? "" : "a IA vai sugerir em alguns minutos"}
+            autoComplete="off"
+          />
         </label>
 
         <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-dados">

@@ -331,6 +331,12 @@ export interface MemoRecentCard {
   iaUseLevel?: string | null;
   /** Indica se o memo tem chunks semânticos gravados em memo_chunks. */
   hasSemanticChunks?: boolean;
+  /** Categoria do memo (`memos.category`). */
+  category?: string | null;
+  /** Título curto gerado por IA (até 5 palavras), editável. */
+  tituloCurto?: string | null;
+  /** Nome de quem catalogou o memo. */
+  authorName?: string | null;
 }
 
 /** Termo normalizado (minúsculas) para realce na UI; `bucket` distingue ramo OR (0 = primeiro, …). */
@@ -379,6 +385,8 @@ export interface MemoAuthorEditResponse {
   mediaFileUrl: string | null;
   /** Categoria gravada na coluna memos.category. */
   category?: string | null;
+  /** Título curto (IA, até 5 palavras), editável. */
+  tituloCurto?: string | null;
   /** Provedor de storage onde o arquivo está armazenado (S3, WEBDAV, LOCAL, etc.). */
   storageProvider?: string | null;
   /** URL ou caminho externo do arquivo original. */
@@ -1262,6 +1270,8 @@ export interface PerguntaModelo {
   estrelas: number | null;
   /** Plano salvo (classificação + queries + parâmetros); null = pergunta salva só com texto */
   plano?: PerguntaPlanoSalvo | null;
+  /** Fixada pelo usuário atual como atalho no Perguntar. */
+  fixada?: boolean;
   createdAt: string;
   updatedAt: string;
 }

@@ -280,3 +280,9 @@ export const IconDownload = (p: IconProps) => (
     <path d="M12 4v12M7 11l5 5 5-5M5 20h14" />
   </Svg>
 );
+
+export const IconPin = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 17v5M9 3h6l-1 6 3 3v2H7v-2l3-3-1-6z" />
+  </Svg>
+);

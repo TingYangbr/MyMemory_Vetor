@@ -1,0 +1,54 @@
+/* Categoria (chip) + título curto do memo — Buscar e Catalogar */
+.linha {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.cat {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  max-width: 45%;
+  padding: 0.08rem 0.45rem;
+  border-radius: 5px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+html[data-theme="dark"] .cat {
+  background: #262a4f;
+  color: #c7cdfd;
+}
+
+.titulo {
+  min-width: 0;
+  font-weight: 700;
+  color: var(--mm-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.autor {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mm-muted);
+  white-space: nowrap;
+}
+
+.cardLinha {
+  margin: 0.15rem 0 0.35rem;
+  font-size: 0.95rem;
+}
+
+.cardLinha { flex-wrap: wrap; row-gap: 0.15rem; }
+.cardLinha .titulo { white-space: normal; }
+

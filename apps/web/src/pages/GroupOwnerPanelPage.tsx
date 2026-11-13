@@ -85,6 +85,11 @@ export default function GroupOwnerPanelPage() {
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsOk, setSettingsOk] = useState<string | null>(null);
+  // Títulos curtos (IA) dos memos antigos do grupo
+  const [semTitulo, setSemTitulo] = useState<number | null>(null);
+  const [titulosBusy, setTitulosBusy] = useState(false);
+  const [titulosMsg, setTitulosMsg] = useState<string | null>(null);
+  const [titulosErr, setTitulosErr] = useState<string | null>(null);
 
   // ── Aba Consulta ─────────────────────────────────────────────────────────
   const [consultaCatGroupId, setConsultaCatGroupId] = useState<number | null>(null);
@@ -379,6 +384,37 @@ export default function GroupOwnerPanelPage() {
 
   const ownerLabel = me?.name ?? me?.email ?? null;
 
+  useEffect(() => {
+    if (groupId == null || activeTab !== "settings") return;
+    apiGet<{ semTitulo: number }>(`/api/groups/${groupId}/titulos-curtos`)
+      .then((r) => setSemTitulo(r.semTitulo))
+      .catch(() => setSemTitulo(null));
+  }, [groupId, activeTab]);
+
+  const onGerarTitulos = async () => {
+    if (groupId == null) return;
+    setTitulosBusy(true);
+    setTitulosErr(null);
+    setTitulosMsg(null);
+    try {
+      const r = await apiPostJson<{ gerados: number; vazios: number; erros: number; restantes: number }>(
+        `/api/groups/${groupId}/titulos-curtos/gerar`,
+        { limite: 50 }
+      );
+      setSemTitulo(r.restantes);
+      setTitulosMsg(
+        `${r.gerados} título(s) criado(s)` +
+          (r.vazios ? `, ${r.vazios} memo(s) sem texto ou sem IA` : "") +
+          (r.erros ? `, ${r.erros} com erro (tente de novo)` : "") +
+          `. Faltam ${r.restantes}.`
+      );
+    } catch (e) {
+      setTitulosErr(e instanceof Error ? e.message : "Falha ao gerar títulos.");
+    } finally {
+      setTitulosBusy(false);
+    }
+  };
+
   if (groupId == null) {
     return (
       <>
@@ -534,6 +570,30 @@ export default function GroupOwnerPanelPage() {
                       onClick={() => void onSaveSettings()}
                     >
                       {settingsBusy ? "Salvando…" : "Salvar configurações"}
+                    </button>
+                  </div>
+                </div>
+                <div className={styles.card}>
+                  <h2 className={styles.cardTitle}>Títulos curtos dos memos</h2>
+                  <p className={styles.toggleHint}>
+                    A IA cria um título de até 5 palavras para cada memo novo, que aparece ao lado da categoria no
+                    Buscar e no Catalogar. Para os memos antigos, gere aqui em lotes de 50 (usa créditos de IA).
+                  </p>
+                  {semTitulo != null ? (
+                    <p className={styles.toggleHint}>
+                      {semTitulo === 0 ? "Todos os memos deste grupo já têm título." : `${semTitulo} memo(s) ainda sem título.`}
+                    </p>
+                  ) : null}
+                  {titulosErr ? <p className={styles.error} role="alert">{titulosErr}</p> : null}
+                  {titulosMsg ? <p className={styles.success} role="status">{titulosMsg}</p> : null}
+                  <div className={styles.actions}>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--primary"
+                      disabled={titulosBusy || semTitulo === 0}
+                      onClick={() => void onGerarTitulos()}
+                    >
+                      {titulosBusy ? "Gerando… (pode levar 1 minuto)" : "Gerar títulos (até 50 memos)"}
                     </button>
                   </div>
                 </div>
