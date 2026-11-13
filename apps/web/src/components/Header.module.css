@@ -412,3 +412,10 @@ html[data-theme="dark"] .menuAvatar {
     padding-bottom: calc(76px + env(safe-area-inset-bottom, 0px));
   }
 }
+
+/* Celular: digitando na aba Perguntar, a barra de abas some para a caixa de pergunta subir junto com o teclado */
+@media (max-width: 760px) {
+  :global(body.mm-typing) .center {
+    display: none;
+  }
+}

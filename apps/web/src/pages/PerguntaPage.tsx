@@ -19,6 +19,7 @@ import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from
 import type { MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
+import { IconBell, IconBookmark, IconChat, IconInfo, IconMic, IconRefresh, IconSend, IconStar, IconStop, IconVolume, IconX } from "../components/icons";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
@@ -84,6 +85,37 @@ function normalizeTtsText(text: string): string {
     .trim();
 }
 
+/** Resposta longa: mais de ~6 linhas na tela recolhe com "Ler mais". */
+function textoLongo(texto: string): boolean {
+  return texto.length > 520 || texto.split("\n").length > 7;
+}
+
+/** Medidor de confiança: arco pequeno + porcentagem (verde ≥ 70, amarelo ≥ 40, vermelho abaixo). */
+function MedidorConfianca({ valor, titulo }: { valor: number | null; titulo: string }) {
+  const pct = valor == null ? null : Math.max(0, Math.min(100, Math.round(valor * 100)));
+  const nivel = pct == null ? "vazio" : pct >= 70 ? "alto" : pct >= 40 ? "medio" : "baixo";
+  // Arco de 180° com raio 8: comprimento ≈ 25,13
+  const comprimento = 25.13;
+  return (
+    <span className={`${styles.medidor} ${styles[`medidor_${nivel}`]}`} title={titulo} aria-label={titulo}>
+      <svg width="24" height="15" viewBox="0 0 24 15" aria-hidden>
+        <path d="M4 12a8 8 0 0 1 16 0" fill="none" stroke="currentColor" strokeOpacity="0.2" strokeWidth="3" strokeLinecap="round" />
+        {pct != null && pct > 0 ? (
+          <path
+            d="M4 12a8 8 0 0 1 16 0"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="3"
+            strokeLinecap="round"
+            strokeDasharray={`${(comprimento * pct) / 100} ${comprimento}`}
+          />
+        ) : null}
+      </svg>
+      <span className={styles.medidorValor}>{pct == null ? "—" : `${pct}%`}</span>
+    </span>
+  );
+}
+
 function IconTrace({ className }: { className?: string }) {
   return (
     <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
@@ -93,44 +125,12 @@ function IconTrace({ className }: { className?: string }) {
   );
 }
 
-function IconSpeaker({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <path d="M11 5L6 9H2v6h4l5 4V5z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M15.54 8.46a5 5 0 0 1 0 7.07" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M19.07 4.93a10 10 0 0 1 0 14.14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
-function IconLightbulb({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M9 18h6"/>
-      <path d="M10 22h4"/>
-      <path d="M12 2a7 7 0 0 1 7 7c0 2.386-1.308 4.482-3 5.773V17H8v-2.227C6.308 13.482 5 11.386 5 9a7 7 0 0 1 7-7z"/>
-    </svg>
-  );
-}
-
-
 function IconPdf({ className }: { className?: string }) {
   return (
     <svg className={className} width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
       <polyline points="14 2 14 8 20 8" />
       <text x="12" y="17.5" textAnchor="middle" fontSize="6.5" fontWeight="700" fill="currentColor" stroke="none">PDF</text>
-    </svg>
-  );
-}
-
-function IconRepoIn({ className }: { className?: string }) {
-  return (
-    <svg className={className} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <ellipse cx="12" cy="15" rx="8" ry="2.5"/>
-      <path d="M4 15v4c0 1.38 3.58 2.5 8 2.5s8-1.12 8-2.5v-4"/>
-      <line x1="12" y1="3" x2="12" y2="12"/>
-      <polyline points="8 8 12 12 16 8"/>
     </svg>
   );
 }
@@ -230,7 +230,8 @@ function formatDateCell(val: string): string | null {
   return Number.isNaN(d.getTime()) ? `${dia}/${mesNum}/${ano}` : d.toLocaleDateString("pt-BR");
 }
 
-const CHART_BAR_COLORS = ["#2563eb", "#f97316", "#16a34a", "#dc2626", "#7c3aed"];
+/** 1ª série na cor da marca; as demais bem distintas entre si. */
+const CHART_BAR_COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#e11d48", "#0ea5e9"];
 const CHART_MAX_BARRAS = 25;
 /** Máximo de barras (séries) por item do eixo X. */
 const CHART_MAX_SERIES = 3;
@@ -309,6 +310,23 @@ function isNumericCellValue(v: unknown): boolean {
 interface DadosGrafico {
   valueCols: string[];
   rows: Array<Record<string, string | number>>;
+  /** Rótulos são datas, meses ou anos: barras em pé (linha do tempo). Senão, barras deitadas (ranking). */
+  temporal: boolean;
+}
+
+const MESES_RE = /^(jan(eiro)?|fev(ereiro)?|mar(co)?|abr(il)?|mai(o)?|jun(ho)?|jul(ho)?|ago(sto)?|set(embro)?|out(ubro)?|nov(embro)?|dez(embro)?)\.?(\s*(\/|de)?\s*\d{2,4})?$/i;
+
+/** Rótulo de tempo: ano (2026), mês/ano (03/2026, 2026-03), data, nome de mês ou trimestre. */
+function isRotuloTemporal(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return false;
+  if (formatDateCell(t)) return true;
+  return /^\d{4}$/.test(t)
+    || /^\d{1,2}[/-]\d{4}$/.test(t)
+    || /^\d{4}[/-]\d{1,2}$/.test(t)
+    || /^[1-4]\s*[ºo°]?\s*(t|tri|trim|trimestre)\b/i.test(t)
+    || /^[tq][1-4]\b/i.test(t)
+    || MESES_RE.test(semAcento(t));
 }
 
 /**
@@ -351,20 +369,50 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     }
     return row;
   });
-  return { valueCols, rows };
+  const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
+  return { valueCols, rows, temporal };
 }
 
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
+  const formatoValor = (value: unknown) =>
+    Number(value ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const compacto = (v: number) => v.toLocaleString("pt-BR", { notation: "compact" });
+  const legenda = dados.valueCols.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null;
+  const grade = <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-border, #e2e8f0)" />;
+  const tooltip = <Tooltip formatter={formatoValor} cursor={{ fill: "var(--mm-primary-faint, #eef8f7)" }} />;
+
+  if (dados.temporal) {
+    return (
+      <ResponsiveContainer width="100%" height={280}>
+        <BarChart data={dados.rows} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
+          {grade}
+          <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
+          <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={compacto} />
+          {tooltip}
+          {legenda}
+          {dados.valueCols.map((col, idx) => (
+            <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[3, 3, 0, 0]} />
+          ))}
+        </BarChart>
+      </ResponsiveContainer>
+    );
+  }
+
+  // Ranking / nomes longos: barras deitadas, rótulo inteiro à esquerda (até ~24 caracteres)
+  const maxRotulo = Math.max(...dados.rows.map((r) => String(r.label).length));
+  const larguraRotulo = Math.min(180, Math.max(60, Math.min(maxRotulo, 26) * 7.2 + 12));
+  const corta = (v: string) => (v.length > 26 ? v.slice(0, 25) + "…" : v);
+  const altura = Math.max(160, dados.rows.length * (dados.valueCols.length > 1 ? 34 : 26) + 50);
   return (
-    <ResponsiveContainer width="100%" height={280}>
-      <BarChart data={dados.rows} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-border, #e2e8f0)" />
-        <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
-        <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={(v: number) => v.toLocaleString("pt-BR", { notation: "compact" })} />
-        <Tooltip formatter={(value) => Number(value ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} />
-        {dados.valueCols.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null}
+    <ResponsiveContainer width="100%" height={altura}>
+      <BarChart data={dados.rows} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 4 }} barCategoryGap="22%">
+        {grade}
+        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={compacto} />
+        <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={larguraRotulo} interval={0} tickFormatter={corta} />
+        {tooltip}
+        {legenda}
         {dados.valueCols.map((col, idx) => (
-          <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[3, 3, 0, 0]} />
+          <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[0, 3, 3, 0]} />
         ))}
       </BarChart>
     </ResponsiveContainer>
@@ -911,6 +959,39 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     el.style.height = Math.min(el.scrollHeight, 160) + "px";
   }, [pergunta]);
 
+  // Celular (aba embutida): caixa de pergunta presa embaixo, acima do teclado. O teclado virtual não
+  // encolhe a página no iOS/Android, então a altura dele vem do visualViewport (--mm-teclado).
+  useEffect(() => {
+    if (!embedded || typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const raiz = document.documentElement;
+    const atualizar = () => {
+      const teclado = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      raiz.style.setProperty("--mm-teclado", `${Math.round(teclado)}px`);
+    };
+    vv.addEventListener("resize", atualizar);
+    vv.addEventListener("scroll", atualizar);
+    atualizar();
+    return () => {
+      vv.removeEventListener("resize", atualizar);
+      vv.removeEventListener("scroll", atualizar);
+      raiz.style.removeProperty("--mm-teclado");
+      document.body.classList.remove("mm-typing");
+    };
+  }, [embedded]);
+
+  // Celular: resposta nova aparece logo acima da caixa de pergunta; rola até o início dela
+  const respostaMaisNova = respostas[0];
+  useEffect(() => {
+    if (!embedded || !respostaMaisNova || !window.matchMedia("(max-width: 760px)").matches) return;
+    const el = document.querySelector("[data-resposta-nova]");
+    el?.scrollIntoView({ block: "start", behavior: "smooth" });
+  }, [embedded, respostaMaisNova]);
+  useEffect(() => {
+    if (!embedded || !pendingQuestion || !window.matchMedia("(max-width: 760px)").matches) return;
+    window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" });
+  }, [embedded, pendingQuestion]);
+
   // Para a narração ao sair da página
   useEffect(() => {
     return () => {
@@ -1429,6 +1510,22 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
   const [pdfGerandoIdx, setPdfGerandoIdx] = useState<number | null>(null);
 
+  // Estado por resposta (pela identidade do objeto: o índice muda quando chega resposta nova)
+  const [expandidos, setExpandidos] = useState<Set<object>>(() => new Set());
+  const [detalhesAbertos, setDetalhesAbertos] = useState<Set<object>>(() => new Set());
+  function alternarNoSet(set: Set<object>, item: object): Set<object> {
+    const novo = new Set(set);
+    if (novo.has(item)) novo.delete(item); else novo.add(item);
+    return novo;
+  }
+  function alternarExpandido(r: object) { setExpandidos((prev) => alternarNoSet(prev, r)); }
+  function alternarDetalhes(r: object) { setDetalhesAbertos((prev) => alternarNoSet(prev, r)); }
+  /** Há algo para "Detalhes técnicos" conforme as configurações do usuário (custo, tempos, trace). */
+  function temDetalhes(r: (typeof respostas)[number]): boolean {
+    return (me?.showApiCost !== false && r.apiCost > 0)
+      || Boolean(me?.showLlmTrace && ((r.timings?.length ?? 0) > 0 || (r.llmTrace?.length ?? 0) > 0));
+  }
+
   /** PDF da resposta: texto, gráficos capturados da tela e tabelas com todos os registros. */
   async function baixarPdf(r: (typeof respostas)[number], i: number) {
     setPdfGerandoIdx(i);
@@ -1854,7 +1951,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               value={pergunta}
               onChange={(e) => { setPergunta(e.target.value); }}
               onKeyDown={handleKeyDown}
-              rows={3}
+              onFocus={() => document.body.classList.add("mm-typing")}
+              onBlur={() => document.body.classList.remove("mm-typing")}
+              rows={2}
               disabled={busy}
             />
             )}
@@ -1886,18 +1985,24 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   void startListening();
                 }}
                 title={micState === "listening" ? "Parar gravação" : "Clique para falar"}
+                aria-label={micState === "listening" ? "Parar gravação" : "Falar a pergunta"}
+                aria-pressed={micState === "listening"}
                 disabled={busy}
               >
-                {micState === "listening" ? "⏸" : "🎤"}
+                {micState === "listening" ? <IconStop size={20} /> : <IconMic size={22} />}
               </button>
+              {micState === "listening" ? (
+                <span className={styles.micOuvindo} role="status">Ouvindo…</span>
+              ) : null}
               {(micState !== "idle" || pergunta.trim()) ? (
                 <button
                   type="button"
                   className={styles.micCancelBtn}
                   onClick={() => { setPergunta(""); if (micState !== "idle") cancelar(); }}
                   title="Limpar texto"
+                  aria-label="Limpar texto"
                   disabled={busy}
-                >✕</button>
+                ><IconX size={14} /></button>
               ) : null}
             </div>
             )}
@@ -1922,7 +2027,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   title="Limpar histórico e começar nova sessão"
                   aria-label="Nova sessão"
                 >
-                  ↺<span className={styles.soDesktop}>&nbsp;Nova sessão</span>
+                  <IconRefresh size={16} /><span className={styles.soDesktop}>Nova sessão</span>
                 </button>
               ) : null}
               {!busy && micState === "idle" ? (
@@ -1930,19 +2035,22 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   type="button"
                   className={styles.carregarModeloBtn}
                   onClick={() => void abrirModeloSelect()}
-                  title="Carregar pergunta salva"
+                  title="Perguntas salvas"
+                  aria-label="Perguntas salvas"
                 >
-                  <span className={styles.soDesktop}><IconLightbulb /></span> Perguntas salvas
+                  <IconStar size={16} /><span className={styles.soDesktop}>Perguntas salvas</span>
                 </button>
               ) : null}
             </div>
-            {!busy && (pergunta.trim() || modeloAtivo) ? (
+            {!busy ? (
               <button
                 type="button"
                 className={styles.perguntarBtn}
+                disabled={!pergunta.trim() && !modeloAtivo}
                 onClick={() => void (modeloAtivo ? executarModelo() : enviar())}
+                title="Enviar (Enter)"
               >
-                Perguntar →
+                Enviar <IconSend size={16} />
               </button>
             ) : null}
           </div>
@@ -1991,11 +2099,13 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         {modeloSaveErr ? <p className="mm-error" role="alert">Salvar pergunta: {modeloSaveErr}</p> : null}
 
         {pendingQuestion ? (
-          <div className={styles.cards}>
+          <div className={`${styles.cards} ${styles.cardsPendente}`}>
             <article className={`${styles.card} ${styles.cardPending}`}>
               <div className={styles.cardPergunta}>
-                <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
-                <p className={styles.cardPerguntaText}>{pendingQuestion}</p>
+                <div className={styles.cardPerguntaMain}>
+                  <span className={styles.cardPerguntaIcon} aria-hidden><IconChat size={16} /></span>
+                  <p className={styles.cardPerguntaText}>{pendingQuestion}</p>
+                </div>
               </div>
               <div className={styles.cardResposta}>
                 <div className={styles.searchingIndicator}>
@@ -2012,13 +2122,146 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         {respostas.length > 0 ? (
           <div className={styles.cards}>
             {respostas.map((r, i) => (
-              <article key={i} className={styles.card} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
+              <article key={i} className={styles.card} {...(i === 0 ? { "data-resposta-nova": "" } : {})} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
                 <div className={styles.cardPergunta}>
                   <div className={styles.cardPerguntaMain}>
-                    <span className={styles.cardPerguntaIcon} aria-hidden>?</span>
+                    <span className={styles.cardPerguntaIcon} aria-hidden><IconChat size={16} /></span>
                     <p className={styles.cardPerguntaText}>{r.planoReaproveitado ? <span title="Plano salvo reaproveitado: sem classificação e planejamento">⚡ </span> : null}{r.perguntaTexto}</p>
+                    <div className={styles.cardAcoes}>
+                      {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
+                        <button
+                          type="button"
+                          data-tts-btn
+                          className={`${styles.acaoBtn} ${ttsBusyPergunta === r.perguntaTexto ? styles.acaoBtnOn : ""}`}
+                          onClick={() => toggleSpeakResposta(r.perguntaTexto, r.resposta.resposta)}
+                          aria-pressed={ttsBusyPergunta === r.perguntaTexto}
+                          aria-label="Ouvir resposta"
+                          title={ttsBusyPergunta === r.perguntaTexto ? "Parar narração" : "Ouvir a resposta"}
+                        >
+                          <IconVolume size={18} />
+                        </button>
+                      ) : null}
+                      <button
+                        type="button"
+                        className={`${styles.acaoBtn} ${modeloSavedIdx === i ? styles.acaoBtnOn : ""}`}
+                        onClick={() => cliqueSalvarModelo(i)}
+                        title={modeloSavedIdx === i ? "Pergunta salva" : "Salvar esta pergunta"}
+                        aria-label="Salvar esta pergunta"
+                        disabled={modeloSavingIdx === i || modeloSavedIdx === i}
+                      >
+                        <IconBookmark size={18} />
+                      </button>
+                      <button
+                        type="button"
+                        className={styles.acaoBtn}
+                        onClick={() => void baixarPdf(r, i)}
+                        disabled={pdfGerandoIdx === i}
+                        aria-label="Baixar PDF"
+                        title="Baixar a resposta em PDF (texto, gráfico e tabela com todos os registros)"
+                      >
+                        {pdfGerandoIdx === i ? <span className={styles.acaoSpinner} aria-hidden /> : <IconPdf />}
+                      </button>
+                      {r.sugestaoAviso && r.avisoSnapshot ? (
+                        avisoSavedPergunta === r.perguntaTexto ? (
+                          <a
+                            href="/avisos"
+                            className={`${styles.acaoBtn} ${styles.acaoBtnOn}`}
+                            title="Aviso ativado. Ver Meus avisos"
+                            aria-label="Aviso ativado. Ver Meus avisos"
+                          >
+                            <IconBell size={18} />
+                          </a>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.acaoBtn}
+                            disabled={r.classificacao.contexto !== "nova"}
+                            aria-label="Me avise quando mudar"
+                            title={r.classificacao.contexto !== "nova"
+                              ? "Aviso não disponível para perguntas de continuidade. Crie um aviso a partir de uma pergunta independente."
+                              : `Me avise: ${r.sugestaoAviso}`}
+                            onClick={() => setAvisoModal({
+                              cardIdx: i,
+                              descricao: r.sugestaoAviso!.length > 500
+                                ? r.sugestaoAviso!.slice(0, 497) + "…"
+                                : r.sugestaoAviso!,
+                              freqTipo: "diaria",
+                              freqHoras: 1,
+                              email: me?.email ?? "",
+                            })}
+                          >
+                            <IconBell size={18} />
+                          </button>
+                        )
+                      ) : null}
+                      {temDetalhes(r) ? (
+                        <button
+                          type="button"
+                          className={`${styles.acaoBtn} ${detalhesAbertos.has(r) ? styles.acaoBtnOn : ""}`}
+                          onClick={() => alternarDetalhes(r)}
+                          aria-pressed={detalhesAbertos.has(r)}
+                          aria-label="Detalhes técnicos"
+                          title="Detalhes técnicos"
+                        >
+                          <IconInfo size={18} />
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className={styles.refazerArea}>
+                  {salvarEscolhaIdx === i || modeloSavedIdx === i ? (
+                    <div className={styles.cardPerguntaExtra}>
+                      {salvarEscolhaIdx === i ? (
+                      <span className={styles.salvarEscolha}>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaPadrao}
+                          autoFocus
+                          onClick={() => void salvarModelo(i, false)}
+                          title="Salva só o texto da pergunta (como sempre foi)"
+                        >Salvar só o texto</button>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaAlt}
+                          onClick={() => void salvarModelo(i, true)}
+                          title="Salva com os parâmetros como chips trocáveis e reexecuta sem replanejar"
+                        >⚡ Com parâmetros</button>
+                        <button
+                          type="button"
+                          className={styles.salvarEscolhaFechar}
+                          onClick={() => setSalvarEscolhaIdx(null)}
+                          aria-label="Cancelar"
+                        >×</button>
+                      </span>
+                    ) : null}
+                      {modeloSavedIdx === i ? <span className={styles.modeloSavedMsg}>Pergunta salva</span> : null}
+                    </div>
+                  ) : null}
+                </div>
+                <div className={styles.cardResposta}>
+                  <div className={styles.cardRespostaMeta}>
+                    <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
+                      {renderPipeLabel(r.classificacao.pipe)}
+                    </span>
+                    <span className={`${styles.scopeBadge} ${r.classificacao.escopo_sugerido === "contexto_sessao" ? styles.scopeContexto : styles.scopeGlobal}`}>
+                      {r.classificacao.escopo_sugerido === "contexto_sessao" ? "No contexto" : "Global"}
+                    </span>
+                    {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.limiarInicial != null && r.limiarUsado != null && r.limiarUsado < r.limiarInicial - 0.001 ? (
+                      <span
+                        className={styles.limiarAmpliadoBadge}
+                        title={`Busca ampliada: limiar reduzido de ${Math.round(r.limiarInicial * 100)}% para ${Math.round(r.limiarUsado * 100)}%`}
+                      >
+                        ↓ Busca ampliada
+                      </span>
+                    ) : null}
+                    <MedidorConfianca
+                      valor={r.resposta.dados_usados.length > 0 || r.classificacao.pipe !== "semantica" ? r.resposta.confianca_estimada : null}
+                      titulo={r.classificacao.pipe === "semantica" && r.limiarUsado != null
+                        ? (r.resposta.dados_usados.length > 0
+                          ? `Confiança ${Math.round(r.resposta.confianca_estimada * 100)}%: similaridade máxima dos memos citados. Limiar utilizado ${Math.round(r.limiarUsado * 100)}% (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`
+                          : `Nenhum memo encontrado acima do limiar de ${Math.round(r.limiarUsado * 100)}% (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`)
+                        : `Confiança estimada da resposta: ${Math.round(r.resposta.confianca_estimada * 100)}%`}
+                    />
+                    <div className={styles.refazerArea}>
                     {r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2) ? (
                       (() => {
                         const proxLimiar = Math.max(
@@ -2099,108 +2342,6 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       </button>
                     )}
                   </div>
-                </div>
-                <div className={styles.cardResposta}>
-                  <div className={styles.cardRespostaMeta}>
-                    <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
-                      {renderPipeLabel(r.classificacao.pipe)}
-                    </span>
-                    <span className={`${styles.scopeBadge} ${r.classificacao.escopo_sugerido === "contexto_sessao" ? styles.scopeContexto : styles.scopeGlobal}`}>
-                      {r.classificacao.escopo_sugerido === "contexto_sessao" ? "No contexto" : "Global"}
-                    </span>
-                    {r.classificacao.pipe === "semantica" && r.limiarUsado != null ? (
-                      r.resposta.dados_usados.length > 0 ? (
-                        <span
-                          className={styles.confianca}
-                          title={`Similaridade máxima dos memos citados / Limiar utilizado (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
-                        >
-                          {Math.round(r.resposta.confianca_estimada * 100)}/{Math.round(r.limiarUsado * 100)}%
-                        </span>
-                      ) : (
-                        <span
-                          className={styles.confianca}
-                          title={`Nenhum memo encontrado acima do limiar (mín. configurado: ${Math.round((r.limiarMinimo ?? 0) * 100)}%)`}
-                        >
-                          —/{Math.round(r.limiarUsado * 100)}%
-                        </span>
-                      )
-                    ) : (
-                      <span className={styles.confianca}>
-                        Confiança: {Math.round(r.resposta.confianca_estimada * 100)}%
-                      </span>
-                    )}
-                    {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.limiarInicial != null && r.limiarUsado != null && r.limiarUsado < r.limiarInicial - 0.001 ? (
-                      <span
-                        className={styles.limiarAmpliadoBadge}
-                        title={`Busca ampliada: limiar reduzido de ${Math.round(r.limiarInicial * 100)}% para ${Math.round(r.limiarUsado * 100)}%`}
-                      >
-                        ↓ Busca ampliada
-                      </span>
-                    ) : null}
-                    <button
-                      type="button"
-                      className={styles.modeloBtn}
-                      onClick={() => void baixarPdf(r, i)}
-                      disabled={pdfGerandoIdx === i}
-                      title="Baixar a resposta em PDF (texto, gráfico e tabela com todos os registros)"
-                    >
-                      {pdfGerandoIdx === i ? "…" : <IconPdf />}
-                    </button>
-                    {typeof window !== "undefined" && typeof window.speechSynthesis !== "undefined" ? (
-                      <button
-                        type="button"
-                        data-tts-btn
-                        className={`${styles.speakerBtn} ${ttsBusyPergunta === r.perguntaTexto ? styles.speakerBtnActive : ""}`}
-                        onClick={() => toggleSpeakResposta(r.perguntaTexto, r.resposta.resposta)}
-                        aria-pressed={ttsBusyPergunta === r.perguntaTexto}
-                        title={ttsBusyPergunta === r.perguntaTexto ? "Parar narração" : "Narrar resposta em voz alta"}
-                      >
-                        <IconSpeaker />
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      className={styles.modeloBtn}
-                      onClick={() => void abrirModeloSelect()}
-                      title="Carregar pergunta salva"
-                    >
-                      <IconLightbulb />
-                    </button>
-                    <button
-                      type="button"
-                      className={`${styles.modeloBtn} ${modeloSavedIdx === i ? styles.modeloBtnSaved : ""}`}
-                      onClick={() => cliqueSalvarModelo(i)}
-                      title="Salvar esta pergunta"
-                      disabled={modeloSavingIdx === i || modeloSavedIdx === i}
-                    >
-                      <IconRepoIn />
-                    </button>
-                    {salvarEscolhaIdx === i ? (
-                      <span className={styles.salvarEscolha}>
-                        <button
-                          type="button"
-                          className={styles.salvarEscolhaPadrao}
-                          autoFocus
-                          onClick={() => void salvarModelo(i, false)}
-                          title="Salva só o texto da pergunta (como sempre foi)"
-                        >Salvar só o texto</button>
-                        <button
-                          type="button"
-                          className={styles.salvarEscolhaAlt}
-                          onClick={() => void salvarModelo(i, true)}
-                          title="Salva com os parâmetros como chips trocáveis e reexecuta sem replanejar"
-                        >⚡ Com parâmetros</button>
-                        <button
-                          type="button"
-                          className={styles.salvarEscolhaFechar}
-                          onClick={() => setSalvarEscolhaIdx(null)}
-                          aria-label="Cancelar"
-                        >×</button>
-                      </span>
-                    ) : null}
-                    {modeloSavedIdx === i && (
-                      <span className={styles.modeloSavedMsg}>Salvo!</span>
-                    )}
                   </div>
                   {(r.classificacao.pipe === "semantica" || (r.classificacao.pipe === "hibrida" && r.aguardaFase2)) && r.resposta.dados_usados.length === 0 && r.limiarUsado != null && r.limiarMinimo != null && r.limiarUsado <= r.limiarMinimo + 0.001 ? (
                     <p className={styles.limiarMinimoAviso}>
@@ -2208,10 +2349,26 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  <p className={styles.cardRespostaText}>
-                    {stripMarkdown(r.resposta.resposta).trimEnd()}
-                    <BotoesAlterarResposta resposta={r.resposta} />
-                  </p>
+                  {(() => {
+                    const texto = stripMarkdown(r.resposta.resposta).trimEnd();
+                    const recolhido = textoLongo(texto) && !expandidos.has(r);
+                    return (
+                      <div className={styles.respostaTextoWrap}>
+                        <p className={`${styles.cardRespostaText} ${recolhido ? styles.cardRespostaTextRecolhido : ""}`}>
+                          {texto}
+                          {recolhido ? null : <BotoesAlterarResposta resposta={r.resposta} />}
+                        </p>
+                        {textoLongo(texto) ? (
+                          <div className={styles.lerMaisRow}>
+                            <button type="button" className={styles.lerMaisBtn} onClick={() => alternarExpandido(r)} aria-expanded={!recolhido}>
+                              {recolhido ? "Ler mais" : "Ler menos"}
+                            </button>
+                            {recolhido ? <BotoesAlterarResposta resposta={r.resposta} /> : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })()}
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
@@ -2226,28 +2383,6 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     <ul className={styles.limitacoes}>
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>
-                  ) : null}
-                  {me?.showApiCost !== false && r.apiCost > 0 ? (
-                    <p className={styles.apiCostLine}>
-                      Custo de API: ${r.apiCost.toFixed(6)} — Créditos: {(r.apiCost * 100).toFixed(6)}
-                    </p>
-                  ) : null}
-                  {me?.showLlmTrace && r.timings && r.timings.length > 0 ? (
-                    <details className={styles.memosDetails}>
-                      <summary className={styles.memosSummary}>
-                        Tempo: {((r.timings[0]?.durationMs ?? 0) / 1000).toFixed(1)}s (ver etapas)
-                      </summary>
-                      <ul className={styles.memosList}>
-                        {r.timings.map((t, j) => (
-                          <li key={j} className={styles.memosItem} style={{ justifyContent: "space-between" }}>
-                            <span style={j === 0 ? { fontWeight: 600 } : undefined}>{t.label}</span>
-                            <span style={{ fontVariantNumeric: "tabular-nums", marginLeft: "0.75rem" }}>
-                              {(t.durationMs / 1000).toFixed(2)}s
-                            </span>
-                          </li>
-                        ))}
-                      </ul>
-                    </details>
                   ) : null}
                   {r.resposta.dados_usados.length > 0 ? (
                     <details className={styles.memosDetails}>
@@ -2272,52 +2407,48 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       </ul>
                     </details>
                   ) : null}
-                  {me?.showLlmTrace && r.llmTrace && r.llmTrace.length > 0 ? (
-                    <button
-                      type="button"
-                      className={styles.traceBtn}
-                      onClick={() => setTraceModal({ trace: r.llmTrace!, pergunta: r.perguntaTexto })}
-                      title={`Ver trace de ${r.llmTrace.length} chamada(s) desta resposta`}
-                    >
-                      <IconTrace /> {r.llmTrace.length}
-                    </button>
+                  {detalhesAbertos.has(r) ? (
+                    <div className={styles.detalhesTecnicos}>
+                      <p className={styles.detalhesTitulo}>Detalhes técnicos</p>
+                      {me?.showApiCost !== false && r.apiCost > 0 ? (
+                        <p className={styles.apiCostLine}>
+                          Custo de API: ${r.apiCost.toFixed(6)} — Créditos: {(r.apiCost * 100).toFixed(6)}
+                        </p>
+                      ) : null}
+                      {me?.showLlmTrace && r.timings && r.timings.length > 0 ? (
+                        <details className={styles.memosDetails}>
+                          <summary className={styles.memosSummary}>
+                            Tempo: {((r.timings[0]?.durationMs ?? 0) / 1000).toFixed(1)}s (ver etapas)
+                          </summary>
+                          <ul className={styles.memosList}>
+                            {r.timings.map((t, j) => (
+                              <li key={j} className={styles.memosItem} style={{ justifyContent: "space-between" }}>
+                                <span style={j === 0 ? { fontWeight: 600 } : undefined}>{t.label}</span>
+                                <span style={{ fontVariantNumeric: "tabular-nums", marginLeft: "0.75rem" }}>
+                                  {(t.durationMs / 1000).toFixed(2)}s
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      ) : null}
+                      {me?.showLlmTrace && r.llmTrace && r.llmTrace.length > 0 ? (
+                        <button
+                          type="button"
+                          className={styles.traceBtn}
+                          onClick={() => setTraceModal({ trace: r.llmTrace!, pergunta: r.perguntaTexto })}
+                          title={`Ver trace de ${r.llmTrace.length} chamada(s) desta resposta`}
+                        >
+                          <IconTrace /> Ver chamadas à IA ({r.llmTrace.length})
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
-                {r.sugestaoAviso && r.avisoSnapshot ? (
-                  avisoSavedPergunta === r.perguntaTexto ? (
-                    <div className={styles.avisoSugestao}>
-                      <span className={styles.avisoSugestaoCheck}>✓</span>
-                      <span className={styles.avisoSugestaoText}>Aviso ativado.</span>
-                      <a href="/avisos" className={styles.avisoLink}>Meus Avisos →</a>
-                    </div>
-                  ) : (
-                    <div className={styles.avisoSugestao}>
-                      <span className={styles.avisoSugestaoIcon} aria-hidden>🔔</span>
-                      <span className={styles.avisoSugestaoText}>{r.sugestaoAviso}</span>
-                      <button
-                        type="button"
-                        className={styles.avisoSugestaoBtn}
-                        disabled={r.classificacao.contexto !== "nova"}
-                        title={r.classificacao.contexto !== "nova" ? "Aviso não disponível para perguntas de continuidade — crie um aviso a partir de uma pergunta independente." : undefined}
-                        onClick={() => setAvisoModal({
-                          cardIdx: i,
-                          descricao: r.sugestaoAviso!.length > 500
-                            ? r.sugestaoAviso!.slice(0, 497) + "…"
-                            : r.sugestaoAviso!,
-                          freqTipo: "diaria",
-                          freqHoras: 1,
-                          email: me?.email ?? "",
-                        })}
-                      >
-                        Configurar aviso ▸
-                      </button>
-                    </div>
-                  )
-                ) : null}
               </article>
             ))}
           </div>
-        ) : (
+        ) : pendingQuestion ? null : (
           <p className={styles.emptyHint}>As respostas aparecerão aqui. Faça sua primeira pergunta!</p>
         )}
       </main>
