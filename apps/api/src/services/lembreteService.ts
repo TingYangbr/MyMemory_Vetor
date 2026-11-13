@@ -592,12 +592,11 @@ const CACHE_MS = 60_000;
 export async function compromissosDoUsuario(userId: number, email: string, dias = 7): Promise<CompromissoSino[]> {
   const alvo = email.trim().toLowerCase();
   if (!alvo) return [];
+  // Todas as regras ativas: quem decide é o e-mail estar entre os destinatários
+  // (dono do grupo pela assinatura ou admin pode não ter linha em group_members).
+  void userId;
   const [regras] = await pool.query<RowDataPacket[]>(
-    `SELECT r.id FROM lembrete_regras r
-     JOIN categories c ON c.id = r.categoryid
-     JOIN group_members gm ON gm.groupid = c.groupid AND gm.userid = ?
-     WHERE r.ativo = 1 AND r.origem = 'memos'`,
-    [userId]
+    `SELECT r.id FROM lembrete_regras r WHERE r.ativo = 1 AND r.origem = 'memos'`
   );
   const agora = new Date();
   const limite = agora.getTime() + dias * 86_400_000;
