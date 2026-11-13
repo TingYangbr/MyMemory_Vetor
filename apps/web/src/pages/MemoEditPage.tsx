@@ -81,6 +81,8 @@ export default function MemoEditPage() {
   const [catCamposId, setCatCamposId] = useState<number | null>(null);
   /** Valores originais da última reextração (antes da padronização). */
   const [originaisJson, setOriginaisJson] = useState<string | null>(null);
+  /** Custo de IA das reextrações desta edição — somado ao memo ao salvar. */
+  const [custoReextr, setCustoReextr] = useState(0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +106,7 @@ export default function MemoEditPage() {
         setSelectedCategoryId(null);
         setCatCamposId(null);
         setOriginaisJson(null);
+        setCustoReextr(0);
       })
       .catch((e) => {
         const t = e instanceof Error ? e.message : "";
@@ -140,6 +143,7 @@ export default function MemoEditPage() {
     setDadosEspecificosJson(r.dadosEspecificosJson ?? "");
     setOriginaisJson(r.dadosEspecificosOriginaisJson ?? null);
     setCatCamposId(categoryId);
+    setCustoReextr((c) => c + (r.apiCost || 0));
   }, []);
   const categoriaTrocadaSemReextrair = selectedCategoryId != null && selectedCategoryId !== catCamposId;
 
@@ -165,6 +169,7 @@ export default function MemoEditPage() {
         keywords: keywords.trim() || null,
         dadosEspecificosJson: dadosEspecificosJson.trim() || null,
         ...(originaisJson ? { dadosEspecificosOriginaisJson: originaisJson } : {}),
+        ...(custoReextr > 0 ? { apiCostAdicional: custoReextr } : {}),
         ...(selectedCategoryId != null ? { matchedCategoryId: selectedCategoryId } : {}),
         category: selectedCategoryName,
       });
