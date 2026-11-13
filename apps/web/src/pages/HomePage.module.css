@@ -238,74 +238,72 @@
   border-color: var(--mm-accent);
 }
 
-/* --- Tab bar --- */
+/* --- Abas (ficam no cabeçalho; no celular, no rodapé) --- */
 .tabBar {
   display: flex;
   align-items: center;
-  gap: 2px;
-  border-bottom: 2px solid var(--mm-border));
-  margin-bottom: 0;
-  padding: 0 0.25rem;
-  background: var(--mm-card);
-  border-radius: 12px 12px 0 0;
+  gap: 0.5rem;
 }
 
 .tab {
   appearance: none;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 0.92rem;
-  font-weight: 700;
-  color: var(--mm-muted);
-  padding: 0.8rem 0.5rem 0.75rem;
-  position: relative;
-  transition: color 0.15s;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.28rem;
-  flex: 1;
-  min-width: 0;
-}
-
-.tab svg {
-  color: var(--mm-accent);
-  flex-shrink: 0;
+  gap: 0.4rem;
+  padding: 0.42rem 1rem;
+  border: 1px solid var(--mm-primary-soft);
+  border-radius: var(--mm-radius-sm);
+  background: var(--mm-card);
+  color: var(--mm-primary-hover);
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .tab:hover {
-  color: var(--mm-text);
+  border-color: var(--mm-primary);
+  background: var(--mm-primary-faint);
 }
 
-.tabActive {
-  color: var(--mm-accent);
-  box-shadow: inset 0 -3px 0 var(--mm-accent);
+.tab:focus-visible {
+  outline: 2px solid var(--mm-primary);
+  outline-offset: 2px;
 }
 
-.tabIcon {
-  flex: 1;
-  padding: 0.7rem 0.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--mm-muted);
+.tabActive,
+.tabActive:hover {
+  background: var(--mm-primary);
+  border-color: var(--mm-primary-hover);
+  color: #fff;
 }
 
-.tabIcon:hover {
-  color: var(--mm-accent);
+html[data-theme="dark"] .tab {
+  color: var(--mm-primary);
+  border-color: var(--mm-border-muted);
 }
 
-.tabIconCatalogar {
-  color: var(--mm-accent);
-  opacity: 0.75;
+html[data-theme="dark"] .tabActive,
+html[data-theme="dark"] .tabActive:hover {
+  color: #04211e;
+  border-color: var(--mm-primary-hover);
 }
 
-.tabIconCatalogar:hover,
-.tabIconCatalogar.tabActive {
-  opacity: 1;
-  color: var(--mm-accent);
-}
+@media (max-width: 760px) {
+  .tabBar {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+    width: 100%;
+  }
 
+  .tab {
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.35rem 0.25rem;
+    font-size: 0.72rem;
+    border-radius: 12px;
+  }
+}

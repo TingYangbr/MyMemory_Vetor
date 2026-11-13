@@ -1,20 +1,20 @@
 :root {
-  --mm-primary: #0d9488;
-  --mm-primary-hover: #0f766e;
-  --mm-primary-soft: #ccfbf1;
-  --mm-primary-faint: #f0fdfa;
-  --mm-accent: #14b8a6;
-  --mm-text: #0f172a;
-  --mm-text-secondary: #475569;
-  --mm-muted: #64748b;
-  --mm-border: #e2e8f0;
-  --mm-border-muted: #cbd5e1;
-  --mm-bg: #f1f5f9;
-  --mm-bg-pattern: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(20, 184, 166, 0.12), transparent 55%);
+  --mm-primary: #0b7a72;
+  --mm-primary-hover: #075e58;
+  --mm-primary-soft: #d5efec;
+  --mm-primary-faint: #eef8f7;
+  --mm-accent: #0f8f85;
+  --mm-text: #0c1a1e;
+  --mm-text-secondary: #47585d;
+  --mm-muted: #6b7c80;
+  --mm-border: #dfe6e7;
+  --mm-border-muted: #c9d4d6;
+  --mm-bg: #f3f6f6;
+  --mm-bg-pattern: none;
   --mm-card: #ffffff;
-  --mm-radius: 14px;
-  --mm-radius-sm: 10px;
-  --mm-shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 4px 12px rgba(15, 23, 42, 0.04);
+  --mm-radius: 12px;
+  --mm-radius-sm: 8px;
+  --mm-shadow: 0 1px 2px rgba(12, 26, 30, 0.05), 0 4px 14px rgba(12, 26, 30, 0.05);
   --mm-shadow-md: 0 4px 6px rgba(15, 23, 42, 0.05), 0 12px 24px rgba(15, 23, 42, 0.08);
   --mm-shadow-lg: 0 12px 40px rgba(15, 23, 42, 0.12);
   --mm-danger: #dc2626;
@@ -45,19 +45,19 @@
 }
 
 html[data-theme="dark"] {
-  --mm-primary: #2dd4bf;
-  --mm-primary-hover: #5eead4;
-  --mm-primary-soft: #0f3d38;
-  --mm-primary-faint: #0b2b28;
-  --mm-accent: #2dd4bf;
-  --mm-text: #e2e8f0;
-  --mm-text-secondary: #94a3b8;
-  --mm-muted: #64748b;
-  --mm-border: #334155;
-  --mm-border-muted: #1e293b;
-  --mm-bg: #0f172a;
-  --mm-bg-pattern: radial-gradient(ellipse 120% 80% at 50% -20%, rgba(45, 212, 191, 0.08), transparent 55%);
-  --mm-card: #1e293b;
+  --mm-primary: #3cc3b4;
+  --mm-primary-hover: #6fd8cb;
+  --mm-primary-soft: #123532;
+  --mm-primary-faint: #0f2a28;
+  --mm-accent: #3cc3b4;
+  --mm-text: #e4eeee;
+  --mm-text-secondary: #a6b6b8;
+  --mm-muted: #73878a;
+  --mm-border: #22323a;
+  --mm-border-muted: #2c3f47;
+  --mm-bg: #0b1315;
+  --mm-bg-pattern: none;
+  --mm-card: #142226;
   --mm-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), 0 4px 12px rgba(0, 0, 0, 0.25);
   --mm-shadow-md: 0 4px 6px rgba(0, 0, 0, 0.3), 0 12px 24px rgba(0, 0, 0, 0.35);
   --mm-shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.45);
@@ -104,7 +104,7 @@ button {
 }
 
 .mm-btn {
-  border: 2px solid var(--mm-primary);
+  border: 1px solid var(--mm-primary);
   background: var(--mm-card);
   color: var(--mm-text);
   border-radius: var(--mm-radius-sm);
@@ -139,18 +139,21 @@ button {
 }
 
 .mm-btn--primary {
-  background: linear-gradient(165deg, var(--mm-accent) 0%, var(--mm-primary) 100%);
-  border-color: transparent;
+  background: var(--mm-primary);
+  border-color: var(--mm-primary);
   color: #fff;
-  box-shadow:
-    0 2px 8px rgba(13, 148, 136, 0.35),
-    var(--mm-shadow);
+  box-shadow: var(--mm-shadow);
 }
 
 .mm-btn--primary:hover:not(:disabled) {
-  background: linear-gradient(165deg, #2dd4bf 0%, var(--mm-primary-hover) 100%);
+  background: var(--mm-primary-hover);
+  border-color: var(--mm-primary-hover);
   color: #fff;
-  border-color: transparent;
+}
+
+html[data-theme="dark"] .mm-btn--primary,
+html[data-theme="dark"] .mm-btn--primary:hover:not(:disabled) {
+  color: #04211e;
 }
 
 .mm-btn--ghost {
@@ -187,7 +190,7 @@ button {
 .mm-dropzone--active {
   background: var(--mm-primary-soft);
   border-color: var(--mm-primary);
-  box-shadow: 0 0 0 4px rgba(20, 184, 166, 0.15);
+  box-shadow: 0 0 0 4px rgba(11, 122, 114, 0.14);
 }
 
 .mm-icon-grid {
@@ -268,7 +271,7 @@ button {
 .mm-field:focus {
   outline: none;
   border-color: var(--mm-accent);
-  box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.2);
+  box-shadow: 0 0 0 3px rgba(11, 122, 114, 0.18);
 }
 
 .mm-field::placeholder {
