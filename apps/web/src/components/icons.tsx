@@ -152,3 +152,62 @@ export const IconSearch = (p: IconProps) => (
     <path d="m20 20-3.5-3.5" />
   </Svg>
 );
+
+export const IconMic = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5.5 11a6.5 6.5 0 0 0 13 0M12 17.5V21M8.5 21h7" />
+  </Svg>
+);
+
+export const IconStop = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="7" y="7" width="10" height="10" rx="2" />
+  </Svg>
+);
+
+export const IconSend = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M21 3 10.5 13.5" />
+    <path d="M21 3 14.5 21l-4-7.5L3 9.5z" />
+  </Svg>
+);
+
+export const IconRefresh = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M20 11a8 8 0 1 0-2.3 5.7" />
+    <path d="M20 4v7h-7" />
+  </Svg>
+);
+
+export const IconStar = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1 6.2L12 17.3 6.5 20.2l1-6.2L3 9.6l6.2-.9z" />
+  </Svg>
+);
+
+export const IconVolume = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M11 5 6 9H3v6h3l5 4z" />
+    <path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13" />
+  </Svg>
+);
+
+export const IconBookmark = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 3h12v18l-6-4.5L6 21z" />
+  </Svg>
+);
+
+export const IconInfo = (p: IconProps) => (
+  <Svg {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </Svg>
+);
+
+export const IconX = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 6l12 12M18 6 6 18" />
+  </Svg>
+);
