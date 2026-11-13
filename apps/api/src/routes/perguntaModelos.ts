@@ -124,16 +124,18 @@ const plugin: FastifyPluginAsync = async (app) => {
         return reply.code(403).send({ error: "forbidden_group" });
       }
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat, plano_json AS plano
+        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat, plano_json AS plano,
+                EXISTS(SELECT 1 FROM pergunta_fixadas f WHERE f.modeloid = pergunta_modelos.id AND f.userid = ?) AS fixada
          FROM pergunta_modelos WHERE groupid = ? ORDER BY createdat DESC`,
-        [groupId]
+        [userId, groupId]
       );
       return reply.send({ modelos: rows });
     } else {
       const [rows] = await pool.query<RowDataPacket[]>(
-        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat, plano_json AS plano
+        `SELECT id, userid, groupid, category, pergunta, anotacoes, estrelas, createdat, updatedat, plano_json AS plano,
+                EXISTS(SELECT 1 FROM pergunta_fixadas f WHERE f.modeloid = pergunta_modelos.id AND f.userid = ?) AS fixada
          FROM pergunta_modelos WHERE groupid IS NULL AND userid = ? ORDER BY createdat DESC`,
-        [userId]
+        [userId, userId]
       );
       return reply.send({ modelos: rows });
     }
@@ -215,6 +217,44 @@ const plugin: FastifyPluginAsync = async (app) => {
       vals
     );
     return reply.send({ modelo: (rows as Record<string, unknown>[])[0] });
+  });
+
+  // POST /api/pergunta-modelos/:id/fixar — fixa/desafixa a pergunta salva como atalho no Perguntar (por usuário)
+  app.post("/api/pergunta-modelos/:id/fixar", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+
+    const id = parseInt((req.params as { id: string }).id, 10);
+    if (isNaN(id)) return reply.code(400).send({ error: "invalid_id" });
+    const parsed = z.object({ fixada: z.boolean() }).safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
+
+    const [existing] = await pool.query<RowDataPacket[]>(
+      `SELECT id, userid, groupid FROM pergunta_modelos WHERE id = ?`,
+      [id]
+    );
+    if (!(existing as unknown[]).length) return reply.code(404).send({ error: "not_found" });
+    const row = (existing as Record<string, unknown>[])[0] as { id: number; userId: number; groupId: number | null };
+    if (row.groupId != null) {
+      const isAdmin = await getUserIsAdmin(userId);
+      try {
+        await assertUserWorkspaceGroupAccess(userId, row.groupId, isAdmin);
+      } catch {
+        return reply.code(403).send({ error: "forbidden" });
+      }
+    } else if (row.userId !== userId) {
+      return reply.code(403).send({ error: "forbidden" });
+    }
+
+    if (parsed.data.fixada) {
+      await pool.query(
+        `INSERT INTO pergunta_fixadas (userid, modeloid) VALUES (?, ?) ON CONFLICT (userid, modeloid) DO NOTHING`,
+        [userId, id]
+      );
+    } else {
+      await pool.query(`DELETE FROM pergunta_fixadas WHERE userid = ? AND modeloid = ?`, [userId, id]);
+    }
+    return reply.send({ ok: true, fixada: parsed.data.fixada });
   });
 
   // DELETE /api/pergunta-modelos/:id
