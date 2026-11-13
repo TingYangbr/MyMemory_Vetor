@@ -6,7 +6,8 @@ import { creditsFromUsdCost, getUsdToCreditsMultiplier } from "./systemConfigSer
 /**
  * Título curto do memo: até 5 palavras, gerado por IA e editável pelo autor.
  * Complementa a categoria (não repete as palavras dela). Fica em memos.titulo_curto:
- *   NULL = ainda não gerado · '' = sem título (memo sem IA ou sem texto).
+ *   NULL = ainda não gerado · '' = sem título (memo sem texto, ou o autor apagou o título).
+ * Memos catalogados "sem IA" não recebem título automático; recebem pelo botão do dono do grupo.
  */
 
 const MAX_PALAVRAS = 5;
@@ -22,17 +23,6 @@ type MemoParaTitulo = {
   mediaMetadata: unknown;
   original_file_name: string | null;
 };
-
-function nivelIa(mediaMetadata: unknown): string | null {
-  if (!mediaMetadata) return null;
-  try {
-    const m = (typeof mediaMetadata === "string" ? JSON.parse(mediaMetadata) : mediaMetadata) as Record<string, unknown>;
-    const v = m.iaUseTexto ?? m.iaUseImagem ?? m.iaUseAudio ?? m.iaUseVideo ?? m.iaUseDocumento ?? m.iaUseUrl;
-    return typeof v === "string" ? v : null;
-  } catch {
-    return null;
-  }
-}
 
 function semAcento(s: string): string {
   return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -100,12 +90,11 @@ async function gerarTitulo(m: MemoParaTitulo): Promise<{ titulo: string; costUsd
 const SELECT_MEMO = `SELECT m.id, m.mediatype, m.mediatext, m.keywords, m.category, m.mediametadata, m.original_file_name
   FROM memos m`;
 
-/** Gera e grava o título de um memo. Memos "sem IA" ficam com '' (nenhuma chamada de IA). */
+/**
+ * Gera e grava o título de um memo. O robô não chama este caminho para memos "sem IA"
+ * (ver SQL de gerarTitulosPendentes); o botão do dono gera também para eles, pois foi pedido.
+ */
 async function processarMemo(m: MemoParaTitulo): Promise<"gerado" | "vazio"> {
-  if (nivelIa(m.mediaMetadata) === "semIA") {
-    await pool.query(`UPDATE memos SET titulo_curto = '' WHERE id = ? AND titulo_curto IS NULL`, [m.id]);
-    return "vazio";
-  }
   const { titulo, costUsd } = await gerarTitulo(m);
   if (costUsd > 0) {
     const cred = creditsFromUsdCost(costUsd, await getUsdToCreditsMultiplier());
@@ -142,6 +131,7 @@ export async function gerarTitulosPendentes(limite = 20) {
   const [rows] = await pool.query<MemoParaTitulo[]>(
     `${SELECT_MEMO}
      WHERE m.titulo_curto IS NULL AND m.isactive = 1
+       AND COALESCE(m.mediametadata::text, '') NOT LIKE '%"semIA"%'
        AND m.createdat > NOW() - INTERVAL '2 days'
        AND m.createdat < NOW() - INTERVAL '1 minute'
      ORDER BY m.id DESC
