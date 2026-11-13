@@ -199,6 +199,14 @@ export const IconBookmark = (p: IconProps) => (
   </Svg>
 );
 
+/** Balão de conversa com "+" — salvar pergunta. */
+export const IconChatPlus = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 3.5h10a3 3 0 0 1 3 3v7.5a3 3 0 0 1-3 3h-5.5L7 20.5V17a3 3 0 0 1-3-3V6.5a3 3 0 0 1 3-3z" />
+    <path d="M12 7v6.5M8.75 10.25h6.5" />
+  </Svg>
+);
+
 export const IconInfo = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="12" cy="12" r="9" />

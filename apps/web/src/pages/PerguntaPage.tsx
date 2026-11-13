@@ -19,7 +19,7 @@ import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from
 import type { MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
-import { IconBell, IconBookmark, IconChat, IconInfo, IconMic, IconRefresh, IconSend, IconStar, IconStop, IconVolume, IconX } from "../components/icons";
+import { IconBell, IconChat, IconChatPlus, IconInfo, IconMic, IconRefresh, IconSend, IconStar, IconStop, IconVolume, IconX } from "../components/icons";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
@@ -2149,7 +2149,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         aria-label="Salvar esta pergunta"
                         disabled={modeloSavingIdx === i || modeloSavedIdx === i}
                       >
-                        <IconBookmark size={18} />
+                        <IconChatPlus size={18} />
                       </button>
                       <button
                         type="button"
