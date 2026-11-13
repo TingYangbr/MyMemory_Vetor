@@ -12,11 +12,15 @@ type SinoLembrete = {
   titulo: string | null;
   texto: string | null;
   momento: string;
+  /** Já no prazo do lembrete (conta no número do sino). */
+  noPrazo?: boolean;
 };
 type SinoResponse = {
   total: number;
   avisosNaoLidos: number;
   lembretesAtivos: number;
+  /** Todos os compromissos com lembrete dos próximos 7 dias. */
+  lembretesProximos?: number;
   avisos: SinoAviso[];
   lembretes: SinoLembrete[];
 };
@@ -95,7 +99,7 @@ export function SinoNotificacoes() {
     }
     setAberto(true);
     // Abre na aba que tem novidade
-    if (dados && dados.avisosNaoLidos === 0 && dados.lembretesAtivos > 0) setAba("lembretes");
+    if (dados && dados.avisosNaoLidos === 0 && (dados.lembretesProximos ?? dados.lembretesAtivos) > 0) setAba("lembretes");
     else setAba("avisos");
     // Abrir o painel zera os avisos (os itens continuam destacados enquanto o painel estiver aberto)
     if (dados && dados.avisosNaoLidos > 0) {
@@ -144,7 +148,7 @@ export function SinoNotificacoes() {
               className={`${styles.tab} ${aba === "lembretes" ? styles.tabOn : ""}`}
               onClick={() => setAba("lembretes")}
             >
-              Lembretes{dados?.lembretesAtivos ? ` · ${dados.lembretesAtivos}` : ""}
+              Lembretes{dados?.lembretes.length ? ` · ${dados.lembretes.length}` : ""}
             </button>
           </div>
 
@@ -171,7 +175,7 @@ export function SinoNotificacoes() {
               )
             ) : dados?.lembretes.length ? (
               dados.lembretes.map((l) => (
-                <Link key={l.id} to={`/memo/${l.memoId}/editar`} className={styles.item}>
+                <Link key={l.id} to={`/memo/${l.memoId}/editar`} className={`${styles.item} ${l.noPrazo ? styles.naoLido : ""}`}>
                   <span className={`${styles.ic} ${styles.icLembrete}`} aria-hidden>
                     <IconCalendar size={16} />
                   </span>
@@ -179,11 +183,11 @@ export function SinoNotificacoes() {
                     <b>{l.categoria ? `${l.categoria}: ` : "Lembrete: "}{l.titulo ?? (l.texto ?? "").slice(0, 60)}</b>
                     <p>{quandoCompromisso(l.momento)}</p>
                   </span>
-                  <small className={styles.quando}>agendado</small>
+                  <small className={styles.quando}>{l.noPrazo ? "em breve" : "agendado"}</small>
                 </Link>
               ))
             ) : (
-              <p className={styles.vazio}>Nenhum compromisso com lembrete pela frente.</p>
+              <p className={styles.vazio}>Nenhum compromisso com lembrete nos próximos 7 dias.</p>
             )}
           </div>
 
