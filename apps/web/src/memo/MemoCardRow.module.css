@@ -178,3 +178,15 @@
   text-decoration: underline;
   background: color-mix(in srgb, var(--mm-primary) 8%, transparent);
 }
+
+/* Celular: nome do memo na 1ª linha; selo e data descem para a 2ª (antes se sobrepunham aos botões) */
+@media (max-width: 640px) {
+  .memoCardPrimary {
+    flex-wrap: wrap;
+    row-gap: 0.3rem;
+  }
+
+  .memoCardPrimaryLabel {
+    flex: 1 1 calc(100% - 3rem);
+  }
+}

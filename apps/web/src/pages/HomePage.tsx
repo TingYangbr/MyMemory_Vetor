@@ -10,7 +10,7 @@ import type {
 } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson } from "../api";
 import Header from "../components/Header";
-import { IconChat, IconPlus, IconSearch } from "../components/icons";
+import { IconArrowLeft, IconChat, IconPlus, IconSearch, IconUser } from "../components/icons";
 import MemoRegisterPanel from "../components/MemoRegisterPanel";
 import RecentMemos from "../components/RecentMemos";
 import PerguntaPage from "./PerguntaPage";
@@ -38,6 +38,13 @@ function IconBuscar() {
 
 function IconCatalogar() {
   return <IconPlus size={17} />;
+}
+
+/** Duas letras para o ícone do espaço: iniciais de duas palavras ou as duas primeiras letras. */
+function iniciaisDoNome(nome: string): string {
+  const partes = nome.trim().split(/[\s_-]+/).filter(Boolean);
+  if (partes.length >= 2) return (partes[0][0] + partes[1][0]).toUpperCase();
+  return (partes[0] ?? "?").slice(0, 2).toUpperCase();
 }
 
 export default function HomePage() {
@@ -198,9 +205,10 @@ export default function HomePage() {
             onClick={() => setWorkspacePicker(false)}
             aria-label="Voltar"
           >
-            ← Voltar
+            <IconArrowLeft size={16} /> Voltar
           </button>
-          <h1 className={styles.pickerTitle}>Selecione Qual espaço de Memos Quer acessar?</h1>
+          <h1 className={styles.pickerTitle}>Escolha um espaço de memos</h1>
+          <p className={styles.pickerSub}>Cada espaço tem seus próprios memos, perguntas e permissões.</p>
         </div>
 
         {workspaceErr ? (
@@ -212,30 +220,7 @@ export default function HomePage() {
         {workspaceLoading ? <p className={styles.pickerMuted}>Carregando grupos…</p> : null}
 
         <div className={styles.pickerGrid}>
-          <article
-            className={`${styles.pickerCard} ${personalActive ? styles.pickerCardActive : ""}`}
-            aria-current={personalActive ? "true" : undefined}
-          >
-            <div className={styles.pickerCardHead}>
-              <h2 className={styles.pickerCardTitle}>
-                <span className={styles.pickerCardTitleIcon} aria-hidden>
-                  👤
-                </span>{" "}
-                Meus Memos Pessoais
-              </h2>
-              <p className={styles.pickerCardDesc}>Trabalhe com seus memos pessoais</p>
-            </div>
-            <button
-              type="button"
-              className={`mm-btn mm-btn--primary ${styles.pickerCardBtn}`}
-              disabled={workspaceSaving}
-              onClick={() => void selectWorkspace(null)}
-            >
-              Clique Aqui
-            </button>
-          </article>
-
-          {workspaceGroups.map((g) => {
+          {workspaceGroups.map((g, idx) => {
             const active = workspaceGroupId === g.id;
             const descTrim = g.description?.trim() ?? "";
             return (
@@ -245,71 +230,78 @@ export default function HomePage() {
                 aria-current={active ? "true" : undefined}
               >
                 <div className={styles.pickerCardHead}>
-                  <h2 className={styles.pickerCardTitle}>
-                    <span className={styles.pickerCardTitleIcon} aria-hidden>
-                      👥
-                    </span>{" "}
-                    <span className={styles.pickerCardTitleName}>{g.name}</span>
-                    {descTrim ? (
-                      <span className={styles.pickerCardTitleSuffix}>
-                        {" "}
-                        — {descTrim}
-                      </span>
+                  <span className={`${styles.pickerAvatar} ${styles[`pickerAvatar${idx % 4}`]}`} aria-hidden>
+                    {iniciaisDoNome(g.name)}
+                  </span>
+                  <div className={styles.pickerCardInfo}>
+                    <h2 className={styles.pickerCardTitle}>{g.name}</h2>
+                    <p className={styles.pickerCardDesc}>
+                      {descTrim || `Ref. #${g.id}`}
+                    </p>
+                    {!g.isOwner && g.subscriptionOwnerEmail ? (
+                      <p className={styles.pickerOwnerHint}>Dono: {g.subscriptionOwnerEmail}</p>
                     ) : null}
-                  </h2>
-                  {!g.isOwner && g.subscriptionOwnerEmail ? (
-                    <p className={styles.pickerOwnerHint}>Dono: {g.subscriptionOwnerEmail}</p>
-                  ) : null}
-                  {!descTrim ? <p className={styles.pickerIdHint}>Ref. #{g.id}</p> : null}
+                  </div>
+                  {active ? <span className={styles.pickerAtual}>Atual</span> : null}
                 </div>
                 <div className={styles.pickerCardActions}>
+                  <span className={styles.pickerRole}>{g.isOwner ? "Dono" : "Membro"}</span>
+                  {g.isOwner ? (
+                    <Link
+                      to={`/grupo/${g.id}/painel`}
+                      className={styles.pickerAdminLink}
+                      onClick={() => setWorkspacePicker(false)}
+                    >
+                      Administrar
+                    </Link>
+                  ) : null}
                   <button
                     type="button"
                     className={`mm-btn mm-btn--primary ${styles.pickerCardBtn}`}
                     disabled={workspaceSaving}
                     onClick={() => void selectWorkspace(g.id)}
                   >
-                    Clique Aqui
+                    Abrir
                   </button>
-                  {g.isOwner ? (
-                    <Link
-                      to={`/grupo/${g.id}/painel`}
-                      className={`mm-btn ${styles.pickerOwnerLink}`}
-                      onClick={() => setWorkspacePicker(false)}
-                    >
-                      Painel do owner
-                    </Link>
-                  ) : null}
                 </div>
               </article>
             );
           })}
-        </div>
 
-        <div className={styles.pickerBottomBar}>
-          <Link
-            to="/grupo/novo"
-            className={`mm-btn mm-btn--primary ${styles.pickerCta} ${styles.pickerBottomBtn}`}
+          <article
+            className={`${styles.pickerCard} ${personalActive ? styles.pickerCardActive : ""}`}
+            aria-current={personalActive ? "true" : undefined}
           >
-            Criar novo grupo
-          </Link>
-          <Link
-            to="/grupo/entrar"
-            className={`mm-btn ${styles.pickerCtaSecondary} ${styles.pickerBottomBtn}`}
-          >
-            <span className={styles.pickerCtaLead} aria-hidden>
-              &gt;{" "}
-            </span>
-            Entrar em outro Grupo
-          </Link>
-          <button
-            type="button"
-            className={`mm-btn ${styles.pickerBottomBtn} ${styles.pickerCancelBtn}`}
-            disabled={workspaceSaving}
-            onClick={() => setWorkspacePicker(false)}
-          >
-            Cancelar
-          </button>
+            <div className={styles.pickerCardHead}>
+              <span className={`${styles.pickerAvatar} ${styles.pickerAvatarPessoal}`} aria-hidden>
+                <IconUser size={18} />
+              </span>
+              <div className={styles.pickerCardInfo}>
+                <h2 className={styles.pickerCardTitle}>Meus memos pessoais</h2>
+                <p className={styles.pickerCardDesc}>Só você vê</p>
+              </div>
+              {personalActive ? <span className={styles.pickerAtual}>Atual</span> : null}
+            </div>
+            <div className={styles.pickerCardActions}>
+              <button
+                type="button"
+                className={`mm-btn mm-btn--primary ${styles.pickerCardBtn}`}
+                disabled={workspaceSaving}
+                onClick={() => void selectWorkspace(null)}
+              >
+                Abrir
+              </button>
+            </div>
+          </article>
+
+          <div className={styles.pickerNovo}>
+            <Link to="/grupo/novo" className={styles.pickerNovoLink}>
+              <IconPlus size={16} /> Criar novo grupo
+            </Link>
+            <Link to="/grupo/entrar" className={styles.pickerNovoSub}>
+              ou entrar com um código de convite
+            </Link>
+          </div>
         </div>
       </main>
     );

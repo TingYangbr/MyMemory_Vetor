@@ -16,6 +16,23 @@ const RECENT_UI_STORAGE_KEY = "mm_recent_memos_ui_v1";
 
 type RecentViewMode = "list" | "cards";
 
+function IconEditar({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z" />
+      <path d="m13.5 6.5 4 4" />
+    </svg>
+  );
+}
+
+function IconLixeira({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12h10l1-12M9 7V5h6v2" />
+    </svg>
+  );
+}
+
 type RecentUiPersisted = {
   view?: RecentViewMode;
   expanded?: boolean;
@@ -24,13 +41,13 @@ type RecentUiPersisted = {
 function loadRecentUiState(): { view: RecentViewMode; expanded: boolean } {
   try {
     const raw = localStorage.getItem(RECENT_UI_STORAGE_KEY);
-    if (!raw) return { view: "cards", expanded: true };
+    if (!raw) return { view: "list", expanded: true };
     const j = JSON.parse(raw) as RecentUiPersisted;
     const view = j.view === "list" ? "list" : "cards";
     const expanded = j.expanded !== false;
     return { view, expanded };
   } catch {
-    return { view: "cards", expanded: true };
+    return { view: "list", expanded: true };
   }
 }
 
@@ -236,6 +253,32 @@ export default function RecentMemos({
             <MemoCardPrimaryRow m={m} apiBase={apiBase} returnTo={returnTo} />
           </div>
           <span className={styles.memoRef}>#{m.id}</span>
+          {isOwner ? (
+            <div className={styles.cardIconActions}>
+              <Link
+                to={`/memo/${m.id}/editar`}
+                state={{ returnTo }}
+                className={styles.listIconBtn}
+                title="Editar"
+                aria-label={`Editar memo ${m.id}`}
+              >
+                <IconEditar className={styles.listIconSvg} />
+              </Link>
+              <button
+                type="button"
+                className={`${styles.listIconBtn} ${styles.listIconBtnDanger}`}
+                disabled={deletingId !== null}
+                title="Mover para a lixeira"
+                aria-label={`Mover memo ${m.id} para a lixeira`}
+                onClick={() => {
+                  setDeleteError(null);
+                  setDeleteTarget(m);
+                }}
+              >
+                <IconLixeira className={styles.listIconSvg} />
+              </button>
+            </div>
+          ) : null}
         </header>
 
         {(m.iaUseLevel || m.hasSemanticChunks) ? (
@@ -299,52 +342,6 @@ export default function RecentMemos({
           ) : null}
         </div>
 
-        <div className={styles.actionsRow}>
-          <div className={styles.clipActions}>
-            <button
-              type="button"
-              className={`mm-btn mm-btn--ghost ${styles.actionSm}`}
-              disabled
-              title="Em breve — copiar para outro grupo"
-            >
-              Copiar
-            </button>
-            <button
-              type="button"
-              className={`mm-btn mm-btn--ghost ${styles.actionSm}`}
-              disabled
-              title="Em breve — recortar / colar entre grupos"
-            >
-              Recortar
-            </button>
-          </div>
-          {isOwner ? (
-            <div className={styles.ownerActions}>
-              <Link
-                to={`/memo/${m.id}/editar`}
-                state={{ returnTo }}
-                className={`mm-btn mm-btn--ghost ${styles.actionSm}`}
-                style={{ textDecoration: "none", display: "inline-flex", alignItems: "center" }}
-              >
-                Editar
-              </Link>
-              <button
-                type="button"
-                className={`mm-btn mm-btn--ghost ${styles.actionDanger}`}
-                disabled={deletingId !== null}
-                onClick={() => {
-                  setDeleteError(null);
-                  setDeleteTarget(m);
-                }}
-                aria-label={`Mover memo ${m.id} para a lixeira`}
-              >
-                Lixeira
-              </button>
-            </div>
-          ) : (
-            <p className={styles.notOwnerHint}>Memo de outro membro — somente visualização.</p>
-          )}
-        </div>
       </article>
     );
   }
