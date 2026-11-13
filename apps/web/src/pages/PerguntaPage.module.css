@@ -1621,6 +1621,22 @@
   gap: 0.3rem;
   padding: 0.5rem 0.75rem 0.6rem;
 }
+.modeloInlineSelect {
+  width: 100%;
+  padding: 0.3rem 0.45rem;
+  border-radius: 6px;
+  border: 1px solid var(--mm-border);
+  background: var(--mm-card);
+  color: var(--mm-text);
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.modeloInlineSelect option {
+  background: var(--mm-card);
+  color: var(--mm-text);
+}
+
 .modeloInlineTextarea {
   width: 100%;
   box-sizing: border-box;

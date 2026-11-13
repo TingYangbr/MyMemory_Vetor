@@ -14,6 +14,7 @@ import type {
 } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import styles from "./PerguntaPage.module.css";
@@ -696,7 +697,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [modeloSavingIdx, setModeloSavingIdx] = useState<number | null>(null);
   const [modeloSaveErr, setModeloSaveErr] = useState<string | null>(null);
   const [openNoteId, setOpenNoteId] = useState<number | null>(null);
-  const [editingModalModelo, setEditingModalModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
+  const [editingModalModelo, setEditingModalModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null; category: string | null } | null>(null);
   const [savingModalModelo, setSavingModalModelo] = useState(false);
   const [filterCat, setFilterCat] = useState<string | null>(null);
   const [showCatFilter, setShowCatFilter] = useState(false);
@@ -744,6 +745,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
+  const categoryOptionsModelo = useCategoryOptions(workspaceGroupId);
 
   useEffect(() => {
     const el = textareaRef.current;
@@ -1311,7 +1313,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     try {
       const res = await apiPutJson<{ modelo: PerguntaModelo }>(
         `/api/pergunta-modelos/${editingModalModelo.id}`,
-        { pergunta: editingModalModelo.pergunta.trim(), anotacoes: editingModalModelo.anotacoes.trim() || null, estrelas: editingModalModelo.estrelas }
+        { pergunta: editingModalModelo.pergunta.trim(), anotacoes: editingModalModelo.anotacoes.trim() || null, estrelas: editingModalModelo.estrelas, category: editingModalModelo.category }
       );
       setModelos((prev) => prev.map((m) => (m.id === editingModalModelo.id ? res.modelo : m)));
       setEditingModalModelo(null);
@@ -2107,6 +2109,19 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           onChange={(e) => setEditingModalModelo({ ...editingModalModelo, anotacoes: e.target.value })}
                           style={{ fontStyle: "italic", fontSize: "0.78rem" }}
                         />
+                        <select
+                          className={styles.modeloInlineSelect}
+                          value={editingModalModelo.category ?? ""}
+                          onChange={(e) => setEditingModalModelo({ ...editingModalModelo, category: e.target.value || null })}
+                          aria-label="Categoria da pergunta salva"
+                          title="Categoria (usada no filtro das perguntas salvas)"
+                        >
+                          <option value="">Sem categoria</option>
+                          {editingModalModelo.category && !categoryOptionsModelo.some((c) => c.name === editingModalModelo.category) ? (
+                            <option value={editingModalModelo.category}>{editingModalModelo.category}</option>
+                          ) : null}
+                          {categoryOptionsModelo.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                        </select>
                         <div className={styles.modeloInlineStarRow}>
                           {[1, 2, 3, 4, 5].map((n) => (
                             <button
@@ -2152,7 +2167,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                             type="button"
                             className={styles.modeloItemEditBtn}
                             title="Editar"
-                            onClick={(e) => { e.stopPropagation(); setEditingModalModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null }); }}
+                            onClick={(e) => { e.stopPropagation(); setEditingModalModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null, category: m.category ?? null }); }}
                           ><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><path d="M12 22h6a2 2 0 0 0 2-2V7l-5-5H6a2 2 0 0 0-2 2v10"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m10.4 12.6a2 2 0 1 1 3 3L8 21l-4 1 1-4 5.4-5.4z"/></svg></button>
                           {m.anotacoes ? (
                             <button
