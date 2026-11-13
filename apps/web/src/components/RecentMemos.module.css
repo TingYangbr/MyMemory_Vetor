@@ -839,3 +839,22 @@
 .cardTopPrimary { flex: 1 1 100%; }
 .cardTop .memoRef { margin-right: auto; }
 .cardTop .cardIconActions { margin-left: 0; }
+
+/* Etapa 2: categoria + título curto na lista */
+.listTitleWrap {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.listAutor {
+  margin-left: auto;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--mm-muted);
+  white-space: nowrap;
+}
+
+.listAutor + .listRef { margin-left: 0.4rem; }

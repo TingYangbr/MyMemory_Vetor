@@ -27,6 +27,7 @@ import recentListStyles from "../components/RecentMemos.module.css";
 import { parseKeywordList, parseMemoDadosEspecificosEntries } from "../memo/memoCardDisplayUtils";
 import { MemoDadosEspecificosDisplay } from "../memo/MemoDadosEspecificosDisplay";
 import { MemoCardPrimaryRow } from "../memo/MemoCardPrimaryRow";
+import { MemoTituloCategoria } from "../memo/MemoTituloCategoria";
 import {
   compareDadosEspecificosValuesForSort,
   computeSearchSuggestions,
@@ -1806,6 +1807,7 @@ export default function MemoSearchPage({ embedded = false }: { embedded?: boolea
                             ) : null}
                           </div>
                         </div>
+                        <MemoTituloCategoria m={m} />
                         {m.similarity != null && (
                           <span className={styles.similarityBadge}>
                             {Math.round(m.similarity * 100)}% similar

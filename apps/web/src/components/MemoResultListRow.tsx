@@ -7,6 +7,7 @@ import {
   searchCardPrimaryLabel,
 } from "../memo/memoCardDisplayUtils";
 import { MemoCardTypeGlyph } from "../memo/MemoCardTypeGlyph";
+import { MemoCategoriaChip, autorCurto, tituloCurtoDoMemo } from "../memo/MemoTituloCategoria";
 import styles from "./RecentMemos.module.css";
 
 function IconPencil({ className }: { className?: string }) {
@@ -59,7 +60,11 @@ export function MemoResultListRow({
   const textLen = bodyText.length;
   const kws = parseKeywordList(m.keywords);
   const { xx, yy } = dadosFilledCounts(m.dadosEspecificosJson);
-  const label = searchCardPrimaryLabel(m);
+  const arquivo = searchCardPrimaryLabel(m);
+  const titulo = tituloCurtoDoMemo(m);
+  // Título curto da IA quando existe; senão o nome do arquivo / início do texto.
+  const label = titulo ?? arquivo;
+  const autor = autorCurto(m);
   const dateStr = formatSearchCardDate(m.createdAt);
 
   return (
@@ -77,14 +82,14 @@ export function MemoResultListRow({
         <div className={styles.listRow1Rest}>
           {noNavigate ? (
             <a href={`/memo/${m.id}/editar?returnTo=${encodeURIComponent(returnTo)}`} target="_blank" rel="noopener noreferrer" className={styles.listRow1Link} title="Abrir memo em nova aba">
-              <span className={styles.listFilename}>{label}</span>
+              <span className={styles.listTitleWrap}><MemoCategoriaChip m={m} /><span className={styles.listFilename} title={titulo ? arquivo : undefined}>{label}</span></span>
               <time className={styles.listDate} dateTime={m.createdAt}>
                 {dateStr}
               </time>
             </a>
           ) : (
             <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} className={styles.listRow1Link} title="Abrir memo">
-              <span className={styles.listFilename}>{label}</span>
+              <span className={styles.listTitleWrap}><MemoCategoriaChip m={m} /><span className={styles.listFilename} title={titulo ? arquivo : undefined}>{label}</span></span>
               <time className={styles.listDate} dateTime={m.createdAt}>
                 {dateStr}
               </time>
@@ -98,6 +103,7 @@ export function MemoResultListRow({
           {kws.length > 3 ? (
             <span className={styles.listTagMais} title={kws.slice(3).join(", ")}>+{kws.length - 3}</span>
           ) : null}
+          {autor ? <span className={styles.listAutor} title={m.authorName ?? undefined}>por {autor}</span> : null}
           <span className={styles.listRef} title={`${textLen} caracteres · ${kws.length} palavras-chave · dados ${xx}/${yy}`}>#{m.id}</span>
         </div>
       </div>
