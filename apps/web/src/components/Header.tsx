@@ -1,28 +1,42 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import type { MeResponse, WorkspaceGroupsResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPostJson } from "../api";
 import { useTheme } from "../hooks/useTheme";
+import {
+  IconAlert,
+  IconArrowLeft,
+  IconBell,
+  IconChevronDown,
+  IconCode,
+  IconDoc,
+  IconFolder,
+  IconHelp,
+  IconLayers,
+  IconLogout,
+  IconMoon,
+  IconPlus,
+  IconSettings,
+  IconSun,
+  IconSwap,
+  IconUpload,
+  IconUser,
+  IconUsers,
+} from "./icons";
 import styles from "./Header.module.css";
 
-function IconPerson() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-  );
-}
-
-function IconGroup() {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
-      <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
-    </svg>
-  );
+/** Iniciais para o avatar: duas letras do nome, ou do e-mail. */
+function initialsOf(me: MeResponse | null): string {
+  if (!me) return "";
+  const base = (me.name ?? "").trim();
+  if (base) {
+    const parts = base.split(/\s+/).filter(Boolean);
+    const a = parts[0]?.[0] ?? "";
+    const b = parts.length > 1 ? parts[parts.length - 1][0] : parts[0]?.[1] ?? "";
+    return (a + b).toUpperCase();
+  }
+  const mail = (me.email ?? "").trim();
+  return mail.slice(0, 2).toUpperCase() || "?";
 }
 
 type Props = {
@@ -33,6 +47,8 @@ type Props = {
   onOpenWorkspacePicker?: () => void;
   /** Admin — edição de `media_settings`: exibe plano ativo no cabeçalho. */
   adminMediaPlan?: { planId: number; planName: string } | null;
+  /** Conteúdo central do cabeçalho (abas da home). No celular vira barra fixa no rodapé. */
+  center?: ReactNode;
 };
 
 export default function Header({
@@ -40,6 +56,7 @@ export default function Header({
   meRefreshKey = 0,
   onOpenWorkspacePicker,
   adminMediaPlan = null,
+  center,
 }: Props) {
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -142,65 +159,58 @@ export default function Header({
     navigate("/login");
   }
 
+  // Fecha o menu ao clicar fora ou com Esc
+  const menuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [menuOpen]);
+
+  // Com abas no rodapé (celular), o conteúdo precisa de espaço extra embaixo
+  const hasCenter = center != null;
+  useEffect(() => {
+    if (!hasCenter) return;
+    document.body.classList.add("mm-has-bottom-nav");
+    return () => document.body.classList.remove("mm-has-bottom-nav");
+  }, [hasCenter]);
+
+  const isAdmin = me?.role === "admin";
+  const hasAdminSection = isAdmin || ownerPanelGroupId != null || !!me?.memoContextAccess;
+  const groupLabel = me?.groupLabel ?? "Pessoal";
+  const isPersonal = me?.lastWorkspaceGroupId == null;
+  const close = () => setMenuOpen(false);
+
+  const workspaceIcon = isPersonal ? <IconUser size={14} /> : <IconUsers size={14} />;
+  const workspaceKind = isPersonal ? "Pessoal" : "Grupo";
+
   return (
     <header className={styles.header}>
-      <div className={styles.row1}>
-        <div className={styles.row1Left}>
+      <div className={styles.bar}>
+        <div className={styles.left}>
           <Link to="/" className={styles.brand} aria-label="proMemory — início">
             <span className={styles.logo}>
-              <img
-                className={styles.logoImg}
-                src="/mymemory-logo.png"
-                width={512}
-                height={512}
-                alt=""
-                decoding="async"
-              />
+              <img className={styles.logoImg} src="/mymemory-logo.png" width={512} height={512} alt="" decoding="async" />
             </span>
-            <div className={styles.title}>
+            <span className={styles.title}>
               <span className={styles.titlePro}>pro</span>
               <span className={styles.titleMemory}>Memory</span>
-            </div>
+            </span>
           </Link>
-        </div>
-        <div className={styles.row1Right}>
-          <div className={styles.user}>
-            {err ? (
-              <span className="mm-error">{err}</span>
-            ) : me ? (
-              <>
-                {me.email ?? me.name ?? `Usuário #${me.id}`}
-                {creditos?.excedido ? (
-                  <Link
-                    to="/conta/preferencias?tab=uso"
-                    className={styles.creditosExcedidos}
-                    title={`Créditos de IA do mês: ${creditos.usados.toLocaleString("pt-BR")} de ${creditos.limite?.toLocaleString("pt-BR")} do plano. Por enquanto o uso continua liberado.`}
-                  >
-                    ⚠ Créditos de IA excedidos
-                  </Link>
-                ) : null}
-                {me.emailVerified === false ? (
-                  <span className={styles.verifyHint} title="Confirme o e-mail para usar todos os recursos">
-                    {" "}
-                    (e-mail pendente)
-                  </span>
-                ) : null}
-              </>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      <div className={styles.row2}>
-        <div className={styles.row2Left}>
-          <div className={styles.version} title={versionTitle}>
-            {versionLabel}
-          </div>
-        </div>
-        <div className={styles.row2Right}>
           {showInicioLink ? (
-            <Link to="/" className={styles.inicioLink}>
-              ← Início
+            <Link to="/" className={styles.inicioLink} title="Voltar ao início">
+              <IconArrowLeft size={14} />
+              <span>Início</span>
             </Link>
           ) : null}
           {adminMediaPlan ? (
@@ -210,7 +220,7 @@ export default function Header({
               title={`Plano de assinatura em edição (planId ${adminMediaPlan.planId}): ${adminMediaPlan.planName}`}
             >
               <span className={styles.workspaceChipIcon} aria-hidden>
-                📋
+                <IconDoc size={14} />
               </span>
               <span className={styles.workspaceChipLabel}>{adminMediaPlan.planName}</span>
             </div>
@@ -221,197 +231,176 @@ export default function Header({
                 type="button"
                 className={styles.workspaceChip}
                 aria-haspopup="dialog"
-                aria-label={`Contexto de trabalho: ${me.groupLabel ?? "Pessoal"}. Clique para alterar.`}
+                aria-label={`Espaço de trabalho: ${groupLabel} (${workspaceKind}). Clique para trocar.`}
+                title={`${workspaceKind}: ${groupLabel}. Clique para trocar.`}
                 onClick={() => {
-                  setMenuOpen(false);
+                  close();
                   onOpenWorkspacePicker();
                 }}
               >
-                <span className={styles.workspaceChipIcon}>
-                  {me.lastWorkspaceGroupId == null ? <IconPerson /> : <IconGroup />}
-                </span>
-                <span className={styles.workspaceChipLabel}>{me.groupLabel ?? "Pessoal"}</span>
-                <span className={styles.workspaceChipChevron} aria-hidden>
-                  ▾
-                </span>
+                <span className={styles.workspaceChipIcon}>{workspaceIcon}</span>
+                <span className={styles.workspaceChipLabel}>{groupLabel}</span>
+                <span className={styles.workspaceChipKind}>· {workspaceKind}</span>
+                <IconChevronDown size={14} className={styles.workspaceChipChevron} />
               </button>
             ) : (
               <div
                 className={styles.workspaceChipStatic}
                 role="status"
-                title={`Contexto de trabalho: ${me.groupLabel ?? "Pessoal"}. Para alterar, vá à página inicial (Início) e use o seletor de grupo.`}
+                title={`${workspaceKind}: ${groupLabel}. Para trocar, volte ao início e use o seletor de grupo.`}
               >
-                <span className={styles.workspaceChipIcon}>
-                  {me.lastWorkspaceGroupId == null ? <IconPerson /> : <IconGroup />}
-                </span>
-                <span className={styles.workspaceChipLabel}>{me.groupLabel ?? "Pessoal"}</span>
+                <span className={styles.workspaceChipIcon}>{workspaceIcon}</span>
+                <span className={styles.workspaceChipLabel}>{groupLabel}</span>
               </div>
             )
           ) : null}
-          <button
-            type="button"
-            className={styles.themeToggleBtn}
-            aria-label={theme === "dark" ? "Mudar para tema claro" : "Mudar para tema escuro"}
-            title={theme === "dark" ? "Tema claro" : "Tema escuro"}
-            onClick={toggleTheme}
-          >
-            {theme === "dark" ? "☀" : "☾"}
-          </button>
-          <div className={styles.menuWrap}>
+        </div>
+
+        {hasCenter ? <nav className={styles.center}>{center}</nav> : <div className={styles.spacer} />}
+
+        <div className={styles.right}>
+          {err ? <span className={`mm-error ${styles.err}`}>{err}</span> : null}
+          {creditos?.excedido ? (
+            <Link
+              to="/conta/preferencias?tab=uso"
+              className={styles.creditosExcedidos}
+              title={`Créditos de IA do mês: ${creditos.usados.toLocaleString("pt-BR")} de ${creditos.limite?.toLocaleString("pt-BR")} do plano. Por enquanto o uso continua liberado.`}
+            >
+              <IconAlert size={14} />
+              <span className={styles.creditosText}>Créditos excedidos</span>
+            </Link>
+          ) : null}
+          {me ? (
+            <Link to="/avisos" className={styles.iconBtn} title="Meus avisos e lembretes" aria-label="Meus avisos e lembretes">
+              <IconBell size={18} />
+            </Link>
+          ) : null}
+          <div className={styles.menuWrap} ref={menuRef}>
             <button
               type="button"
-              className={styles.hamburger}
+              className={styles.avatarBtn}
               aria-expanded={menuOpen}
-              aria-label="Menu"
+              aria-haspopup="menu"
+              aria-label="Menu da conta"
+              title={me ? (me.email ?? me.name ?? "Minha conta") : "Menu"}
               onClick={() => setMenuOpen((o) => !o)}
             >
-              ☰
+              {me ? initialsOf(me) : <IconUser size={16} />}
             </button>
             {menuOpen ? (
-              <ul className={styles.dropdown} role="menu">
-                {me?.role === "admin" ? (
-                  <>
-                    <li>
-                      <Link
-                        to="/admin"
-                        role="menuitem"
-                        className={styles.dropdownLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span aria-hidden>⚙</span> Painel admin
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/admin/midia"
-                        role="menuitem"
-                        className={styles.dropdownLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span aria-hidden>📁</span> Mídia por plano
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/admin/documento-ia"
-                        role="menuitem"
-                        className={styles.dropdownLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span aria-hidden>📄</span> Documento IA (roteamento)
-                      </Link>
-                    </li>
-                    <li>
-                      <Link
-                        to="/admin/llm-prompt"
-                        role="menuitem"
-                        className={styles.dropdownLink}
-                        onClick={() => setMenuOpen(false)}
-                      >
-                        <span aria-hidden>🧠</span> Último prompt LLM
-                      </Link>
-                    </li>
-                  </>
-                ) : null}
-                {ownerPanelGroupId != null ? (
-                  <li>
-                    <Link
-                      to={`/grupo/${ownerPanelGroupId}/painel`}
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>👥</span> Painel do owner
-                    </Link>
-                  </li>
-                ) : null}
-                {me?.memoContextAccess ? (
-                  <li>
-                    <Link
-                      to="/estrutura-memo"
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>📐</span> Estrutura contextual
-                    </Link>
-                  </li>
-                ) : null}
+              <div className={styles.dropdown} role="menu">
                 {me ? (
-                  <li>
-                    <Link
-                      to="/importar-lote"
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>📥</span> Importar em lote
-                    </Link>
-                  </li>
+                  <div className={styles.menuHead}>
+                    <span className={styles.menuAvatar} aria-hidden>
+                      {initialsOf(me)}
+                    </span>
+                    <span className={styles.menuWho}>
+                      <b>{me.name ?? me.email ?? `Usuário #${me.id}`}</b>
+                      {me.name && me.email ? <small>{me.email}</small> : null}
+                      {me.emailVerified === false ? (
+                        <small className={styles.verifyHint} title="Confirme o e-mail para usar todos os recursos">
+                          e-mail pendente de confirmação
+                        </small>
+                      ) : null}
+                    </span>
+                  </div>
                 ) : null}
+
                 {me ? (
-                  <li>
-                    <Link
-                      to="/avisos"
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>🔔</span> Meus Avisos
+                  <div className={styles.menuGroup}>
+                    <div className={styles.menuLabel}>Conta</div>
+                    <Link to="/conta/preferencias" role="menuitem" className={styles.item} onClick={close}>
+                      <IconUser /> Minha conta
                     </Link>
-                  </li>
-                ) : null}
-                {me ? (
-                  <li>
-                    <Link
-                      to="/conta/preferencias"
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>📋</span> Minha conta
+                    <Link to="/avisos" role="menuitem" className={styles.item} onClick={close}>
+                      <IconBell /> Meus avisos e lembretes
                     </Link>
-                  </li>
-                ) : null}
-                {me ? (
-                  <li>
-                    <Link
-                      to="/grupo/novo"
-                      role="menuitem"
-                      className={styles.dropdownLink}
-                      onClick={() => setMenuOpen(false)}
-                    >
-                      <span aria-hidden>➕</span> Criar novo grupo
+                    <Link to="/importar-lote" role="menuitem" className={styles.item} onClick={close}>
+                      <IconUpload /> Importar em lote
                     </Link>
-                  </li>
+                    {onOpenWorkspacePicker ? (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.item}
+                        onClick={() => {
+                          close();
+                          onOpenWorkspacePicker();
+                        }}
+                      >
+                        <IconSwap /> Trocar espaço <span className={styles.itemHint}>{groupLabel}</span>
+                      </button>
+                    ) : null}
+                    <Link to="/grupo/novo" role="menuitem" className={styles.item} onClick={close}>
+                      <IconPlus /> Criar novo grupo
+                    </Link>
+                  </div>
                 ) : null}
-                {me && onOpenWorkspacePicker ? (
-                  <li>
-                    <button
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setMenuOpen(false);
-                        onOpenWorkspacePicker();
-                      }}
-                    >
-                      <span aria-hidden>👥</span> Grupo: {me.groupLabel ?? "Pessoal"}
-                    </button>
-                  </li>
+
+                {hasAdminSection ? (
+                  <div className={styles.menuGroup}>
+                    <div className={styles.menuLabel}>Administração</div>
+                    {ownerPanelGroupId != null ? (
+                      <Link to={`/grupo/${ownerPanelGroupId}/painel`} role="menuitem" className={styles.item} onClick={close}>
+                        <IconUsers /> Painel do owner
+                      </Link>
+                    ) : null}
+                    {me?.memoContextAccess ? (
+                      <Link to="/estrutura-memo" role="menuitem" className={styles.item} onClick={close}>
+                        <IconLayers /> Estrutura contextual
+                      </Link>
+                    ) : null}
+                    {isAdmin ? (
+                      <>
+                        <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
+                          <IconSettings /> Painel admin
+                        </Link>
+                        <Link to="/admin/midia" role="menuitem" className={styles.item} onClick={close}>
+                          <IconFolder /> Mídia por plano
+                        </Link>
+                        <Link to="/admin/documento-ia" role="menuitem" className={styles.item} onClick={close}>
+                          <IconDoc /> Documento IA (roteamento)
+                        </Link>
+                        <Link to="/admin/llm-prompt" role="menuitem" className={styles.item} onClick={close}>
+                          <IconCode /> Último prompt LLM
+                        </Link>
+                      </>
+                    ) : null}
+                  </div>
                 ) : null}
-                <li>
-                  <button type="button" role="menuitem" onClick={() => onMenuAction?.("ajuda")}>
-                    <span aria-hidden>❓</span> Ajuda
+
+                <div className={styles.menuGroup}>
+                  <button type="button" role="menuitem" className={styles.item} onClick={toggleTheme}>
+                    {theme === "dark" ? <IconSun /> : <IconMoon />}
+                    {theme === "dark" ? "Tema claro" : "Tema escuro"}
                   </button>
-                </li>
-              </ul>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className={styles.item}
+                    onClick={() => {
+                      close();
+                      onMenuAction?.("ajuda");
+                    }}
+                  >
+                    <IconHelp /> Ajuda
+                  </button>
+                  {me ? (
+                    <button type="button" role="menuitem" className={`${styles.item} ${styles.itemDanger}`} onClick={() => void logout()}>
+                      <IconLogout /> Sair
+                    </button>
+                  ) : (
+                    <Link to="/login" role="menuitem" className={styles.item} onClick={close}>
+                      <IconLogout /> Entrar
+                    </Link>
+                  )}
+                </div>
+                <div className={styles.menuFoot} title={versionTitle}>
+                  Versão publicada em {versionLabel}
+                </div>
+              </div>
             ) : null}
           </div>
-          {me ? (
-            <button type="button" className={styles.logoutBtn} onClick={() => void logout()}>
-              Sair
-            </button>
-          ) : null}
         </div>
       </div>
     </header>

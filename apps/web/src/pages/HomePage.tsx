@@ -10,6 +10,7 @@ import type {
 } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson } from "../api";
 import Header from "../components/Header";
+import { IconChat, IconPlus, IconSearch } from "../components/icons";
 import MemoRegisterPanel from "../components/MemoRegisterPanel";
 import RecentMemos from "../components/RecentMemos";
 import PerguntaPage from "./PerguntaPage";
@@ -28,34 +29,15 @@ function getInitialTab(params: URLSearchParams): HomeTab {
 }
 
 function IconPerguntar() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="9" cy="7" r="4"/>
-      <path d="M3 21v-1a7 7 0 0 1 10.5-6.1"/>
-      <path d="M17.5 13a2.5 2.5 0 0 1 2.5 2.5c0 1.1-.7 2.04-1.7 2.4L18 19"/>
-      <circle cx="18" cy="21" r=".75" fill="currentColor" stroke="none"/>
-    </svg>
-  );
+  return <IconChat size={17} />;
 }
 
 function IconBuscar() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-      <polyline points="14 2 14 8 20 8"/>
-      <circle cx="10.5" cy="14.5" r="2.5"/>
-      <line x1="12.5" y1="16.5" x2="15" y2="19"/>
-    </svg>
-  );
+  return <IconSearch size={17} />;
 }
 
 function IconCatalogar() {
-  return (
-    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden>
-      <rect x="2" y="2" width="20" height="20" rx="4" fill="currentColor"/>
-      <path d="M12 16.5V7.5M8.5 11l3.5-3.5 3.5 3.5" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-    </svg>
-  );
+  return <IconPlus size={17} />;
 }
 
 export default function HomePage() {
@@ -372,6 +354,42 @@ export default function HomePage() {
     );
   }
 
+  const tabBar = (
+    <div className={styles.tabBar} role="tablist" aria-label="Seções">
+      <button
+        type="button"
+        className={`${styles.tab} ${tab === "perguntar" ? styles.tabActive : ""}`}
+        onClick={() => handleTabChange("perguntar")}
+        aria-selected={tab === "perguntar"}
+        role="tab"
+      >
+        <IconPerguntar />
+        Perguntar
+      </button>
+      <button
+        type="button"
+        className={`${styles.tab} ${tab === "buscar" ? styles.tabActive : ""}`}
+        onClick={() => handleTabChange("buscar")}
+        aria-selected={tab === "buscar"}
+        role="tab"
+      >
+        <IconBuscar />
+        Buscar
+      </button>
+      <button
+        type="button"
+        className={`${styles.tab} ${tab === "registrar" ? styles.tabActive : ""}`}
+        onClick={() => handleTabChange("registrar")}
+        aria-selected={tab === "registrar"}
+        role="tab"
+        title="Catalogar novo memo"
+      >
+        <IconCatalogar />
+        Catalogar
+      </button>
+    </div>
+  );
+
   return (
     <div className={styles.shell}>
       <Header
@@ -380,45 +398,12 @@ export default function HomePage() {
         onMenuAction={(a) => {
           if (a === "ajuda") window.alert("Ajuda — conteúdo definido na parte 1 / admin.");
         }}
+        center={workspacePicker ? undefined : tabBar}
       />
       {workspacePicker ? (
         renderWorkspacePicker()
       ) : (
         <main className={styles.main}>
-          <div className={styles.tabBar}>
-            <button
-              type="button"
-              className={`${styles.tab} ${tab === "perguntar" ? styles.tabActive : ""}`}
-              onClick={() => handleTabChange("perguntar")}
-              aria-selected={tab === "perguntar"}
-              role="tab"
-            >
-              <IconPerguntar />
-              Perguntar
-            </button>
-            <button
-              type="button"
-              className={`${styles.tab} ${tab === "buscar" ? styles.tabActive : ""}`}
-              onClick={() => handleTabChange("buscar")}
-              aria-selected={tab === "buscar"}
-              role="tab"
-            >
-              <IconBuscar />
-              Buscar
-            </button>
-            <button
-              type="button"
-              className={`${styles.tab} ${styles.tabIcon} ${styles.tabIconCatalogar} ${tab === "registrar" ? styles.tabActive : ""}`}
-              onClick={() => handleTabChange("registrar")}
-              aria-selected={tab === "registrar"}
-              role="tab"
-              title="Catalogar novo memo"
-            >
-              <IconCatalogar />
-              Catalogar
-            </button>
-          </div>
-
           <div style={{ display: tab === "perguntar" ? "" : "none" }}>
             <PerguntaPage embedded />
           </div>
