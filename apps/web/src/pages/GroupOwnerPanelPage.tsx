@@ -402,13 +402,13 @@ export default function GroupOwnerPanelPage() {
         { limite: 50 }
       );
       setSemTitulo(r.restantes);
-      const partes = [`Pronto: ${r.gerados} memo(s) ganharam título.`];
-      if (r.vazios) partes.push(`${r.vazios} não têm texto para resumir e ficaram sem título.`);
+      const partes = [`Pronto: ${r.gerados} memo(s) ganharam assunto.`];
+      if (r.vazios) partes.push(`${r.vazios} não têm texto para resumir e ficaram sem assunto.`);
       if (r.erros) partes.push(`${r.erros} deram erro e serão tentados no próximo clique.`);
-      partes.push(r.restantes ? `Ainda faltam ${r.restantes} memos sem título.` : "Todos os memos já têm título.");
+      partes.push(r.restantes ? `Ainda faltam ${r.restantes} memos sem assunto.` : "Todos os memos já têm assunto.");
       setTitulosMsg(partes.join(" "));
     } catch (e) {
-      setTitulosErr(e instanceof Error ? e.message : "Falha ao gerar títulos.");
+      setTitulosErr(e instanceof Error ? e.message : "Falha ao gerar assuntos.");
     } finally {
       setTitulosBusy(false);
     }
@@ -573,14 +573,14 @@ export default function GroupOwnerPanelPage() {
                   </div>
                 </div>
                 <div className={styles.card}>
-                  <h2 className={styles.cardTitle}>Títulos curtos dos memos</h2>
+                  <h2 className={styles.cardTitle}>Assunto dos memos</h2>
                   <p className={styles.toggleHint}>
-                    A IA cria um título de até 5 palavras para cada memo novo, que aparece ao lado da categoria no
+                    A IA cria um assunto de até 5 palavras para cada memo novo, que aparece ao lado da categoria no
                     Buscar e no Catalogar. Para os memos antigos, gere aqui em lotes de 50 (usa créditos de IA).
                   </p>
                   {semTitulo != null ? (
                     <p className={styles.toggleHint}>
-                      {semTitulo === 0 ? "Todos os memos deste grupo já têm título." : `${semTitulo} memo(s) ainda sem título.`}
+                      {semTitulo === 0 ? "Todos os memos deste grupo já têm assunto." : `${semTitulo} memo(s) ainda sem assunto.`}
                     </p>
                   ) : null}
                   {titulosErr ? <p className={styles.error} role="alert">{titulosErr}</p> : null}
@@ -592,7 +592,7 @@ export default function GroupOwnerPanelPage() {
                       disabled={titulosBusy || semTitulo === 0}
                       onClick={() => void onGerarTitulos()}
                     >
-                      {titulosBusy ? "Gerando… (pode levar 1 minuto)" : "Gerar títulos (até 50 memos)"}
+                      {titulosBusy ? "Gerando… (pode levar 1 minuto)" : "Gerar assuntos (até 50 memos)"}
                     </button>
                   </div>
                 </div>
