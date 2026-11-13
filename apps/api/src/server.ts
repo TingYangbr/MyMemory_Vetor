@@ -78,6 +78,7 @@ import { QueryIsoladaContextoProtegido1700000000163 } from "./migrations/1700000
 import { CifrarSenhasConexoes1700000000164 } from "./migrations/1700000000164-CifrarSenhasConexoes.js";
 import { MemoTituloCurto1700000000165 } from "./migrations/1700000000165-MemoTituloCurto.js";
 import { SinoLeitura1700000000166 } from "./migrations/1700000000166-SinoLeitura.js";
+import { PerguntaFixadas1700000000167 } from "./migrations/1700000000167-PerguntaFixadas.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -199,6 +200,7 @@ assertMediaStorageEnv();
       CifrarSenhasConexoes1700000000164,
       MemoTituloCurto1700000000165,
       SinoLeitura1700000000166,
+      PerguntaFixadas1700000000167,
     ],
   });
   const ds = await AppDataSource.initialize();

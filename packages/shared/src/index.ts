@@ -1270,6 +1270,8 @@ export interface PerguntaModelo {
   estrelas: number | null;
   /** Plano salvo (classificação + queries + parâmetros); null = pergunta salva só com texto */
   plano?: PerguntaPlanoSalvo | null;
+  /** Fixada pelo usuário atual como atalho no Perguntar. */
+  fixada?: boolean;
   createdAt: string;
   updatedAt: string;
 }
