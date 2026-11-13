@@ -81,6 +81,7 @@ const patchMemoBody = z
     dadosEspecificosOriginaisJson: z.union([z.string().max(32_000), z.null()]).optional(),
     matchedCategoryId: z.number().int().positive().nullable().optional(),
     category: z.string().max(255).nullable().optional(),
+    apiCostAdicional: z.number().min(0).max(100).optional(),
   })
   .refine(
     (o) =>
@@ -1424,6 +1425,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         dadosEspecificosOriginaisJson: parsed.data.dadosEspecificosOriginaisJson,
         matchedCategoryId: parsed.data.matchedCategoryId ?? null,
         category: parsed.data.category,
+        apiCostAdicional: parsed.data.apiCostAdicional,
       });
       await donoAoSalvar(memo.id);
       const body: PatchMemoResponse = { ok: true, memo };

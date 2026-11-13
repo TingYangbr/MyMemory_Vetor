@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import type { NavigateFunction } from "react-router-dom";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import type { MeResponse, MemoAuthorEditResponse, PatchMemoResponse } from "@mymemory/shared";
+import type { MeResponse, MemoAuthorEditResponse, PatchMemoResponse, TextMemoProcessResponse } from "@mymemory/shared";
 import { dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson } from "../api";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
+import BotaoReextrair from "../components/BotaoReextrair";
 import Header from "../components/Header";
 import { MemoDadosJsonField } from "../memo/MemoDadosJsonField";
 import styles from "./MemoEditPage.module.css";
@@ -76,6 +77,12 @@ export default function MemoEditPage() {
   const [dadosEspecificosJson, setDadosEspecificosJson] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState<number | null>(null);
   const [selectedCategoryName, setSelectedCategoryName] = useState<string | null>(null);
+  /** Categoria a que os campos (dados específicos) na tela pertencem; null = memo sem categoria. */
+  const [catCamposId, setCatCamposId] = useState<number | null>(null);
+  /** Valores originais da última reextração (antes da padronização). */
+  const [originaisJson, setOriginaisJson] = useState<string | null>(null);
+  /** Custo de IA das reextrações desta edição — somado ao memo ao salvar. */
+  const [custoReextr, setCustoReextr] = useState(0);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +104,9 @@ export default function MemoEditPage() {
         setDadosEspecificosJson(m.dadosEspecificosJson ?? "");
         setSelectedCategoryName(m.category ?? null);
         setSelectedCategoryId(null);
+        setCatCamposId(null);
+        setOriginaisJson(null);
+        setCustoReextr(0);
       })
       .catch((e) => {
         const t = e instanceof Error ? e.message : "";
@@ -120,8 +130,22 @@ export default function MemoEditPage() {
   useEffect(() => {
     if (!selectedCategoryName || selectedCategoryId !== null || categoryOptions.length === 0) return;
     const match = categoryOptions.find((c) => c.name === selectedCategoryName);
-    if (match) setSelectedCategoryId(match.id);
+    if (match) {
+      setSelectedCategoryId(match.id);
+      setCatCamposId(match.id);
+    }
   }, [categoryOptions, selectedCategoryName, selectedCategoryId]);
+
+  // ↻ Reextrair: a IA refaz palavras-chave e campos da categoria escolhida a partir do texto do memo
+  // (o texto em si não muda)
+  const aplicarReextracao = useCallback((r: TextMemoProcessResponse, categoryId: number) => {
+    setKeywords(dedupeMemoKeywordsCommaSeparated(r.suggestedKeywords));
+    setDadosEspecificosJson(r.dadosEspecificosJson ?? "");
+    setOriginaisJson(r.dadosEspecificosOriginaisJson ?? null);
+    setCatCamposId(categoryId);
+    setCustoReextr((c) => c + (r.apiCost || 0));
+  }, []);
+  const categoriaTrocadaSemReextrair = selectedCategoryId != null && selectedCategoryId !== catCamposId;
 
   useEffect(() => {
     void apiGetOptional<MeResponse>("/api/me").then((r) => {
@@ -144,6 +168,9 @@ export default function MemoEditPage() {
         mediaText: mediaText.trim(),
         keywords: keywords.trim() || null,
         dadosEspecificosJson: dadosEspecificosJson.trim() || null,
+        ...(originaisJson ? { dadosEspecificosOriginaisJson: originaisJson } : {}),
+        ...(custoReextr > 0 ? { apiCostAdicional: custoReextr } : {}),
+        ...(selectedCategoryId != null ? { matchedCategoryId: selectedCategoryId } : {}),
         category: selectedCategoryName,
       });
       leaveMemoEdit(navigate, cancelTo, true);
@@ -279,7 +306,12 @@ export default function MemoEditPage() {
 
         <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-category">
           Categoria
-          <span className={styles.hint}>Categoria do memo (opcional).</span>
+          <span className={styles.hint}>
+            {categoriaTrocadaSemReextrair
+              ? "Categoria trocada: use ↻ Reextrair para preencher palavras-chave e dados específicos da nova categoria (o texto não muda)."
+              : "Categoria do memo (opcional)."}
+          </span>
+          <span className={styles.categoryRow}>
           <select
             id="memo-edit-category"
             className={styles.categorySelect}
@@ -302,6 +334,16 @@ export default function MemoEditPage() {
               <option key={c.id} value={c.id}>{c.name}</option>
             ))}
           </select>
+          <BotaoReextrair
+            texto={mediaText}
+            groupId={memo?.groupId ?? null}
+            categoryId={selectedCategoryId}
+            categoriaExtraidaId={catCamposId}
+            disabled={busy}
+            onResultado={aplicarReextracao}
+            onOcupado={setBusy}
+          />
+          </span>
         </label>
 
         <label className={`${styles.fieldLabel} ${styles.gridFullWidth}`} htmlFor="memo-edit-dados">

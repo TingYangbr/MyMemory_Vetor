@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import type { MeResponse, PerguntaModelo } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPutJson } from "../api";
+import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import Header from "../components/Header";
 import styles from "./PerguntaModelosPage.module.css";
 
@@ -11,7 +12,7 @@ export default function PerguntaModelosPage() {
   const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editing, setEditing] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
+  const [editing, setEditing] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null; category: string | null } | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveErr, setSaveErr] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
@@ -30,6 +31,7 @@ export default function PerguntaModelosPage() {
   }, [navigate]);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
+  const categoryOptions = useCategoryOptions(workspaceGroupId);
 
   const load = useCallback(async () => {
     if (!me) return;
@@ -49,7 +51,7 @@ export default function PerguntaModelosPage() {
   useEffect(() => { void load(); }, [load]);
 
   function startEdit(m: PerguntaModelo) {
-    setEditing({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null });
+    setEditing({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null, category: m.category ?? null });
     setSaveErr(null);
   }
 
@@ -60,7 +62,7 @@ export default function PerguntaModelosPage() {
     try {
       const res = await apiPutJson<{ modelo: PerguntaModelo }>(
         `/api/pergunta-modelos/${editing.id}`,
-        { pergunta: editing.pergunta.trim(), anotacoes: editing.anotacoes.trim() || null, estrelas: editing.estrelas }
+        { pergunta: editing.pergunta.trim(), anotacoes: editing.anotacoes.trim() || null, estrelas: editing.estrelas, category: editing.category }
       );
       setModelos((prev) => prev.map((m) => (m.id === editing.id ? res.modelo : m)));
       setEditing(null);
@@ -244,6 +246,18 @@ export default function PerguntaModelosPage() {
                         placeholder="Anotações (opcional)"
                         style={{ fontStyle: "italic", fontSize: "0.82rem" }}
                       />
+                      <select
+                        className={`mm-field ${styles.editTextarea}`}
+                        value={editing.category ?? ""}
+                        onChange={(e) => setEditing({ ...editing, category: e.target.value || null })}
+                        aria-label="Categoria da pergunta salva"
+                      >
+                        <option value="">Sem categoria</option>
+                        {editing.category && !categoryOptions.some((c) => c.name === editing.category) ? (
+                          <option value={editing.category}>{editing.category}</option>
+                        ) : null}
+                        {categoryOptions.map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+                      </select>
                       <div className={styles.editStarRow}>
                         <span className={styles.editStarLabel}>Classificação:</span>
                         {[1, 2, 3, 4, 5].map((n) => (

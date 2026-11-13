@@ -1110,6 +1110,8 @@ export async function updateMemoForUser(input: {
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
   category?: string | null;
+  /** Custo de IA gasto na edição (ex.: ↻ Reextrair), somado ao custo e aos créditos do memo. */
+  apiCostAdicional?: number;
 }): Promise<MemoCreatedResponse> {
   const current = await assertMemoAuthorCanModify(input.memoId, input.userId, input.isAdmin);
   const sets: string[] = [];
@@ -1129,6 +1131,11 @@ export async function updateMemoForUser(input: {
   if (input.category !== undefined) {
     sets.push("category = ?");
     vals.push(input.category?.trim() || null);
+  }
+  const custoExtra = Number.isFinite(input.apiCostAdicional) && (input.apiCostAdicional ?? 0) > 0 ? input.apiCostAdicional! : 0;
+  if (custoExtra > 0) {
+    sets.push("apiCost = COALESCE(apiCost, 0) + ?", "usedApiCred = COALESCE(usedApiCred, 0) + ?");
+    vals.push(custoExtra, creditsFromUsdCost(custoExtra, await getUsdToCreditsMultiplier()));
   }
   if (!sets.length) {
     const row = await getMemoById(input.memoId, input.userId);
