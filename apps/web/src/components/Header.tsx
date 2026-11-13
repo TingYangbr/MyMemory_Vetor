@@ -23,6 +23,7 @@ import {
   IconUser,
   IconUsers,
 } from "./icons";
+import { SinoNotificacoes } from "./SinoNotificacoes";
 import styles from "./Header.module.css";
 
 /** Iniciais para o avatar: duas letras do nome, ou do e-mail. */
@@ -270,11 +271,7 @@ export default function Header({
               <span className={styles.creditosText}>Créditos excedidos</span>
             </Link>
           ) : null}
-          {me ? (
-            <Link to="/avisos" className={styles.iconBtn} title="Meus avisos e lembretes" aria-label="Meus avisos e lembretes">
-              <IconBell size={18} />
-            </Link>
-          ) : null}
+          {me ? <SinoNotificacoes /> : null}
           <div className={styles.menuWrap} ref={menuRef}>
             <button
               type="button"
