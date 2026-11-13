@@ -1,0 +1,126 @@
+/* Sino do cabeçalho: número + painel com Avisos e Lembretes */
+.wrap { position: relative; }
+
+.btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--mm-radius-sm);
+  background: transparent;
+  color: var(--mm-text-secondary);
+  cursor: pointer;
+}
+.btn:hover, .btnAberto { background: var(--mm-bg); color: var(--mm-text); }
+.btn:focus-visible { outline: 2px solid var(--mm-primary); outline-offset: 2px; }
+
+.badge {
+  position: absolute;
+  top: 2px;
+  right: 1px;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #dc2626;
+  color: #fff;
+  font-size: 0.66rem;
+  font-weight: 800;
+  line-height: 17px;
+  text-align: center;
+  box-shadow: 0 0 0 2px var(--mm-card);
+}
+
+.pop {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 360px;
+  max-width: calc(100vw - 24px);
+  max-height: min(70vh, 520px);
+  display: flex;
+  flex-direction: column;
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius);
+  box-shadow: var(--mm-shadow-lg);
+  z-index: 60;
+  font-size: 0.875rem;
+  overflow: hidden;
+}
+
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.55rem 0.6rem 0;
+  border-bottom: 1px solid var(--mm-border);
+}
+.tab {
+  border: 0;
+  background: transparent;
+  padding: 0.45rem 0.6rem 0.55rem;
+  font: inherit;
+  font-weight: 700;
+  color: var(--mm-muted);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+}
+.tabOn { color: var(--mm-primary); border-bottom-color: var(--mm-primary); }
+
+.lista { overflow-y: auto; flex: 1 1 auto; }
+
+.item {
+  display: grid;
+  grid-template-columns: 30px 1fr auto;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border-bottom: 1px solid var(--mm-border-muted);
+  color: inherit;
+  text-decoration: none;
+}
+.item:hover { background: var(--mm-bg); }
+.naoLido { background: var(--mm-primary-faint); }
+
+.ic {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+}
+.icAviso { background: var(--mm-warning-bg); color: var(--mm-warning); }
+.icLembrete { background: var(--mm-primary-faint); color: var(--mm-primary); }
+
+.corpo { min-width: 0; }
+.corpo b { display: block; font-size: 0.85rem; line-height: 1.3; }
+.corpo p {
+  margin: 0.15rem 0 0;
+  color: var(--mm-text-secondary);
+  font-size: 0.8rem;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.quando { font-size: 0.72rem; color: var(--mm-muted); white-space: nowrap; }
+
+.vazio { padding: 1.4rem 1rem; text-align: center; color: var(--mm-muted); }
+
+.rodape {
+  display: block;
+  padding: 0.65rem 0.8rem;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mm-primary);
+  text-decoration: none;
+  border-top: 1px solid var(--mm-border);
+}
+.rodape:hover { background: var(--mm-bg); }
+
+@media (max-width: 640px) {
+  .pop { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; max-width: none; }
+}
