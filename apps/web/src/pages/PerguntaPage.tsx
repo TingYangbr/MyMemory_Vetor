@@ -12,7 +12,7 @@ import type {
   PerguntaResponse,
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
-import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
+import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
 import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
@@ -680,6 +680,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [refazerIdx, setRefazerIdx] = useState<number | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [cardMemo, setCardMemo] = useState<MemoRecentCard | null>(null);
+  const [memoDeleteConfirm, setMemoDeleteConfirm] = useState(false);
+  const [memoDeleteBusy, setMemoDeleteBusy] = useState(false);
+  const [memoDeleteError, setMemoDeleteError] = useState<string | null>(null);
   const [filePreviewMemo, setFilePreviewMemo] = useState<MemoRecentCard | null>(null);
   const [loadingCardId, setLoadingCardId] = useState<number | null>(null);
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
@@ -1131,8 +1134,27 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }, [respostas.length]);
 
   function handleCloseMemoCard() {
+    if (memoDeleteBusy) return;
     setCardMemo(null);
     setMemoEditMode(false);
+    setMemoDeleteConfirm(false);
+    setMemoDeleteError(null);
+  }
+
+  async function handleDeleteMemoCard() {
+    if (!cardMemo) return;
+    setMemoDeleteBusy(true);
+    setMemoDeleteError(null);
+    try {
+      await apiDeleteJson(`/api/memos/${cardMemo.id}`);
+      setMemoDeleteBusy(false);
+      setMemoDeleteConfirm(false);
+      setCardMemo(null);
+      setMemoEditMode(false);
+    } catch (e) {
+      setMemoDeleteError(e instanceof Error ? e.message : "Não foi possível excluir.");
+      setMemoDeleteBusy(false);
+    }
   }
 
   function handleOpenMemoEdit(m: MemoRecentCard) {
@@ -1963,14 +1985,28 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     m={cardMemo}
                     returnTo="/perguntar"
                     currentUserId={me?.id ?? null}
-                    deletingId={null}
+                    deletingId={memoDeleteBusy ? cardMemo.id : null}
                     onOpenPreview={(m) => { setFilePreviewMemo(m); setCardMemo(null); }}
-                    onRequestDelete={() => {}}
+                    onRequestDelete={() => { setMemoDeleteError(null); setMemoDeleteConfirm(true); }}
                     noNavigate={true}
                     onEdit={handleOpenMemoEdit}
                   />
                 </ul>
               )}
+              {!memoEditMode && memoDeleteConfirm ? (
+                <div className={styles.memoDeleteConfirm}>
+                  <span>Mover o memo #{cardMemo.id} para a lixeira?</span>
+                  <div className={styles.memoDeleteConfirmBtns}>
+                    <button type="button" className="mm-btn mm-btn--ghost" disabled={memoDeleteBusy} onClick={() => setMemoDeleteConfirm(false)}>
+                      Cancelar
+                    </button>
+                    <button type="button" className="mm-btn mm-btn--primary" disabled={memoDeleteBusy} onClick={() => void handleDeleteMemoCard()}>
+                      {memoDeleteBusy ? "Excluindo…" : "Confirmar"}
+                    </button>
+                  </div>
+                  {memoDeleteError ? <p className={styles.memoEditError}>{memoDeleteError}</p> : null}
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

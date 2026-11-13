@@ -1794,3 +1794,17 @@
   background: color-mix(in srgb, var(--mm-warning) 10%, transparent);
   color: var(--mm-warning);
 }
+
+.memoDeleteConfirm {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--mm-border, rgba(127,127,127,0.3));
+  border-radius: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 0.9rem;
+}
+.memoDeleteConfirmBtns { display: flex; gap: 8px; }
