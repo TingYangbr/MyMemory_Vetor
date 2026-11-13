@@ -1,11 +1,13 @@
 import type { FastifyPluginAsync } from "fastify";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
+import { compromissosDoUsuario } from "../services/lembreteService.js";
 
 /**
  * Sino do cabeçalho.
  * - Aviso: pergunta monitorada cuja resposta mudou (aviso_historico) depois da última abertura do painel.
- * - Lembrete: lembrete já enviado ao e-mail do usuário cujo compromisso ainda não passou.
+ * - Lembrete: compromisso (próximos 7 dias) de categoria com lembrete ligado em que o usuário é destinatário;
+ *   conta no número quando entra no prazo do primeiro lembrete (ex.: 1 dia antes), mesmo que o e-mail ainda não tenha saído.
  * Número do sino = avisos não lidos + lembretes do período. Abrir o painel zera só os avisos.
  */
 
@@ -17,6 +19,7 @@ type LembreteRow = {
   titulo: string | null;
   texto: string | null;
   momento: Date | string;
+  noPrazo: boolean;
 };
 
 const iso = (d: Date | string) => (d instanceof Date ? d.toISOString() : String(d));
@@ -39,32 +42,36 @@ const plugin: FastifyPluginAsync = async (app) => {
       [userId]
     );
 
-    // Lembretes enviados a este usuário (pelo e-mail) com compromisso ainda por vir; um por compromisso.
-    const [lembretes] = await pool.query<LembreteRow[]>(
-      `SELECT DISTINCT ON (le.regraid, le.chave_item, le.momento_alvo)
-              le.regraid || ':' || le.chave_item || ':' || EXTRACT(EPOCH FROM le.momento_alvo)::bigint AS id,
-              m.id AS "memoId", c.name AS categoria, NULLIF(m.titulo_curto, '') AS titulo,
-              LEFT(m.mediatext, 160) AS texto, le.momento_alvo AS momento
-       FROM lembretes_enviados le
-       JOIN users u ON u.id = ?
-       JOIN lembrete_regras r ON r.id = le.regraid
-       LEFT JOIN categories c ON c.id = r.categoryid
-       JOIN memos m ON m.id::text = le.chave_item AND m.isactive = 1
-       WHERE le.situacao = 'enviado'
-         AND le.momento_alvo > NOW()
-         AND u.email IS NOT NULL AND u.email <> ''
-         AND POSITION(LOWER(u.email) IN LOWER(COALESCE(le.destino, ''))) > 0
-       ORDER BY le.regraid, le.chave_item, le.momento_alvo
-       LIMIT 50`,
-      [userId]
-    );
-    lembretes.sort((x, y) => new Date(x.momento).getTime() - new Date(y.momento).getTime());
+    // Compromissos com lembrete ativo para este usuário nos próximos 7 dias (inclui agendas catalogadas antes).
+    // Contam no número só os que já entraram no prazo do lembrete (ex.: 1 dia antes).
+    const [uRows] = await pool.query<{ email: string | null }[]>(`SELECT email FROM users WHERE id = ?`, [userId]);
+    const compromissos = await compromissosDoUsuario(userId, uRows[0]?.email ?? "", 7);
+    const ids = [...new Set(compromissos.map((c) => c.memoId))];
+    const infoMemo = new Map<number, { titulo: string | null; texto: string | null }>();
+    if (ids.length) {
+      const [mRows] = await pool.query<{ id: number; titulo: string | null; texto: string | null }[]>(
+        `SELECT id, NULLIF(titulo_curto, '') AS titulo, LEFT(mediatext, 160) AS texto FROM memos WHERE id = ANY(?::int[])`,
+        [ids]
+      );
+      for (const m of mRows) infoMemo.set(Number(m.id), { titulo: m.titulo, texto: m.texto });
+    }
+    const lembretes: LembreteRow[] = compromissos.map((c) => ({
+      id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
+      memoId: c.memoId,
+      categoria: c.categoria,
+      titulo: infoMemo.get(c.memoId)?.titulo ?? null,
+      texto: infoMemo.get(c.memoId)?.texto ?? null,
+      momento: c.momento,
+      noPrazo: c.noPrazo,
+    }));
+    const lembretesNoPrazo = lembretes.filter((l) => l.noPrazo).length;
 
     const avisosNaoLidos = avisos.filter((a) => !a.lido).length;
     return reply.send({
-      total: avisosNaoLidos + lembretes.length,
+      total: avisosNaoLidos + lembretesNoPrazo,
       avisosNaoLidos,
-      lembretesAtivos: lembretes.length,
+      lembretesAtivos: lembretesNoPrazo,
+      lembretesProximos: lembretes.length,
       avisos: avisos.map((a) => ({
         id: a.id,
         avisoId: a.avisoId,
@@ -80,6 +87,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         titulo: l.titulo,
         texto: l.texto,
         momento: iso(l.momento),
+        noPrazo: l.noPrazo,
       })),
     });
   });

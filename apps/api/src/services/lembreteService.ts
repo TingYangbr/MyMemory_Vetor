@@ -569,3 +569,75 @@ export async function previaRegra(regraId: number, agora = new Date()): Promise<
     .sort((a, b) => a.enviarEm.localeCompare(b.enviarEm));
   return { itens: lista, semDataReconhecida: semData };
 }
+
+// ── Sino do cabeçalho: compromissos do usuário ──────────────────────────────
+
+export type CompromissoSino = {
+  regraId: number;
+  memoId: number;
+  categoria: string;
+  momento: Date;
+  /** Já entrou no prazo do primeiro lembrete (maior antecedência) — conta no número do sino. */
+  noPrazo: boolean;
+};
+
+const cacheCalculo = new Map<number, { em: number; ctx: Contexto; itens: Calculado[] }>();
+const CACHE_MS = 60_000;
+
+/**
+ * Compromissos com lembrete ativo em que o e-mail do usuário é destinatário, nos próximos `dias`.
+ * Inclui agendas catalogadas antes (não depende de o e-mail já ter saído). Fica de fora o memo que
+ * pede para não lembrar, importado em lote (quando a regra não lembra importados) ou encerrado.
+ */
+export async function compromissosDoUsuario(userId: number, email: string, dias = 7): Promise<CompromissoSino[]> {
+  const alvo = email.trim().toLowerCase();
+  if (!alvo) return [];
+  const [regras] = await pool.query<RowDataPacket[]>(
+    `SELECT r.id FROM lembrete_regras r
+     JOIN categories c ON c.id = r.categoryid
+     JOIN group_members gm ON gm.groupid = c.groupid AND gm.userid = ?
+     WHERE r.ativo = 1 AND r.origem = 'memos'`,
+    [userId]
+  );
+  const agora = new Date();
+  const limite = agora.getTime() + dias * 86_400_000;
+  const out: CompromissoSino[] = [];
+  for (const { id } of regras as { id: number }[]) {
+    let calc = cacheCalculo.get(id);
+    if (!calc || agora.getTime() - calc.em > CACHE_MS) {
+      const regra = await obterRegra(id);
+      if (!regra || !regra.ativo) continue;
+      const ctx = await carregarContexto(regra);
+      if (!ctx) continue;
+      const { itens } = await calcular(ctx, agora);
+      calc = { em: agora.getTime(), ctx, itens };
+      cacheCalculo.set(id, calc);
+    }
+    // Agrupa as antecedências de cada compromisso
+    const porCompromisso = new Map<string, Calculado[]>();
+    for (const c of calc.itens) {
+      const k = `${c.memoId}|${c.momento.getTime()}`;
+      const lista = porCompromisso.get(k) ?? [];
+      lista.push(c);
+      porCompromisso.set(k, lista);
+    }
+    for (const lista of porCompromisso.values()) {
+      const c0 = lista[0];
+      if (c0.momento.getTime() <= agora.getTime() || c0.momento.getTime() > limite) continue;
+      if (!c0.destinatarios.some((d) => d.trim().toLowerCase() === alvo)) continue;
+      const recusado = lista.every(
+        (c) => c.situacao === "ignorado" && c.observacao != null && /não lembrar|importação em lote/i.test(c.observacao)
+      );
+      if (recusado) continue;
+      const maiorAnt = Math.max(...lista.map((c) => c.antecedenciaMin));
+      out.push({
+        regraId: id,
+        memoId: c0.memoId,
+        categoria: calc.ctx.categoria,
+        momento: c0.momento,
+        noPrazo: agora.getTime() >= c0.momento.getTime() - maiorAnt * 60_000,
+      });
+    }
+  }
+  return out.sort((a, b) => a.momento.getTime() - b.momento.getTime());
+}
