@@ -147,6 +147,9 @@ interface MemoSearchRow extends RowDataPacket {
   apiCost?: unknown;
   usedApiCred?: unknown;
   hasChunks?: unknown;
+  category?: unknown;
+  tituloCurto?: unknown;
+  authorName?: unknown;
 }
 
 function headlineFromRow(r: MemoSearchRow): string {
@@ -189,6 +192,9 @@ function rowToCard(r: MemoSearchRow): MemoRecentCard {
     usedApiCred: numDb(r.usedApiCred),
     iaUseLevel: extractIaUseLevel(r.mediaMetadata),
     hasSemanticChunks: Boolean(r.hasChunks),
+    category: typeof r.category === "string" ? r.category.trim() || null : null,
+    tituloCurto: typeof r.tituloCurto === "string" ? r.tituloCurto.trim() || null : null,
+    authorName: typeof r.authorName === "string" ? r.authorName.trim() || null : null,
   };
 }
 
@@ -372,7 +378,7 @@ export async function searchMemosForUser(input: {
 
   const listSql = `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
       m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
-      m.createdAt, m.keywords, m.dadosEspecificosJson, m.mediaMetadata, m.apiCost, m.usedApiCred,
+      m.createdAt, m.keywords, m.dadosEspecificosJson, m.mediaMetadata, m.apiCost, m.usedApiCred, m.category, m.titulo_curto AS "tituloCurto", (SELECT u.name FROM users u WHERE u.id = m.userid) AS "authorName",
       (EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks
     FROM memos m
     WHERE ${whereSql}
@@ -443,7 +449,7 @@ export async function searchMemosSemantic(input: {
   const [rows] = await pool.query<MemoSearchRow[]>(
     `SELECT m.id, m.userid, m.groupid, m.mediatype, m.mediatext, m.mediaweburl,
             m.mediaaudiourl, m.mediaimageurl, m.mediavideourl, m.mediadocumenturl,
-            m.createdat, m.keywords, m.dadosespecificosjson, m.mediametadata, m.apicost, m.usedapicred,
+            m.createdat, m.keywords, m.dadosespecificosjson, m.mediametadata, m.apicost, m.usedapicred, m.category, m.titulo_curto AS "tituloCurto", (SELECT u.name FROM users u WHERE u.id = m.userid) AS "authorName",
             (EXISTS(SELECT 1 FROM memo_chunks mc WHERE mc.memo_id = m.id))::int AS haschunks
      FROM memos m
      WHERE m.id IN (${ph}) AND m.isactive = 1`,

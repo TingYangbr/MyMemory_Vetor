@@ -76,6 +76,7 @@ import { PreencherCampoDonoVazio1700000000161 } from "./migrations/1700000000161
 import { SituacaoVaziaAtivo1700000000162 } from "./migrations/1700000000162-SituacaoVaziaAtivo.js";
 import { QueryIsoladaContextoProtegido1700000000163 } from "./migrations/1700000000163-QueryIsoladaContextoProtegido.js";
 import { CifrarSenhasConexoes1700000000164 } from "./migrations/1700000000164-CifrarSenhasConexoes.js";
+import { MemoTituloCurto1700000000165 } from "./migrations/1700000000165-MemoTituloCurto.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -111,6 +112,7 @@ import avisosRoutes from "./routes/avisos.js";
 import lembretesRoutes from "./routes/lembretes.js";
 import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
 import { iniciarLembreteScheduler } from "./services/lembreteScheduler.js";
+import { iniciarTituloCurtoScheduler } from "./services/tituloCurtoService.js";
 import { iniciarAutomacaoScheduler } from "./services/automacaoScheduler.js";
 import memoRoutes from "./routes/memos.js";
 import mediaLocalProtectedRoutes from "./routes/mediaLocal.js";
@@ -193,6 +195,7 @@ assertMediaStorageEnv();
       SituacaoVaziaAtivo1700000000162,
       QueryIsoladaContextoProtegido1700000000163,
       CifrarSenhasConexoes1700000000164,
+      MemoTituloCurto1700000000165,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -291,6 +294,7 @@ if (process.env.NODE_ENV !== "production") {
 
 iniciarAvisoScheduler();
 iniciarLembreteScheduler();
+iniciarTituloCurtoScheduler();
 iniciarAutomacaoScheduler();
 
 try {

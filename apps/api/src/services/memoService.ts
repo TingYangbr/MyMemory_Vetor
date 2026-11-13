@@ -1017,6 +1017,9 @@ interface MemoRow extends RowDataPacket {
   category?: string | null;
   storage_provider?: string | null;
   original_file_name?: string | null;
+  titulo_curto?: string | null;
+  tituloCurto?: string | null;
+  authorName?: string | null;
 }
 
 function primaryMediaFileUrl(
@@ -1059,7 +1062,7 @@ async function assertMemoAuthorCanModify(
   const [rows] = await pool.query<MemoRow[]>(
     `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
             mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
-            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category,
+            createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category, titulo_curto,
             storage_provider, original_file_name
      FROM memos WHERE id = ? AND isActive = 1`,
     [memoId]
@@ -1094,6 +1097,7 @@ export async function getMemoForAuthorEdit(input: {
     hasFile: Boolean(m.mediaAudioUrl || m.mediaImageUrl || m.mediaVideoUrl || m.mediaDocumentUrl),
     mediaFileUrl: primaryMediaFileUrl(m),
     category: typeof m.category === "string" ? m.category.trim() || null : null,
+    tituloCurto: typeof m.titulo_curto === "string" ? m.titulo_curto.trim() || null : null,
     storageProvider: m.storage_provider ?? null,
     externalFileRef: primaryMediaFileUrl(m) ?? m.mediaWebUrl ?? null,
     originalFileName: m.original_file_name ?? null,
@@ -1110,6 +1114,8 @@ export async function updateMemoForUser(input: {
   dadosEspecificosOriginaisJson?: string | null;
   matchedCategoryId?: number | null;
   category?: string | null;
+  /** Título curto (até 5 palavras); vazio = sem título (a IA não gera de novo). */
+  tituloCurto?: string | null;
   /** Custo de IA gasto na edição (ex.: ↻ Reextrair), somado ao custo e aos créditos do memo. */
   apiCostAdicional?: number;
 }): Promise<MemoCreatedResponse> {
@@ -1131,6 +1137,10 @@ export async function updateMemoForUser(input: {
   if (input.category !== undefined) {
     sets.push("category = ?");
     vals.push(input.category?.trim() || null);
+  }
+  if (input.tituloCurto !== undefined) {
+    sets.push("titulo_curto = ?");
+    vals.push((input.tituloCurto ?? "").replace(/\s+/g, " ").trim().slice(0, 80));
   }
   const custoExtra = Number.isFinite(input.apiCostAdicional) && (input.apiCostAdicional ?? 0) > 0 ? input.apiCostAdicional! : 0;
   if (custoExtra > 0) {
@@ -1462,7 +1472,7 @@ export async function listRecentMemos(
     const [rows] = await pool.query<MemoRow[]>(
       `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
               m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
-              m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+              m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred, m.category, m.titulo_curto AS "tituloCurto", (SELECT u.name FROM users u WHERE u.id = m.userid) AS "authorName",
               ${chunksSubquery}
        FROM memos m
        WHERE m.groupId = ? AND m.isActive = 1
@@ -1489,13 +1499,16 @@ export async function listRecentMemos(
       usedApiCred: numDb(r.usedApiCred),
       iaUseLevel: extractIaUseLevel(r.mediaMetadata),
       hasSemanticChunks: Boolean(r.hasChunks),
+      category: typeof r.category === "string" ? r.category.trim() || null : null,
+      tituloCurto: typeof r.tituloCurto === "string" ? r.tituloCurto.trim() || null : null,
+      authorName: typeof r.authorName === "string" ? r.authorName.trim() || null : null,
     }));
   }
 
   const [rows] = await pool.query<MemoRow[]>(
     `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
             m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
-            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred, m.category, m.titulo_curto AS "tituloCurto", (SELECT u.name FROM users u WHERE u.id = m.userid) AS "authorName",
             ${chunksSubquery}
      FROM memos m
      WHERE m.userId = ? AND m.groupId IS NULL AND m.isActive = 1
@@ -1520,6 +1533,9 @@ export async function listRecentMemos(
     usedApiCred: numDb(r.usedApiCred),
     iaUseLevel: extractIaUseLevel(r.mediaMetadata),
     hasSemanticChunks: Boolean(r.hasChunks),
+    category: typeof r.category === "string" ? r.category.trim() || null : null,
+    tituloCurto: typeof r.tituloCurto === "string" ? r.tituloCurto.trim() || null : null,
+    authorName: typeof r.authorName === "string" ? r.authorName.trim() || null : null,
   }));
 }
 
@@ -1532,7 +1548,7 @@ export async function getMemoCardForViewer(input: {
   const [rows] = await pool.query<MemoRow[]>(
     `SELECT m.id, m.userId, m.groupId, m.mediaType, m.mediaText, m.mediaWebUrl,
             m.mediaAudioUrl, m.mediaImageUrl, m.mediaVideoUrl, m.mediaDocumentUrl,
-            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred,
+            m.createdAt, m.mediaMetadata, m.keywords, m.dadosEspecificosJson, m.apiCost, m.usedApiCred, m.category, m.titulo_curto AS "tituloCurto", (SELECT u.name FROM users u WHERE u.id = m.userid) AS "authorName",
             ${chunksSubquery}
      FROM memos m
      WHERE m.id = ? AND m.isActive = 1`,
@@ -1564,6 +1580,9 @@ export async function getMemoCardForViewer(input: {
     usedApiCred: numDb(m.usedApiCred),
     iaUseLevel: extractIaUseLevel(m.mediaMetadata),
     hasSemanticChunks: Boolean(m.hasChunks),
+    category: typeof m.category === "string" ? m.category.trim() || null : null,
+    tituloCurto: typeof m.tituloCurto === "string" ? m.tituloCurto.trim() || null : null,
+    authorName: typeof m.authorName === "string" ? m.authorName.trim() || null : null,
   };
 }
 
