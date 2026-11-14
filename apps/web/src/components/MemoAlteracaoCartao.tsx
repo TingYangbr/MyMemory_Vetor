@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MemoAlteracaoResponse, MemoAlteravelCampo, MemoAlteravelResponse } from "@mymemory/shared";
-import { situacaoEncerrada } from "@mymemory/shared";
+import { normalizarDataParaIso, situacaoEncerrada } from "@mymemory/shared";
 import { apiGet, apiPostJson } from "../api";
 import { capturarFalaCurta, vozDisponivel, type CapturaVoz } from "../lib/vozCurta";
 import styles from "./MemoAlteracaoCartao.module.css";
@@ -20,6 +20,25 @@ function ajustarFalado(c: MemoAlteravelCampo, falado: string): string {
   const hh = Number(m[1]);
   const mm = m[2] ? Number(m[2]) : 0;
   return hh <= 23 && mm <= 59 ? `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}` : t;
+}
+
+/**
+ * Data nova que merece confirmação: não é data, já passou há mais de 30 dias ou fica a mais de 2 anos.
+ * Ex.: falar "16 de novembro de 2016" em vez de 2026 — sem isso o memo some das perguntas da semana.
+ */
+function avisoDataEstranha(c: MemoAlteravelCampo, novo: string): string | null {
+  if (c.tipo !== "date" || !novo.trim()) return null;
+  const iso = normalizarDataParaIso(novo);
+  if (!iso) return `${c.nome}: "${novo}" não parece uma data (use dd/mm/aaaa).`;
+  const [a, m, d] = iso.split("-");
+  const tela = `${d}/${m}/${a}`;
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const dias = Math.round((new Date(`${iso}T12:00:00`).getTime() - hoje.getTime()) / 86_400_000);
+  const quanto = (n: number) => (n >= 365 ? `${Math.round(n / 365)} ano(s)` : n >= 60 ? `${Math.round(n / 30)} meses` : `${n} dias`);
+  if (dias < -30) return `${c.nome}: ${tela} já passou (há ${quanto(-dias)}).`;
+  if (dias > 730) return `${c.nome}: ${tela} fica daqui a ${quanto(dias)}.`;
+  return null;
 }
 
 function mensagemErro(e: unknown): string {
@@ -51,6 +70,8 @@ export function MemoAlteracaoCartao({
   const [salvando, setSalvando] = useState(false);
   const [ouvindo, setOuvindo] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
+  /** Avisos de data estranha mostrados; um segundo clique em Salvar confirma. */
+  const [avisosData, setAvisosData] = useState<string[] | null>(null);
   const capturaRef = useRef<CapturaVoz | null>(null);
   const comVoz = vozDisponivel();
 
@@ -109,6 +130,16 @@ export function MemoAlteracaoCartao({
     if (!Object.keys(mudados).length) {
       onFechar();
       return;
+    }
+    if (!avisosData) {
+      const avisos = dados.campos
+        .filter((c) => c.nome in mudados)
+        .map((c) => avisoDataEstranha(c, mudados[c.nome] ?? ""))
+        .filter((a): a is string => a != null);
+      if (avisos.length) {
+        setAvisosData(avisos);
+        return;
+      }
     }
     setSalvando(true);
     setErro(null);
@@ -169,7 +200,10 @@ export function MemoAlteracaoCartao({
                       className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome ? styles.inputDestaque : ""}`}
                       value={valores[c.nome] ?? ""}
                       placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
-                      onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}
+                      onChange={(e) => {
+                        setValores((v) => ({ ...v, [c.nome]: e.target.value }));
+                        setAvisosData(null);
+                      }}
                       onKeyDown={(e) => e.key === "Enter" && void salvar()}
                       disabled={salvando}
                     />
@@ -191,8 +225,16 @@ export function MemoAlteracaoCartao({
               ))}
             </div>
             {erro ? <p className="mm-error">{erro}</p> : null}
+            {avisosData ? (
+              <div className={styles.avisoData} role="alert">
+                {avisosData.map((a) => (
+                  <div key={a}>⚠ {a}</div>
+                ))}
+                <div>Confira a data. Se estiver certa, clique em salvar de novo.</div>
+              </div>
+            ) : null}
             <button type="button" className={`mm-btn mm-btn--primary ${styles.salvar}`} onClick={() => void salvar()} disabled={salvando}>
-              {salvando ? "Salvando…" : "Salvar alterações"}
+              {salvando ? "Salvando…" : avisosData ? "Salvar mesmo assim" : "Salvar alterações"}
             </button>
             <div className={styles.acoes}>
               {encerrado ? (
