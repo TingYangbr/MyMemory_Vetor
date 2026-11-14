@@ -150,3 +150,15 @@
 .acaoCancelar {
   color: var(--mm-danger);
 }
+
+.avisoData {
+  margin: 0.25rem 0 0.5rem;
+  padding: 0.55rem 0.75rem;
+  border: 1px solid var(--mm-warning, #d97706);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mm-warning, #d97706) 12%, transparent);
+  color: var(--mm-text);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 0.25rem;
+}
