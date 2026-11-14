@@ -31,6 +31,7 @@ import BatchImportPage from "./pages/BatchImportPage";
 import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
 import AdminStoragePage from "./pages/AdminStoragePage";
 import AvisosPage from "./pages/AvisosPage";
+import { EdicaoEscolha, RevisaoEscolha } from "./components/catalogarNovo/Roteadores";
 
 export default function App() {
   return (
@@ -58,13 +59,13 @@ export default function App() {
       <Route path="/avisos" element={<AvisosPage />} />
       <Route path="/conta" element={<Navigate to="/conta/preferencias" replace />} />
       <Route path="/conta/preferencias" element={<UserPreferencesPage />} />
-      <Route path="/revisao/memo-texto" element={<MemoTextReviewPage />} />
-      <Route path="/revisao/memo-imagem" element={<MemoImageReviewPage />} />
-      <Route path="/revisao/memo-audio" element={<MemoAudioReviewPage />} />
-      <Route path="/revisao/memo-video" element={<MemoVideoReviewPage />} />
-      <Route path="/revisao/memo-documento" element={<MemoDocumentReviewPage />} />
+      <Route path="/revisao/memo-texto" element={<RevisaoEscolha rota="texto" Antiga={MemoTextReviewPage} />} />
+      <Route path="/revisao/memo-imagem" element={<RevisaoEscolha rota="imagem" Antiga={MemoImageReviewPage} />} />
+      <Route path="/revisao/memo-audio" element={<RevisaoEscolha rota="audio" Antiga={MemoAudioReviewPage} />} />
+      <Route path="/revisao/memo-video" element={<RevisaoEscolha rota="video" Antiga={MemoVideoReviewPage} />} />
+      <Route path="/revisao/memo-documento" element={<RevisaoEscolha rota="documento" Antiga={MemoDocumentReviewPage} />} />
       <Route path="/importar-lote" element={<BatchImportPage />} />
-      <Route path="/memo/:id/editar" element={<MemoEditPage />} />
+      <Route path="/memo/:id/editar" element={<EdicaoEscolha Antiga={MemoEditPage} />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />
       <Route path="/grupo/:groupId/painel" element={<GroupOwnerPanelPage />} />

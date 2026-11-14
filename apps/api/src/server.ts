@@ -80,6 +80,7 @@ import { MemoTituloCurto1700000000165 } from "./migrations/1700000000165-MemoTit
 import { SinoLeitura1700000000166 } from "./migrations/1700000000166-SinoLeitura.js";
 import { PerguntaFixadas1700000000167 } from "./migrations/1700000000167-PerguntaFixadas.js";
 import { TituloCurtoResetSemIa1700000000168 } from "./migrations/1700000000168-TituloCurtoResetSemIa.js";
+import { CategoriaRegraRevisao1700000000169 } from "./migrations/1700000000169-CategoriaRegraRevisao.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -204,6 +205,7 @@ assertMediaStorageEnv();
       SinoLeitura1700000000166,
       PerguntaFixadas1700000000167,
       TituloCurtoResetSemIa1700000000168,
+      CategoriaRegraRevisao1700000000169,
     ],
   });
   const ds = await AppDataSource.initialize();

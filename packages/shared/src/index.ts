@@ -612,6 +612,10 @@ export interface MemoContextCategory {
   atualizavel?: boolean;
   /** Em categoria Atualizável: campo do memo com a situação. */
   campoSituacao?: string | null;
+  /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
+  revisaoSempre?: boolean;
+  /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */
+  revisaoMinPct?: number;
   createdAt: string;
   updatedAt: string;
   subcategories: MemoContextSubcategory[];

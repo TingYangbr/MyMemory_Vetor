@@ -22,6 +22,7 @@ import {
   getMemoAttachmentForViewer,
   getMemoCardForViewer,
   getMemoForAuthorEdit,
+  listarHistoricoMemo,
   listRecentMemos,
   softDeleteMemoForUser,
   updateMemoForUser,
@@ -49,6 +50,7 @@ import {
 } from "../services/textMemoProcessService.js";
 import { llmSynonymsForTerm } from "../lib/invokeLlm.js";
 import { aplicarDonoPessoal } from "../services/donoMemoService.js";
+import { sugerirTituloCurto } from "../services/tituloCurtoService.js";
 
 /** Categoria Pessoal: ao salvar, o memo passa ao membro indicado no campo dono (se for outra pessoa). */
 async function donoAoSalvar(memoId: number): Promise<void> {
@@ -1374,6 +1376,46 @@ const plugin: FastifyPluginAsync = async (app) => {
       if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
       if (msg === "forbidden") return reply.code(403).send({ error: "forbidden" });
       if (msg === "forbidden_group" || msg === "group_not_found") return reply.code(403).send({ error: "forbidden" });
+      throw e;
+    }
+  });
+
+  /** Nova tela de revisão: sugere o Assunto antes de gravar (o custo entra no apiCost do memo). */
+  const tituloSugeridoBody = z.object({
+    mediaType: z.string().max(20),
+    mediaText: z.string().max(200_000),
+    keywords: z.string().max(4000).nullable().optional(),
+    category: z.string().max(255).nullable().optional(),
+    originalFileName: z.string().max(500).nullable().optional(),
+  });
+  app.post("/api/memos/titulo-sugerido", async (req, reply) => {
+    const parsed = tituloSugeridoBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body" });
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    try {
+      return await sugerirTituloCurto(parsed.data);
+    } catch (e) {
+      req.log.warn({ err: e }, "titulo-sugerido falhou");
+      return { titulo: "", costUsd: 0 };
+    }
+  });
+
+  /** Histórico do memo para a nova tela Editar memo. */
+  app.get("/api/memos/:id/historico", async (req, reply) => {
+    const idParsed = z.coerce.number().int().positive().safeParse((req.params as { id: string }).id);
+    if (!idParsed.success) return reply.code(400).send({ error: "invalid_id" });
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const isAdmin = await getUserIsAdmin(userId);
+    try {
+      return { itens: await listarHistoricoMemo({ memoId: idParsed.data, userId, isAdmin }) };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
+      if (msg === "forbidden" || msg === "forbidden_group" || msg === "group_not_found") {
+        return reply.code(403).send({ error: "forbidden" });
+      }
       throw e;
     }
   });

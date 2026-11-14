@@ -87,6 +87,28 @@ async function gerarTitulo(m: MemoParaTitulo): Promise<{ titulo: string; costUsd
   return { titulo: normalizarTituloCurto(extrairTitulo(text), categoria || null), costUsd };
 }
 
+/**
+ * Sugestão de título para a tela de revisão (antes de o memo existir). O custo volta para quem chama
+ * somar ao apiCost do memo ao gravar.
+ */
+export async function sugerirTituloCurto(input: {
+  mediaType: string;
+  mediaText: string;
+  keywords?: string | null;
+  category?: string | null;
+  originalFileName?: string | null;
+}): Promise<{ titulo: string; costUsd: number }> {
+  return gerarTitulo({
+    id: 0,
+    mediaType: input.mediaType,
+    mediaText: input.mediaText,
+    keywords: input.keywords ?? null,
+    category: input.category ?? null,
+    mediaMetadata: null,
+    original_file_name: input.originalFileName ?? null,
+  });
+}
+
 const SELECT_MEMO = `SELECT m.id, m.mediatype, m.mediatext, m.keywords, m.category, m.mediametadata, m.original_file_name
   FROM memos m`;
 
