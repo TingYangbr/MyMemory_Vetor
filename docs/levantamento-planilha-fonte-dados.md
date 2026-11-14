@@ -2,6 +2,23 @@
 
 *Versão 4 (14/11/2026). Ainda não é desenho de implementação: é para decidir o caminho.*
 
+> ## Resumo em 1 minuto
+>
+> **A ideia:** o usuário poder perguntar ao proMemory sobre o próprio dinheiro (gastos, orçamento, investimentos) como já pergunta sobre o ERP.
+>
+> **De onde vêm os dados:**
+> - **planilha** que a pessoa já tem: a IA aprende o formato uma vez;
+> - **extrato exportado do banco**;
+> - depois, **ligação direta com os bancos** pelo Open Finance, usando o Pluggy.
+>
+> **Como guardamos:** tudo vira um mesmo formato simples nas tabelas `fin_`, com as **movimentações** como base. Saldo e posição de investimento são calculados a partir delas.
+>
+> **O que já está decidido:** os dados pertencem ao grupo ou ao espaço pessoal, como os memos; a receita é por categoria; os grupos de despesa vêm da fonte; haverá limite por plano.
+>
+> **Situação:** só planejado, **nada implementado**. O primeiro passo, quando decidir começar, é a importação de planilha e extrato (etapa 1 da seção 7).
+>
+> **Ganho extra que motivou o desenho:** organizar desdobramentos e bonificações para o IR.
+
 **O que mudou na v4:**
 - saldo e posição viram **âncora + conferência**: o histórico é derivado dos movimentos;
 - **investimentos seguem o mesmo modelo do extrato**: a posição é derivada, com quantidade e custo médio;
