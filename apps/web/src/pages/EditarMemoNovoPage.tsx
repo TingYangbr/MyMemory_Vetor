@@ -402,10 +402,6 @@ export default function EditarMemoNovoPage() {
                 onTrocarCategoria={trocarCategoria}
                 avisoTroca={catDosCampos === categoryId ? null : avisoTroca}
                 onPreencherIA={() => void preencherIA()}
-                onDeixarEmBranco={() => {
-                  setAvisoTroca(null);
-                  setCatDosCampos(categoryId);
-                }}
                 reextraindo={reextraindo}
                 erroReextrair={erroReextr}
                 assunto={assunto}
