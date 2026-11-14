@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
   MemoContextCampo,
@@ -37,6 +38,11 @@ interface Props {
   onTotal: (n: number | null) => void;
 }
 
+const CHAVE_LARGURA = "mm.painelGrupo.larguraGaveta";
+/** largura de uma coluna de cartões (tamanho normal do cartão) */
+const LARGURA_CARTOES = 250;
+const LARGURA_MIN_GAVETA = 360;
+
 export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [cats, setCats] = useState<MemoContextCategory[] | null>(null);
@@ -50,6 +56,51 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const selParam = searchParams.get("categoria");
   const selId = selParam === "sem" ? "sem" : selParam ? Number(selParam) : null;
   const [aba, setAba] = useState<Aba>("campos");
+  /* largura da gaveta em px, arrastando a borda esquerda; null = automática pela aba */
+  const [largura, setLargura] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem(CHAVE_LARGURA));
+      return v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const splitRef = useRef<HTMLDivElement>(null);
+
+  function guardarLargura(v: number | null) {
+    setLargura(v);
+    try {
+      if (v == null) localStorage.removeItem(CHAVE_LARGURA);
+      else localStorage.setItem(CHAVE_LARGURA, String(Math.round(v)));
+    } catch {
+      /* sem localStorage: só nesta tela */
+    }
+  }
+
+  function arrastar(e: React.PointerEvent<HTMLDivElement>) {
+    const split = splitRef.current;
+    const gaveta = e.currentTarget.parentElement;
+    if (!split || !gaveta) return;
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = gaveta.getBoundingClientRect().width;
+    const max = split.getBoundingClientRect().width - LARGURA_CARTOES - 16;
+    const mover = (ev: PointerEvent) => {
+      const w = Math.min(max, Math.max(LARGURA_MIN_GAVETA, w0 + (x0 - ev.clientX)));
+      setLargura(w);
+    };
+    const soltar = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      guardarLargura(Math.min(max, Math.max(LARGURA_MIN_GAVETA, w0 + (x0 - ev.clientX))));
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  }
 
   const selecionar = (id: number | "sem" | null) => {
     const p = new URLSearchParams(searchParams);
@@ -100,6 +151,22 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const sel = typeof selId === "number" ? cats?.find((c) => c.id === selId) ?? null : null;
   const drawerAberto = sel != null || selId === "sem";
 
+  async function excluirCategoria(c: MemoContextCategory) {
+    const n = contagens?.porCategoria[c.name] ?? 0;
+    const aviso =
+      `Excluir a categoria "${c.name}" deste grupo?\n\n` +
+      "Ela some da lista e a IA deixa de usá-la nos memos novos." +
+      (n > 0 ? `\n\nOs ${n} memos dela continuam guardados.` : "");
+    if (!window.confirm(aviso)) return;
+    try {
+      await apiDeleteJson(`/api/memo-context/categories/${c.id}`);
+      selecionar(null);
+      await carregar();
+    } catch (e) {
+      setErro(msgErro(e, "Falha ao excluir a categoria."));
+    }
+  }
+
   return (
     <>
       <div className={s.mh}>
@@ -129,7 +196,22 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
       {!cats && !erro ? <p className="mm-muted">Carregando…</p> : null}
 
       {cats ? (
-        <div className={`${s.split} ${!drawerAberto ? s.splitClosed : sel && aba === "consultas" ? s.splitWide : ""}`}>
+        <div
+          ref={splitRef}
+          className={`${s.split} ${drawerAberto ? s.splitOpen : s.splitClosed}`}
+          style={
+            drawerAberto
+              ? ({
+                  "--gaveta":
+                    largura != null
+                      ? `min(${Math.round(largura)}px, calc(100% - ${LARGURA_CARTOES + 16}px))`
+                      : selId === "sem" || aba === "memos" || aba === "consultas"
+                        ? `calc(100% - ${LARGURA_CARTOES + 16}px)`
+                        : "460px",
+                } as React.CSSProperties)
+              : undefined
+          }
+        >
           <div className={s.cats}>
             {groupId != null && contagens && contagens.semCategoria > 0 && !busca ? (
               <button type="button" className={`${s.cat} ${s.catNone} ${selId === "sem" ? s.catOn : ""}`} onClick={() => selecionar("sem")}>
@@ -179,6 +261,14 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
 
           {selId === "sem" && groupId != null ? (
             <aside className={s.drawer}>
+              <div
+                className={s.alca}
+                role="separator"
+                aria-orientation="vertical"
+                title="Arraste para mudar a largura. Clique duas vezes para voltar ao automático."
+                onPointerDown={arrastar}
+                onDoubleClick={() => guardarLargura(null)}
+              />
               <div className={s.drawerHead}>
                 <h2>
                   Sem categoria <span className={s.sp} />
@@ -196,6 +286,14 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
 
           {sel ? (
             <aside className={s.drawer}>
+              <div
+                className={s.alca}
+                role="separator"
+                aria-orientation="vertical"
+                title="Arraste para mudar a largura. Clique duas vezes para voltar ao automático."
+                onPointerDown={arrastar}
+                onDoubleClick={() => guardarLargura(null)}
+              />
               <div className={s.drawerHead}>
                 <h2>
                   {sel.name}
@@ -213,6 +311,15 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
                 {podeEditar(sel) ? (
                   <div className={s.row} style={{ marginTop: 8 }}>
                     <EditarCategoriaBotao cat={sel} recarregar={carregar} aoExcluir={() => selecionar(null)} />
+                    <span className={s.sp} />
+                    <button
+                      type="button"
+                      className={`mm-btn ${s.btnSm} ${s.btnDanger}`}
+                      title="Excluir esta categoria do grupo"
+                      onClick={() => void excluirCategoria(sel)}
+                    >
+                      <IconTrash size={14} /> Excluir
+                    </button>
                   </div>
                 ) : (
                   <p className={s.help}>{sel.groupId == null ? "Categoria global: só o administrador do sistema edita." : "Só leitura."}</p>
@@ -480,7 +587,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
     }
   }
 
-  return (
+  return createPortal(
     <div className="mm-modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
       <div className={`mm-modal ${s.modal}`} role="dialog" aria-modal="true" aria-labelledby="campo-tit">
         <div className={s.modalHead}>
@@ -533,7 +640,8 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -609,7 +717,7 @@ function EditarCategoriaModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="mm-modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
       <div className={`mm-modal ${s.modal}`} role="dialog" aria-modal="true" aria-labelledby="cat-tit">
         <div className={s.modalHead}>
@@ -685,7 +793,8 @@ function EditarCategoriaModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

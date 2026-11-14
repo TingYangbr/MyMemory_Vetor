@@ -127,7 +127,7 @@ export default function SecaoPessoas({ groupId, painel, matriz, erroMatriz, reca
                   <td>
                     <select
                       className={`mm-field ${s.selectSm}`}
-                      value={m.perfilId ?? ""}
+                      value={m.perfilId == null || m.perfilId === padrao?.id ? "" : m.perfilId}
                       disabled={ocupado}
                       aria-label={`Perfil de acesso de ${m.nome ?? m.email}`}
                       onChange={(e) =>
@@ -137,10 +137,11 @@ export default function SecaoPessoas({ groupId, painel, matriz, erroMatriz, reca
                         )
                       }
                     >
-                      <option value="">{padrao && padrao.nome !== "Padrão" ? `Padrão (${padrao.nome})` : "Padrão"}</option>
+                      {/* o perfil padrão aparece uma vez só: escolher ele = voltar ao padrão (perfilId null) */}
+                      {!padrao && <option value="">Padrão</option>}
                       {matriz.perfis.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nome}
+                        <option key={p.id} value={p.padrao ? "" : p.id}>
+                          {p.padrao && p.nome !== "Padrão" ? `${p.nome} (padrão)` : p.nome}
                         </option>
                       ))}
                     </select>
