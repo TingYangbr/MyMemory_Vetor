@@ -1076,6 +1076,37 @@ async function assertMemoAuthorCanModify(
   return m;
 }
 
+/** Histórico do memo (tela Editar memo): as alterações gravadas em memo_alteracoes, mais recentes primeiro. */
+export async function listarHistoricoMemo(input: {
+  memoId: number;
+  userId: number;
+  isAdmin: boolean;
+}): Promise<
+  Array<{ lote: string; quando: string; autor: string | null; origem: string; campos: Array<{ campo: string; antes: string | null; depois: string | null }> }>
+> {
+  await assertMemoAuthorCanModify(input.memoId, input.userId, input.isAdmin);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT a.lote, a.campo, a.antes, a.depois, a.origem, a.createdat AS "createdAt", u.name AS "autor"
+       FROM memo_alteracoes a LEFT JOIN users u ON u.id = a.userid
+      WHERE a.memoid = ? ORDER BY a.id DESC LIMIT 200`,
+    [input.memoId]
+  );
+  const porLote = new Map<string, { lote: string; quando: string; autor: string | null; origem: string; campos: Array<{ campo: string; antes: string | null; depois: string | null }> }>();
+  for (const r of rows) {
+    const lote = String(r.lote);
+    let item = porLote.get(lote);
+    if (!item) {
+      const q = r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt);
+      item = { lote, quando: q, autor: (r.autor as string | null) ?? null, origem: String(r.origem ?? "edicao"), campos: [] };
+      porLote.set(lote, item);
+    }
+    // O resumo reescrito pela IA não é um campo da categoria
+    if (String(r.campo) === "__resumo") continue;
+    item.campos.push({ campo: String(r.campo), antes: (r.antes as string | null) ?? null, depois: (r.depois as string | null) ?? null });
+  }
+  return [...porLote.values()].slice(0, 20);
+}
+
 export async function getMemoForAuthorEdit(input: {
   memoId: number;
   userId: number;

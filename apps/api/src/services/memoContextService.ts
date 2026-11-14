@@ -264,7 +264,8 @@ export async function loadMemoContextStructure(
 
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
-            atualizavel, campo_situacao AS "campoSituacao"
+            atualizavel, campo_situacao AS "campoSituacao",
+            revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
   if (filterMediaType != null) {
@@ -425,6 +426,8 @@ export async function loadMemoContextStructure(
     campoDono: (r.campoDono as string | null) ?? null,
     atualizavel: Number(r.atualizavel ?? 0) === 1,
     campoSituacao: (r.campoSituacao as string | null) ?? null,
+    revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
+    revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
     updatedAt: ts(r.updatedAt),
     subcategories: subsByCat.get(r.id as number) ?? [],
@@ -566,6 +569,8 @@ export async function updateCategory(
     pessoal?: boolean;
     campoDono?: string | null;
     atualizavel?: boolean;
+    revisaoSempre?: boolean;
+    revisaoMinPct?: number;
   }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
@@ -611,6 +616,14 @@ export async function updateCategory(
       sets.push("campo_situacao = ?");
       vals.push(await garantirCampoSituacao(categoryId));
     }
+  }
+  if (patch.revisaoSempre !== undefined) {
+    sets.push("revisao_sempre = ?");
+    vals.push(patch.revisaoSempre ? 1 : 0);
+  }
+  if (patch.revisaoMinPct !== undefined) {
+    sets.push("revisao_min_pct = ?");
+    vals.push(Math.max(0, Math.min(100, Math.round(patch.revisaoMinPct))));
   }
   if (sets.length === 0) return;
   vals.push(categoryId);
