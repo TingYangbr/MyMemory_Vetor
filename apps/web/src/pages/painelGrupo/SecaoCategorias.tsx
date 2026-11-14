@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
@@ -100,6 +101,22 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const sel = typeof selId === "number" ? cats?.find((c) => c.id === selId) ?? null : null;
   const drawerAberto = sel != null || selId === "sem";
 
+  async function excluirCategoria(c: MemoContextCategory) {
+    const n = contagens?.porCategoria[c.name] ?? 0;
+    const aviso =
+      `Excluir a categoria "${c.name}" deste grupo?\n\n` +
+      "Ela some da lista e a IA deixa de usá-la nos memos novos." +
+      (n > 0 ? `\n\nOs ${n} memos dela continuam guardados.` : "");
+    if (!window.confirm(aviso)) return;
+    try {
+      await apiDeleteJson(`/api/memo-context/categories/${c.id}`);
+      selecionar(null);
+      await carregar();
+    } catch (e) {
+      setErro(msgErro(e, "Falha ao excluir a categoria."));
+    }
+  }
+
   return (
     <>
       <div className={s.mh}>
@@ -129,7 +146,11 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
       {!cats && !erro ? <p className="mm-muted">Carregando…</p> : null}
 
       {cats ? (
-        <div className={`${s.split} ${!drawerAberto ? s.splitClosed : sel && aba === "consultas" ? s.splitWide : ""}`}>
+        <div
+          className={`${s.split} ${
+            !drawerAberto ? s.splitClosed : selId === "sem" || (sel && aba === "memos") ? s.splitFull : sel && aba === "consultas" ? s.splitWide : ""
+          }`}
+        >
           <div className={s.cats}>
             {groupId != null && contagens && contagens.semCategoria > 0 && !busca ? (
               <button type="button" className={`${s.cat} ${s.catNone} ${selId === "sem" ? s.catOn : ""}`} onClick={() => selecionar("sem")}>
@@ -213,6 +234,15 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
                 {podeEditar(sel) ? (
                   <div className={s.row} style={{ marginTop: 8 }}>
                     <EditarCategoriaBotao cat={sel} recarregar={carregar} aoExcluir={() => selecionar(null)} />
+                    <span className={s.sp} />
+                    <button
+                      type="button"
+                      className={`mm-btn ${s.btnSm} ${s.btnDanger}`}
+                      title="Excluir esta categoria do grupo"
+                      onClick={() => void excluirCategoria(sel)}
+                    >
+                      <IconTrash size={14} /> Excluir
+                    </button>
                   </div>
                 ) : (
                   <p className={s.help}>{sel.groupId == null ? "Categoria global: só o administrador do sistema edita." : "Só leitura."}</p>
@@ -480,7 +510,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
     }
   }
 
-  return (
+  return createPortal(
     <div className="mm-modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
       <div className={`mm-modal ${s.modal}`} role="dialog" aria-modal="true" aria-labelledby="campo-tit">
         <div className={s.modalHead}>
@@ -533,7 +563,8 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -609,7 +640,7 @@ function EditarCategoriaModal({
     }
   }
 
-  return (
+  return createPortal(
     <div className="mm-modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
       <div className={`mm-modal ${s.modal}`} role="dialog" aria-modal="true" aria-labelledby="cat-tit">
         <div className={s.modalHead}>
@@ -685,7 +716,8 @@ function EditarCategoriaModal({
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
