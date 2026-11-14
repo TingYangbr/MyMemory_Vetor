@@ -285,8 +285,11 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
       setCampos(camposIniciais.current.campos);
       setCatDosCampos(id);
       setAvisoTroca(null);
+      setOriginais(undefined);
       return;
     }
+    // Campos originais eram da categoria anterior: não valem para a nova (o ↻ Re-processar refaz).
+    setOriginais(null);
     const antes = campos;
     setCampos((nova?.campos ?? []).map((c) => ({ key: c.name, value: antes.find((e) => e.key.toLowerCase() === c.name.toLowerCase())?.value ?? "" })));
     setAvisoTroca(nova ? { nome: nova.name } : null);
@@ -475,11 +478,6 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
                 onTrocarCategoria={trocarCategoria}
                 avisoTroca={catDosCampos === categoryId ? null : avisoTroca}
                 onPreencherIA={() => void preencherIA()}
-                onDeixarEmBranco={() => {
-                  setAvisoTroca(null);
-                  setCatDosCampos(categoryId);
-                  setOriginais(null);
-                }}
                 reextraindo={reextraindo}
                 erroReextrair={erroReextr}
                 avisoTopo={avisoTopo}
