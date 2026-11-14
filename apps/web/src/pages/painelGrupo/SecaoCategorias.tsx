@@ -679,6 +679,8 @@ function EditarCategoriaModal({
   const [pessoal, setPessoal] = useState(!!cat.pessoal);
   const [campoDono, setCampoDono] = useState(cat.campoDono ?? "");
   const [atualizavel, setAtualizavel] = useState(!!cat.atualizavel);
+  const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
+  const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const campos = cat.campos.filter((c) => c.isActive === 1);
@@ -695,6 +697,8 @@ function EditarCategoriaModal({
         pessoal,
         campoDono: pessoal ? campoDono || null : null,
         atualizavel,
+        revisaoSempre,
+        revisaoMinPct,
       });
       await recarregar();
       onFechar();
@@ -777,6 +781,43 @@ function EditarCategoriaModal({
             <p>Ativo, Concluído ou Cancelado. Concluído e Cancelado não geram lembrete e só aparecem quando pedidos.</p>
           </label>
           <input id="ec-atual" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={atualizavel} onChange={(e) => setAtualizavel(e.target.checked)} />
+        </div>
+        <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 4, paddingTop: 10 }}>
+          <b style={{ fontSize: 14 }}>Revisão antes de salvar</b>
+          <div className={s.switchRow} style={{ padding: "8px 0" }}>
+            <label htmlFor="ec-revsempre" style={{ cursor: "pointer" }}>
+              <b>Sempre revisar antes de salvar</b>
+              <p>Para categorias críticas, como Contratos. A tela de revisão sempre abre.</p>
+            </label>
+            <input id="ec-revsempre" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={revisaoSempre} onChange={(e) => setRevisaoSempre(e.target.checked)} />
+          </div>
+          {!revisaoSempre ? (
+            <div style={{ padding: "4px 0 8px" }}>
+              <label htmlFor="ec-revpct" style={{ fontWeight: 700, fontSize: 13.5 }}>
+                Salvar direto quando a IA preencher pelo menos
+              </label>
+              <div className={s.row} style={{ marginTop: 6, alignItems: "center" }}>
+                <input
+                  id="ec-revpct"
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={5}
+                  value={revisaoMinPct}
+                  onChange={(e) => setRevisaoMinPct(Number(e.target.value))}
+                  style={{ flex: 1, minWidth: 140, accentColor: "var(--mm-primary)" }}
+                />
+                <b style={{ minWidth: 44, textAlign: "right" }}>{revisaoMinPct}%</b>
+                <span className="mm-muted" style={{ fontSize: 12.5 }}>dos campos</span>
+              </div>
+              <p className={s.help}>
+                {campos.length > 0
+                  ? `${cat.name} tem ${campos.length} ${campos.length === 1 ? "campo" : "campos"}: com ${revisaoMinPct}%, a IA precisa preencher ${Math.ceil((campos.length * revisaoMinPct) / 100)}. Abaixo disso, aparece uma mensagem para editar, gravar assim ou cancelar.`
+                  : "Esta categoria não tem campos: o memo é salvo direto."}{" "}
+                Vale para quem usa a nova tela de revisão.
+              </p>
+            </div>
+          ) : null}
         </div>
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions} style={{ justifyContent: "space-between" }}>

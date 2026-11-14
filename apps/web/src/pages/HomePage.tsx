@@ -136,13 +136,21 @@ export default function HomePage() {
     setRefreshKey((k) => k + 1);
   }, []);
 
+  /** Aviso rápido depois de gravar pela nova revisão ("Memo salvo em Agenda (100%)"); some sozinho. */
+  const [avisoSalvo, setAvisoSalvo] = useState<string | null>(null);
   useEffect(() => {
-    const st = location.state as { memoSavedAt?: number } | undefined;
+    const st = location.state as { memoSavedAt?: number; memoAviso?: string } | undefined;
     if (st?.memoSavedAt) {
       setRefreshKey((k) => k + 1);
+      if (st.memoAviso) setAvisoSalvo(st.memoAviso);
       navigate(".", { replace: true, state: {} });
     }
   }, [location.state, navigate]);
+  useEffect(() => {
+    if (!avisoSalvo) return;
+    const t = window.setTimeout(() => setAvisoSalvo(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [avisoSalvo]);
 
   const loadWorkspaceGroups = useCallback(() => {
     setWorkspaceLoading(true);
@@ -429,6 +437,37 @@ export default function HomePage() {
           </div>
         </main>
       )}
+      {avisoSalvo ? (
+        <div
+          role="status"
+          style={{
+            position: "fixed",
+            left: "50%",
+            bottom: 24,
+            transform: "translateX(-50%)",
+            zIndex: 60,
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+            background: "#10201e",
+            color: "#fff",
+            borderRadius: 12,
+            padding: "11px 18px 11px 12px",
+            boxShadow: "0 12px 30px rgba(16,32,30,.25)",
+            fontWeight: 700,
+            fontSize: 14,
+            maxWidth: "calc(100vw - 32px)",
+          }}
+        >
+          <span
+            aria-hidden
+            style={{ width: 24, height: 24, borderRadius: "50%", background: "#15803d", display: "grid", placeItems: "center", flex: "none" }}
+          >
+            ✓
+          </span>
+          {avisoSalvo}
+        </div>
+      ) : null}
     </div>
   );
 }
