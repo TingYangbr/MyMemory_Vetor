@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
+import { pegarPerguntaAgora } from "../lib/perguntarAgora";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
   MeResponse,
@@ -1214,6 +1215,18 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setPendingQuestion(null);
     setSalvarEscolhaIdx(null);
   }
+
+  // Vindo de "Perguntas salvas" ou "Meus avisos" (botão Perguntar): faz a pergunta uma vez, assim que a tela fica pronta.
+  const autoPerguntaFeita = useRef(false);
+  useEffect(() => {
+    if (!ready || !me || autoPerguntaFeita.current) return;
+    autoPerguntaFeita.current = true;
+    const q = pegarPerguntaAgora()?.trim();
+    if (!q) return;
+    setPergunta(q);
+    void enviar({ perguntaOverride: q });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, me]);
 
   async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
     stopListening();

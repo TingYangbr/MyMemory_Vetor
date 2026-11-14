@@ -25,6 +25,9 @@ import AdminStoragePage from "./pages/AdminStoragePage";
 import AvisosPage from "./pages/AvisosPage";
 import RevisarMemoPage from "./pages/RevisarMemoPage";
 import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
+import AvisosNovoPage from "./pages/acompanhar/AvisosNovoPage";
+import PerguntasSalvasNovoPage from "./pages/acompanhar/PerguntasSalvasNovoPage";
+import ImportarLoteNovoPage from "./pages/acompanhar/ImportarLoteNovoPage";
 
 export default function App() {
   return (
@@ -58,6 +61,10 @@ export default function App() {
       <Route path="/revisao/memo-video" element={<RevisarMemoPage rota="video" />} />
       <Route path="/revisao/memo-documento" element={<RevisarMemoPage rota="documento" />} />
       <Route path="/importar-lote" element={<BatchImportPage />} />
+      {/* Lote 3: telas novas ao lado das antigas até a aprovação */}
+      <Route path="/acompanhar/avisos" element={<AvisosNovoPage />} />
+      <Route path="/acompanhar/perguntas-salvas" element={<PerguntasSalvasNovoPage />} />
+      <Route path="/acompanhar/importar-lote" element={<ImportarLoteNovoPage />} />
       <Route path="/memo/:id/editar" element={<EditarMemoNovoPage />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />

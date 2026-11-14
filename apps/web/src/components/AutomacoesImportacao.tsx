@@ -22,7 +22,7 @@ export interface Automacao {
   criador: string | null;
 }
 
-type Execucao = {
+export type Execucao = {
   id: number;
   origem: string;
   inicio: string;
@@ -35,17 +35,17 @@ type Execucao = {
   detalhes: { erros?: { arquivo: string; erro: string }[] } | null;
 };
 
-type Form = Omit<Automacao, "id" | "groupId" | "proximaExecucao" | "executandoDesde" | "ultimaExecucao" | "ultimoStatus" | "ultimoResumo" | "falhasSeguidas" | "criador">;
+export type Form = Omit<Automacao, "id" | "groupId" | "proximaExecucao" | "executandoDesde" | "ultimaExecucao" | "ultimoStatus" | "ultimoResumo" | "falhasSeguidas" | "criador">;
 
-const INTERVALOS: { min: number; rotulo: string }[] = [
+export const INTERVALOS: { min: number; rotulo: string }[] = [
   { min: 15, rotulo: "15 minutos" },
   { min: 30, rotulo: "30 minutos" },
   { min: 60, rotulo: "1 hora" },
   { min: 360, rotulo: "6 horas" },
   { min: 1440, rotulo: "1 dia" },
 ];
-const rotuloIntervalo = (m: number) => INTERVALOS.find((i) => i.min === m)?.rotulo ?? `${m} min`;
-const IA_ROTULO: Record<IaLevel, string> = { semIA: "Sem IA", basico: "Básico", completo: "Completo" };
+export const rotuloIntervalo = (m: number) => INTERVALOS.find((i) => i.min === m)?.rotulo ?? `${m} min`;
+export const IA_ROTULO: Record<IaLevel, string> = { semIA: "Sem IA", basico: "Básico", completo: "Completo" };
 const fmt = (s: string | null) => (s ? new Date(s).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }) : "—");
 
 function msgErro(e: unknown): string {
@@ -54,7 +54,7 @@ function msgErro(e: unknown): string {
 }
 
 /** Janela "Automatizar": verifica a pasta ao abrir (erro em vermelho + "Verificar de novo") e salva. */
-function AutomacaoModal(props: {
+export function AutomacaoModal(props: {
   groupId: number;
   inicial: Form;
   editandoId: number | null;
@@ -68,6 +68,10 @@ function AutomacaoModal(props: {
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
 
   const verificar = useCallback(async (pasta: string) => {
+    if (!pasta.trim()) {
+      setVerif({ estado: "erro", texto: "Digite o caminho da pasta e toque em Verificar de novo." });
+      return;
+    }
     setVerif({ estado: "verificando", texto: "" });
     try {
       const r = await apiPostJson<{ ok: boolean; arquivos?: number; erro?: string }>("/api/batch-automacoes/verificar", { groupId: props.groupId, pasta });
