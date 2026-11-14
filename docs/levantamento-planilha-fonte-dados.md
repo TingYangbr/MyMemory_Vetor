@@ -1,9 +1,18 @@
 # Levantamento: fontes de dados financeiros no Perguntar (planilha, Open Finance, apps)
 
-*Versão 3 (14/11/2026). Ainda não é desenho de implementação: é para decidir o caminho.*
+*Versão 4 (14/11/2026). Ainda não é desenho de implementação: é para decidir o caminho.*
+
+**O que mudou na v4:**
+- saldo e posição viram **âncora + conferência**: o histórico é derivado dos movimentos;
+- **investimentos seguem o mesmo modelo do extrato**: a posição é derivada, com quantidade e custo médio;
+- valor de mercado (cotações) vai para outro escopo;
+- eventos sem dinheiro (desdobramento, grupamento, bonificação) entram como movimentos do tipo "evento";
+- relatório para o IR como etapa futura;
+- receitas prontas por banco;
+- planilha modelo restrita a orçamento e investimentos simples.
 
 **O que mudou na v3:**
-- tabela pai de contas, com fotos de saldo e de posição;
+- tabela pai de contas (as fotos de saldo e de posição foram trocadas por âncoras na v4);
 - estimativa de volume;
 - sincronização incremental por origem;
 - fonte por espaço;
@@ -63,21 +72,27 @@ fin_contas  ← PAI     (id, groupId|null, fonteId, nome, instituicao,
 
 fin_movimentos        (contaId, fonteId, data, descricao, valor, grupo,
                        situacao: pendente|efetivado, idOrigem, hashLinha, extras JSONB)   ← extrato
-fin_saldos            (contaId, data, saldo, tipo: informado|calculado)                  ← foto do saldo
-fin_posicoes          (contaId, data, ativo, classe, quantidade, valor)                  ← foto da carteira
-fin_mov_investimentos (contaId, fonteId, data, ativo, classe, tipo: aplicacao|resgate|rendimento|…,
-                       quantidade, valor, idOrigem, extras JSONB)
+fin_mov_investimentos (contaId, fonteId, data, ativo, classe,
+                       tipo: compra|venda|aplicacao|resgate|dividendo|jcp|rendimento|ir|taxa|evento,
+                       quantidade, valor, evento: desdobramento|grupamento|bonificacao|null,
+                       fator, custoAtribuido, idOrigem, extras JSONB)
+fin_ancoras           (contaId, data, ativo|null, quantidade|null, valor,
+                       origem: informado|inicial, fonteId)              ← âncora e conferência
 fin_orcamento         (groupId|null, fonteId, mes, grupo, item, valorOrcado, extras JSONB)
 ```
 
-- **`fin_contas` é a tabela pai.** Ela tem cada conta corrente, cartão, corretora ou carteira do espaço, e movimentos, saldos e posições apontam para ela.
-- **Saldo e posição são gravados como fotos** (`fin_saldos`, `fin_posicoes`), e não calculados somando movimentos. O histórico quase nunca está completo: falta o saldo inicial, ou o Open Finance traz só os últimos meses, e a soma daria errado.
-  - A foto pode ser **informada** pela origem (o Pluggy manda o saldo) ou **calculada** quando a origem não informa.
-  - Com isso, "quanto tenho hoje" e "quanto tenho por classe" viram consultas de poucas linhas.
+- **`fin_contas` é a tabela pai.** Ela tem cada conta corrente, cartão, corretora ou carteira do espaço. Movimentos e âncoras apontam para ela.
+- **Os movimentos são a verdade.** Saldo e posição são **derivados** deles e conferidos por **âncoras** (seção 2.5). Não existe série de saldos ou de posições independente.
 - O **orçamento** não aponta para conta, e sim para grupo e mês.
 - **Índices** em (grupo, conta, data) em todas as filhas.
 - Todas as tabelas têm a mesma proteção por espaço dos memos, com `SELECT` liberado para `mm_query_reader`.
-- **Consultas canônicas por tipo**, escritas uma vez: gasto por período e grupo, orçado × realizado (junta `fin_orcamento` e `fin_movimentos`), saldo atual por conta, posição por classe, evolução mensal.
+- **Consultas canônicas por tipo**, escritas uma vez:
+  - gasto por período e grupo;
+  - orçado × realizado (junta `fin_orcamento` e `fin_movimentos`);
+  - saldo por conta em qualquer data;
+  - posição por ativo e classe (quantidade e custo médio);
+  - proventos por período;
+  - evolução mensal.
 - O Perguntar não muda: o planejador vê a categoria Extrato com suas consultas, como vê Faturamento.
 
 ### 2.2 Grupos de despesa: texto livre vindo da fonte
@@ -104,7 +119,7 @@ Num grupo, os **perfis de acesso** existentes podem restringir quais categorias 
 | PF ou família (2–3 contas + cartão) | 2–4 mil | 10–20 mil |
 | Pequena empresa | 20–60 mil | 100–300 mil |
 
-Saldos e posições são fotos mensais, ou só quando mudam, e por isso pesam pouco.
+As âncoras (saldos e quantidades informados) são poucas por conta e pesam pouco.
 
 | Base | Linhas | Tamanho com índices |
 |---|---|---|
@@ -115,6 +130,54 @@ Saldos e posições são fotos mensais, ou só quando mudam, e por isso pesam po
 - Toda consulta é filtrada pelo espaço, como a proteção por grupo já obriga. Com o índice, uma pergunta lê só as linhas daquele espaço, então **o desempenho depende do tamanho de cada espaço, não do total**.
 - Se crescer muito: particionar por espaço e usar os limites do plano (seção 8).
 - Comparação: a tabela de memos com embeddings já pesa mais por linha.
+
+### 2.5 Saldo e posição: âncora + derivação + conferência
+
+**O problema de guardar o saldo como série.** Um saldo informado pela origem ("R$ 5.320,00 às 14:07") não diz quais lançamentos já estavam incluídos, ainda mais com pendentes e lançamentos do mesmo dia. Uma série de saldos gravada à parte brigaria com os movimentos.
+
+**Conta corrente e cartão:**
+- **Âncora:** o último saldo informado (Pluggy), o saldo da própria planilha (extrato exportado do banco costuma ter uma coluna "Saldo" por dia) ou um saldo inicial informado uma vez pelo usuário.
+- **Histórico derivado:** saldo(D) = âncora − soma dos movimentos efetivados com data posterior a D. Cada saldo diário fica **amarrado exatamente aos movimentos**, e o gráfico de saldo e o "quanto eu tinha em 30/06" saem coerentes com o extrato.
+- **Conferência:** entre duas âncoras, a diferença tem que ser igual à soma dos movimentos do período. Se não bater, falta ou sobra lançamento, e o sino avisa: "Itaú CC: diferença de R$ 120,00 entre 01/10 e 31/10".
+- **Sem âncora:** o sistema mostra só entradas e saídas, sem saldo.
+
+**Investimentos: o mesmo modelo do extrato.**
+- **Movimentos da conta de investimento:** compra, venda, aplicação, resgate, dividendo, JCP, rendimento, IR retido, taxas. Os proventos já vêm no extrato da conta de investimento.
+- **Posição derivada dos movimentos:** quantidade e **custo médio** por ativo, ou seja, quanto foi pago.
+  - Compra soma quantidade e custo.
+  - **Venda ou resgate parcial** baixa a quantidade pelo custo médio, sem alterar o custo médio do que sobra.
+- **Âncora:** a quantidade informada pela origem (o Pluggy manda a posição, a planilha às vezes tem) confere a derivada. Se o derivado diz 100 e a corretora diz 150, falta movimento, e o sino avisa.
+- **Histórico incompleto** (o Open Finance costuma limitar os meses): uma **âncora inicial** por ativo, com quantidade e custo médio na data de corte, informada uma vez.
+- **Renda fixa** (CDB, Tesouro): o custo é o valor aplicado. O rendimento aparece no resgate, ou quando a origem informar.
+- **Valor de mercado fica para outro escopo:** um serviço de cotações que calcula quantidade × cotação do dia, sem mexer no modelo. Exemplos de fonte: cotas de fundos (dados abertos da CVM), preços do Tesouro Direto, ações por um provedor de cotações.
+
+### 2.6 Eventos sem dinheiro: desdobramento, grupamento, bonificação
+
+São a principal causa de caos na declaração do IR: mudam a quantidade sem movimento financeiro e não aparecem no extrato. Entram como **movimento do tipo "evento"**:
+
+| Evento | Quantidade | Custo total | Custo médio |
+|---|---|---|---|
+| Desdobramento 1:2 | × 2 | não muda | ÷ 2 |
+| Grupamento 10:1 | ÷ 10 | não muda | × 10 |
+| Bonificação 10% | + 10% | **aumenta** pelo custo atribuído informado pela empresa | recalculado |
+
+**Detecção sem depender do usuário:**
+1. A **conferência com a âncora** pega a diferença de quantidade.
+2. Se a diferença bate com um fator típico numa data próxima, o sistema sugere: "parece um desdobramento 1:2 em 15/03; confirmar?".
+3. Melhor ainda: buscar os **eventos corporativos publicados pela B3** por ativo e aplicar sozinho, só pedindo confirmação.
+
+**Rastro:** o custo médio de qualquer data é a soma explicável de movimentos e eventos. O sistema mostra "de onde veio este número".
+
+### 2.7 Relatório para o IR (etapa futura)
+
+Feito a partir das tabelas `fin_`:
+- **Bens e Direitos:** posição em 31/12 por ativo, com quantidade e custo de aquisição;
+- **Rendimentos:** dividendos e JCP do ano, por fonte pagadora;
+- **Vendas mês a mês:** ganho ou perda pelo custo médio.
+
+Também pode ser uma pergunta: "monte minha posição para a declaração de 2026".
+
+**Cuidado:** as regras do IR mudam (isenções, tributação de proventos, compensação de prejuízo). O relatório é **apoio**, com a regra aplicada à mostra e validação de um contador, e nunca uma declaração pronta.
 
 ## 3. O que já existe e pode ser reaproveitado
 
@@ -131,15 +194,16 @@ Saldos e posições são fotos mensais, ou só quando mudam, e por isso pesam po
 
 ## 4. Origens
 
-### 4.1 Três jeitos de usar planilha
+### 4.1 Jeitos de usar planilha
 
 | | O que é | Receita? | Arquivo do usuário |
 |---|---|---|---|
-| **Planilha modelo** | Arquivo nosso, com as colunas canônicas, que o usuário **preenche direto** | Não precisa | É o próprio modelo |
-| **Converter para o modelo** | **Uma vez**: a IA gera um arquivo novo no nosso formato com os dados da planilha bagunçada. O usuário passa a manter esse arquivo e abandona o antigo. | Não (conversão única) | Arquivo novo |
-| **Planilha livre** | O usuário continua mantendo a planilha **do jeito dele** | Sim | **Não é alterado**: a receita roda no nosso servidor e grava direto nas tabelas canônicas |
+| **Planilha livre** (caminho principal) | O usuário continua mantendo a planilha **do jeito dele** | Sim | **Não é alterado**: a receita roda no nosso servidor e grava direto nas tabelas canônicas |
+| **Extrato exportado do banco** (xlsx/csv) | É uma planilha livre de **layout fixo por banco** | **Receita pronta por banco** ("Itaú", "Nubank"…), a mesma para todos os usuários desse banco, sem custo de IA por usuário | Não é alterado |
+| **Planilha modelo** | Arquivo nosso, com as colunas canônicas, preenchido à mão. **Só onde digitar é pouco:** orçamento (uma vez por ano, poucas dezenas de linhas) e investimentos com poucos ativos (uma vez por mês). **Para extrato é inviável** (centenas de linhas por mês). | Não precisa | É o próprio modelo |
+| **Converter para o modelo** | **Uma vez**: a IA gera um arquivo novo no nosso formato. Só vale para quem topa abandonar a planilha antiga. | Não (conversão única) | Arquivo novo |
 
-A única "duplicação" é a cópia nas nossas tabelas, que existe para qualquer origem (Pluggy também).
+Extrato vem de origem automática: Pluggy, Organizze ou extrato exportado do banco. A única "duplicação" é a cópia nas nossas tabelas, que existe para qualquer origem.
 
 ### 4.2 Planilha livre: receita de conversão com conferência pelos totais
 
@@ -205,7 +269,7 @@ Cobra mensalidade e/ou por conexão.
    - o proMemory pede ao Pluggy um token de conexão e abre o Pluggy Connect;
    - o usuário escolhe o banco e autoriza no app do banco;
    - o Pluggy devolve um **`itemId`**. Só isso é guardado: **nunca vemos a senha do banco**.
-2. **Primeira carga:** contas (que viram `fin_contas`), lançamentos, saldos e posições de investimento.
+2. **Primeira carga:** contas (que viram `fin_contas`), lançamentos, movimentações de investimento, e saldos e posições como âncoras.
 3. **Atualização:** ver 4.7.
 4. **Botão "Atualizar agora":** pede uma sincronização na hora, e o webhook avisa ao terminar.
 5. **Conexão quebrada** (consentimento expirado, senha trocada): aviso no sino "reconecte seu banco".
@@ -216,8 +280,8 @@ Cobra mensalidade e/ou por conexão.
 |---|---|
 | Lançamentos da conta | Podem vir **pendentes** e virar **efetivados**, atualizados pelo Pluggy. "Realizado" considera só os efetivados. |
 | Cartão | Lançamentos e **faturas**, inclusive a aberta. Compras parceladas trazem o número da parcela. |
-| Saldos | Viram fotos em `fin_saldos`. |
-| Investimentos | **Posição** por ativo (vira foto em `fin_posicoes`) e movimentações. |
+| Saldos | Viram **âncoras** em `fin_ancoras`, para derivação e conferência. |
+| Investimentos | Movimentações (incluindo proventos) e **posição** por ativo, cuja quantidade vira âncora para conferência. |
 | Empréstimos | Contratos e parcelas a vencer. |
 | **Não vem** | Títulos a pagar e a receber, boletos que vão chegar e agendamentos (não encontrados no Open Finance). |
 
@@ -286,7 +350,7 @@ O mesmo desenho serve, com outro foco: no MyMemory o objetivo é **perguntar**; 
 
 **Aproveita direto:**
 - **Extrato via Open Finance/Pluggy para a conciliação bancária.** O Pluggy tem conectores de conta PJ. O extrato chega sozinho, com webhook e conferência noturna, em vez de OFX ou CNAB importado à mão.
-- **Modelo canônico de "movimento bancário"**, gravado no banco do ERP, para qualquer origem (Pluggy, OFX, CNAB de retorno, digitação), com a mesma ideia de tabela pai de contas e fotos de saldo.
+- **Modelo canônico de "movimento bancário"**, gravado no banco do ERP, para qualquer origem (Pluggy, OFX, CNAB de retorno, digitação), com a mesma ideia de tabela pai de contas e de saldo derivado dos movimentos, conferido por âncoras (o saldo informado pelo banco).
 - **Receita + conferência pelos totais na migração do legado:** saldos e totais do legado batidos com o migrado, conta por conta e mês a mês, antes de virar a chave.
 - **A mesma peça de integração com o Pluggy** (conexão, webhook, conferência), compartilhada ou com o desenho copiado. Um único contrato com o Pluggy, se o modelo de cobrança permitir, dilui o custo comercial.
 
@@ -328,17 +392,22 @@ Próximo passo sugerido: um levantamento próprio no repositório do Softing-erp
 ## 7. Etapas sugeridas (MyMemory)
 
 1. **Base:**
-   - tabelas canônicas (contas, movimentos, saldos, posições, orçamento) e consultas por tipo;
-   - **planilha modelo** (xlsx);
+   - tabelas canônicas (contas, movimentos, movimentos de investimento com eventos, âncoras, orçamento) e consultas por tipo;
+   - saldo e posição (quantidade e custo médio) derivados, com conferência pelas âncoras e aviso no sino;
    - **planilha livre** com receita por categoria, prévia e conferência pelos totais;
+   - **receitas prontas** para os extratos exportados dos bancos mais comuns;
+   - **planilha modelo** de orçamento e investimentos simples;
    - botão "Atualizar agora", data dos dados na resposta e limites por plano.
 
    Antes, trocar a biblioteca `xlsx`.
 2. **Atualização automática do xlsx** por pasta vigiada (automação de importação).
 3. **Open Finance com o Meu Pluggy**, testado com as próprias contas: conexão, primeira carga, atualização manual.
 4. **Pluggy comercial:** auto-sync, webhook, conferência noturna, aviso de reconexão. Avaliar o contrato junto com o Softing-erp.
-5. **Planilha Google ligada** (`drive.file` + Picker, verificação a cada 15 min).
-6. **Organizze** e **OFX**, sob demanda.
+5. **Eventos corporativos:** sugestão de evento pela diferença de quantidade e, depois, busca dos eventos publicados pela B3.
+6. **Relatório para o IR** (Bens e Direitos, rendimentos, vendas mês a mês).
+7. **Cotações** (valor de mercado da carteira), em escopo próprio.
+8. **Planilha Google ligada** (`drive.file` + Picker, verificação a cada 15 min).
+9. **Organizze** e **OFX**, sob demanda.
 
 ## 8. Limites por plano
 
@@ -359,7 +428,10 @@ Os valores ficam para quando houver a proposta comercial do agregador.
 - **Receita → exatamente uma categoria**; uma categoria pode ter várias fontes.
 - **Grupos de despesa como texto livre vindo da fonte**, sem lista nem de-para no começo.
 - **Prever limites por plano** (linhas, conexões, frequência, histórico).
-- Saldo e posição gravados como **fotos**, sob a tabela pai `fin_contas`.
+- **Movimentos são a verdade:** saldo e posição são derivados deles, com âncoras só para conferência, sob a tabela pai `fin_contas`.
+- **Investimentos seguem o modelo do extrato:** posição com quantidade e custo médio. Valor de mercado (cotações) em escopo separado.
+- **Desdobramento, grupamento e bonificação** entram como movimentos do tipo "evento".
+- **Planilha modelo** só para orçamento e investimentos simples. Extrato vem de origem automática ou do extrato exportado do banco, com receita pronta por banco.
 - Tabelas do módulo com o prefixo **`fin_`** (de "financeiro"): agrupa as tabelas, evita confusão com outras e facilita a permissão de leitura do conjunto.
 
 **Em aberto:**
