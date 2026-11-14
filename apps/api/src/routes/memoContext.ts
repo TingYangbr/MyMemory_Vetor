@@ -491,6 +491,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       sortDir?: string;
       limit?: number;
       offset?: number;
+      /** true = só memos sem categoria (ignora categoryName). */
+      semCategoria?: boolean;
     };
 
     const categoryName = (body.categoryName ?? "").trim();
@@ -522,6 +524,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
       const result = await listarMemosPorCategoria({
         categoryName: categoryName || null,
+        semCategoria: body.semCategoria === true,
         userId,
         groupId: workspaceGroupId,
         camposAtivos,

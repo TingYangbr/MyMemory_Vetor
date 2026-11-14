@@ -1085,6 +1085,8 @@ export async function softDeleteQueryCategoriaParam(userId: number, paramId: num
  */
 export async function listarMemosPorCategoria(input: {
   categoryName: string | null;
+  /** true = só memos sem categoria. */
+  semCategoria?: boolean;
   userId: number;
   groupId: number | null;
   camposAtivos: string[];
@@ -1127,7 +1129,9 @@ export async function listarMemosPorCategoria(input: {
     vals.push(input.userId);
   }
 
-  if (input.categoryName) {
+  if (input.semCategoria) {
+    where.push("COALESCE(TRIM(m.category), '') = ''");
+  } else if (input.categoryName) {
     where.push("m.category = ?");
     vals.push(input.categoryName);
   }

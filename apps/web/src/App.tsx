@@ -11,6 +11,7 @@ import GroupCreatePage from "./pages/GroupCreatePage";
 import GroupJoinPlaceholderPage from "./pages/GroupJoinPlaceholderPage";
 import GroupInviteAcceptPage from "./pages/GroupInviteAcceptPage";
 import GroupOwnerPanelPage from "./pages/GroupOwnerPanelPage";
+import PainelGrupoPage from "./pages/painelGrupo/PainelGrupoPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
 import MemoContextPage from "./pages/MemoContextPage";
@@ -67,6 +68,7 @@ export default function App() {
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />
       <Route path="/grupo/:groupId/painel" element={<GroupOwnerPanelPage />} />
+      <Route path="/grupo/:groupId/admin" element={<PainelGrupoPage />} />
       <Route path="/convite/grupo" element={<GroupInviteAcceptPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
