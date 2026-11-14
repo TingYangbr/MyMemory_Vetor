@@ -19,19 +19,14 @@ import RegisterPage from "./pages/RegisterPage";
 import SelectPlanPage from "./pages/SelectPlanPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import PerguntaModelosPage from "./pages/PerguntaModelosPage";
-import MemoEditPage from "./pages/MemoEditPage";
-import MemoAudioReviewPage from "./pages/MemoAudioReviewPage";
-import MemoVideoReviewPage from "./pages/MemoVideoReviewPage";
-import MemoDocumentReviewPage from "./pages/MemoDocumentReviewPage";
-import MemoImageReviewPage from "./pages/MemoImageReviewPage";
-import MemoTextReviewPage from "./pages/MemoTextReviewPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import BatchImportPage from "./pages/BatchImportPage";
 import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
 import AdminStoragePage from "./pages/AdminStoragePage";
 import AvisosPage from "./pages/AvisosPage";
-import { EdicaoEscolha, RevisaoEscolha } from "./components/catalogarNovo/Roteadores";
+import RevisarMemoPage from "./pages/RevisarMemoPage";
+import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
 
 export default function App() {
   return (
@@ -59,13 +54,13 @@ export default function App() {
       <Route path="/avisos" element={<AvisosPage />} />
       <Route path="/conta" element={<Navigate to="/conta/preferencias" replace />} />
       <Route path="/conta/preferencias" element={<UserPreferencesPage />} />
-      <Route path="/revisao/memo-texto" element={<RevisaoEscolha rota="texto" Antiga={MemoTextReviewPage} />} />
-      <Route path="/revisao/memo-imagem" element={<RevisaoEscolha rota="imagem" Antiga={MemoImageReviewPage} />} />
-      <Route path="/revisao/memo-audio" element={<RevisaoEscolha rota="audio" Antiga={MemoAudioReviewPage} />} />
-      <Route path="/revisao/memo-video" element={<RevisaoEscolha rota="video" Antiga={MemoVideoReviewPage} />} />
-      <Route path="/revisao/memo-documento" element={<RevisaoEscolha rota="documento" Antiga={MemoDocumentReviewPage} />} />
+      <Route path="/revisao/memo-texto" element={<RevisarMemoPage rota="texto" />} />
+      <Route path="/revisao/memo-imagem" element={<RevisarMemoPage rota="imagem" />} />
+      <Route path="/revisao/memo-audio" element={<RevisarMemoPage rota="audio" />} />
+      <Route path="/revisao/memo-video" element={<RevisarMemoPage rota="video" />} />
+      <Route path="/revisao/memo-documento" element={<RevisarMemoPage rota="documento" />} />
       <Route path="/importar-lote" element={<BatchImportPage />} />
-      <Route path="/memo/:id/editar" element={<EdicaoEscolha Antiga={MemoEditPage} />} />
+      <Route path="/memo/:id/editar" element={<EditarMemoNovoPage />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />
       <Route path="/grupo/:groupId/painel" element={<GroupOwnerPanelPage />} />

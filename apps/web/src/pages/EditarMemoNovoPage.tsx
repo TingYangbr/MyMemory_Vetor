@@ -6,7 +6,7 @@ import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, mensa
 import Header from "../components/Header";
 import MemoFormulario, { useCategoriasCompletas } from "../components/catalogarNovo/MemoFormulario";
 import { attachmentExt } from "../memo/memoCardDisplayUtils";
-import { dadosParaJson, definirTelasNovas, parseDadosEntries, type DadoCampo } from "../lib/revisaoNova";
+import { dadosParaJson, parseDadosEntries, type DadoCampo } from "../lib/revisaoNova";
 import s from "./catalogarNovo.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -310,16 +310,6 @@ export default function EditarMemoNovoPage() {
               Alterado {ultimaAlteracao.autor ? <>por <b>{ultimaAlteracao.autor}</b> </> : null}em {dataHora(ultimaAlteracao.quando)}
             </span>
           ) : null}
-          <button
-            type="button"
-            className={s.linkAntiga}
-            onClick={() => {
-              definirTelasNovas(false);
-              navigate(location.pathname + location.search, { replace: true, state: location.state });
-            }}
-          >
-            Usar a tela antiga
-          </button>
         </div>
 
         <div className={s.abas} role="tablist">
