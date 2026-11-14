@@ -1297,6 +1297,28 @@ export interface MemosListaRequest {
   offset?: number;
 }
 
+/** GET /api/painel-grupo/grupos — caixinha "Grupo" do novo painel. */
+export interface PainelGrupoItem {
+  id: number;
+  name: string;
+  donoNome: string | null;
+  donoEmail: string | null;
+  membros: number;
+  souDono: boolean;
+}
+
+export interface PainelGrupoBuscaResponse {
+  isAdmin: boolean;
+  total: number;
+  grupos: PainelGrupoItem[];
+}
+
+/** GET /api/painel-grupo/:groupId/contagens — memos ativos por categoria e sem categoria. */
+export interface PainelGrupoContagensResponse {
+  porCategoria: Record<string, number>;
+  semCategoria: number;
+}
+
 export interface MemosListaResponse {
   colunas: MemosListaColuna[];
   linhas: Record<string, unknown>[];

@@ -15,6 +15,8 @@ interface Props {
   categoryName: string;
   campos: MemoContextCampo[];
   onClose: () => void;
+  /** Mostra o formulário dentro da página (aba Lembrete do novo painel), sem janela por cima. */
+  inline?: boolean;
 }
 
 /** Sugere o campo pelo nome: "Data Agenda" para data, "Horario" para horário etc. */
@@ -54,7 +56,7 @@ function paraInput(r: LembreteRegra): LembreteRegraInput {
 const fmtDataHora = (iso: string) =>
   new Date(iso).toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo", dateStyle: "short", timeStyle: "short" });
 
-export default function LembretesModal({ categoryId, categoryName, campos, onClose }: Props) {
+export default function LembretesModal({ categoryId, categoryName, campos, onClose, inline }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [regra, setRegra] = useState<LembreteRegra | null>(null);
   const [form, setForm] = useState<LembreteRegraInput>(() => regraPadrao(campos));
@@ -147,10 +149,9 @@ export default function LembretesModal({ categoryId, categoryName, campos, onClo
     </select>
   );
 
-  return (
-    <div className="mm-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className={`mm-modal ${styles.modal}`} role="dialog" aria-modal="true" aria-labelledby="lembretes-titulo" onClick={(e) => e.stopPropagation()}>
-        <h3 id="lembretes-titulo" className={styles.titulo}>🔔 Lembretes — {categoryName}</h3>
+  const conteudo = (
+      <>
+        {inline ? null : <h3 id="lembretes-titulo" className={styles.titulo}>🔔 Lembretes — {categoryName}</h3>}
         <p className={styles.intro}>
           Envia e-mail antes da data/hora de cada memo desta categoria. O memo pode sobrepor o padrão
           (ex.: "me lembre 30 min antes", "avisar o João", "não precisa lembrar").
@@ -274,7 +275,7 @@ export default function LembretesModal({ categoryId, categoryName, campos, onClo
                   {carregandoPrevia ? "Calculando…" : "Ver próximos envios"}
                 </button>
               ) : null}
-              <button type="button" className="mm-btn mm-btn--ghost" onClick={onClose}>Fechar</button>
+              {inline ? null : <button type="button" className="mm-btn mm-btn--ghost" onClick={onClose}>Fechar</button>}
               <button type="button" className="mm-btn mm-btn--primary" disabled={salvando} onClick={() => void salvar()}>
                 {salvando ? "Salvando…" : "Salvar"}
               </button>
@@ -316,6 +317,15 @@ export default function LembretesModal({ categoryId, categoryName, campos, onClo
             ) : null}
           </>
         )}
+      </>
+  );
+
+  if (inline) return <div className={styles.inline}>{conteudo}</div>;
+
+  return (
+    <div className="mm-modal-overlay" role="presentation" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className={`mm-modal ${styles.modal}`} role="dialog" aria-modal="true" aria-labelledby="lembretes-titulo" onClick={(e) => e.stopPropagation()}>
+        {conteudo}
       </div>
     </div>
   );

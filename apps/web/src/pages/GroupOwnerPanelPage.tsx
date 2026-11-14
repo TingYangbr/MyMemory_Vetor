@@ -436,6 +436,9 @@ export default function GroupOwnerPanelPage() {
         {/* ── Top navigation bar ── */}
         <div className={styles.topBar}>
           <Link to="/" className={styles.back}>← Início</Link>
+          <Link to={`/grupo/${groupId}/admin`} className="mm-btn mm-btn--primary" style={{ marginLeft: "auto" }}>
+            Experimentar o novo painel
+          </Link>
           {ownedGroups.length > 0 && (
             <span className={styles.groupsNav}>
               {ownerLabel ? `Grupos de ${ownerLabel}: ` : "Meus grupos: "}
