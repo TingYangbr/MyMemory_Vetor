@@ -310,7 +310,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
       setCatDosCampos(categoryId);
       setAvisoTroca(null);
     } catch (e) {
-      setErroReextr(mensagemDeErro(e, "Falha ao reprocessar."));
+      setErroReextr(mensagemDeErro(e, "Falha ao re-processar."));
     } finally {
       setReextraindo(false);
     }

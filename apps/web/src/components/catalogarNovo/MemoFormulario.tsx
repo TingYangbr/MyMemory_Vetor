@@ -49,7 +49,7 @@ export interface MemoFormularioProps {
   categorias: CategoriaComRegra[];
   categoryId: number | null;
   onTrocarCategoria: (id: number | null) => void;
-  /** Aviso depois de trocar a categoria: ↻ Reprocessar ou não reprocessar. */
+  /** Aviso depois de trocar a categoria: ↻ Re-processar ou não re-processar. */
   avisoTroca: { nome: string } | null;
   onPreencherIA: () => void;
   onDeixarEmBranco: () => void;
@@ -126,13 +126,13 @@ export default function MemoFormulario(p: MemoFormularioProps) {
             <span aria-hidden>↻</span>
             <div>
               <b>Você alterou a categoria para {p.avisoTroca.nome}.</b>
-              Reprocessar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda.
+              Re-processar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda.
               <div className={s.avisoBotoes}>
                 <button type="button" className="mm-btn mm-btn--primary" disabled={p.reextraindo} onClick={p.onPreencherIA}>
-                  {p.reextraindo ? "Reprocessando…" : "↻ Reprocessar"}
+                  {p.reextraindo ? "Re-processando…" : "↻ Re-processar"}
                 </button>
                 <button type="button" className="mm-btn mm-btn--ghost" disabled={p.reextraindo} onClick={p.onDeixarEmBranco}>
-                  Não reprocessar
+                  Não re-processar
                 </button>
               </div>
               {p.erroReextrair ? <p className={s.erro}>{p.erroReextrair}</p> : null}

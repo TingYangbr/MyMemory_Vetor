@@ -165,7 +165,7 @@ export default function EditarMemoNovoPage() {
       setCatDosCampos(categoryId);
       setAvisoTroca(null);
     } catch (e) {
-      setErroReextr(mensagemDeErro(e, "Falha ao reprocessar."));
+      setErroReextr(mensagemDeErro(e, "Falha ao re-processar."));
     } finally {
       setReextraindo(false);
     }
