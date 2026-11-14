@@ -1,29 +1,6 @@
 import type { MemoContextCategory, MemoContextCampo, MemoCreatedResponse, UserIaUseLevel } from "@mymemory/shared";
 import { apiPatchJson, apiPostJson } from "../api";
 
-/**
- * Lote 2 (Catalogar e editar): as telas novas de revisão e edição ficam ao lado das antigas.
- * Quem quiser experimentar liga a chave abaixo (fica guardada neste navegador).
- */
-const CHAVE_TELAS_NOVAS = "mm_catalogar_novo";
-
-export function usarTelasNovas(): boolean {
-  try {
-    return localStorage.getItem(CHAVE_TELAS_NOVAS) === "1";
-  } catch {
-    return false;
-  }
-}
-
-export function definirTelasNovas(ligado: boolean): void {
-  try {
-    if (ligado) localStorage.setItem(CHAVE_TELAS_NOVAS, "1");
-    else localStorage.removeItem(CHAVE_TELAS_NOVAS);
-  } catch {
-    /* navegador sem localStorage: segue com as telas antigas */
-  }
-}
-
 export type RevisaoTipo = "texto" | "url" | "imagem" | "audio" | "video" | "documento";
 
 /** Campos comuns a todas as respostas de processamento (texto, imagem, áudio, vídeo, documento). */

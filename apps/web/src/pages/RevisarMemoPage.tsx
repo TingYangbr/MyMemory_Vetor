@@ -11,7 +11,6 @@ import { useMemoReviewVoiceAssistant } from "../hooks/useMemoReviewVoiceAssistan
 import { urlMediaRevisao } from "../lib/mediaRevisao";
 import {
   dadosParaJson,
-  definirTelasNovas,
   gravarMemoRevisado,
   parseDadosEntries,
   percentualPreenchido,
@@ -39,7 +38,7 @@ interface DocState {
   memoId: number;
   groupId: number | null;
   iaUseDocumento?: UserIaUseLevel;
-  /** Já processado (vindo da revisão antiga): não processa de novo. */
+  /** Já processado (guardado no histórico do navegador): não processa de novo. */
   processado?: DocumentMemoProcessResponse;
 }
 
@@ -119,7 +118,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     });
   }, []);
 
-  // Documento: processa aqui (como a revisão antiga), a não ser que já venha processado
+  // Documento: processa aqui, a não ser que já venha processado
   useEffect(() => {
     const doc = entrada?.doc;
     if (!doc || doc.processado) return;
@@ -363,16 +362,6 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     dadosInputRefs: dadosRefs,
   });
 
-  const usarAntiga = () => {
-    definirTelasNovas(false);
-    if (tipo === "documento") {
-      // a revisão antiga processa o documento de novo; vale a partir do próximo memo
-      setErro("Pronto: a partir do próximo memo volta a revisão antiga.");
-      return;
-    }
-    navigate(location.pathname, { replace: true, state: location.state });
-  };
-
   if (!entrada) {
     return (
       <>
@@ -461,9 +450,6 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
           <h1>Revisar antes de salvar</h1>
           <span className={s.tipo}>{ROTULO[tipo]}</span>
           <span className={s.sp} />
-          <button type="button" className={s.linkAntiga} onClick={usarAntiga}>
-            Usar a revisão antiga
-          </button>
         </div>
         <div style={{ height: 10 }} />
 
