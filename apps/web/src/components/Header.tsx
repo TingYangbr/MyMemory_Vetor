@@ -187,7 +187,7 @@ export default function Header({
   }, [hasCenter]);
 
   const isAdmin = me?.role === "admin";
-  const hasAdminSection = isAdmin || ownerPanelGroupId != null || !!me?.memoContextAccess;
+  const hasAdminSection = isAdmin || ownerPanelGroupId != null;
   const groupLabel = me?.groupLabel ?? "Pessoal";
   const isPersonal = me?.lastWorkspaceGroupId == null;
   const close = () => setMenuOpen(false);
@@ -338,13 +338,13 @@ export default function Header({
                   <div className={styles.menuGroup}>
                     <div className={styles.menuLabel}>Administração</div>
                     {ownerPanelGroupId != null ? (
-                      <Link to={`/grupo/${ownerPanelGroupId}/painel`} role="menuitem" className={styles.item} onClick={close}>
-                        <IconUsers /> Painel do owner
+                      <Link to={`/grupo/${ownerPanelGroupId}/admin`} role="menuitem" className={styles.item} onClick={close}>
+                        <IconUsers /> Administrar grupo
                       </Link>
                     ) : null}
-                    {me?.memoContextAccess ? (
-                      <Link to="/estrutura-memo" role="menuitem" className={styles.item} onClick={close}>
-                        <IconLayers /> Estrutura contextual
+                    {isAdmin ? (
+                      <Link to="/grupo/globais/admin?secao=categorias" role="menuitem" className={styles.item} onClick={close}>
+                        <IconLayers /> Categorias globais
                       </Link>
                     ) : null}
                     {isAdmin ? (

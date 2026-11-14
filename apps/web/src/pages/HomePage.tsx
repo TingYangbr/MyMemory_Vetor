@@ -256,7 +256,7 @@ export default function HomePage() {
                   <span className={styles.pickerRole}>{g.isOwner ? "Dono" : "Membro"}</span>
                   {g.isOwner ? (
                     <Link
-                      to={`/grupo/${g.id}/painel`}
+                      to={`/grupo/${g.id}/admin`}
                       className={styles.pickerAdminLink}
                       onClick={() => setWorkspacePicker(false)}
                     >

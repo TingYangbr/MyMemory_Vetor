@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import type { GroupOwnerPanelResponse, MeResponse } from "@mymemory/shared";
 import { apiGet } from "../../api";
 import Header from "../../components/Header";
@@ -26,8 +26,8 @@ const ICONES: Record<Secao, ReactNode> = {
 
 /**
  * Novo painel do grupo: um menu lateral com Pessoas, Categorias, Consulta de memos, Perfis de acesso,
- * Ligação com o ERP e Configurações. Convive com o painel antigo (/grupo/:id/painel) e com a página
- * Estrutura contextual até a validação; usa as mesmas rotas da API.
+ * Ligação com o ERP e Configurações. Substitui o painel antigo
+ * (/grupo/:id/painel) e a página Estrutura contextual (/estrutura-memo), que agora redirecionam para cá.
  * `/grupo/globais/admin` = categorias globais (só administrador do sistema).
  */
 export default function PainelGrupoPage() {
@@ -160,11 +160,6 @@ export default function PainelGrupoPage() {
               ))}
             </nav>
           )}
-          {!global && !invalido ? (
-            <Link className={s.oldLink} to={`/grupo/${param}/painel`}>
-              Voltar ao painel antigo
-            </Link>
-          ) : null}
         </aside>
         <main className={s.main}>{conteudo}</main>
       </div>

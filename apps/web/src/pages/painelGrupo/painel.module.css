@@ -211,13 +211,6 @@
   font-weight: 700;
 }
 
-.oldLink {
-  display: block;
-  margin-top: 18px;
-  padding: 0 10px;
-  font-size: 12px;
-  color: var(--mm-muted);
-}
 
 /* ── cabeçalho de seção ───────────────────────── */
 .mh {
@@ -1042,10 +1035,6 @@
     color: #fff;
   }
 
-  .oldLink {
-    margin-top: 6px;
-    padding: 0;
-  }
 
   .main {
     padding: 16px 16px 60px;

@@ -1,4 +1,4 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import { Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
 import AdminDocumentAiPage from "./pages/AdminDocumentAiPage";
 import AdminCadPipelinePage from "./pages/AdminCadPipelinePage";
@@ -10,11 +10,9 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import GroupCreatePage from "./pages/GroupCreatePage";
 import GroupJoinPlaceholderPage from "./pages/GroupJoinPlaceholderPage";
 import GroupInviteAcceptPage from "./pages/GroupInviteAcceptPage";
-import GroupOwnerPanelPage from "./pages/GroupOwnerPanelPage";
 import PainelGrupoPage from "./pages/painelGrupo/PainelGrupoPage";
 import HomePage from "./pages/HomePage";
 import LoginPage from "./pages/LoginPage";
-import MemoContextPage from "./pages/MemoContextPage";
 import RegisterPage from "./pages/RegisterPage";
 import SelectPlanPage from "./pages/SelectPlanPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
@@ -47,7 +45,7 @@ export default function App() {
       <Route path="/admin/llm-prompt" element={<AdminLlmPromptPage />} />
       <Route path="/admin/assinaturas" element={<AdminSubscriptionsPage />} />
       <Route path="/admin/storage" element={<AdminStoragePage />} />
-      <Route path="/estrutura-memo" element={<MemoContextPage />} />
+      <Route path="/estrutura-memo" element={<EstruturaAntigaRedirect />} />
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />
       <Route path="/perguntas-salvas" element={<PerguntaModelosPage />} />
@@ -63,10 +61,23 @@ export default function App() {
       <Route path="/memo/:id/editar" element={<EditarMemoNovoPage />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />
-      <Route path="/grupo/:groupId/painel" element={<GroupOwnerPanelPage />} />
+      <Route path="/grupo/:groupId/painel" element={<PainelAntigoRedirect />} />
       <Route path="/grupo/:groupId/admin" element={<PainelGrupoPage />} />
       <Route path="/convite/grupo" element={<GroupInviteAcceptPage />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
+}
+
+/** Endereço antigo do painel do grupo: abre o painel novo. */
+function PainelAntigoRedirect() {
+  const { groupId } = useParams<{ groupId: string }>();
+  return <Navigate to={`/grupo/${groupId}/admin`} replace />;
+}
+
+/** Endereço antigo da Estrutura contextual: abre as Categorias do painel novo. */
+function EstruturaAntigaRedirect() {
+  const [sp] = useSearchParams();
+  const gid = sp.get("ownerGroupId") ?? sp.get("groupId");
+  return <Navigate to={`/grupo/${gid && /^\d+$/.test(gid) ? gid : "globais"}/admin?secao=categorias`} replace />;
 }
