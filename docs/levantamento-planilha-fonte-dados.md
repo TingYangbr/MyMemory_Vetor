@@ -360,6 +360,7 @@ Os valores ficam para quando houver a proposta comercial do agregador.
 - **Grupos de despesa como texto livre vindo da fonte**, sem lista nem de-para no começo.
 - **Prever limites por plano** (linhas, conexões, frequência, histórico).
 - Saldo e posição gravados como **fotos**, sob a tabela pai `fin_contas`.
+- Tabelas do módulo com o prefixo **`fin_`** (de "financeiro"): agrupa as tabelas, evita confusão com outras e facilita a permissão de leitura do conjunto.
 
 **Em aberto:**
 1. Planilha com várias abas: uma fonte por aba ou uma fonte com várias receitas? Decidir quando houver casos reais.
