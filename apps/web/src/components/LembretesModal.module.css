@@ -134,3 +134,12 @@
   font-size: 0.72rem;
   color: var(--mm-text-secondary);
 }
+
+/* Formulário dentro da página (novo painel do grupo) */
+.inline {
+  font-size: 13.5px;
+}
+
+.inline .grade {
+  grid-template-columns: 1fr;
+}
