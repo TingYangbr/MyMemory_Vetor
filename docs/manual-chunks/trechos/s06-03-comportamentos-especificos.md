@@ -8,8 +8,8 @@ Perfil: usuário · Tipo: conceito · Versão do manual: 2
 - Memo Vídeo: exibe miniatura do vídeo.
 - Memo Documento: exibe o nome do arquivo e tamanho.
 - Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
-- Ao trocar a categoria no combo, aparece ao lado o botão ↻ Reextrair. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria, e refaz o resumo, as palavras-chave e os campos dessa categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
-- O ↻ Reextrair substitui o que estiver na tela, inclusive campos editados à mão. Por isso não roda sozinho ao trocar o combo.
+- Ao trocar a categoria (inclusive quando a IA não conseguiu classificar e o memo veio sem categoria), aparece o aviso "Você alterou a categoria para X. Re-processar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda." com o botão ↻ Re-processar. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
+- O ↻ Re-processar substitui as palavras-chave e os campos da tela, inclusive os editados à mão. Por isso não roda sozinho ao trocar a categoria. Se não quiser re-processar, basta seguir: o aviso fica na tela e o memo pode ser salvo como está.
 NOTA: Se o usuário fechar o navegador antes de confirmar, o arquivo não é salvo. Nenhuma ação de recuperação é possível.
 
 Perguntas que este trecho responde:

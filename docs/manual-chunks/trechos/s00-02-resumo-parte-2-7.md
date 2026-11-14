@@ -1,8 +1,8 @@
-Manual MyMemory › Novidades da versão 2 › Resumo (parte 2/6)
+Manual MyMemory › Novidades da versão 2 › Resumo (parte 2/7)
 Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
-Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete à seção onde está descrito.
 - OneDrive, Google Drive e URL externa na Importação em Lote marcados como "em breve": Seção 16
 - Query padrão gerada e atualizada automaticamente a partir dos campos da categoria: Seção 17
 - Número da query (#id) exibido na Estrutura do contexto: Seção 17

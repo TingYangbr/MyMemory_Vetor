@@ -56,6 +56,10 @@ for num, titulo, ls in secoes:
     if num == 6:
         i = ls.index("- Memo Documento: exibe o nome do arquivo e tamanho.")
         ls[i + 1:i + 1] = bloco("SEC6ADD")
+    if num == 9:
+        ls = inserir_antes(ls, "## Erros frequentes", bloco("SEC_EDITAR_ADD"))
+        ls = trocar(ls, "| Você não tem permissão para editar este memo | Memo pertence a outro usuário ou o usuário não é editor do grupo. |",
+                    bloco("SEC_EDITAR_ERRO")[0])
     if num == 13:
         ls = trocar(ls, "| Host * | Endereço do servidor SQL Server. |", bloco("SEC14CONEXAO")[0])
         ls = trocar(ls, "| Senha * | Senha SQL. Não exibida após salvar. |", "| Senha * | Senha SQL. Guardada cifrada; não exibida após salvar. |")
@@ -180,7 +184,7 @@ out += bloco("NOVIDADES")
 for n, (t, ls) in enumerate(saida_secoes, 1):
     out.append(f"# SEÇÃO {n} — {t}")
     out += ls
-out.append("Fim do documento — MyMemory Manual Operacional · Versão 2 (outubro de 2026)")
+out.append("Fim do documento — MyMemory Manual Operacional · Versão 2 (novembro de 2026)")
 
 io.open(os.path.join(base, "MyMemory_Manual_Operacional_v2.md"), "w", encoding="utf-8").write("\n".join(out) + "\n")
 print("seções:", len(saida_secoes))

@@ -1,8 +1,8 @@
-Manual MyMemory › Novidades da versão 2 › Resumo (parte 5/6)
+Manual MyMemory › Novidades da versão 2 › Resumo (parte 5/7)
 Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
-Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete à seção onde está descrito.
 - Avisos e perguntas salvas conferem grupo, query e perfil de acesso a cada execução; aviso só para o próprio e-mail ou de membro do grupo: Seções 9 e 12
 - Queries do ERP somente leitura (SELECT/WITH); conexões BD de owner só com endereço público; senhas das conexões guardadas cifradas: Seções 14 e 17
 - Limite de tentativas no login, cadastro e recuperação de senha: Seção 1

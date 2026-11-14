@@ -11,7 +11,8 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - O × do cartão (ou Esc) fecha sem alterar nada.
 - A linha alterada mostra os valores novos na própria resposta; cancelada ou concluída aparece riscada.
 - Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
-- Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro.
+- Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
+- A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
 
 Perguntas que este trecho responde:
 - Como alterar, concluir ou cancelar pela resposta em Perguntar ao MyMemory?

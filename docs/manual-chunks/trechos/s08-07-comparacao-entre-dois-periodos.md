@@ -10,8 +10,6 @@ Perguntas de variação entre dois períodos têm as contas feitas pelo sistema,
 - "Somente … nos dois meses" (ou "que tiveram movimento nos dois períodos") deixa de fora os itens que aparecem em um período só. Sem essa expressão, os itens novos e os que pararam também entram.
 - O texto informa os totais de cada período com a variação, quantos itens subiram e quantos caíram, e os maiores aumentos e quedas EM VALOR, com R$ e % lado a lado (ex.: "LB-DI-773: −R$ 48.917,58 (−98,0%)").
 - Até 4 medidas por comparação (ex.: faturamento, CMV, quantidade).
-NOTA: Os destaques do texto seguem o impacto em R$. Um item com queda percentual maior, mas de valor pequeno, pode não ser citado; ordene a tabela pela coluna "var. %" para ver o ranking em percentual.
-DICA: O CMV total depende de a query da categoria ter a coluna de custo total (custo unitário × quantidade). Se só houver o custo unitário, a soma não representa o CMV. Ver Seção 17.
 
 Perguntas que este trecho responde:
 - O que é comparação entre dois períodos em Perguntar ao MyMemory?
