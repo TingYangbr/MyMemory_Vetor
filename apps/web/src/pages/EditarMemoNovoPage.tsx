@@ -102,7 +102,7 @@ export default function EditarMemoNovoPage() {
         const t = e instanceof Error ? e.message : "";
         setErroCarga(
           t.includes("403") || t.includes("forbidden")
-            ? "Você não tem permissão para editar este memo."
+            ? mensagemDeErro(e, "Você não tem permissão para editar este memo.")
             : t.includes("404") || t.includes("not_found")
               ? "Memo não encontrado."
               : "Não foi possível carregar o memo."
