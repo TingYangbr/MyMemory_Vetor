@@ -8,7 +8,7 @@ Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa
 - Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
 - No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
 - Campo dono vazio é preenchido com o nome de quem salvou (ex.: "Dono Agenda" = Ting). Os memos antigos com o campo vazio foram preenchidos da mesma forma.
-- Só o dono edita o memo: depois de passar para outro membro, quem catalogou não consegue mais editá-lo.
+- Quem pode editar o memo: o dono, quem o catalogou e os donos e editores do grupo (Seção 10). Excluir continua só com o autor.
 - O membro é reconhecido pelo e-mail, pelo nome completo ou pelo primeiro nome (quando único no grupo), sem diferenciar acento e maiúsculas.
 
 Perguntas que este trecho responde:

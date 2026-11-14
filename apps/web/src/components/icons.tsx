@@ -346,3 +346,23 @@ export const IconPlug = (p: IconProps) => (
     <path d="M9 2v6M15 2v6M6 8h12v3a6 6 0 0 1-12 0zM12 17v5" />
   </Svg>
 );
+
+export const IconHistory = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+    <path d="M3 3v5h5M12 7v5l3 2" />
+  </Svg>
+);
+
+export const IconEye = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+    <circle cx="12" cy="12" r="3" />
+  </Svg>
+);
+
+export const IconPlay = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M7 4l13 8-13 8z" />
+  </Svg>
+);

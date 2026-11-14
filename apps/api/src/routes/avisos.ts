@@ -120,7 +120,7 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const [histRows] = await pool.query<RowDataPacket[]>(
       `SELECT id, avisoid, enviadoem, texto, custousd
-       FROM aviso_historico WHERE avisoid = ? ORDER BY enviadoem DESC LIMIT 3`,
+       FROM aviso_historico WHERE avisoid = ? ORDER BY enviadoem DESC LIMIT 100`,
       [id]
     );
 

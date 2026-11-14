@@ -1,8 +1,8 @@
-Manual MyMemory › Novidades da versão 2 › Resumo (parte 1/6)
+Manual MyMemory › Novidades da versão 2 › Resumo (parte 1/7)
 Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
-Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete à seção onde está descrito.
 - Perguntas salvas com parâmetros (chips trocáveis por teclado ou voz, reexecução sem replanejar): Seção 9
 - Ao salvar uma pergunta: escolha entre "Salvar só o texto" (padrão) e "⚡ Com parâmetros": Seções 8 e 9
 - Lista de Perguntas salvas lembra a última pergunta escolhida e os filtros, na mesma sessão: Seção 8

@@ -35,7 +35,7 @@ Este documento descreve todas as telas do sistema MyMemory, seus campos, comport
 - Seção 29 — Erros Comuns e Soluções
 - Seção 30 — Referência Rápida Admin
 # NOVIDADES DA VERSÃO 2
-Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete à seção onde está descrito.
+Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete à seção onde está descrito.
 | Novidade | Onde |
 |---|---|
 | Perguntas salvas com parâmetros (chips trocáveis por teclado ou voz, reexecução sem replanejar) | Seção 9 |
@@ -81,7 +81,14 @@ Resumo do que mudou no sistema entre julho e outubro de 2026. Cada item remete �
 | "Ordene por X" ordena no banco | Seção 8 |
 | Comparação entre dois períodos (variação % de um mês sobre outro), com várias medidas e "só itens presentes nos dois períodos" | Seção 8 |
 | Consultas que só servem de filtro não aparecem mais como tabela | Seção 8 |
-| ↻ Reextrair na revisão: refaz resumo e campos com a categoria corrigida | Seção 6 |
+| Trocar a categoria na revisão ou na edição mostra o aviso "Você alterou a categoria" com o botão ↻ Re-processar (refaz palavras-chave e campos com a nova categoria) | Seções 6 e 10 |
+| Série mês a mês ganha a coluna "var. %" (cada período sobre o anterior), calculada pelo sistema | Seção 8 |
+| Ícone de salvar pergunta: balão de conversa com + | Seção 8 |
+| Categoria editável na pergunta salva | Seções 8 e 9 |
+| Lixeira no cartão do memo aberto pela resposta pede confirmação e move o memo para a lixeira | Seção 8 |
+| Cartão de alteração confere a data: data já passada há mais de 30 dias, a mais de 2 anos ou que não é data pede confirmação | Seção 8 |
+| Perguntar sobre remarcações e cancelamentos ("o que foi remarcado esta semana?", "o que foi cancelado em outubro?") com a consulta automática "Alterações — categoria" | Seções 8 e 17 |
+| Editar memo e Histórico abrem para o dono, quem catalogou e donos/editores do grupo; sem permissão, a mensagem diz de quem é o memo | Seção 10 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
@@ -271,8 +278,8 @@ Essas telas são exibidas quando confirmEnabled=true (preferência do usuário).
 - Memo Vídeo: exibe miniatura do vídeo.
 - Memo Documento: exibe o nome do arquivo e tamanho.
 - Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
-- Ao trocar a categoria no combo, aparece ao lado o botão ↻ Reextrair. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria, e refaz o resumo, as palavras-chave e os campos dessa categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
-- O ↻ Reextrair substitui o que estiver na tela, inclusive campos editados à mão. Por isso não roda sozinho ao trocar o combo.
+- Ao trocar a categoria (inclusive quando a IA não conseguiu classificar e o memo veio sem categoria), aparece o aviso "Você alterou a categoria para X. Re-processar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda." com o botão ↻ Re-processar. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
+- O ↻ Re-processar substitui as palavras-chave e os campos da tela, inclusive os editados à mão. Por isso não roda sozinho ao trocar a categoria. Se não quiser re-processar, basta seguir: o aviso fica na tela e o memo pode ser salvo como está.
 NOTA: Se o usuário fechar o navegador antes de confirmar, o arquivo não é salvo. Nenhuma ação de recuperação é possível.
 # SEÇÃO 7 — Buscar Memos
 Rota: / (aba Buscar) · Componente: MemoSearchPage
@@ -346,6 +353,10 @@ Perguntas de variação entre dois períodos têm as contas feitas pelo sistema,
 - "Somente … nos dois meses" (ou "que tiveram movimento nos dois períodos") deixa de fora os itens que aparecem em um período só. Sem essa expressão, os itens novos e os que pararam também entram.
 - O texto informa os totais de cada período com a variação, quantos itens subiram e quantos caíram, e os maiores aumentos e quedas EM VALOR, com R$ e % lado a lado (ex.: "LB-DI-773: −R$ 48.917,58 (−98,0%)").
 - Até 4 medidas por comparação (ex.: faturamento, CMV, quantidade).
+### Série mês a mês
+Perguntas de evolução ao longo do tempo ("variação % mensal de faturamento em 2026", "crescimento mês a mês") vêm em uma tabela só, com uma linha por período e a coluna "<medida> var. %": a variação de cada período sobre o anterior, calculada pelo sistema. O primeiro período fica sem variação.
+- Exemplo: "Mostrar variação % mensal de faturamento em 2026 do mês posterior sobre o mês anterior".
+- A coluna de % aparece com o sinal % e não entra no gráfico (que mostra os valores).
 NOTA: Os destaques do texto seguem o impacto em R$. Um item com queda percentual maior, mas de valor pequeno, pode não ser citado; ordene a tabela pela coluna "var. %" para ver o ranking em percentual.
 DICA: O CMV total depende de a query da categoria ter a coluna de custo total (custo unitário × quantidade). Se só houver o custo unitário, a soma não representa o CMV. Ver Seção 17.
 ## Consultas auxiliares
@@ -363,7 +374,7 @@ Se a parte estruturada falhar (ex.: erro de SQL), a resposta sai com a parte dos
 - Datas aparecem no formato curto dd/mm/aaaa.
 - Com mais de 20 rótulos distintos no eixo X o gráfico é omitido (ficaria ilegível) e só a tabela é exibida.
 ## Salvar pergunta
-Clicar no ícone de salvar do card guarda a pergunta em "Perguntas salvas".
+Clicar no ícone de salvar do card (balão de conversa com +) guarda a pergunta em "Perguntas salvas".
 - Se a resposta não tem parâmetros trocáveis, salva direto, como texto.
 - Se tem parâmetros (cliente, produto, período…), aparecem duas opções: "Salvar só o texto" (padrão, já com foco) e "⚡ Com parâmetros". Ver Seção 9.
 ## Carregar pergunta salva
@@ -371,6 +382,7 @@ O botão "Perguntas salvas" abre a lista do espaço ativo, com busca por texto e
 - Na mesma sessão do navegador, a lista reabre com os mesmos filtros e rola até a última pergunta escolhida, que fica destacada.
 - A memória é por grupo (e pelo espaço pessoal) e some ao fechar a aba.
 - Perguntas com ⚡ têm parâmetros (Seção 9). As demais são carregadas como texto na caixa de pergunta.
+- Ao editar uma pergunta salva (na lista ou na página Perguntas salvas), dá para trocar também a categoria, usada no filtro da lista.
 ## Histórico da sessão
 As perguntas e respostas da sessão ficam como cards na tela e são enviadas como contexto às perguntas seguintes (ex.: "e desses, quais…"). O botão "↺ Nova sessão" limpa o histórico.
 DICA: Ao testar várias vezes a mesma pergunta, use "Nova sessão": respostas anteriores erradas no histórico podem influenciar o planejamento.
@@ -409,7 +421,22 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - O × do cartão (ou Esc) fecha sem alterar nada.
 - A linha alterada mostra os valores novos na própria resposta; cancelada ou concluída aparece riscada.
 - Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
-- Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro.
+- Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
+- A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
+## Perguntar sobre remarcações e cancelamentos
+Nas categorias atualizáveis, o Perguntar também responde sobre o que MUDOU, usando o registro de alterações (consulta "Alterações — Agenda", criada sozinha; Seção 17).
+| Pergunta | O que o sistema procura |
+|---|---|
+| "O que foi remarcado NESTA semana?" | Alterações feitas nesta semana (pela data em que você mudou). |
+| "O que foi remarcado PARA esta semana?" | Memos cuja nova data cai nesta semana. |
+| "O que foi cancelado em outubro?" | Memos cuja situação mudou para Cancelado em outubro. |
+| "Quando a reunião com o Carlos foi mudada?" | Todas as alterações desse memo, com antes, depois e quando. |
+A resposta mostra de onde para onde mudou e quando (ex.: Data: 14/11/2026 → 16/11/2026, alterado em 14/11).
+NOTA: Só existem no registro as alterações feitas pelo ✎ da resposta ou pela tela Editar memo depois de 26/10/2026. Mudanças antigas não aparecem.
+## Cartão do memo
+Clicar no número de um memo (#id) na resposta abre o cartão dele. Ali:
+- o ícone de documento abre o arquivo ou a página do memo;
+- a lixeira pede confirmação ("Mover o memo #id para a lixeira?") e, ao confirmar, move o memo para a lixeira e fecha o cartão. A linha continua na tabela da resposta já exibida; ela some ao refazer a pergunta. Só o autor do memo pode excluir.
 ## Avisos a partir da resposta
 O card pode sugerir "🔔 Me avise quando a resposta desta pergunta mudar". Ver Seção 12.
 ## Narração por voz
@@ -428,6 +455,8 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | Resposta cita dados fora do contexto | O planejador associou o termo ao campo errado. Preencher a descrição do campo (Seção 17) e refazer em Nova sessão. |
 | Variação entre períodos: "não é possível cruzar os dois meses" | A comparação não foi montada (ex.: períodos com filtros diferentes, ou mais de dois períodos). Refazer em Nova sessão, citando os dois períodos e as medidas: "faturamento por produto, variação % de fevereiro sobre janeiro de 2026". Se repetir, enviar o trace ao suporte. |
 | CMV total muito baixo perto do faturamento | A soma usou o custo unitário. Incluir na query a coluna de custo total (custo unitário × quantidade) e descrevê-la como CMV total (Seção 17). |
+| "O que foi remarcado" traz memos que não foram remarcados | A pergunta foi respondida pela Query padrão (data atual), não pelo registro de alterações. Refazer em Nova sessão usando "remarcado", "alterado" ou "cancelado"; conferir se a categoria é Atualizável e tem a consulta "Alterações — categoria" (Seção 17). |
+| ⚠ Data: … já passou (há N anos) | A data digitada ou falada no cartão de alteração parece errada (ex.: 2016 em vez de 2026). Corrigir; se estiver certa, clicar em "Salvar mesmo assim". |
 | Os servidores de IA estão temporariamente sobrecarregados | Provedor de IA indisponível. Tentar novamente em alguns segundos ou minutos. |
 | Créditos de IA esgotados | Limite do plano atingido. Aguardar renovação ou fazer upgrade. |
 # SEÇÃO 9 — Perguntas salvas com parâmetros
@@ -457,7 +486,7 @@ Chips alterados ficam com borda tracejada. Os botões ao lado da frase são: ✎
 ## Regras importantes
 - Curingas do plano são mantidos: se o valor salvo era "GAMA%" (começa com) e o usuário escolhe "Genea", o sistema busca "Genea%".
 - Se alguma query do plano mudou desde o salvamento (SQL, parâmetros ou conexão), a pergunta é refeita pelo caminho normal automaticamente.
-- Editar o texto de uma pergunta salva em "Perguntas salvas" remove o plano: ela volta a ser uma pergunta salva comum.
+- Editar o texto de uma pergunta salva em "Perguntas salvas" remove o plano: ela volta a ser uma pergunta salva comum. Trocar só a categoria (ou as anotações e estrelas) não mexe no plano.
 - Perguntas salvas antes da v2 não têm plano. Para ter chips, refazer a pergunta e salvar com parâmetros.
 - O autocomplete só funciona quando o parâmetro corresponde a uma coluna do SELECT da query (ex.: parâmetro abrev_empresa ↔ coluna Abrev_Empresa). Sem isso, é possível digitar o valor livremente.
 ## Erros frequentes
@@ -501,10 +530,16 @@ DICA: Este badge é útil para diagnóstico: confirma que o arquivo foi enviado 
 | Salvar alterações | Persiste as edições. Redireciona de volta para a tela de origem. |
 | Cancelar | Volta para a origem sem salvar. |
 
+## Quem pode editar
+Abrem a tela de edição (e veem o Histórico) e salvam: o dono do memo, quem o catalogou, os donos e editores do grupo e o administrador. É a mesma regra do ✎ das categorias atualizáveis (Seção 8). Excluir o memo continua só com o autor.
+## Trocar a categoria e Re-processar
+Ao trocar a categoria aparece o aviso "Você alterou a categoria para X" com o botão ↻ Re-processar: a IA refaz as palavras-chave e os dados específicos da nova categoria a partir do texto do memo. O texto não muda. O custo de IA do re-processamento é somado ao custo e aos créditos do memo ao salvar.
+## Histórico
+A caixa Histórico, abaixo da caixa do texto original, lista as alterações gravadas no memo (mais recentes primeiro): o campo, o valor anterior → o novo, quem alterou e quando. Uma linha "Resumo reescrito" aparece quando só o resumo mudou.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Você não tem permissão para editar este memo | Memo pertence a outro usuário ou o usuário não é editor do grupo. |
+| Você não tem permissão para editar este memo de Fulano | O memo é de outra pessoa e você não o catalogou nem é dono ou editor do grupo. Pedir ao dono do memo ou ao dono do grupo. |
 | Memo não encontrado | ID inexistente ou memo excluído. |
 | Informe o texto do memo | Campo mediaText está vazio — obrigatório para salvar. |
 
@@ -848,7 +883,7 @@ Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa
 - Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
 - No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
 - Campo dono vazio é preenchido com o nome de quem salvou (ex.: "Dono Agenda" = Ting). Os memos antigos com o campo vazio foram preenchidos da mesma forma.
-- Só o dono edita o memo: depois de passar para outro membro, quem catalogou não consegue mais editá-lo.
+- Quem pode editar o memo: o dono, quem o catalogou e os donos e editores do grupo (Seção 10). Excluir continua só com o autor.
 - O membro é reconhecido pelo e-mail, pelo nome completo ou pelo primeiro nome (quando único no grupo), sem diferenciar acento e maiúsculas.
 ### De quem são os memos na pergunta
 | Pergunta | Memos considerados nas categorias Pessoal |
@@ -868,6 +903,7 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 - Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
+- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" no painel do grupo. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
 | Situação | Significa | Agenda | Tarefa | Pedido |
 |---|---|---|---|---|
 | Ativo | vale, em andamento | marcado | aberta | em aberto |
@@ -1293,4 +1329,4 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 - 3. Criar memo de texto com Sem IA → se falhar, verificar armazenamento (S3 ou local).
 - 4. Criar memo com IA básico → se falhar, verificar OPENAI_API_KEY.
 - 5. Enviar convite por e-mail → se falhar, verificar RESEND_API_KEY e domínio.
-Fim do documento — MyMemory Manual Operacional · Versão 2 (outubro de 2026)
+Fim do documento — MyMemory Manual Operacional · Versão 2 (novembro de 2026)

@@ -395,3 +395,67 @@ Uma consulta cuja lista só serve de filtro para outra (origem de cross_query_fi
 | Variação: "não é possível cruzar os dois meses" | A comparação não foi ativada. Ver "Quando a comparação não é ativada" e o plano no trace. Pedir ao usuário para refazer em Nova sessão citando os dois períodos e as medidas. |
 | "Ordene por X" não foi respeitado | O plano veio sem order_by. Conferir em planejamento_estruturado; refazer em Nova sessão. Se repetir, enviar o trace para análise. |
 | CMV total muito menor que o faturamento | A soma foi feita sobre Custo_Unitario. Incluir na query a coluna de custo total e descrevê-la como CMV total. |
+
+# SEÇÃO 14 — Categorias atualizáveis: histórico de alterações e permissões de edição
+Rota: / (aba Perguntar) → ✎ da resposta · /memo/:id/editar → Histórico · painel do grupo → categoria → Consultas
+
+## Propósito
+Explica onde as alterações dos memos de categorias atualizáveis (Agenda, tarefas, pedidos) ficam gravadas, como o Perguntar responde "o que foi remarcado/cancelado", e quem pode abrir a edição e o histórico. Serve para diagnosticar respostas erradas sobre remarcações e reclamações de "sem permissão".
+
+## Onde o histórico fica gravado
+Cada salvamento pelo ✎ da resposta ou pela tela Editar memo grava na tabela memo_alteracoes uma linha por campo alterado.
+| Campo / Elemento | Descrição |
+|---|---|
+| memoid | Memo alterado. |
+| lote | Identifica um mesmo salvamento (data e hora mudadas juntas têm o mesmo lote). O ↶ Desfazer volta o lote inteiro. |
+| userid | Quem alterou. |
+| campo | Campo alterado (ex.: Data, Hora, Situação). O campo especial __resumo guarda o resumo anterior e o reescrito pela IA. |
+| antes / depois | Valor anterior e valor novo (datas em aaaa-mm-dd). |
+| createdat | Quando foi alterado (UTC; as consultas convertem para o horário de Brasília). |
+
+## Consulta de alterações (automática)
+Toda categoria atualizável e ativa tem a consulta "Alterações — Nome da categoria" (queries_categoria.autotipo = 'alteracoes', criada pela migration 170 e mantida por sincronizarQueryAlteracoes). No painel do grupo ela aparece com a etiqueta "Automática · histórico".
+- Lê memo_alteracoes junto com o memo (assunto, valores atuais dos campos), sem as linhas __resumo, mais recentes primeiro (até 200).
+- É regerada quando os campos ou o nome da categoria mudam; editada à mão, deixa de ser tocada ("Voltar ao automático" a regera); desmarcar Atualizável a desativa.
+- A Query padrão continua sendo a do valor atual (autotipo = 'padrao'); "Criar query padrão" não conta a consulta de alterações.
+| Campo / Elemento | Descrição |
+|---|---|
+| alterado_em_ini / alterado_em_fin | QUANDO a alteração foi feita: "remarcado NESTA semana", "cancelado em outubro". |
+| valor_novo_ini / valor_novo_fin | A NOVA data: "remarcado PARA esta semana", "para sexta". |
+| campo_alterado | Qual campo mudou (Data, Hora, Situação). |
+| valor_novo | Valor novo em texto (ex.: Cancelado, Concluído). |
+| um parâmetro por campo | Valor ATUAL do memo (ex.: com_quem = Carlos), para "quando a reunião com o Carlos mudou". |
+
+## Como o Perguntar escolhe essa consulta
+A REGRA CRÍTICA 13 do planejamento manda usar "Alterações — categoria" (e não a Query padrão) em perguntas sobre remarcado, alterado, mudado, adiado, antecipado, cancelado, concluído ou histórico.
+- "NESTA semana / EM outubro / ontem" → alterado_em_*; "PARA esta semana / PARA sexta" → valor_novo_*.
+- "Cancelado/concluído" → campo_alterado = campo de situação e valor_novo = Cancelado/Concluído.
+- "Remarcado" sem citar o campo → campo_alterado = campo de data (ou de horário, se a pergunta fala de hora).
+- Sem período citado, alterado_em_* fica vazio.
+DICA: No trace, planejamento_estruturado mostra qual query foi escolhida e os parâmetros; consulta_sql mostra as linhas do histórico retornadas.
+
+## Isolamento por grupo
+A consulta roda como as demais queries de memos: transação somente leitura no papel mm_query_reader. memo_alteracoes tem RLS (migration 170): o papel só enxerga alterações de memos que ele enxerga em memos, ou seja, do grupo ativo (ou do próprio usuário, fora de grupo).
+
+## Conferência da data no cartão de alteração
+Antes de salvar, o cartão do ✎ confere cada campo de data alterado. Data que já passou há mais de 30 dias, que fica a mais de 2 anos ou que não é data mostra um aviso e exige um segundo clique ("Salvar mesmo assim"). Caso real: "16 de novembro de 2016" falado em vez de 2026 tirou o memo das perguntas da semana.
+
+## Quem pode editar e ver o histórico
+A tela Editar memo (/memo/:id/editar), o histórico (GET /api/memos/:id/historico) e o salvamento (PATCH /api/memos/:id) seguem a mesma regra do ✎ das categorias atualizáveis.
+| Campo / Elemento | Descrição |
+|---|---|
+| Dono do memo (memos.userid) | Pode. |
+| Quem catalogou (memos.criado_por) | Pode, mesmo depois de o memo passar para outro membro pelo campo dono. |
+| Owner ou editor do grupo do memo | Pode. |
+| Administrador do sistema | Pode. |
+| Demais membros | Recebem 403 com a mensagem "Você não tem permissão para editar este memo de <nome do dono>. Podem editar: quem criou ou catalogou o memo e os donos e editores do grupo." |
+NOTA: Excluir o memo continua só com o autor ("Só o autor do memo pode excluir.").
+
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| "O que foi remarcado" traz memos com data na semana, mas que não foram mudados | O planejador usou a Query padrão. Conferir no trace; a categoria precisa ser Atualizável e ter a consulta "Alterações — categoria" ativa. Se ela foi editada à mão e quebrou, usar "Voltar ao automático". Refazer em Nova sessão. |
+| Pergunta sobre remarcação volta vazia | Não há linhas em memo_alteracoes para o período: só existem alterações feitas pelo ✎ ou pela tela Editar memo depois de 26/10/2026. Conferir também se a pergunta pedia "nesta semana" (data da alteração) ou "para esta semana" (nova data). |
+| A categoria atualizável não tem a consulta de alterações | Ela foi desativada (categoria desmarcada como Atualizável em algum momento) ou a categoria ficou inativa. Salvar a categoria de novo (ou um campo dela) dispara sincronizarQueryAlteracoes. |
+| Você não tem permissão para editar este memo de Fulano | Quem pediu não é dono, não catalogou e não é owner/editor do grupo do memo. Conferir o papel em group_members e memos.criado_por. |
+| Histórico não aparece na tela Editar memo | A tela não abriu por falta de permissão (ver linha acima) ou o memo nunca foi alterado (caixa vazia). |

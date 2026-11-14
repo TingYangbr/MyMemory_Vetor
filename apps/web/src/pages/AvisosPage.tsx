@@ -187,6 +187,7 @@ export default function AvisosPage() {
       <main className={styles.main}>
         <div className={styles.topBar}>
           <h1 className={styles.title}>Meus Avisos</h1>
+          <button type="button" className="mm-btn mm-btn--primary" onClick={() => navigate("/acompanhar/avisos")}>✦ Experimentar a nova tela</button>
         </div>
 
         {loading ? (
