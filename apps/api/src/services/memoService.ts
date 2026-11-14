@@ -16,6 +16,7 @@ import { dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { pool } from "../db.js";
+import { podeGerirImportacao } from "./donoMemoService.js";
 import { assertUserCanAccessGroup, assertUserWorkspaceGroupAccess } from "./memoContextService.js";
 import { getMaxUploadBytesForUser } from "./mediaLimitsService.js";
 import { uploadsAbsolutePath } from "../paths.js";
@@ -1054,6 +1055,11 @@ async function getMemoById(id: number, userId: number): Promise<MemoRow | null> 
 }
 
 /** Carrega memo ativo e garante que o usuário é o autor e tem acesso ao grupo (se aplicável). */
+/**
+ * Quem pode abrir a tela de edição (e ver o Histórico) e salvar: a mesma regra do ✎ das categorias
+ * atualizáveis — o dono do memo, quem o catalogou, owners/editores do grupo e admin.
+ * Sem permissão: erro "forbidden" com `mensagemUsuario` dizendo de quem é o memo e quem pode editar.
+ */
 async function assertMemoAuthorCanModify(
   memoId: number,
   userId: number,
@@ -1063,13 +1069,25 @@ async function assertMemoAuthorCanModify(
     `SELECT id, userId, groupId, mediaType, mediaText, mediaWebUrl,
             mediaAudioUrl, mediaImageUrl, mediaVideoUrl, mediaDocumentUrl,
             createdAt, mediaMetadata, keywords, dadosEspecificosJson, tamMediaUrl, apiCost, usedApiCred, category, titulo_curto,
-            storage_provider, original_file_name
+            storage_provider, original_file_name, criado_por AS "criadoPor"
      FROM memos WHERE id = ? AND isActive = 1`,
     [memoId]
   );
   const m = rows[0];
   if (!m) throw new Error("not_found");
-  if (m.userId !== userId) throw new Error("forbidden");
+  if (m.userId !== userId && !isAdmin) {
+    const criadoPor = (m as unknown as { criadoPor?: number | null }).criadoPor ?? null;
+    const podeNoGrupo = m.groupId != null && (await podeGerirImportacao(userId, m.groupId, false));
+    if (criadoPor !== userId && !podeNoGrupo) {
+      const [u] = await pool.query<RowDataPacket[]>(`SELECT name FROM users WHERE id = ? LIMIT 1`, [m.userId]);
+      const dono = String((u[0] as { name?: string } | undefined)?.name ?? "").trim() || "outra pessoa";
+      throw Object.assign(new Error("forbidden"), {
+        mensagemUsuario:
+          `Você não tem permissão para editar este memo de ${dono}. ` +
+          `Podem editar: quem criou ou catalogou o memo e os donos e editores do grupo.`,
+      });
+    }
+  }
   if (m.groupId != null) {
     await assertUserWorkspaceGroupAccess(userId, m.groupId, isAdmin);
   }
