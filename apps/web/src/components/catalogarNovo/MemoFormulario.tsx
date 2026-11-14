@@ -285,7 +285,7 @@ export default function MemoFormulario(p: MemoFormularioProps) {
                       className={cls}
                       value={ehData ? dataParaTela(c.value) : c.value}
                       inputMode={c.tipo === "number" ? "decimal" : ehData || ehHora ? "numeric" : undefined}
-                      placeholder={vazio ? (ehData ? "dd/mm/aaaa" : ehHora ? "hh:mm" : "vazio: a IA não achou") : undefined}
+                      placeholder={vazio ? (ehData ? "dd/mm/aaaa" : ehHora ? "hh:mm" : undefined) : undefined}
                       onChange={(e) => p.setDado(c.key, ehData ? dataDaTela(e.target.value) : e.target.value)}
                       autoComplete="off"
                       {...(p.voz?.voiceDadosProps(c.key) ?? {})}

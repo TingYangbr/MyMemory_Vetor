@@ -404,13 +404,10 @@
   color: var(--mm-warning);
   margin-left: 6px;
 }
-.vazio {
-  border-style: dashed;
-  border-color: var(--mm-border-muted);
-}
+.vazio,
 .vazioDestaque {
-  /* Só o contorno vermelho: o fundo colorido ficava opaco no modo escuro */
-  border: 1.5px solid var(--mm-danger);
+  /* Campo vazio: só contorno amarelo, sem fundo (o fundo ficava opaco no modo escuro) */
+  border: 1.5px solid var(--mm-warning);
 }
 .semCampos {
   margin: 0 0 10px;
