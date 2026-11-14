@@ -579,6 +579,10 @@ export type CompromissoSino = {
   momento: Date;
   /** Já entrou no prazo do primeiro lembrete (maior antecedência) — conta no número do sino. */
   noPrazo: boolean;
+  /** Hora do compromisso como veio do memo ("" = dia todo / sem hora). */
+  hora: string;
+  /** Quando cada e-mail de lembrete sai (ou saiu), do mais cedo para o mais tarde. */
+  envios: { enviarEm: Date; situacao: "agendado" | "enviado" | "ignorado" }[];
 };
 
 const cacheCalculo = new Map<number, { em: number; ctx: Contexto; itens: Calculado[] }>();
@@ -635,6 +639,10 @@ export async function compromissosDoUsuario(userId: number, email: string, dias 
         categoria: calc.ctx.categoria,
         momento: c0.momento,
         noPrazo: agora.getTime() >= c0.momento.getTime() - maiorAnt * 60_000,
+        hora: c0.hora ?? "",
+        envios: lista
+          .map((c) => ({ enviarEm: c.enviarEm, situacao: c.situacao }))
+          .sort((a, b) => a.enviarEm.getTime() - b.enviarEm.getTime()),
       });
     }
   }

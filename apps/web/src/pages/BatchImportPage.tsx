@@ -270,6 +270,7 @@ export default function BatchImportPage() {
             </p>
           </div>
           <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: "4px" }}>
+            <Link to="/acompanhar/importar-lote" className="mm-btn mm-btn--primary">✦ Experimentar a nova tela</Link>
             <Link to="/" className={styles.backLink}>← Início</Link>
             <span style={{ fontSize: "0.78rem", color: "var(--text-muted, #888)" }}>
               Destino: <strong>{workspaceLabel}</strong>

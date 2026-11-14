@@ -147,6 +147,7 @@ export default function PerguntaModelosPage() {
             )}
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+            <button type="button" className="mm-btn mm-btn--primary" onClick={() => navigate("/acompanhar/perguntas-salvas")}>✦ Experimentar a nova tela</button>
             <button
               type="button"
               className={`${styles.iconBtn}${sortAsc ? ` ${styles.iconBtnActive}` : ""}`}
