@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
   MemoContextCampo,
@@ -38,6 +38,11 @@ interface Props {
   onTotal: (n: number | null) => void;
 }
 
+const CHAVE_LARGURA = "mm.painelGrupo.larguraGaveta";
+/** largura de uma coluna de cartões (tamanho normal do cartão) */
+const LARGURA_CARTOES = 250;
+const LARGURA_MIN_GAVETA = 360;
+
 export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const [searchParams, setSearchParams] = useSearchParams();
   const [cats, setCats] = useState<MemoContextCategory[] | null>(null);
@@ -51,6 +56,51 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const selParam = searchParams.get("categoria");
   const selId = selParam === "sem" ? "sem" : selParam ? Number(selParam) : null;
   const [aba, setAba] = useState<Aba>("campos");
+  /* largura da gaveta em px, arrastando a borda esquerda; null = automática pela aba */
+  const [largura, setLargura] = useState<number | null>(() => {
+    try {
+      const v = Number(localStorage.getItem(CHAVE_LARGURA));
+      return v > 0 ? v : null;
+    } catch {
+      return null;
+    }
+  });
+  const splitRef = useRef<HTMLDivElement>(null);
+
+  function guardarLargura(v: number | null) {
+    setLargura(v);
+    try {
+      if (v == null) localStorage.removeItem(CHAVE_LARGURA);
+      else localStorage.setItem(CHAVE_LARGURA, String(Math.round(v)));
+    } catch {
+      /* sem localStorage: só nesta tela */
+    }
+  }
+
+  function arrastar(e: React.PointerEvent<HTMLDivElement>) {
+    const split = splitRef.current;
+    const gaveta = e.currentTarget.parentElement;
+    if (!split || !gaveta) return;
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = gaveta.getBoundingClientRect().width;
+    const max = split.getBoundingClientRect().width - LARGURA_CARTOES - 16;
+    const mover = (ev: PointerEvent) => {
+      const w = Math.min(max, Math.max(LARGURA_MIN_GAVETA, w0 + (x0 - ev.clientX)));
+      setLargura(w);
+    };
+    const soltar = (ev: PointerEvent) => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      guardarLargura(Math.min(max, Math.max(LARGURA_MIN_GAVETA, w0 + (x0 - ev.clientX))));
+    };
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  }
 
   const selecionar = (id: number | "sem" | null) => {
     const p = new URLSearchParams(searchParams);
@@ -147,9 +197,20 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
 
       {cats ? (
         <div
-          className={`${s.split} ${
-            !drawerAberto ? s.splitClosed : selId === "sem" || (sel && aba === "memos") ? s.splitFull : sel && aba === "consultas" ? s.splitWide : ""
-          }`}
+          ref={splitRef}
+          className={`${s.split} ${drawerAberto ? s.splitOpen : s.splitClosed}`}
+          style={
+            drawerAberto
+              ? ({
+                  "--gaveta":
+                    largura != null
+                      ? `min(${Math.round(largura)}px, calc(100% - ${LARGURA_CARTOES + 16}px))`
+                      : selId === "sem" || aba === "memos" || aba === "consultas"
+                        ? `calc(100% - ${LARGURA_CARTOES + 16}px)`
+                        : "460px",
+                } as React.CSSProperties)
+              : undefined
+          }
         >
           <div className={s.cats}>
             {groupId != null && contagens && contagens.semCategoria > 0 && !busca ? (
@@ -200,6 +261,14 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
 
           {selId === "sem" && groupId != null ? (
             <aside className={s.drawer}>
+              <div
+                className={s.alca}
+                role="separator"
+                aria-orientation="vertical"
+                title="Arraste para mudar a largura. Clique duas vezes para voltar ao automático."
+                onPointerDown={arrastar}
+                onDoubleClick={() => guardarLargura(null)}
+              />
               <div className={s.drawerHead}>
                 <h2>
                   Sem categoria <span className={s.sp} />
@@ -217,6 +286,14 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
 
           {sel ? (
             <aside className={s.drawer}>
+              <div
+                className={s.alca}
+                role="separator"
+                aria-orientation="vertical"
+                title="Arraste para mudar a largura. Clique duas vezes para voltar ao automático."
+                onPointerDown={arrastar}
+                onDoubleClick={() => guardarLargura(null)}
+              />
               <div className={s.drawerHead}>
                 <h2>
                   {sel.name}

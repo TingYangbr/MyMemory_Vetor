@@ -534,17 +534,39 @@
   align-items: start;
 }
 
-.splitWide {
-  grid-template-columns: minmax(0, 0.75fr) minmax(420px, 1.25fr);
+/* gaveta aberta: largura pela aba ou arrastando a borda (--gaveta); os cartões
+   se espremem até uma coluna do tamanho normal */
+.splitOpen {
+  grid-template-columns: minmax(230px, 1fr) var(--gaveta, 460px);
 }
 
-/* aba Memos: a tabela ocupa a largura toda (os cartões saem até fechar) */
-.splitFull {
-  grid-template-columns: minmax(0, 1fr);
+/* alça de arrastar na borda esquerda da gaveta */
+.alca {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
 }
 
-.splitFull > .cats {
-  display: none;
+.alca::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 4px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 4px;
+  background: var(--mm-border);
+  transition: background 0.15s;
+}
+
+.alca:hover::after {
+  background: var(--mm-primary);
 }
 
 .btnDanger {
@@ -1030,8 +1052,12 @@
   }
 
   .split,
-  .splitWide {
-    grid-template-columns: minmax(0, 1fr);
+  .splitOpen {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .alca {
+    display: none;
   }
 
   .drawer {
