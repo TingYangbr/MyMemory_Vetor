@@ -409,9 +409,8 @@
   border-color: var(--mm-border-muted);
 }
 .vazioDestaque {
-  border-style: dashed;
-  border-color: var(--mm-warning);
-  background: var(--mm-warning-bg);
+  /* Só o contorno vermelho: o fundo colorido ficava opaco no modo escuro */
+  border: 1.5px solid var(--mm-danger);
 }
 .semCampos {
   margin: 0 0 10px;
@@ -453,7 +452,7 @@
   border-radius: 11px;
   padding: 11px 12px;
   font-size: 13px;
-  color: #78350f;
+  color: var(--mm-text);
   margin-bottom: 14px;
 }
 .aviso b {
@@ -462,7 +461,7 @@
 .avisoInfo {
   background: var(--mm-accent-alt-bg);
   border-color: var(--mm-accent-alt-border);
-  color: #312e81;
+  color: var(--mm-text);
 }
 .avisoBotoes {
   display: flex;
