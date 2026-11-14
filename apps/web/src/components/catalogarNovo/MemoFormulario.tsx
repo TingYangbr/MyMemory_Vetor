@@ -49,7 +49,7 @@ export interface MemoFormularioProps {
   categorias: CategoriaComRegra[];
   categoryId: number | null;
   onTrocarCategoria: (id: number | null) => void;
-  /** Aviso depois de trocar a categoria: preencher com a IA ou deixar em branco. */
+  /** Aviso depois de trocar a categoria: ↻ Reprocessar ou não reprocessar. */
   avisoTroca: { nome: string } | null;
   onPreencherIA: () => void;
   onDeixarEmBranco: () => void;
@@ -125,14 +125,14 @@ export default function MemoFormulario(p: MemoFormularioProps) {
           <div className={s.aviso} role="status">
             <span aria-hidden>↻</span>
             <div>
-              <b>Você trocou a categoria para {p.avisoTroca.nome}.</b>
-              Os campos agora são os de {p.avisoTroca.nome}. Quer que a IA preencha de novo a partir do original? O texto do resumo não muda.
+              <b>Você alterou a categoria para {p.avisoTroca.nome}.</b>
+              Reprocessar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda.
               <div className={s.avisoBotoes}>
                 <button type="button" className="mm-btn mm-btn--primary" disabled={p.reextraindo} onClick={p.onPreencherIA}>
-                  {p.reextraindo ? "Preenchendo…" : "↻ Preencher com a IA"}
+                  {p.reextraindo ? "Reprocessando…" : "↻ Reprocessar"}
                 </button>
                 <button type="button" className="mm-btn mm-btn--ghost" disabled={p.reextraindo} onClick={p.onDeixarEmBranco}>
-                  Deixar em branco
+                  Não reprocessar
                 </button>
               </div>
               {p.erroReextrair ? <p className={s.erro}>{p.erroReextrair}</p> : null}

@@ -289,7 +289,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     }
     const antes = campos;
     setCampos((nova?.campos ?? []).map((c) => ({ key: c.name, value: antes.find((e) => e.key.toLowerCase() === c.name.toLowerCase())?.value ?? "" })));
-    setAvisoTroca(nova && nova.campos.length > 0 ? { nome: nova.name } : null);
+    setAvisoTroca(nova ? { nome: nova.name } : null);
   };
 
   const preencherIA = async () => {
@@ -310,7 +310,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
       setCatDosCampos(categoryId);
       setAvisoTroca(null);
     } catch (e) {
-      setErroReextr(mensagemDeErro(e, "Falha ao preencher com a IA."));
+      setErroReextr(mensagemDeErro(e, "Falha ao reprocessar."));
     } finally {
       setReextraindo(false);
     }
