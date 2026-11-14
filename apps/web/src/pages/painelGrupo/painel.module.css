@@ -411,13 +411,13 @@
 
 /* ── formulários / janelas ───────────────────── */
 .modal {
-  width: min(560px, 100%);
-  max-height: min(90vh, 760px);
+  width: min(560px, 100%) !important;
+  max-height: min(90vh, 760px) !important;
 }
 
 .modalWide {
-  width: min(860px, 100%);
-  max-height: min(92vh, 900px);
+  width: min(860px, 100%) !important;
+  max-height: min(92vh, 900px) !important;
 }
 
 .modalHead {
@@ -534,8 +534,44 @@
   align-items: start;
 }
 
-.splitWide {
-  grid-template-columns: minmax(0, 0.75fr) minmax(420px, 1.25fr);
+/* gaveta aberta: largura pela aba ou arrastando a borda (--gaveta); os cartões
+   se espremem até uma coluna do tamanho normal */
+.splitOpen {
+  grid-template-columns: minmax(230px, 1fr) var(--gaveta, 460px);
+}
+
+/* alça de arrastar na borda esquerda da gaveta */
+.alca {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 10px;
+  cursor: col-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.alca::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 4px;
+  height: 44px;
+  margin-top: -22px;
+  border-radius: 4px;
+  background: var(--mm-border);
+  transition: background 0.15s;
+}
+
+.alca:hover::after {
+  background: var(--mm-primary);
+}
+
+.btnDanger {
+  color: var(--mm-danger, #b91c1c) !important;
+  border-color: currentColor !important;
 }
 
 .splitClosed {
@@ -758,8 +794,54 @@
 }
 
 .sqlEdit {
-  font: 12.5px/1.5 ui-monospace, Menlo, Consolas, monospace !important;
+  font: 13px/1.55 ui-monospace, Menlo, Consolas, monospace !important;
   min-height: 160px;
+}
+
+/* janela grande para editar query */
+.modalQuery {
+  width: min(1180px, 100%) !important;
+  max-height: 94vh !important;
+}
+
+.modalQuery .sqlEdit {
+  min-height: 300px;
+}
+
+/* SQL clicável abre o editor */
+.sqlBtn {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.sqlBtnIcon {
+  position: absolute;
+  top: 18px;
+  right: 8px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  opacity: 0.75;
+}
+
+.sqlBtn:hover .sqlBtnIcon,
+.sqlBtn:focus-visible .sqlBtnIcon {
+  opacity: 1;
+  background: var(--mm-primary);
+}
+
+.sqlBtn:hover .sql {
+  outline: 2px solid var(--mm-primary);
 }
 
 .ptbl th,
@@ -970,8 +1052,12 @@
   }
 
   .split,
-  .splitWide {
-    grid-template-columns: minmax(0, 1fr);
+  .splitOpen {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .alca {
+    display: none;
   }
 
   .drawer {

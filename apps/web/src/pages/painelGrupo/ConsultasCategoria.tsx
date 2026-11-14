@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { useEffect, useState } from "react";
 import type {
   DbConnection,
@@ -189,23 +190,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
 
       {cat.queries.length === 0 && editando == null ? <p className="mm-muted">Nenhuma query nesta categoria.</p> : null}
 
-      {cat.queries.map((q) =>
-        editando === q.id ? (
-          <EditorQuery
-            key={q.id}
-            cat={cat}
-            query={q}
-            conexoes={conexoes}
-            groupId={groupId}
-            isAdmin={isAdmin}
-            onFechar={() => setEditando(null)}
-            onSalvo={async () => {
-              setEditando(null);
-              await recarregar();
-              setOk("Query salva.");
-            }}
-          />
-        ) : (
+      {cat.queries.map((q) => (
           <div key={q.id} className={s.q} style={q.autoEditada ? { background: "var(--mm-warning-bg)" } : undefined}>
             <div className={s.qHead}>
               <b>{q.nome}</b>
@@ -240,7 +225,16 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
             {q.autoGerada ? (
               <p className={s.qDesc}>Criada e atualizada sozinha quando os campos mudam. Se você editar o SQL, ela vira "Editada à mão" e deixa de atualizar.</p>
             ) : null}
-            <pre className={s.sql}>{q.sentencaSql}</pre>
+            {podeEditar ? (
+              <button type="button" className={s.sqlBtn} title="Editar esta query" onClick={() => setEditando(q.id)}>
+                <pre className={s.sql}>{q.sentencaSql}</pre>
+                <span className={s.sqlBtnIcon} aria-hidden="true">
+                  <IconEdit size={15} />
+                </span>
+              </button>
+            ) : (
+              <pre className={s.sql}>{q.sentencaSql}</pre>
+            )}
             {q.params.length > 0 ? (
               <div className={s.tblWrap} style={{ marginTop: 8 }}>
                 <table className={`${s.tbl} ${s.ptbl}`}>
@@ -266,8 +260,24 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
               </div>
             ) : null}
           </div>
-        )
-      )}
+      ))}
+
+      {typeof editando === "number" && cat.queries.some((q) => q.id === editando) ? (
+        <EditorQuery
+          key={editando}
+          cat={cat}
+          query={cat.queries.find((q) => q.id === editando) ?? null}
+          conexoes={conexoes}
+          groupId={groupId}
+          isAdmin={isAdmin}
+          onFechar={() => setEditando(null)}
+          onSalvo={async () => {
+            setEditando(null);
+            await recarregar();
+            setOk("Query salva.");
+          }}
+        />
+      ) : null}
 
       {editando === "nova" ? (
         <EditorQuery
@@ -410,10 +420,11 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
   const grupoConexoes = conexoes.filter((c) => c.groupId != null);
   const globais = conexoes.filter((c) => c.groupId == null);
 
-  return (
-    <div className={`${s.q} ${s.qOn}`}>
-      <div className={s.qHead}>
-        <b>{query ? `Editando: ${query.nome}` : "Nova query"}</b>
+  return createPortal(
+    <div className="mm-modal-overlay" role="presentation">
+    <div className={`mm-modal ${s.modalQuery}`} role="dialog" aria-modal="true" aria-labelledby="q-tit">
+      <div className={s.modalHead}>
+        <h2 id="q-tit">{query ? `Editar query: ${query.nome}` : `Nova query em ${cat.name}`}</h2>
         <span className={s.sp} />
         <button type="button" className={s.iconBtn} aria-label="Fechar" onClick={onFechar}>
           <IconX />
@@ -597,5 +608,7 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
         </button>
       </div>
     </div>
+    </div>,
+    document.body
   );
 }
