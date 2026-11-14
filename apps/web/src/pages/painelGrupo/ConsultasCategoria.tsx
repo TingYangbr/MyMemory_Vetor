@@ -8,7 +8,7 @@ import type {
   QueryCategoriaParam,
   QueryCategoriaParamTipo,
 } from "@mymemory/shared";
-import { OPERADORES_SQL, gerarQueryPadraoMemos, queryPadraoDescricao, queryPadraoNome } from "@mymemory/shared";
+import { OPERADORES_SQL, gerarQueryAlteracoesMemos, gerarQueryPadraoMemos, queryPadraoDescricao, queryPadraoNome } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../../api";
 import { IconCheck, IconEdit, IconPlus, IconTrash, IconX } from "../../components/icons";
 import { msgErro } from "./util";
@@ -118,7 +118,10 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
     setVoltando(q.id);
     setErro(null);
     try {
-      const { sql } = gerarQueryPadraoMemos(cat.name, cat.campos, { campoSituacao: cat.atualizavel ? cat.campoSituacao : null });
+      const { sql } =
+        q.autoTipo === "alteracoes"
+          ? gerarQueryAlteracoesMemos(cat.name, cat.campos)
+          : gerarQueryPadraoMemos(cat.name, cat.campos, { campoSituacao: cat.atualizavel ? cat.campoSituacao : null });
       await apiPatchJson(`/api/memo-context/queries/${q.id}`, { nome: q.nome, descricao: q.descricao, sentencaSql: sql, conexaoId: null });
       await recarregar();
       setOk("A query padrão voltou ao automático.");
@@ -157,7 +160,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
     }
   }
 
-  const temPadrao = cat.queries.some((q) => q.autoGerada || q.autoEditada);
+  const temPadrao = cat.queries.some((q) => (q.autoGerada || q.autoEditada) && q.autoTipo !== "alteracoes");
 
   return (
     <div>
@@ -194,7 +197,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
           <div key={q.id} className={s.q} style={q.autoEditada ? { background: "var(--mm-warning-bg)" } : undefined}>
             <div className={s.qHead}>
               <b>{q.nome}</b>
-              {q.autoGerada ? <span className={`${s.tag} ${s.tagOk}`}>Automática</span> : null}
+              {q.autoGerada ? <span className={`${s.tag} ${s.tagOk}`}>{q.autoTipo === "alteracoes" ? "Automática · histórico" : "Automática"}</span> : null}
               {q.autoEditada ? <span className={`${s.tag} ${s.tagWarn}`}>Editada à mão</span> : null}
               {q.conexaoPendente ? (
                 <span className={`${s.tag} ${s.tagWarn}`}>escolha a conexão</span>
@@ -223,7 +226,12 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
             </div>
             {q.descricao ? <p className={s.qDesc}>{q.descricao}</p> : null}
             {q.autoGerada ? (
-              <p className={s.qDesc}>Criada e atualizada sozinha quando os campos mudam. Se você editar o SQL, ela vira "Editada à mão" e deixa de atualizar.</p>
+              <p className={s.qDesc}>
+                {q.autoTipo === "alteracoes"
+                  ? "Lê o histórico de alterações (remarcações, cancelamentos) dos memos desta categoria atualizável. "
+                  : ""}
+                Criada e atualizada sozinha quando os campos mudam. Se você editar o SQL, ela vira "Editada à mão" e deixa de atualizar.
+              </p>
             ) : null}
             {podeEditar ? (
               <button type="button" className={s.sqlBtn} title="Editar esta query" onClick={() => setEditando(q.id)}>

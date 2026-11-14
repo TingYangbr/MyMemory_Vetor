@@ -688,6 +688,8 @@ export interface QueryCategoria {
   autoGerada: boolean;
   /** true = era Query padrão automática, mas foi editada à mão: não é mais atualizada sozinha */
   autoEditada: boolean;
+  /** Consulta mantida pelo sistema: "padrao" (Query padrão) ou "alteracoes" (histórico de alterações); null = escrita à mão */
+  autoTipo?: "padrao" | "alteracoes" | null;
   isActive: number;
   createdAt: string;
   updatedAt: string;
