@@ -4,7 +4,7 @@ import { apiPostJson } from "../api";
 import styles from "../pages/MemoTextReviewPage.module.css";
 
 /**
- * Revisão do Catalogar: quando o usuário troca a categoria no combo, oferece ↻ Reextrair —
+ * Revisão do Catalogar: quando o usuário troca a categoria no combo, oferece ↻ Re-processar —
  * a IA refaz resumo, palavras-chave e campos a partir do texto já extraído, só com a categoria escolhida.
  * Aparece só quando a categoria escolhida difere daquela dos campos atuais.
  */
@@ -19,6 +19,8 @@ export default function BotaoReextrair(props: {
   onResultado: (r: TextMemoProcessResponse, categoryId: number) => void;
   /** Avisa a página enquanto reextrai (a página suspende o microfone). */
   onOcupado?: (ocupado: boolean) => void;
+  /** Não mostrar o aviso "Você alterou a categoria." (a página já tem o seu). */
+  semAviso?: boolean;
 }) {
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -41,7 +43,7 @@ export default function BotaoReextrair(props: {
       });
       props.onResultado(r, categoryId);
     } catch (e) {
-      let msg = e instanceof Error ? e.message : "Falha ao reextrair.";
+      let msg = e instanceof Error ? e.message : "Falha ao re-processar.";
       try {
         msg = (JSON.parse(msg) as { message?: string }).message || msg;
       } catch {
@@ -56,14 +58,15 @@ export default function BotaoReextrair(props: {
 
   return (
     <>
+      {props.semAviso ? null : <span className={styles.reextrairAviso}>Você alterou a categoria.</span>}
       <button
         type="button"
         className={styles.reextrairBtn}
         onClick={() => void reextrair()}
         disabled={busy || props.disabled}
-        title="Refazer resumo, palavras-chave e campos com a categoria escolhida (substitui o que estiver na tela)"
+        title="Re-processar com a nova categoria: a IA refaz resumo, palavras-chave e dados específicos (substitui o que estiver na tela)"
       >
-        {busy ? "Reextraindo…" : "↻ Reextrair"}
+        {busy ? "Re-processando…" : "↻ Re-processar"}
       </button>
       {erro ? <span className={`mm-error ${styles.reextrairErro}`}>{erro}</span> : null}
     </>

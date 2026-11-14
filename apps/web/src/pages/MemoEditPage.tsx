@@ -308,7 +308,7 @@ export default function MemoEditPage() {
           Categoria
           <span className={styles.hint}>
             {categoriaTrocadaSemReextrair
-              ? "Categoria trocada: use ↻ Reextrair para preencher palavras-chave e dados específicos da nova categoria (o texto não muda)."
+              ? "Você alterou a categoria: clique em ↻ Re-processar para refazer palavras-chave e dados específicos (o texto não muda)."
               : "Categoria do memo (opcional)."}
           </span>
           <span className={styles.categoryRow}>
@@ -342,6 +342,7 @@ export default function MemoEditPage() {
             disabled={busy}
             onResultado={aplicarReextracao}
             onOcupado={setBusy}
+            semAviso
           />
           </span>
         </label>

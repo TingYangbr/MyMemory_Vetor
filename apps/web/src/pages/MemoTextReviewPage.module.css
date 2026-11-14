@@ -728,6 +728,12 @@
   cursor: default;
 }
 
+.reextrairAviso {
+  color: var(--mm-accent);
+  font-weight: 600;
+  white-space: nowrap;
+}
+
 .reextrairErro {
   flex-basis: 100%;
   margin: 0;
