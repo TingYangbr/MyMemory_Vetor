@@ -1,6 +1,6 @@
 Manual MyMemory › Lembretes por e-mail › Erros frequentes: Lembrete não chegou
 Seção: Seção 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 Perfil: owner · Tipo: erro · Versão do manual: 2
 
 Sintoma: Lembrete não chegou

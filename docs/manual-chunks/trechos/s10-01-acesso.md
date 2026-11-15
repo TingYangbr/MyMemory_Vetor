@@ -3,7 +3,7 @@ Seção: Seção 10 — Editar Memo
 Rota: /memo/:id/editar
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
-Clique em 'Editar' em qualquer card de memo na busca, na lista de recentes ou em resultados do Perguntar.
+Toque no memo no Buscar, nos Recentes ou no cartão do memo aberto pela resposta do Perguntar.
 
 Perguntas que este trecho responde:
 - Como acesso Editar Memo?

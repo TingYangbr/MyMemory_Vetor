@@ -1,6 +1,6 @@
 Manual MyMemory › Lembretes por e-mail › Antecedência por memo (campo "Lembrar antes")
 Seção: Seção 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 Perfil: owner · Tipo: passo a passo · Versão do manual: 2
 
 Cada memo pode ter a própria antecedência, no lugar da antecedência padrão da categoria.

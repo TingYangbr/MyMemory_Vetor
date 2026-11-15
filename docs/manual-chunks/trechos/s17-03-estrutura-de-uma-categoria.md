@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Estrutura de uma categoria
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Estrutura de uma categoria
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - Nome da categoria: Texto único. A IA usa este nome para classificar memos.
@@ -11,5 +11,5 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 - Query templates: Consultas SQL parametrizadas para resolução de dados externos (ex.: buscar nome do produto pelo código).
 
 Perguntas que este trecho responde:
-- Quais são as opções de estrutura de uma categoria em Estrutura de Contexto / Categorias?
+- Quais são as opções de estrutura de uma categoria em Categorias?
 - O que significa cada item de estrutura de uma categoria?

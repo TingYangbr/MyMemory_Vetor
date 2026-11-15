@@ -1,6 +1,6 @@
 Manual MyMemory › Lembretes por e-mail › Funcionamento
 Seção: Seção 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
 - Um agendador no servidor verifica os memos a cada 5 minutos e envia os lembretes cujo horário chegou.
