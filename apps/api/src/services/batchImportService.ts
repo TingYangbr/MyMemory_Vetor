@@ -461,6 +461,8 @@ export interface BatchVerifyInput {
   files: { originalFileName: string; fullPath: string; sizeBytes: number }[];
   provider: StorageProvider;
   maxFileSizeBytes?: number;
+  /** Arquivos escolhidos no navegador: não há caminho no servidor para conferir acesso. */
+  origemNavegador?: boolean;
 }
 
 export async function verifyBatchFiles(
@@ -494,7 +496,7 @@ export async function verifyBatchFiles(
         situacao = "suspeito_duplicidade";
         motivo = dup.motivo ?? null;
       } else {
-        if (input.provider === "LOCAL" || input.provider === "REDE") {
+        if ((input.provider === "LOCAL" || input.provider === "REDE") && !input.origemNavegador) {
           try {
             assertPathAllowed(file.fullPath);
             await fs.access(file.fullPath, fs.constants.R_OK);

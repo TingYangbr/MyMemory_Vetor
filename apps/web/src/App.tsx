@@ -16,13 +16,10 @@ import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import SelectPlanPage from "./pages/SelectPlanPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
-import PerguntaModelosPage from "./pages/PerguntaModelosPage";
 import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
-import BatchImportPage from "./pages/BatchImportPage";
 import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
 import AdminStoragePage from "./pages/AdminStoragePage";
-import AvisosPage from "./pages/AvisosPage";
 import RevisarMemoPage from "./pages/RevisarMemoPage";
 import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
 import AvisosNovoPage from "./pages/acompanhar/AvisosNovoPage";
@@ -51,8 +48,8 @@ export default function App() {
       <Route path="/estrutura-memo" element={<EstruturaAntigaRedirect />} />
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />
-      <Route path="/perguntas-salvas" element={<PerguntaModelosPage />} />
-      <Route path="/avisos" element={<AvisosPage />} />
+      <Route path="/perguntas-salvas" element={<PerguntasSalvasNovoPage />} />
+      <Route path="/avisos" element={<AvisosNovoPage />} />
       <Route path="/conta" element={<Navigate to="/conta/preferencias" replace />} />
       <Route path="/conta/preferencias" element={<UserPreferencesPage />} />
       <Route path="/revisao/memo-texto" element={<RevisarMemoPage rota="texto" />} />
@@ -60,11 +57,11 @@ export default function App() {
       <Route path="/revisao/memo-audio" element={<RevisarMemoPage rota="audio" />} />
       <Route path="/revisao/memo-video" element={<RevisarMemoPage rota="video" />} />
       <Route path="/revisao/memo-documento" element={<RevisarMemoPage rota="documento" />} />
-      <Route path="/importar-lote" element={<BatchImportPage />} />
-      {/* Lote 3: telas novas ao lado das antigas até a aprovação */}
-      <Route path="/acompanhar/avisos" element={<AvisosNovoPage />} />
-      <Route path="/acompanhar/perguntas-salvas" element={<PerguntasSalvasNovoPage />} />
-      <Route path="/acompanhar/importar-lote" element={<ImportarLoteNovoPage />} />
+      <Route path="/importar-lote" element={<ImportarLoteNovoPage />} />
+      {/* Endereços usados durante o teste do lote 3 */}
+      <Route path="/acompanhar/avisos" element={<Navigate to="/avisos" replace />} />
+      <Route path="/acompanhar/perguntas-salvas" element={<Navigate to="/perguntas-salvas" replace />} />
+      <Route path="/acompanhar/importar-lote" element={<Navigate to="/importar-lote" replace />} />
       <Route path="/memo/:id/editar" element={<EditarMemoNovoPage />} />
       <Route path="/grupo/novo" element={<GroupCreatePage />} />
       <Route path="/grupo/entrar" element={<GroupJoinPlaceholderPage />} />

@@ -25,7 +25,8 @@ export async function processBatchFileFromBuffer(input: {
   sizeBytes: number;
   provider: StorageProvider;
   iaLevel: "semIA" | "basico" | "completo";
-  externalFileRef: string;
+  /** null = original descartado (envio pelo navegador): nada de arquivo nem caminho no memo. */
+  externalFileRef: string | null;
 }): Promise<BatchProcessResult> {
   const { originalFileName, buffer, provider, iaLevel, externalFileRef } = input;
   try {
