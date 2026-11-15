@@ -428,7 +428,6 @@ export default function AvisosNovoPage() {
           <button type="button" className={styles.voltar} onClick={() => navigate(-1)} aria-label="Voltar"><IconArrowLeft size={16} /></button>
           <h1>Meus avisos e lembretes</h1>
           <span className={styles.sp} />
-          <button type="button" className={styles.antiga} onClick={() => navigate("/avisos")}>Ver a tela antiga</button>
         </div>
         <p className={styles.sub}>Avisos: o proMemory refaz uma pergunta sua e avisa quando a resposta muda. Lembretes: compromissos que chegam até você.</p>
 

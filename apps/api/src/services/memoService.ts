@@ -1646,8 +1646,11 @@ export async function createBatchMemoDirectly(input: {
   userId: number;
   groupId: number | null;
   mediaType: Exclude<MemoMediaTypeDb, "text" | "url">;
-  /** URL ou caminho externo gravado no campo mediaXxxUrl correspondente. */
-  externalFileRef: string;
+  /**
+   * URL ou caminho externo gravado no campo mediaXxxUrl correspondente.
+   * null = original descartado (Disco local / Rede local pelo navegador): o memo fica só com o texto.
+   */
+  externalFileRef: string | null;
   mediaText: string;
   keywords: string | null;
   dadosEspecificosJson?: string | null;
@@ -1666,7 +1669,10 @@ export async function createBatchMemoDirectly(input: {
   const kw = keywordsForStorage(input.keywords);
   const dadosJson = stripAccentsFromDadosJson(normalizeDadosEspecificosJson(input.dadosEspecificosJson));
   const text = stripAccents(input.mediaText.trim());
-  const tam = Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
+  const ref = input.externalFileRef?.trim() || null;
+  const descartado = ref == null;
+  // Sem original guardado, o memo não ocupa espaço de arquivo
+  const tam = !descartado && Number.isFinite(input.tamMediaUrl) && input.tamMediaUrl > 0 ? Math.floor(input.tamMediaUrl) : 0;
 
   const meta = JSON.stringify({
     iaUseImagem: input.mediaType === "image" ? input.iaLevel : undefined,
@@ -1677,9 +1683,11 @@ export async function createBatchMemoDirectly(input: {
     reviewFlow: "batch_v1",
     storageProvider: input.storageProvider,
     originalFileName: input.originalFileName,
+    // Rótulo do memo nas listas quando não há arquivo de onde tirar o nome
+    originalName: descartado ? input.originalFileName : undefined,
+    originalDescartado: descartado ? true : undefined,
   });
 
-  const ref = input.externalFileRef.trim();
   const audioUrl   = input.mediaType === "audio"    ? ref : null;
   const imageUrl   = input.mediaType === "image"    ? ref : null;
   const videoUrl   = input.mediaType === "video"    ? ref : null;

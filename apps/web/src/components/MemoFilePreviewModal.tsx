@@ -126,7 +126,9 @@ export function MemoFilePreviewModal({
   } else {
     body = (
       <p className="mm-muted">
-        Não há arquivo para mostrar aqui.{" "}
+        {m.mediaType === "image" || m.mediaType === "audio" || m.mediaType === "video" || m.mediaType === "document"
+          ? "Original descartado na importação: só o texto do memo foi guardado."
+          : "Não há arquivo para mostrar aqui."}{" "}
         <Link to={`/memo/${m.id}/editar`} state={{ returnTo }} onClick={onClose}>
           Abrir memo
         </Link>
