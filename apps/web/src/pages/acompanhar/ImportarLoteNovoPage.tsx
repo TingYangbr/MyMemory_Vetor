@@ -10,7 +10,7 @@ import type {
   MeResponse,
   StorageProvider,
 } from "@mymemory/shared";
-import { apiDeleteJson, apiGet, apiPostJson, apiPutJson } from "../../api";
+import { apiDeleteJson, apiGet, apiPostJson, apiPostMultipart, apiPutJson } from "../../api";
 import Header from "../../components/Header";
 import { BatchFilePreviewModal } from "../../components/BatchFilePreviewModal";
 import {
@@ -55,16 +55,14 @@ interface StorageConfigOption {
 }
 
 const ORIGENS: { value: StorageProvider; label: string; dica: string; icone: "folder" | "server" | "link"; emBreve?: boolean }[] = [
-  { value: "LOCAL", label: "Disco local", dica: "pasta no servidor", icone: "folder" },
-  { value: "REDE", label: "Rede local", dica: "caminho \\\\servidor", icone: "server" },
+  { value: "LOCAL", label: "Disco local", dica: "pasta do seu computador", icone: "folder" },
+  { value: "REDE", label: "Rede local", dica: "pasta da rede \\\\servidor", icone: "server" },
   { value: "WEBDAV", label: "WebDAV", dica: "servidor da empresa", icone: "server" },
   { value: "ONEDRIVE", label: "OneDrive", dica: "em breve", icone: "folder", emBreve: true },
   { value: "GOOGLE_DRIVE", label: "Google Drive", dica: "em breve", icone: "folder", emBreve: true },
   { value: "URL", label: "Link (URL)", dica: "em breve", icone: "link", emBreve: true },
 ];
 const EXEMPLO: Partial<Record<StorageProvider, string>> = {
-  LOCAL: "Ex.: C:\\Documentos\\Contratos",
-  REDE: "Ex.: \\\\servidor\\pasta",
   WEBDAV: "Ex.: http://192.168.1.10:19401/contratos",
 };
 const IAS: { value: IaLevel; label: string; desc: string }[] = [
@@ -90,8 +88,14 @@ const MOTIVO_PADRAO: Partial<Record<BatchFileSituacao, string>> = {
 const TIPO: Record<string, string> = { text: "Texto", image: "Imagem", audio: "Áudio", video: "Vídeo", document: "Documento" };
 
 const JOB_KEY = "mm_importar_lote_job";
+/** Igual ao limite do servidor por lote. */
+const MAX_POR_VEZ = 50;
 const DICA_DONO = "Sobras da importação: arquivos que caíram numa categoria Pessoal, mas o proMemory não achou no documento de quem é o memo. Escolha a pessoa e toque em Atribuir.";
 type JobSalvo = { jobId: string; total: number; arquivos: string[]; groupId: number | null };
+/** Disco local e Rede local: a pasta é escolhida no navegador e os arquivos são enviados (o original é descartado). */
+const peloNavegador = (p: StorageProvider) => p === "LOCAL" || p === "REDE";
+/** O navegador só informa o caminho a partir da pasta escolhida. */
+const chaveArquivo = (f: File) => (f as File & { webkitRelativePath?: string }).webkitRelativePath || f.name;
 
 function lerJob(): JobSalvo | null {
   try { return JSON.parse(localStorage.getItem(JOB_KEY) ?? "null") as JobSalvo | null; } catch { return null; }
@@ -379,6 +383,10 @@ export default function ImportarLoteNovoPage() {
   const [iaLevel, setIaLevel] = useState<IaLevel>("completo");
   const [webdavConfigs, setWebdavConfigs] = useState<StorageConfigOption[]>([]);
   const [webdavId, setWebdavId] = useState<number | null>(null);
+  const [escolhidos, setEscolhidos] = useState<Map<string, File>>(new Map());
+  const [nomePasta, setNomePasta] = useState("");
+  const inputPasta = useRef<HTMLInputElement>(null);
+  const inputArquivos = useRef<HTMLInputElement>(null);
   // passo 2
   const [verify, setVerify] = useState<BatchVerifyResponse | null>(null);
   const [verificando, setVerificando] = useState(false);
@@ -387,6 +395,7 @@ export default function ImportarLoteNovoPage() {
   const [preview, setPreview] = useState<BatchFileVerifyResult | null>(null);
   // passo 3
   const [job, setJob] = useState<JobSalvo | null>(null);
+  const [envio, setEnvio] = useState<{ feitos: number; total: number } | null>(null);
   const [status, setStatus] = useState<BatchProcessJobStatus | null>(null);
   const [resultado, setResultado] = useState<BatchProcessResponse | null>(null);
   const [erro, setErro] = useState<string | null>(null);
@@ -480,11 +489,28 @@ export default function ImportarLoteNovoPage() {
     setParams(p, { replace: true });
   }
 
+  function escolher(lista: FileList | null, pasta: boolean) {
+    const m = new Map<string, File>();
+    for (const f of Array.from(lista ?? [])) {
+      if (f.name.startsWith(".") || f.name.startsWith("~$") || f.name === "Thumbs.db" || f.name === "desktop.ini") continue;
+      m.set(chaveArquivo(f), f);
+    }
+    setEscolhidos(m);
+    const primeiro = m.keys().next().value as string | undefined;
+    setNomePasta(pasta && primeiro?.includes("/") ? primeiro.split("/")[0] : `${m.size} arquivo${m.size !== 1 ? "s" : ""} escolhido${m.size !== 1 ? "s" : ""}`);
+  }
+
   async function verificar() {
     setErro(null);
     setVerificando(true);
     try {
-      const r = await apiPostJson<BatchVerifyResponse>("/api/memos/batch/verify/local", { provider, folderPath: folderPath.trim(), iaLevel, groupId });
+      const r = peloNavegador(provider)
+        ? await apiPostJson<BatchVerifyResponse>("/api/memos/batch/verify/navegador", {
+            provider,
+            groupId,
+            files: [...escolhidos.entries()].map(([chave, f]) => ({ originalFileName: f.name, chave, sizeBytes: f.size })),
+          })
+        : await apiPostJson<BatchVerifyResponse>("/api/memos/batch/verify/local", { provider, folderPath: folderPath.trim(), iaLevel, groupId });
       setVerify(r);
       setSelected(new Set(r.files.filter(importavel).map((f) => f.fullPath)));
     } catch (e) {
@@ -496,9 +522,14 @@ export default function ImportarLoteNovoPage() {
 
   async function importar() {
     if (!verify) return;
-    const escolhidos = verify.files.filter((f) => importavel(f) && selected.has(f.fullPath));
-    if (!escolhidos.length) return;
+    const lista = verify.files.filter((f) => importavel(f) && selected.has(f.fullPath));
+    if (!lista.length) return;
     setErro(null);
+    if (peloNavegador(provider)) {
+      await enviarPeloNavegador(lista.slice(0, MAX_POR_VEZ));
+      return;
+    }
+    const escolhidos = lista;
     try {
       const start = await apiPostJson<BatchProcessStartResponse>("/api/memos/batch/process/local", {
         provider, folderPath: folderPath.trim(), iaLevel, groupId,
@@ -512,6 +543,47 @@ export default function ImportarLoteNovoPage() {
     } catch (e) {
       setErro(msgErro(e));
     }
+  }
+
+  /** Abre o lote no servidor e envia os arquivos um a um, sem deixar a fila do servidor crescer. */
+  async function enviarPeloNavegador(lista: BatchFileVerifyResult[]) {
+    try {
+      const start = await apiPostJson<BatchProcessStartResponse>("/api/memos/batch/navegador/iniciar", {
+        provider, iaLevel, groupId, nomes: lista.map((f) => f.originalFileName),
+      });
+      const j: JobSalvo = { jobId: start.jobId, total: start.totalRequested, arquivos: lista.map((f) => f.originalFileName), groupId };
+      gravarJob(j);
+      setStatus(null);
+      setEnvio({ feitos: 0, total: lista.length });
+      void acompanhar(j);
+      for (let i = 0; i < lista.length; i++) {
+        const arq = escolhidos.get(lista[i].fullPath);
+        const fd = new FormData();
+        if (arq) fd.append("file", arq, arq.name);
+        else fd.append("file", new Blob([]), lista[i].originalFileName);
+        const r = (await apiPostMultipart(`/api/memos/batch/navegador/${start.jobId}/arquivo`, fd)) as { pendentes?: number; filaMax?: number };
+        setEnvio({ feitos: i + 1, total: lista.length });
+        // Espera a fila do servidor andar antes de mandar o próximo (evita guardar muitos arquivos em memória)
+        let pend = r.pendentes ?? 0;
+        while (i < lista.length - 1 && pend >= (r.filaMax ?? 2)) {
+          await new Promise((ok) => setTimeout(ok, 1500));
+          const st = await apiGet<BatchProcessJobStatus>(`/api/memos/batch/process/status/${start.jobId}`);
+          pend = i + 1 - st.processed;
+        }
+      }
+    } catch (e) {
+      setErro(`O envio parou: ${msgErro(e)}. O que já chegou continua sendo importado.`);
+    } finally {
+      setEnvio(null);
+    }
+  }
+
+  function abrirEscolhido(f: BatchFileVerifyResult) {
+    const arq = escolhidos.get(f.fullPath);
+    if (!arq) return;
+    const url = URL.createObjectURL(arq);
+    window.open(url, "_blank", "noopener");
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
   }
 
   function recomecar() {
@@ -536,7 +608,9 @@ export default function ImportarLoteNovoPage() {
   const todos = importaveis.length > 0 && marcados.length === importaveis.length;
   const visiveis = files.filter((f) => mostrarJa || f.situacao !== "ja_cadastrado");
   const creditos = verify ? Math.round((verify.creditEstimate[iaLevel] * marcados.length) / Math.max(1, importaveis.length)) : 0;
-  const ehLocal = provider === "LOCAL" || provider === "REDE" || provider === "WEBDAV";
+  const navegador = peloNavegador(provider);
+  const podeVer = navegador ? escolhidos.size > 0 : provider === "WEBDAV" && folderPath.trim().length > 0;
+  const acimaDoLimite = navegador && marcados.length > MAX_POR_VEZ;
 
   // passo 3: lista de arquivos com situação
   const concluidos = new Map((status?.results ?? []).map((r) => [r.originalFileName, r]));
@@ -596,11 +670,42 @@ export default function ImportarLoteNovoPage() {
                     {ORIGENS.map((o) => (
                       <button key={o.value} type="button" disabled={o.emBreve}
                         className={`${styles.origem} ${provider === o.value ? styles.origemOn : ""}`}
-                        onClick={() => { setProvider(o.value); if (o.value !== "WEBDAV") setFolderPath(""); }}>
+                        onClick={() => { setProvider(o.value); if (o.value !== "WEBDAV") setFolderPath(""); setEscolhidos(new Map()); setNomePasta(""); }}>
                         <IconeOrigem tipo={o.icone} />{o.label}<small>{o.dica}</small>
                       </button>
                     ))}
                   </div>
+                  {navegador ? (
+                    <div className={styles.escolha}>
+                      <div className={styles.escolhaBotoes}>
+                        <button type="button" className="mm-btn mm-btn--primary" onClick={() => inputPasta.current?.click()}>
+                          <IconFolder size={14} /> Escolher pasta
+                        </button>
+                        <button type="button" className="mm-btn mm-btn--ghost" onClick={() => inputArquivos.current?.click()}>
+                          <IconDoc size={14} /> Escolher arquivos
+                        </button>
+                        {escolhidos.size ? (
+                          <span className={styles.escolhaNome}>
+                            <b>{nomePasta}</b> · {escolhidos.size} arquivo{escolhidos.size !== 1 ? "s" : ""}
+                          </span>
+                        ) : null}
+                      </div>
+                      {/* webkitdirectory: o navegador deixa escolher uma pasta inteira (com subpastas) */}
+                      <input ref={inputPasta} type="file" multiple hidden
+                        {...({ webkitdirectory: "", directory: "" } as Record<string, string>)}
+                        onChange={(e) => { escolher(e.target.files, true); e.target.value = ""; }} />
+                      <input ref={inputArquivos} type="file" multiple hidden
+                        onChange={(e) => { escolher(e.target.files, false); e.target.value = ""; }} />
+                      <div className={`${styles.banner} ${styles.bannerAviso}`} style={{ margin: "12px 0 0" }}>
+                        <IconInfo size={16} />
+                        <div>
+                          <b>Doc original é descartado.</b> O navegador envia os arquivos, o proMemory lê o texto e cria os memos.
+                          O arquivo e o caminho dele não ficam guardados: depois não dá para abrir o original pelo memo.
+                          {provider === "REDE" ? <> Na janela, abra a rede (ex.: {"\\\\servidor\\pasta"}) e escolha a pasta.</> : null}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
                   <div className={`${styles.pastaLinha} ${provider === "WEBDAV" && webdavConfigs.length ? "" : styles.pastaSo}`}>
                     {provider === "WEBDAV" && webdavConfigs.length ? (
                       <div>
@@ -622,6 +727,7 @@ export default function ImportarLoteNovoPage() {
                         onKeyDown={(e) => { if (e.key === "Enter" && folderPath.trim()) void verificar(); }} />
                     </div>
                   </div>
+                  )}
                 </div>
                 <div className={styles.painel}>
                   <h2>Quanto a IA deve trabalhar?</h2>
@@ -636,8 +742,8 @@ export default function ImportarLoteNovoPage() {
                 <div className={styles.barra}>
                   <span className={styles.nota}><IconInfo size={14} style={{ verticalAlign: -2 }} /> Nada é importado ainda. Primeiro você confere a lista.</span>
                   <span className={styles.sp} />
-                  <button type="button" className="mm-btn mm-btn--primary" disabled={!ehLocal || !folderPath.trim() || verificando} onClick={() => void verificar()}>
-                    <IconSearch size={14} /> {verificando ? "Olhando a pasta…" : "Ver os arquivos da pasta"}
+                  <button type="button" className="mm-btn mm-btn--primary" disabled={!podeVer || verificando} onClick={() => void verificar()}>
+                    <IconSearch size={14} /> {verificando ? "Olhando a pasta…" : navegador ? "Conferir os arquivos" : "Ver os arquivos da pasta"}
                   </button>
                 </div>
               </>
@@ -654,7 +760,7 @@ export default function ImportarLoteNovoPage() {
                       <span className={styles.pilula}><b>{cont.ja}</b> já cadastrado{cont.ja !== 1 ? "s" : ""} · <button type="button" className={styles.link} onClick={() => setMostrarJa((v) => !v)}>{mostrarJa ? "esconder" : "mostrar"}</button></span>
                     ) : null}
                     <span className={styles.sp} />
-                    <span className={styles.muted} style={{ fontSize: 12.5, overflowWrap: "anywhere" }}>{folderPath} · {files.length} arquivo{files.length !== 1 ? "s" : ""}</span>
+                    <span className={styles.muted} style={{ fontSize: 12.5, overflowWrap: "anywhere" }}>{navegador ? nomePasta : folderPath} · {files.length} arquivo{files.length !== 1 ? "s" : ""}</span>
                   </div>
                   {!files.length ? <p className={styles.muted}>Nenhum arquivo nesta pasta.</p> : (
                     <div className={styles.tabelaWrap}>
@@ -682,7 +788,7 @@ export default function ImportarLoteNovoPage() {
                                 <td>
                                   <span className={styles.arq}>
                                     <IconDoc size={15} />
-                                    <button type="button" className={styles.arqNome} title="Ver o arquivo" onClick={() => setPreview(f)}>{f.originalFileName}</button>
+                                    <button type="button" className={styles.arqNome} title="Ver o arquivo" onClick={() => (navegador ? abrirEscolhido(f) : setPreview(f))}>{f.originalFileName}</button>
                                   </span>
                                 </td>
                                 <td>{f.mediaType ? TIPO[f.mediaType] ?? f.mediaType : "—"}</td>
@@ -699,15 +805,16 @@ export default function ImportarLoteNovoPage() {
                 </div>
                 <div className={styles.barra}>
                   <button type="button" className="mm-btn mm-btn--ghost" onClick={() => setVerify(null)}><IconArrowLeft size={14} /> Trocar a pasta</button>
-                  {groupId != null ? (
+                  {groupId != null && !navegador ? (
                     <button type="button" className="mm-btn mm-btn--ghost" onClick={() => { setNovaAuto({ pasta: folderPath.trim(), iaLevel }); trocarAba("automaticas"); }}>
                       <IconRefresh size={14} /> Automatizar esta pasta
                     </button>
                   ) : null}
                   <span className={styles.sp} />
+                  {acimaDoLimite ? <span className={styles.nota}>Vão os {MAX_POR_VEZ} primeiros; o resto, na próxima vez.</span> : null}
                   <span className={styles.nota}>IA {IA_ROTULO[iaLevel]} · cerca de <b>{creditos}</b> crédito{creditos !== 1 ? "s" : ""}</span>
                   <button type="button" className="mm-btn mm-btn--primary" disabled={!marcados.length} onClick={() => void importar()}>
-                    <IconCheck size={14} /> Importar {marcados.length} arquivo{marcados.length !== 1 ? "s" : ""}
+                    <IconCheck size={14} /> Importar {Math.min(marcados.length, navegador ? MAX_POR_VEZ : Infinity)} arquivo{marcados.length !== 1 ? "s" : ""}
                   </button>
                 </div>
               </>
@@ -743,9 +850,15 @@ export default function ImportarLoteNovoPage() {
                   <h2>Importando…</h2>
                   <div className={styles.grande}>{feitos} <span className={styles.muted} style={{ fontSize: 16, fontWeight: 600 }}>de {total}</span></div>
                   <div className={styles.progresso}><i style={{ width: `${total ? Math.round((feitos / total) * 100) : 0}%` }} /></div>
-                  <p className={styles.muted} style={{ margin: "0 0 10px", fontSize: 12.5 }}>
-                    Pode fechar esta tela: a importação continua no servidor e, quando você voltar, o resultado aparece aqui.
-                  </p>
+                  {envio ? (
+                    <p className={styles.muted} style={{ margin: "0 0 10px", fontSize: 12.5 }}>
+                      <b style={{ color: "var(--mm-warning)" }}>Enviando {envio.feitos} de {envio.total}. Não feche esta tela até terminar o envio.</b>
+                    </p>
+                  ) : (
+                    <p className={styles.muted} style={{ margin: "0 0 10px", fontSize: 12.5 }}>
+                      Pode fechar esta tela: a importação continua no servidor e, quando você voltar, o resultado aparece aqui.
+                    </p>
+                  )}
                   <div className={styles.lista}>
                     {job.arquivos.slice(0, 200).map((n) => {
                       const r = concluidos.get(n);
