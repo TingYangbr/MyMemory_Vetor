@@ -629,7 +629,6 @@ export default function ImportarLoteNovoPage() {
           <h1>Importar em lote</h1>
           <span className={styles.sp} />
           <span className={styles.destino}>{groupId != null ? <IconUsers size={12} /> : <IconUser size={12} />}Destino: {destino}</span>
-          <button type="button" className={styles.antiga} onClick={() => navigate("/importar-lote")}>Ver a tela antiga</button>
         </div>
         <p className={styles.sub}>Registra os arquivos de uma pasta como memos, sem copiar para a nuvem.</p>
 

@@ -191,7 +191,7 @@ export default function PerguntasSalvasNovoPage() {
               aria-checked={temAviso}
               aria-label="Me avise quando a resposta mudar"
               className={`${styles.chave} ${temAviso ? "" : styles.chaveOff}`}
-              onClick={() => (temAviso ? navigate("/acompanhar/avisos") : perguntar(m.pergunta))}
+              onClick={() => (temAviso ? navigate("/avisos") : perguntar(m.pergunta))}
             />
             Me avise quando a resposta mudar
             <small>{temAviso ? "· ligado, ajuste em Meus avisos" : "· faz a pergunta; na resposta toque em Me avise"}</small>
@@ -229,7 +229,6 @@ export default function PerguntasSalvasNovoPage() {
           <button type="button" className={styles.voltar} onClick={() => navigate(-1)} aria-label="Voltar"><IconArrowLeft size={16} /></button>
           <h1>Perguntas salvas</h1>
           <span className={styles.sp} />
-          <button type="button" className={styles.antiga} onClick={() => navigate("/perguntas-salvas")}>Ver a tela antiga</button>
         </div>
         <p className={styles.sub}>Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Perguntar.</p>
 
