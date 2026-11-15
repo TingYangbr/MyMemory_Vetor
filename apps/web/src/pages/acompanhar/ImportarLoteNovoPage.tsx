@@ -41,7 +41,7 @@ import {
 } from "../../components/icons";
 import styles from "./acompanhar.module.css";
 
-/** Lote 3: Importar em lote (novo visual) em 3 passos + abas Importações automáticas e Memos sem dono. */
+/** Lote 3: Importar em lote (novo visual) em 3 passos + abas Importações automáticas e Extrair dono do memo. */
 
 type IaLevel = "semIA" | "basico" | "completo";
 type Aba = "importar" | "automaticas" | "sem-dono";
@@ -90,6 +90,7 @@ const MOTIVO_PADRAO: Partial<Record<BatchFileSituacao, string>> = {
 const TIPO: Record<string, string> = { text: "Texto", image: "Imagem", audio: "Áudio", video: "Vídeo", document: "Documento" };
 
 const JOB_KEY = "mm_importar_lote_job";
+const DICA_DONO = "Sobras da importação: arquivos que caíram numa categoria Pessoal, mas o proMemory não achou no documento de quem é o memo. Escolha a pessoa e toque em Atribuir.";
 type JobSalvo = { jobId: string; total: number; arquivos: string[]; groupId: number | null };
 
 function lerJob(): JobSalvo | null {
@@ -279,7 +280,7 @@ function AbaAutomaticas(props: {
   );
 }
 
-// ─── Aba Memos sem dono ──────────────────────────────────────────────────────
+// ─── Aba Extrair dono do memo ──────────────────────────────────────────────────────
 
 type Membro = { id: number; name: string | null; email: string | null };
 type SemDono = {
@@ -314,12 +315,16 @@ function AbaSemDono(props: { itens: SemDono[]; membros: Membro[]; groupId: numbe
 
   return (
     <>
-      <p className={styles.muted} style={{ fontSize: 13, margin: "0 0 12px" }}>
-        Memos importados em categorias <b>Pessoais</b> em que o proMemory não reconheceu de quem é. Até você escolher, ficam com quem importou.
-      </p>
+      <div className={styles.banner} style={{ margin: "0 0 12px" }}>
+        <IconInfo size={16} />
+        <div>
+          <b>Sobras da importação.</b> Arquivos que caíram numa categoria <b>Pessoal</b>, mas o proMemory não achou no documento de quem é o memo
+          (nome vazio, nome que ninguém do grupo tem ou duas pessoas com o mesmo nome). Até você escolher a pessoa e tocar em Atribuir, o memo fica com quem importou.
+        </div>
+      </div>
       {erro ? <p className="mm-error">{erro}</p> : null}
       {!props.itens.length ? (
-        <div className={styles.vazio}><b>Nenhum memo sem dono.</b>Tudo certo por aqui.</div>
+        <div className={styles.vazio}><b>Nenhum memo esperando dono.</b>Tudo certo por aqui.</div>
       ) : (
         <div className={styles.painel} style={{ padding: "4px 6px" }}>
           <div className={styles.tabelaWrap}>
@@ -563,9 +568,13 @@ export default function ImportarLoteNovoPage() {
               <button type="button" role="tab" aria-selected={aba === "automaticas"} className={`${styles.tab} ${aba === "automaticas" ? styles.tabOn : ""}`} onClick={() => trocarAba("automaticas")}>
                 <IconRefresh size={15} /> Importações automáticas {automacoes ? <span className={styles.tabN}>{automacoes.length}</span> : null}
               </button>
-              <button type="button" role="tab" aria-selected={aba === "sem-dono"} className={`${styles.tab} ${aba === "sem-dono" ? styles.tabOn : ""}`} onClick={() => trocarAba("sem-dono")}>
-                <IconUser size={15} /> Memos sem dono {semDono ? <span className={styles.tabN}>{semDono.itens.length}</span> : null}
-              </button>
+              {/* Só aparece quando há memo esperando dono (ou quando a aba já está aberta) */}
+              {(semDono?.itens.length ?? 0) > 0 || aba === "sem-dono" ? (
+                <button type="button" role="tab" aria-selected={aba === "sem-dono"} title={DICA_DONO}
+                  className={`${styles.tab} ${aba === "sem-dono" ? styles.tabOn : ""}`} onClick={() => trocarAba("sem-dono")}>
+                  <IconUser size={15} /> Extrair dono do memo {semDono ? <span className={styles.tabN}>{semDono.itens.length}</span> : null}
+                </button>
+              ) : null}
             </>
           ) : null}
         </div>
