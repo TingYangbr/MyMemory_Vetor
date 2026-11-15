@@ -1,6 +1,6 @@
 Manual MyMemory › Lembretes por e-mail › Campos da configuração (parte 2/2)
 Seção: Seção 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - Campos que sobrepõem o padrão (avançado): Seção recolhida "Campos do memo que sobrepõem o padrão": indica quais campos da categoria o sistema lê para "Lembrar antes", "Destinatário" e "Lembrete" (sim/não).

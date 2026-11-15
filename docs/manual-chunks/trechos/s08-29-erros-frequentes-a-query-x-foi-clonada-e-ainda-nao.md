@@ -4,7 +4,7 @@ Rota: / (aba Perguntar) · Componente: PerguntaPage
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: A query "X" foi clonada e ainda não tem conexão definida
-Causa e solução: Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela na Estrutura do contexto.
+Causa e solução: Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela em Administrar grupo → Categorias.
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "A query "X" foi clonada e ainda não tem conexão definida"?

@@ -1,10 +1,10 @@
-Manual MyMemory › Painel do Owner do Grupo › Acesso
-Seção: Seção 14 — Painel do Owner do Grupo
-Rota: /grupo/:groupId/painel
+Manual MyMemory › Administrar grupo › Acesso
+Seção: Seção 14 — Administrar grupo
+Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
-Disponível apenas para o owner do grupo. Link visível no Seletor de Espaço e no menu de navegação superior.
+Menu da conta → Administração → Administrar grupo. Só o dono (owner) do grupo e o administrador do sistema. O seletor de grupo no topo é uma busca e mostra só os grupos em que você é dono (o administrador vê todos e também "Categorias globais", que valem para todos os grupos).
 
 Perguntas que este trecho responde:
-- Como acesso Painel do Owner do Grupo?
-- Quem pode usar Painel do Owner do Grupo?
+- Como acesso Administrar grupo?
+- Quem pode usar Administrar grupo?

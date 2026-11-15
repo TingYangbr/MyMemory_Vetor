@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Parâmetros das queries
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Parâmetros das queries
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - :param (PostgreSQL) / @param (SQL Server): Placeholder no SQL. O nome do parâmetro é o nome do campo sem acento, em minúsculas, com "_" (ex.: Abrev_Empresa → abrev_empresa).
@@ -11,5 +11,5 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 DICA: O botão que detecta :param e @param no SQL cria automaticamente os parâmetros que faltam. Depois ajuste com ✎ o tipo e o operador.
 
 Perguntas que este trecho responde:
-- Quais são as opções de parâmetros das queries em Estrutura de Contexto / Categorias?
+- Quais são as opções de parâmetros das queries em Categorias?
 - O que significa cada item de parâmetros das queries?

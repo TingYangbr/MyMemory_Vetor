@@ -3,7 +3,7 @@ Seção: Seção 11 — Minha Conta / Preferências
 Rota: /conta/preferencias
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
-- Confirmar antes do envio à IA: Se ativo, exibe tela de revisão antes de processar. Se desativo, envia direto.
+- Confirmar antes do envio à IA: Se ativo, pede confirmação (com o nível de IA) antes de mandar o arquivo à IA. A revisão depois do processamento segue a regra da categoria (Seção 5).
 - Dados específicos livres: Se ativo, IA pode preencher campos estruturados mesmo sem match de categoria.
 - Áudio habilitado: Ativa narração de respostas e microfone para busca/perguntas.
 - Velocidade de narração: Slider de 0.5× (lento) a 2.0× (rápido). Aparece somente se áudio ativado.

@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Categoria Atualizável
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Categoria Atualizável
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
@@ -8,7 +8,7 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 - Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
-- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" no painel do grupo. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
+- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Administrar grupo → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
 - Situação: Ativo; Significa: vale, em andamento; Agenda: marcado; Tarefa: aberta; Pedido: em aberto
 - Situação: Concluído; Significa: terminou; Agenda: aconteceu; Tarefa: feita; Pedido: entregue
 - Situação: Cancelado; Significa: não vai acontecer; Agenda: desmarcado; Tarefa: desistida; Pedido: cancelado
@@ -16,5 +16,5 @@ NOTA: Remarcar não é uma situação: o memo continua Ativo e a mudança de dat
 - A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
 
 Perguntas que este trecho responde:
-- Quais são as opções de categoria atualizável em Estrutura de Contexto / Categorias?
+- Quais são as opções de categoria atualizável em Categorias?
 - O que significa cada item de categoria atualizável?

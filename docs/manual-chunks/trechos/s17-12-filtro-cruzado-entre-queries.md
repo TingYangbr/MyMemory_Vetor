@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Filtro cruzado entre queries
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Filtro cruzado entre queries
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
 Quando a pergunta encadeia consultas (ex.: "dos pedidos do período, qual o estoque de cada produto"), o resultado de uma query filtra a seguinte via parâmetro IN.
@@ -9,5 +9,5 @@ Quando a pergunta encadeia consultas (ex.: "dos pedidos do período, qual o esto
 - Se a lista de origem vier vazia, uma query com IN retorna 0 linhas (e não "tudo").
 
 Perguntas que este trecho responde:
-- O que é filtro cruzado entre queries em Estrutura de Contexto / Categorias?
+- O que é filtro cruzado entre queries em Categorias?
 - Como funciona filtro cruzado entre queries no MyMemory?

@@ -1,0 +1,11 @@
+Manual MyMemory › Categorias › Erros frequentes: ✎ e 🗑 não aparecem
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
+Perfil: owner · Tipo: erro · Versão do manual: 2
+
+Sintoma: ✎ e 🗑 não aparecem
+Causa e solução: Tela em modo "Só visualização": selecionar no escopo o grupo do qual é owner (ou o escopo admin para categorias globais).
+
+Perguntas que este trecho responde:
+- O que fazer quando aparece "✎ e 🗑 não aparecem"?
+- Por que acontece "✎ e 🗑 não aparecem" em Categorias?

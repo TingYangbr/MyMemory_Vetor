@@ -9,18 +9,18 @@ Este documento descreve todas as telas do sistema MyMemory, seus campos, comport
 - Seção 3 — Verificação de E-mail / Recuperação de Senha
 - Seção 4 — Tela Principal (Home)
 - Seção 5 — Catalogar Memo (todos os tipos de mídia)
-- Seção 6 — Telas de Revisão pós-upload
+- Seção 6 — Revisar antes de salvar
 - Seção 7 — Buscar Memos
 - Seção 8 — Perguntar ao MyMemory
-- Seção 9 — Perguntas salvas com parâmetros
+- Seção 9 — Perguntas salvas
 - Seção 10 — Editar Memo
 - Seção 11 — Minha Conta / Preferências
-- Seção 12 — Avisos
+- Seção 12 — Meus avisos e lembretes
 - Seção 13 — Grupos: Criar / Entrar
-- Seção 14 — Painel do Owner do Grupo
+- Seção 14 — Administrar grupo
 - Seção 15 — Aceitar Convite de Grupo
 - Seção 16 — Importação em Lote
-- Seção 17 — Estrutura de Contexto / Categorias
+- Seção 17 — Categorias (Administrar grupo)
 - Seção 18 — Lembretes por e-mail
 - Seção 19 — Painel Admin Principal
 - Seção 20 — Admin: Mídia por plano
@@ -58,7 +58,7 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Média (AVG) no SQL Server sem truncar para inteiro | Seção 17 |
 | Importar conhecimento em trechos (ex.: o próprio manual) para responder perguntas no grupo | Seção 27 |
 | Importar conhecimento: campo "Nome do manual (origem)"; Substituir e Remover agem só nos trechos desse manual, e vários manuais podem dividir a mesma categoria | Seção 27 |
-| Importação automática de pasta (⏱ Automatizar) e lista "Memos sem dono identificado" | Seção 16 |
+| Importação automática de pasta (aba Importações automáticas) e aba "Extrair dono do memo" | Seção 16 |
 | Categoria Pessoal e campo dono configurados na própria categoria | Seção 17 |
 | Campo dono aplicado também no Catalogar e na edição; pergunta que cita um membro ("agenda do Suporte") mostra os memos dele | Seção 17 |
 | Renomear um campo atualiza os memos já gravados e as queries da categoria | Seção 17 |
@@ -90,6 +90,15 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Perguntar sobre remarcações e cancelamentos ("o que foi remarcado esta semana?", "o que foi cancelado em outubro?") com a consulta automática "Alterações — categoria" | Seções 8 e 17 |
 | Editar memo e Histórico abrem para o dono, quem catalogou e donos/editores do grupo; sem permissão, a mensagem diz de quem é o memo | Seção 10 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
+| Novo visual: cabeçalho com menu da conta, sino de avisos e lembretes, Perguntar, Buscar, Catalogar e escolha do espaço | Seções 4, 7 e 8 |
+| "Título curto" passa a se chamar Assunto, sugerido pela IA | Seções 4, 6 e 10 |
+| Perguntas fixadas viram atalho embaixo da caixa do Perguntar | Seções 4 e 9 |
+| Administrar grupo (/grupo/:id/admin) substitui o Painel do owner e a Estrutura do contexto | Seções 14 e 17 |
+| Revisar antes de salvar só quando a categoria pede (Sempre revisar ou % mínimo de campos); nos outros casos salva direto | Seções 5, 6 e 17 |
+| Revisão e Editar memo com o mesmo desenho: original à esquerda, memo à direita; campos em formulário; Excluir no Editar | Seções 6 e 10 |
+| Meus avisos e lembretes: abas Avisos e Lembretes, histórico, editar, Verificar agora e "Mais" para os próximos 7 dias | Seção 12 |
+| Tela Perguntas salvas própria: busca, categorias, fixar, Perguntar, Me avise | Seção 9 |
+| Importar em lote em 3 passos; Disco local e Rede local pelo navegador (o original é descartado); aba Extrair dono do memo | Seção 16 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Login
 Rota: /login
@@ -177,12 +186,13 @@ A tela principal é o ponto central do sistema. Ela tem três abas: Perguntar, B
 |---|---|
 | Logotipo / Nome do sistema | Clique retorna à home. |
 | Indicador de espaço ativo | Mostra o grupo atual ou 'Pessoal'. Clique abre o Seletor de Espaço. |
-| Menu de usuário | Acesso a Minha Conta, Importação em Lote, Estrutura de Contexto, Avisos, Admin (se admin), Sair. |
+| Menu da conta (avatar) | Conta (Minha conta, Meus avisos e lembretes, Importar em lote), Trocar espaço, Criar grupo, Administração (Administrar grupo para o dono; Categorias globais e telas de admin para o administrador do sistema), tema claro/escuro e Sair. |
+| 🔔 Sino (Avisos e lembretes) | Mostra quantos avisos novos e lembretes próximos existem. Abre um painel com duas abas: Avisos (respostas que mudaram) e Lembretes (compromissos dos próximos 7 dias em que você é destinatário). O link "Meus avisos e lembretes" abre a tela completa (Seção 12). |
 
 ## Seletor de Espaço (Workspace Picker)
 Aparece quando o usuário clica no indicador de espaço ou acessa /?escolherEspaco=1.
 - Exibe card 'Meus Memos Pessoais' e cards de cada grupo do qual faz parte.
-- Card do grupo com isOwner=true exibe link extra 'Painel do owner'.
+- Card do grupo em que o usuário é dono exibe o link 'Administrar grupo' (Seção 14).
 - Botões: 'Criar novo grupo' → /grupo/novo · 'Entrar em outro Grupo' → /grupo/entrar · 'Cancelar'.
 ## Aba Perguntar
 Ver Seção 8 — Perguntar ao MyMemory.
@@ -191,6 +201,10 @@ Ver Seção 7 — Buscar Memos.
 ## Aba Catalogar
 Ver Seção 5 — Catalogar Memo.
 Abaixo do painel de catalogação, a lista de Memos Recentes exibe os últimos registros do espaço ativo.
+## Perguntas fixadas (atalhos do Perguntar)
+Embaixo da caixa do Perguntar aparecem como botões as perguntas salvas que você fixou. Um toque faz a pergunta na hora. Para fixar ou desafixar, use "Fixar no Perguntar" na tela Perguntas salvas (Seção 9) ou o alfinete na lista de perguntas salvas do Perguntar. As fixadas são por pessoa e por espaço.
+## Assunto dos memos
+Cada memo tem um Assunto: até 5 palavras que resumem o memo e aparecem no Buscar, nos Recentes e nas listas. A IA sugere o Assunto ao catalogar e ele pode ser trocado na revisão ou no Editar memo. Nas versões anteriores ele se chamava "título curto".
 ## Comportamentos importantes
 - Redireciona para /login se sessão inválida (HTTP 401 na chamada /api/me).
 - Limites de mídia são carregados de /api/me/media-limits e bloqueiam tipos de upload quando o plano está esgotado.
@@ -252,6 +266,15 @@ O último tile do Catalogar, "📂 Guarda própria ↗ — arquivos no seu servi
 No computador, o tile "📋 Colar print" cataloga a imagem que está na área de transferência, como o print tirado com PrintScreen ou Win+Shift+S. Também basta apertar Ctrl+V na tela do Catalogar, fora de um campo de texto. A imagem segue o mesmo caminho do seletor de arquivo, com o nome print-AAAAMMDD-HHMM.png.
 - Na primeira vez, o navegador pede permissão para ler a área de transferência. Se negar, o Ctrl+V continua funcionando.
 - No celular o tile não aparece: o print vai para a galeria e é escolhido pelo seletor de arquivo.
+## Depois de catalogar: salvar direto ou revisar
+Quem decide se a tela de revisão abre é a regra da categoria, configurada pelo dono do grupo (Seção 17, "Revisão antes de salvar"):
+| Situação | O que acontece |
+|---|---|
+| A IA preencheu pelo menos o % mínimo dos campos da categoria | O memo é salvo direto e aparece uma mensagem rápida: "Memo salvo em Agenda (100%)". Para corrigir algo, abra o memo pelo Buscar. |
+| Preencheu menos que o mínimo | O memo ainda NÃO foi gravado. Aparece "A IA preencheu X% dos campos", com o mínimo da categoria e três botões: Editar (abre a revisão), Gravar assim e Cancelar. |
+| Categoria marcada "Sempre revisar antes de salvar" | A revisão sempre abre (ex.: Contratos). |
+| Sem categoria, Sem IA, aviso do processamento ou texto vazio | A revisão sempre abre. |
+NOTA: Não há preferência por usuário para isso: a regra é da categoria. O % mínimo sugerido é 80%.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
@@ -261,26 +284,35 @@ No computador, o tile "📋 Colar print" cataloga a imagem que está na área de
 | URL não acessível | Site bloqueou scraping. O memo será criado com texto mínimo. |
 | Áudio da URL muito grande (acima de 20 MB) | Limite de transcrição automática via Whisper; catalogar o áudio separadamente pelo tipo Áudio. |
 
-# SEÇÃO 6 — Telas de Revisão pós-upload
+# SEÇÃO 6 — Revisar antes de salvar
 Rotas: /revisao/memo-texto · /revisao/memo-imagem · /revisao/memo-audio · /revisao/memo-video · /revisao/memo-documento
-## Propósito
-Essas telas são exibidas quando confirmEnabled=true (preferência do usuário). O usuário vê o conteúdo capturado e pode revisar antes de enviar ao processamento de IA.
-## Campos comuns a todas as telas de revisão
+## Quando aparece
+Só quando a regra da categoria pede (Seção 5, "Depois de catalogar"): categoria crítica, poucos campos preenchidos, memo sem categoria, Sem IA, aviso do processamento ou texto vazio. Nos outros casos o memo é salvo direto.
+## Como é a tela
+Uma tela igual para os cinco tipos. No computador: o original à esquerda e o memo à direita. No celular: duas abas, Original e Memo.
 | Campo / Elemento | Descrição |
 |---|---|
-| Pré-visualização do conteúdo | Texto extraído, imagem miniatura, áudio reproduzível, etc. |
-| Botão Confirmar e catalogar | Envia para o pipeline de IA. |
-| Botão Descartar | Cancela e volta à home sem salvar. |
-
+| Original | A imagem, o áudio, o vídeo, o PDF ou a página, com o texto lido (OCR, transcrição ou texto extraído). "Abrir o arquivo" abre o original em outra aba. |
+| Assunto | Até 5 palavras; aparece no Buscar e nas listas. A IA sugere; pode trocar. |
+| Resumo | O texto do memo. Obrigatório. |
+| Categoria | Lista das categorias do espaço. Ao trocar, os campos da nova categoria aparecem. |
+| Palavras-chave | Em etiquetas; toque no × para tirar. |
+| Campos da categoria | Formulário com o tipo de cada campo (texto, número, data). Campo vazio fica em branco com contorno amarelo; "✦ preenchido pela IA" marca o que a IA achou. |
+| Salvar | Grava o memo e mostra "Memo salvo em …". |
+| Descartar e voltar | Cancela sem salvar. |
+## Trocar a categoria e Re-processar
+Ao trocar a categoria (inclusive quando a IA não conseguiu classificar e o memo veio sem categoria), aparece o aviso "Você alterou a categoria para X" com o botão ↻ Re-processar (ou "Preencher com a IA"). Ele manda à IA o texto já extraído dizendo qual é a categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
+- O ↻ Re-processar substitui as palavras-chave e os campos da tela, inclusive os editados à mão. Por isso não roda sozinho ao trocar a categoria. Se não quiser re-processar, basta seguir e salvar.
 ## Comportamentos específicos
-- Memo Áudio: exibe player de áudio para o usuário ouvir a gravação antes de confirmar.
-- Memo Imagem: exibe a imagem em miniatura e o texto extraído pelo OCR (se houver).
-- Memo Vídeo: exibe miniatura do vídeo.
-- Memo Documento: exibe o nome do arquivo e tamanho.
-- Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio MyMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
-- Ao trocar a categoria (inclusive quando a IA não conseguiu classificar e o memo veio sem categoria), aparece o aviso "Você alterou a categoria para X. Re-processar refaz as palavras-chave e os campos com a nova categoria. O resumo não muda." com o botão ↻ Re-processar. Ele manda à IA o texto já extraído (OCR, transcrição ou texto original) dizendo qual é a categoria. É uma chamada de texto, sem reler a mídia, e o custo é somado ao do memo.
-- O ↻ Re-processar substitui as palavras-chave e os campos da tela, inclusive os editados à mão. Por isso não roda sozinho ao trocar a categoria. Se não quiser re-processar, basta seguir: o aviso fica na tela e o memo pode ser salvo como está.
-NOTA: Se o usuário fechar o navegador antes de confirmar, o arquivo não é salvo. Nenhuma ação de recuperação é possível.
+- Com armazenamento S3, a miniatura, o áudio e o vídeo da revisão são servidos pelo próprio proMemory (o bucket é privado). Só quem enviou o arquivo consegue abri-lo nessa tela.
+- Documento: o texto é extraído antes de a revisão abrir ("Processando o documento… Não feche a página").
+NOTA: Se o usuário fechar o navegador antes de salvar, o memo não é gravado.
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Nada para revisar. Volte e catalogue um memo. | A revisão foi aberta sem um memo em andamento (ex.: página recarregada). Catalogar de novo. |
+| Não deu para ler o texto deste arquivo. | Arquivo sem texto legível. Escrever o resumo à mão ou descartar. |
+| Escreva o resumo do memo. | Resumo vazio. É obrigatório para salvar. |
 # SEÇÃO 7 — Buscar Memos
 Rota: / (aba Buscar) · Componente: MemoSearchPage
 ## Modos de busca
@@ -447,10 +479,10 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | Sem memos suficientes para responder | Base de memos do espaço ativo vazia ou sem conteúdo relevante. Usar "Ampliar busca" ou reformular. |
-| Não encontrei dados estruturados para essa pergunta | Nenhuma categoria identificada. Conferir nome e descrição das categorias na Estrutura do contexto. |
-| Erro ao processar a pergunta: Query #N "nome": … | Falha no SQL da query N. Abrir "ver etapas" para ver o SQL e os parâmetros; corrigir a query ou os parâmetros na Estrutura do contexto. |
+| Não encontrei dados estruturados para essa pergunta | Nenhuma categoria identificada. Conferir nome e descrição das categorias em Administrar grupo → Categorias. |
+| Erro ao processar a pergunta: Query #N "nome": … | Falha no SQL da query N. Abrir "ver etapas" para ver o SQL e os parâmetros; corrigir a query ou os parâmetros em Administrar grupo → Categorias. |
 | invalid input syntax for type numeric / date | Campo de memo com texto onde se esperava número ou data. Desde a v2 a Query padrão converte com tolerância; em queries editadas à mão, usar mymemory_parse_number / mymemory_parse_date (Seção 17). |
-| A query "X" foi clonada e ainda não tem conexão definida | Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela na Estrutura do contexto. |
+| A query "X" foi clonada e ainda não tem conexão definida | Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela em Administrar grupo → Categorias. |
 | Resposta traz registros de outros clientes | Filtro do template não está sendo aplicado (ex.: nome de parâmetro digitado errado no SQL, como @Abrev_Abrev_Empresa). Conferir o SQL em "ver etapas". |
 | Resposta cita dados fora do contexto | O planejador associou o termo ao campo errado. Preencher a descrição do campo (Seção 17) e refazer em Nova sessão. |
 | Variação entre períodos: "não é possível cruzar os dois meses" | A comparação não foi montada (ex.: períodos com filtros diferentes, ou mais de dois períodos). Refazer em Nova sessão, citando os dois períodos e as medidas: "faturamento por produto, variação % de fevereiro sobre janeiro de 2026". Se repetir, enviar o trace ao suporte. |
@@ -459,10 +491,22 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | ⚠ Data: … já passou (há N anos) | A data digitada ou falada no cartão de alteração parece errada (ex.: 2016 em vez de 2026). Corrigir; se estiver certa, clicar em "Salvar mesmo assim". |
 | Os servidores de IA estão temporariamente sobrecarregados | Provedor de IA indisponível. Tentar novamente em alguns segundos ou minutos. |
 | Créditos de IA esgotados | Limite do plano atingido. Aguardar renovação ou fazer upgrade. |
-# SEÇÃO 9 — Perguntas salvas com parâmetros
+# SEÇÃO 9 — Perguntas salvas
 Rota: / (aba Perguntar) · Componentes: PerguntaPage, PerguntaChips
 ## Propósito
 Uma pergunta salva com parâmetros guarda, além do texto, o plano da consulta (classificação, queries e parâmetros). Ao reutilizá-la, os parâmetros viram chips clicáveis na frase. O usuário troca só o que precisa (outro cliente, outro período) e a pergunta é reexecutada direto, sem as etapas de classificação e planejamento — mais rápida e com resultado consistente.
+## Tela Perguntas salvas
+Rota: /perguntas-salvas. "Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Perguntar."
+| Campo / Elemento | Descrição |
+|---|---|
+| Busca | Procura nas perguntas e nas anotações. |
+| Filtros por categoria | Etiquetas com as categorias das perguntas; "Sem categoria" para as demais. |
+| Ordenar | Mais recentes, Mais antigas, Mais estrelas, De A a Z. |
+| Grupos | As perguntas aparecem agrupadas por categoria. |
+| 📌 Fixar no Perguntar | Vira atalho embaixo da caixa do Perguntar (só para você). Tocar de novo desafixa. |
+| Perguntar | Faz a pergunta na hora, já na aba Perguntar. |
+| Me avise ligado | Etiqueta que aparece quando a pergunta tem um aviso ativo; tocar abre Meus avisos e lembretes. |
+| Editar (tocar no texto) | Pergunta, categoria, anotações, classificação (estrelas), Fixar e "Me avise quando a resposta mudar". Botões Salvar, Cancelar e Excluir. |
 ## Como salvar
 1. Fazer a pergunta normalmente e conferir se a resposta está correta.
 2. Clicar no ícone de salvar do card.
@@ -501,48 +545,29 @@ Chips alterados ficam com borda tracejada. Os botões ao lado da frase são: ✎
 # SEÇÃO 10 — Editar Memo
 Rota: /memo/:id/editar
 ## Acesso
-Clique em 'Editar' em qualquer card de memo na busca, na lista de recentes ou em resultados do Perguntar.
-## Campos editáveis
+Toque no memo no Buscar, nos Recentes ou no cartão do memo aberto pela resposta do Perguntar.
+## Como é a tela
+O mesmo desenho da revisão (Seção 6): o original à esquerda e o memo à direita (no celular, abas Original e Memo).
 | Campo / Elemento | Descrição |
 |---|---|
-| Texto do memo (mediaText) | Corpo principal do memo. Textarea de edição livre. |
-| Palavras-chave | Separadas por vírgula. Sistema deduplica automaticamente ao salvar. |
-| Categoria | Dropdown com as categorias disponíveis para o espaço ativo. |
-| Dados específicos | JSON de campos estruturados (chave: valor). Editor colorido: chaves em cinza, valores em verde. |
-
-## Campos somente leitura (exibidos, não editáveis)
-| Campo / Elemento | Descrição |
-|---|---|
-| Metadados do arquivo (mediaMetadata) | JSON com informações técnicas do arquivo (codec, resolução, duração, etc.). Exibido como texto formatado. |
-| Tipo de mídia | Texto, Imagem, Áudio, etc. |
-| Data de criação | Data e hora do registro. |
-| Custo de IA | Custo em USD e créditos consumidos no processamento. |
-
-## Badge de Storage
-Se o memo estiver armazenado em WebDAV (armazenamento externo), aparece um badge colorido no cabeçalho com o nome do provedor (ex.: 'WEBDAV'). Clicar no badge abre um modal com:
-- Provedor de armazenamento
-- Nome do arquivo original
-- URL/localização do arquivo no servidor externo
-DICA: Este badge é útil para diagnóstico: confirma que o arquivo foi enviado ao destino correto.
-## Ações
-| Campo / Elemento | Descrição |
-|---|---|
-| Salvar alterações | Persiste as edições. Redireciona de volta para a tela de origem. |
-| Cancelar | Volta para a origem sem salvar. |
-
+| Original | Imagem, áudio, vídeo, PDF ou página do memo. "Abrir o arquivo ↗" abre o arquivo; "Abrir a página ↗" abre o site de um memo de URL. |
+| Assunto, Resumo, Categoria, Palavras-chave, Campos | Iguais à revisão (Seção 6). Campo de uma categoria antiga aparece marcado "campo antigo". |
+| Detalhes do arquivo | Armazenamento, local do arquivo, metadados e (se ligado) o custo de IA. |
+| Histórico | As alterações gravadas no memo, mais recentes primeiro: campo, valor anterior → novo, quem alterou e quando. "Resumo reescrito" quando só o resumo mudou. |
+| Salvar | Grava as alterações e volta à tela de origem. |
+| Excluir (botão vermelho no topo) | Pede confirmação: "O memo sai das buscas e das respostas." |
+## Memo sem o original
+Memos do Importar em lote por Disco local ou Rede local não guardam o arquivo (Seção 16). No quadro Original aparece "Original descartado na importação" e não há "Abrir o arquivo". O resumo, os campos e o histórico funcionam normalmente.
 ## Quem pode editar
 Abrem a tela de edição (e veem o Histórico) e salvam: o dono do memo, quem o catalogou, os donos e editores do grupo e o administrador. É a mesma regra do ✎ das categorias atualizáveis (Seção 8). Excluir o memo continua só com o autor.
 ## Trocar a categoria e Re-processar
-Ao trocar a categoria aparece o aviso "Você alterou a categoria para X" com o botão ↻ Re-processar: a IA refaz as palavras-chave e os dados específicos da nova categoria a partir do texto do memo. O texto não muda. O custo de IA do re-processamento é somado ao custo e aos créditos do memo ao salvar.
-## Histórico
-A caixa Histórico, abaixo da caixa do texto original, lista as alterações gravadas no memo (mais recentes primeiro): o campo, o valor anterior → o novo, quem alterou e quando. Uma linha "Resumo reescrito" aparece quando só o resumo mudou.
+Ao trocar a categoria aparece o aviso "Você alterou a categoria para X" com o botão ↻ Re-processar: a IA refaz as palavras-chave e os campos da nova categoria a partir do texto do memo. O texto não muda. O custo de IA do re-processamento é somado ao custo e aos créditos do memo ao salvar.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | Você não tem permissão para editar este memo de Fulano | O memo é de outra pessoa e você não o catalogou nem é dono ou editor do grupo. Pedir ao dono do memo ou ao dono do grupo. |
 | Memo não encontrado | ID inexistente ou memo excluído. |
-| Informe o texto do memo | Campo mediaText está vazio — obrigatório para salvar. |
-
+| Escreva o resumo do memo | Resumo vazio — obrigatório para salvar. |
 # SEÇÃO 11 — Minha Conta / Preferências
 Rota: /conta/preferencias
 ## Abas disponíveis
@@ -550,13 +575,13 @@ Rota: /conta/preferencias
 |---|---|
 | Preferências de memo | Configurações de comportamento ao catalogar. |
 | Sua utilização | Dashboard de uso do plano. |
-| Perguntas salvas | Lista de perguntas salvas no Perguntar. |
-| Meus Avisos (link) | Redireciona para /avisos. |
+| Perguntas salvas (link) | Abre a tela Perguntas salvas (/perguntas-salvas, Seção 9). |
+| Meus avisos e lembretes (link) | Abre /avisos (Seção 12). |
 
 ## Aba: Preferências de memo
 | Campo / Elemento | Descrição |
 |---|---|
-| Confirmar antes do envio à IA | Se ativo, exibe tela de revisão antes de processar. Se desativo, envia direto. |
+| Confirmar antes do envio à IA | Se ativo, pede confirmação (com o nível de IA) antes de mandar o arquivo à IA. A revisão depois do processamento segue a regra da categoria (Seção 5). |
 | Dados específicos livres | Se ativo, IA pode preencher campos estruturados mesmo sem match de categoria. |
 | Áudio habilitado | Ativa narração de respostas e microfone para busca/perguntas. |
 | Velocidade de narração | Slider de 0.5× (lento) a 2.0× (rápido). Aparece somente se áudio ativado. |
@@ -572,44 +597,47 @@ Rota: /conta/preferencias
 | Downloads (mês) | GB de downloads no mês atual vs. limite mensal. |
 
 NOTA: Créditos e downloads são contados no mês civil atual. Limites vêm do plano individual ou do plano de grupo (se o usuário for owner de um grupo assinante).
-## Aba: Perguntas salvas
-Lista todas as perguntas salvas pelo usuário. Por pergunta: texto, anotações, estrelas (1–5), grupo ou pessoal. Perguntas com ⚡ guardam também o plano com parâmetros (Seção 9); editar o texto remove o plano.
-- Clicar no texto da pergunta abre o modo edição inline.
-- Botão ✕ exclui a pergunta.
-- No modo edição: campos de texto e anotações + seletor de estrelas + Salvar / Cancelar / Excluir.
+## Perguntas salvas
+As perguntas salvas ficam na tela própria Perguntas salvas (rota /perguntas-salvas), aberta pelo botão "Perguntas salvas" do Perguntar. Ver Seção 9.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | O banco de dados ainda não inclui colunas de preferências | Migração pendente. Admin deve executar: npm run migration:run no container da API. |
 | Preferências não salvas | Verificar erro exibido abaixo do botão. Pode ser falha de API. |
 
-# SEÇÃO 12 — Avisos
-Rota: /avisos (também em Minha Conta → 🔔 Meus Avisos)
+# SEÇÃO 12 — Meus avisos e lembretes
+Rota: /avisos (menu da conta → Meus avisos e lembretes, ou o link do 🔔 sino)
 ## Propósito
-Avisos monitoram uma pergunta e notificam o usuário quando a resposta dela muda (ex.: "me avise quando surgir nova nota fiscal do cliente X").
-## Como criar
-1. No card de uma resposta, clicar na sugestão "🔔 Me avise quando a resposta desta pergunta mudar".
+Avisos: o proMemory refaz uma pergunta sua e avisa quando a resposta muda (ex.: "me avise quando surgir nova nota fiscal do cliente X"). Lembretes: compromissos que chegam até você por e-mail antes da data.
+## Como criar um aviso
+1. No card de uma resposta do Perguntar, tocar em "🔔 Me avise". Também dá para ligar em Perguntas salvas ("Me avise quando a resposta mudar").
 2. Revisar a descrição do aviso e confirmar.
 3. O sistema reexecuta a pergunta periodicamente com o mesmo caminho (semântico, estruturado ou híbrido) e compara o resultado.
 - A cada execução o sistema confere de novo se quem criou o aviso ainda é membro do grupo e se as queries e o perfil de acesso permitem. Se não permitem mais, o aviso é pausado e nada é enviado.
-## Tela Meus Avisos
+## Aba Avisos
+Cada aviso aparece num cartão.
 | Campo / Elemento | Descrição |
 |---|---|
-| Lista de avisos | Cada aviso mostra a descrição, o tipo de resposta (semântica, estruturada ou híbrida) e a situação: Ativo ou Pausado. |
-| Frequência | Intervalo em que a pergunta é reexecutada. |
-| Canal | Destino da notificação (e-mail): o seu ou o de um membro do grupo. |
-| Próxima execução | Data e hora da próxima verificação. |
-| Ver resposta | Mostra a última resposta obtida. |
-| Pausar / Reativar | Suspende ou retoma o monitoramento. |
-| Excluir | Remove o aviso. |
+| Descrição e pergunta | O que está sendo vigiado. |
+| Última mudança | O texto do último aviso enviado (o que mudou). "Ainda não mudou desde que você ligou o aviso" quando nunca mudou. |
+| Frequência e e-mail | Quando a pergunta é refeita e para quem vai o e-mail. |
+| Chave liga/desliga | Pausar aviso / Ligar aviso. |
+| Histórico | Abre o painel "Histórico e ajustes": a linha do tempo de todas as mudanças enviadas. |
+| Editar | No mesmo painel: frequência (diária, semanal com o dia, mensal…) e "Enviar e-mail para" (o seu ou o de alguém do grupo). |
+| Verificar agora | Refaz a pergunta na hora. "Verificado agora: a resposta não mudou" ou "A resposta mudou: o aviso foi enviado e entrou no histórico". |
+| Excluir | Remove o aviso, com confirmação. |
+## Aba Lembretes
+Os compromissos dos próximos 7 dias em que você é destinatário do lembrete (o mesmo que o sino mostra), com data, hora (ou "dia todo"), categoria e a situação do envio. O botão "Mais: ver os próximos 7 dias" no fim da lista carrega mais uma semana a cada toque. "Abrir o memo" abre o compromisso.
+NOTA: A lista é só de leitura. Quem decide quais categorias mandam lembrete, e com quanta antecedência, é o dono do grupo (Seção 18).
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Nenhum aviso disponível | Situação normal — nenhum aviso foi criado. |
-| Aviso nunca dispara | A resposta não mudou, ou a query usada mudou de formato. Recriar o aviso a partir de uma nova pergunta. |
+| Você ainda não tem avisos | Situação normal — nenhum aviso foi criado. Faça a pergunta no Perguntar e toque em Me avise. |
+| Aviso nunca dispara | A resposta não mudou, ou a query usada mudou de formato. Use Verificar agora; se continuar, recrie o aviso a partir de uma nova pergunta. |
 | O aviso só pode ser enviado para o seu e-mail ou de um membro do grupo | E-mail de destino fora do grupo. Usar o próprio e-mail ou o de um membro. |
-| Aviso ficou Pausado sozinho | Na execução agendada, o sistema conferiu de novo grupo, queries e perfil e o usuário não tem mais acesso (saiu do grupo, perfil mudou ou query foi movida). Ajustar o acesso e Reativar, ou excluir o aviso. |
+| Aviso ficou Pausado sozinho | Na execução agendada, o sistema conferiu de novo grupo, queries e perfil e o usuário não tem mais acesso (saiu do grupo, perfil mudou ou query foi movida). Ajustar o acesso e ligar de novo, ou excluir o aviso. |
 | Fora do seu perfil de acesso (ao criar) | A pergunta usa query de categoria fora do seu perfil. O aviso não é criado. |
+| Lembretes vazio | Nenhuma agenda sua com lembrete nos próximos dias. Quando uma agenda sua for catalogada, ela aparece aqui. |
 # SEÇÃO 13 — Grupos: Criar / Entrar
 Rotas: /grupo/novo · /grupo/entrar
 ## Criar novo grupo (/grupo/novo)
@@ -619,47 +647,38 @@ Rotas: /grupo/novo · /grupo/entrar
 | Descrição | Texto opcional. |
 | Botão Criar | Cria o grupo. O criador torna-se owner automaticamente. |
 
-Após criar, o sistema redireciona para o Seletor de Espaço ou para o Painel do Owner.
+Após criar, o sistema redireciona para o Seletor de Espaço ou para Administrar grupo (Seção 14).
 ## Entrar em grupo (/grupo/entrar)
 Tela de instrução: para entrar em um grupo, o usuário precisa de um convite enviado pelo owner. O link de convite chegará por e-mail.
-DICA: O owner envia convites pelo Painel do Owner → aba Convites.
-# SEÇÃO 14 — Painel do Owner do Grupo
-Rota: /grupo/:groupId/painel
+DICA: O owner envia convites em Administrar grupo → Pessoas → Convidar pessoa.
+# SEÇÃO 14 — Administrar grupo
+Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 ## Acesso
-Disponível apenas para o owner do grupo. Link visível no Seletor de Espaço e no menu de navegação superior.
-## Abas do painel
-### Configurações avulsas
-| Campo / Elemento | Descrição |
+Menu da conta → Administração → Administrar grupo. Só o dono (owner) do grupo e o administrador do sistema. O seletor de grupo no topo é uma busca e mostra só os grupos em que você é dono (o administrador vê todos e também "Categorias globais", que valem para todos os grupos).
+## Seções do painel
+| Seção | O que tem |
 |---|---|
-| Dados específicos livres | Igual à preferência pessoal, mas aplicada a todos os memos do grupo. Quando ativo, pipeline de texto pode gerar dados específicos mesmo sem match de categoria. |
-
-### Convites
-Permite convidar novos membros ao grupo.
-| Campo / Elemento | Descrição |
+| Pessoas | Quem participa, o papel (owner, editor: cataloga, pergunta e busca; viewer: pergunta e busca), o perfil de acesso e o usuário no ERP de cada pessoa. Botão Convidar pessoa. |
+| Categorias | As categorias do grupo e as globais (só leitura), com campos, consultas, lembretes, revisão e a marca Pessoal (Seção 17). |
+| Consulta de memos | Localizar memos por categoria e período; o número abre o memo. |
+| Perfis de acesso | Quais categorias cada perfil pode perguntar e quem tem cada perfil. |
+| Ligação com o ERP | As conexões SQL Server do grupo. |
+| Configurações | Chaves do grupo; cada uma salva sozinha ao mudar. |
+## Pessoas e convites
+O convite vale por 14 dias; a pessoa recebe um e-mail para aceitar. Convite vencido aparece marcado "venceu" e pode ser reenviado. Em "Usuário no ERP" informar o NOME do usuário do ERP (no Softing-erp, AGUSUAR.NOME), não o código interno.
+## Consulta de memos
+Escolha a categoria (ou Todas / Sem categoria) e o período. A tabela mostra os memos com os campos da categoria; clique no número do memo para abri-lo.
+## Perfis de acesso
+Cada perfil diz quais categorias a pessoa pode perguntar ("Todas as categorias (inclusive as criadas depois)" ou uma lista) e se responde com memos sem categoria. O perfil marcado "padrão" vale para quem não tem perfil. A marca Pessoal aparece só para leitura; ela é configurada na categoria.
+## Configurações
+| Chave | Descrição |
 |---|---|
-| E-mail do convidado | E-mail da pessoa a ser convidada (pode não ter conta ainda). |
-| Perfil no grupo | Editor (pode criar e editar memos) ou Viewer (apenas consulta). |
-| Botão Enviar convite | Envia e-mail com link de convite. |
-
-Abaixo do formulário: tabela de convites recentes com status (pendente, aceito, recusado, expirado).
-NOTA: Convites têm prazo de validade. Se expirar, o owner deve reenviar.
-### Estrutura do contexto
-Abre o editor de categorias (/estrutura-memo) já filtrado para o grupo atual. Ver Seção 17.
-### Consulta de Memos
-Ferramenta de consulta avançada de memos do grupo com filtros e exportação.
-| Campo / Elemento | Descrição |
-|---|---|
-| Grupo de categorias | Filtro pelo grupo de contexto de onde vêm as categorias. |
-| Categoria | Filtro por categoria específica. |
-| Grupo de memos * | Obrigatório. Grupo cujos memos serão consultados. |
-| Data início / Data fim | Filtros de período. |
-| Filtros por coluna | Linha de filtros acima dos dados: digitar e pressionar Enter. |
-| Ordenação | Clicar em qualquer cabeçalho de coluna para ordenar. Clicar novamente inverte. |
-| Imprimir / PDF | Botão de impressão para exportar o resultado como PDF pelo browser. |
-
-Paginação: 50 registros por página. Botões Anterior / Próximo.
-### Conexões BD
-Gerenciamento de conexões SQL Server para query templates do grupo.
+| Assunto dos memos | Gera o Assunto dos memos antigos em lotes de 50 (usa créditos de IA). "Todos os memos já têm assunto" quando não falta nenhum. |
+| Extrair campos mesmo sem categoria | A IA pode guardar dados de um memo que não combinou com nenhuma categoria. |
+| Usar os perfis de acesso nas perguntas | Desligado: todo mundo pergunta sobre tudo do grupo. |
+| Só pergunta ao ERP quem tem usuário do ERP ligado | Ligue depois de ligar as pessoas em Pessoas, senão elas ficam sem resposta do ERP. |
+## Ligação com o ERP (conexões)
+Gerenciamento das conexões SQL Server usadas pelas queries do grupo. Servidor, banco e senha ficam aqui; as queries escolhem a conexão (Seção 17).
 | Campo / Elemento | Descrição |
 |---|---|
 | Nome * | Identificador amigável da conexão. |
@@ -681,7 +700,7 @@ Gerenciamento de conexões SQL Server para query templates do grupo.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Não é possível carregar o painel | Token expirado ou usuário não é owner deste grupo. |
+| Não foi possível abrir este grupo | Sessão expirada ou o usuário não é owner deste grupo. |
 | Convite: e-mail não enviado | Falha no Resend. Convite registrado no banco — usuário pode acessar pelo link direto se disponível. |
 | Teste de conexão BD falhou | Verificar host, porta, credenciais e se o SQL Server está acessível da rede do servidor. |
 | Endereço interno não é permitido | Host da conexão aponta para a rede interna. Usar o endereço público do servidor do ERP, ou pedir ao administrador. |
@@ -704,47 +723,47 @@ Rota: /convite/grupo
 # SEÇÃO 16 — Importação em Lote
 Rota: /importar-lote
 ## Propósito
-Permite registrar múltiplos arquivos de uma vez, a partir de uma pasta no servidor, rede local, WebDAV ou por upload direto. Os arquivos são referenciados externamente — não são copiados para a nuvem MyMemory.
+Registra vários arquivos de uma vez como memos. A tela tem três abas: Importar agora, Importações automáticas (em grupo) e Extrair dono do memo (em grupo).
 ## Indicador de destino
-No topo direito da tela: 'Destino: [nome do espaço ativo]'. Os memos serão criados no espaço ativo (pessoal ou grupo selecionado no Seletor de Espaço).
+No topo direito: "Destino: [espaço ativo]". Os memos são criados no espaço ativo (pessoal ou grupo).
+## Importar agora: 3 passos
+1. Escolher a pasta: a origem e o nível de IA.
+2. Conferir os arquivos: a lista com a situação de cada um, a estimativa de créditos e a marcação do que vai ser importado.
+3. Importar: o progresso arquivo por arquivo e o resultado (memos criados, com erro, sem dono).
 ## Origens disponíveis
-| Campo / Elemento | Descrição |
+| Origem | Como funciona |
 |---|---|
-| Disco Local | Caminho absoluto no servidor onde a API está instalada (ex.: C:\Documentos). |
-| Rede Local | Caminho UNC (ex.: \\servidor\pasta). O servidor da API precisa de acesso à rede. |
-| WebDAV | URL do servidor WebDAV. Se houver configs de WebDAV cadastradas para o grupo ativo, exibe dropdown de seleção em vez de campo manual. |
-| OneDrive (em breve) | Ainda sem integração real: aparece desabilitado com a indicação "em breve". |
-| Google Drive (em breve) | Ainda sem integração real: aparece desabilitado com a indicação "em breve". |
-| URL Externa (em breve) | Disponível em breve. |
-
-## Modos de processamento de IA
-| Campo / Elemento | Descrição |
+| Disco local | Botões "Escolher pasta" (com subpastas) ou "Escolher arquivos" no seu computador. O navegador envia os arquivos um por vez; o proMemory lê o texto, cria o memo e descarta o original (o arquivo não fica guardado). |
+| Rede local | Igual ao Disco local: na janela de escolha, abra a pasta da rede (ex.: \\servidor\pasta). O original também é descartado. |
+| WebDAV | URL do servidor WebDAV da empresa. Se o grupo tiver servidores WebDAV cadastrados (/admin/storage), aparece a lista para escolher. O memo guarda o link do arquivo no WebDAV. |
+| OneDrive, Google Drive, Link (URL) | Em breve: aparecem desabilitados. |
+## Doc original é descartado (Disco local e Rede local)
+O servidor do proMemory fica na nuvem e não enxerga o computador nem a rede da empresa. Por isso, em Disco local e Rede local, é o navegador que envia os arquivos. O memo fica só com o texto, o resumo, os campos e o nome do arquivo: o arquivo e o caminho dele não ficam guardados.
+- No memo aparece "Original descartado na importação"; não há "Abrir o arquivo" (Seção 10).
+- Até 50 arquivos por vez e até 100 MB por arquivo.
+- Enquanto aparece "Enviando X de Y", não feche a tela. Depois que tudo foi enviado, pode fechar: a importação continua no servidor e o resultado aparece quando voltar.
+- Se a tela for fechada no meio do envio, o que já chegou é importado e o que faltou aparece com erro "Não chegou".
+- Para guardar o original, use o WebDAV ou o Catalogar.
+## Níveis de IA
+| Nível | Descrição |
 |---|---|
-| Sem IA | Armazena o arquivo com texto bruto. Tag [Edição Pendente] no memo. |
-| Básico | Palavras-chave + categoria. |
-| Completo | Campos estruturados + palavras-chave + categoria. |
-
+| Sem IA | Guarda o texto. Você completa depois (tag [Edição Pendente] no memo). |
+| Básico | Categoria e palavras-chave. |
+| Completo | Também os campos da categoria. Recomendado. |
+## Conferir os arquivos — situações
+| Situação | Descrição |
+|---|---|
+| Pronto | Pode importar. |
+| Parece repetido | Nome parecido com um memo já cadastrado, ou já existe em outro grupo. Ainda pode ser importado. |
+| Já cadastrado | Já existe no espaço de destino. Fica de fora; "mostrar/esconder" no resumo exibe esses arquivos. |
+| Não dá para importar | Tipo de arquivo não aceito, arquivo grande demais ou sem acesso. A coluna "Por quê" explica. |
+Marque e desmarque os arquivos na lista; o botão "Importar N arquivos" importa só os marcados. "Trocar a pasta" volta ao passo 1. Em grupo, com WebDAV, "Automatizar esta pasta" leva para Importações automáticas.
 NOTA: A Importação em Lote também é aberta pelo tile "📂 Guarda própria" do Catalogar (Seção 5).
-## Fluxo de importação
-- 1. Selecionar origem e informar caminho da pasta (ou selecionar arquivos para upload).
-- 2. Escolher modo de processamento de IA.
-- 3. Clicar 'Verificar' — lista todos os arquivos encontrados com situação: Pronto, Suspeito (possível duplicado), Já Cadastrado ou Bloqueado (tipo não suportado, etc.). O checkbox “Ocultar já cadastrados” (ativo por padrão) oculta automaticamente os arquivos já cadastrados da tabela, exibindo só o que precisa de atenção.
-- 4. Revisar a tabela e a estimativa de créditos.
-- 5. Clicar 'Processar (N)' — importa apenas os arquivos com situação Pronto ou Suspeito.
-- 6. Ver resultado: X criados, Y erros (listados).
-## Tabela de verificação — situações
-| Campo / Elemento | Descrição |
-|---|---|
-| Pronto | Arquivo elegível para importação. |
-| Suspeito (duplicidade) | Possível duplicado já existente. Ainda pode ser importado. |
-| Já cadastrado | Arquivo idêntico já existe. Bloqueado para evitar duplicata. A detecção verifica o nome do arquivo (memos importados via batch) e a URL WebDAV do memo (arquivos catalogados via câmera), incluindo escopo por grupo. |
-| Tipo não suportado | Extensão de arquivo não reconhecida pelo sistema. |
-
 ## WebDAV com configs de grupo
 Quando o espaço ativo é um grupo e esse grupo tem configs de WebDAV cadastradas (/admin/storage), ao selecionar WebDAV como origem, aparece um dropdown com os servidores configurados. Selecionar um preenche o campo de caminho automaticamente com a URL + prefixo de pasta da config.
-## Automatizar (importação automática)
-O botão "⏱ Automatizar" (ao lado de Verificar e Processar, em espaço de grupo) faz o servidor verificar a pasta periodicamente e importar sozinho os arquivos novos com situação Pronto. Suspeitos e já cadastrados ficam de fora. Disponível para Disco Local, Rede Local e WebDAV; owner e editor do grupo podem criar.
-1. Informe a pasta e o nível de IA na tela e clique em "⏱ Automatizar".
+## Importações automáticas
+A aba "Importações automáticas" (em espaço de grupo) faz o servidor verificar uma pasta WebDAV periodicamente e importar sozinho os arquivos novos com situação Pronto. Parece repetido e Já cadastrado ficam de fora. Owner e editor do grupo podem criar. Disco local e Rede local não podem ser automatizados: o servidor não enxerga o computador nem a rede da empresa.
+1. Na aba, toque em Nova importação automática (ou, no passo Conferir de uma pasta WebDAV, em "Automatizar esta pasta") e informe a pasta e o nível de IA.
 2. A janela verifica a pasta na hora. Se não der, mostra o motivo em vermelho (ex.: pasta não encontrada, fora da whitelist, WebDAV fora do ar) e o botão "Verificar de novo". Só salva com a pasta acessível.
 3. Escolha o intervalo, o nível de IA, o máximo de arquivos por execução e as opções, e clique em Salvar.
 | Campo / Elemento | Descrição |
@@ -756,7 +775,7 @@ O botão "⏱ Automatizar" (ao lado de Verificar e Processar, em espaço de grup
 | Enviar resumo por e-mail | Resumo para quem criou a automação quando importar algo ou der erro. |
 | Ativa | Desmarcada = pausada. |
 ## Lista de importações automáticas
-Abaixo do formulário aparecem as automações do espaço com pasta, intervalo, nível de IA, situação (Ativa, Pausada ou Executando), última execução com o resultado e a próxima execução. Ações: Executar agora, Pausar/Reativar, Editar, Histórico (últimas execuções com os erros por arquivo) e Excluir (os memos já importados continuam).
+Na aba aparecem as automações do espaço com pasta, intervalo, nível de IA, situação (Ativa, Pausada ou Executando), última execução com o resultado e a próxima execução. Ações: Executar agora, Pausar/Reativar, Editar, Histórico (últimas execuções com os erros por arquivo) e Excluir (os memos já importados continuam).
 ## Como a automação roda
 - Um robô no servidor confere a cada 5 minutos quais automações chegaram na hora; cada uma roda no seu intervalo.
 - Arquivo que ainda está sendo copiado para a pasta (tamanho mudando) fica para a próxima execução.
@@ -774,18 +793,23 @@ A automação importa o que chega na pasta; quem coloca os arquivos lá é um ap
 | E-mail | Use um serviço de automação (Make, Zapier ou n8n) com a regra "e-mail recebido → salvar anexos (ou o texto como .txt) na pasta WebDAV". Um filtro no Gmail/Outlook encaminhando só o que interessa completa o fluxo. |
 DICA: Prefira formatos que a importação lê bem (PDF, imagens, documentos do Office, .txt). Áudio e vídeo ainda não são transcritos na importação em lote.
 NOTA: A URL do WebDAV precisa estar liberada no servidor (BATCH_ALLOWED_WEBDAV_URLS); se a janela do Automatizar mostrar "fora da whitelist", peça ao administrador.
-## Memos sem dono identificado
-Em categoria Pessoal, a importação (manual ou automática) grava o memo para o membro do grupo cujo e-mail (exato) ou nome (único no grupo) está no campo dono da categoria. Não identificado, o memo fica com quem importou e entra na lista "Memos sem dono identificado", com o valor encontrado e o motivo. Escolha o membro em "Atribuir a" e clique em Atribuir.
+## Aba Extrair dono do memo
+Sobras da importação: arquivos que caíram numa categoria Pessoal (Seção 17), mas o proMemory não achou no documento de quem é o memo. A aba fica sempre visível em grupo; com cor fraca quando não há nada pendente e com o número de pendentes quando há.
+Em categoria Pessoal, a importação (manual ou automática) grava o memo para o membro do grupo cujo e-mail (exato) ou nome (único no grupo) está no campo dono da categoria. Não identificado, o memo fica com quem importou e entra nesta aba, com o valor encontrado e o motivo (ex.: "Mais de uma pessoa com esse nome", "O campo dono veio vazio"). Escolha a pessoa e toque em Atribuir.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Pasta não encontrada / acesso negado | Caminho incorreto ou permissão negada ao processo da API no sistema de arquivos. |
+| Pasta não encontrada / acesso negado (WebDAV) | Caminho incorreto ou sem permissão no servidor WebDAV. |
 | Nenhum arquivo encontrado na pasta | Pasta vazia ou extensões não suportadas. |
 | Erro ao processar arquivo X: ... | Falha específica do arquivo. Ver lista de erros no resultado. Outros arquivos não são afetados. |
 | WebDAV: falha de conexão | URL do WebDAV incorreta, credenciais inválidas ou servidor offline. |
+| Acesso a arquivos locais desativado. Configure BATCH_ALLOWED_LOCAL_PATHS | Mensagem da tela antiga (antes de nov/2026). Disco local e Rede local agora usam "Escolher pasta" no navegador. |
+| O envio parou: … O que já chegou continua sendo importado. | A conexão caiu no meio do envio pelo navegador. Conferir a pasta de novo: o que entrou aparece como Já cadastrado. |
+| Não chegou: a tela foi fechada antes de enviar este arquivo. | A tela foi fechada durante o envio. Importar de novo só os que faltaram. |
+| Arquivo grande demais (máx. 100 MB) | Limite do envio pelo navegador. Dividir o arquivo ou catalogar pelo WebDAV. |
 
-# SEÇÃO 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+# SEÇÃO 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 ## Propósito
 Editor de categorias, subcategorias, campos específicos e query templates. Define como a IA classifica e extrai dados dos memos. Admins veem todos os grupos; owners veem somente o seu grupo.
 ## Filtros disponíveis
@@ -878,9 +902,9 @@ Médias (AVG) são calculadas com casas decimais; antes, colunas inteiras eram t
 ## Ícones de ação
 Em cada linha (categoria, campo, query, parâmetro) há ✎ para editar e 🗑 para excluir. Só aparecem quando a tela está em modo de edição (admin, ou owner do grupo selecionado); em "Só visualização" ficam ocultos.
 ## Categoria Pessoal e campo dono
-Em "Editar categoria" há a opção "Pessoal — cada memo pertence a uma pessoa". Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
+Em Administrar grupo → Categorias → Editar categoria há a chave "Pessoal: cada memo é de uma pessoa" e o campo "Quem é o dono do memo". A marca diz de quem é cada memo; ela não esconde os memos dos outros membros. Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
 - Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo como "Dono Agenda" se não existir).
-- Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para "Memos sem dono identificado" na Importação em Lote.
+- Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para a aba "Extrair dono do memo" da Importação em Lote.
 - No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
 - Campo dono vazio é preenchido com o nome de quem salvou (ex.: "Dono Agenda" = Ting). Os memos antigos com o campo vazio foram preenchidos da mesma forma.
 - Quem pode editar o memo: o dono, quem o catalogou e os donos e editores do grupo (Seção 10). Excluir continua só com o autor.
@@ -903,7 +927,7 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 - Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
-- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" no painel do grupo. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
+- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Administrar grupo → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
 | Situação | Significa | Agenda | Tarefa | Pedido |
 |---|---|---|---|---|
 | Ativo | vale, em andamento | marcado | aberta | em aberto |
@@ -911,6 +935,12 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 | Cancelado | não vai acontecer | desmarcado | desistida | cancelado |
 NOTA: Remarcar não é uma situação: o memo continua Ativo e a mudança de data ou hora fica no registro de alterações.
 - A aba Perfis do painel mostra a marca Pessoal só para leitura; a configuração fica na categoria.
+## Revisão antes de salvar
+Em Editar categoria, a parte "Revisão antes de salvar" decide quando a tela de revisão abre ao catalogar (Seção 5):
+| Campo / Elemento | Descrição |
+|---|---|
+| Sempre revisar antes de salvar | Para categorias críticas, como Contratos. A tela de revisão sempre abre. |
+| % mínimo dos campos | Se a IA preencher pelo menos este % dos campos, o memo é salvo direto. Abaixo dele, o usuário escolhe Editar, Gravar assim ou Cancelar. Sugerido: 80%. |
 ## Permissões de edição
 - Admin do sistema: pode criar/editar/excluir qualquer categoria (global ou de grupo).
 - Owner do grupo: pode criar/editar/excluir categorias do próprio grupo. Não pode alterar categorias globais.
@@ -926,11 +956,11 @@ NOTA: Remarcar não é uma situação: o memo continua Ativo e a mudança de dat
 | cross_query_filter: parâmetro não cadastrado | Cadastrar o parâmetro _in com tipo lista_texto e operador IN na query destino. |
 
 # SEÇÃO 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 ## Propósito
 Envia e-mail antes da data/hora de cada memo de uma categoria (Agenda, vencimentos, renovações). O memo pode sobrepor o padrão da categoria (ex.: "me lembre 30 min antes", "avisar o João", "não precisa lembrar").
 ## Acesso
-Na Estrutura do contexto, clicar no ícone de lembrete da categoria. Disponível para admin e owner do grupo.
+Em Administrar grupo → Categorias, abrir a categoria e ir à parte Lembretes (a categoria precisa de um campo de data). Só o dono do grupo e o admin configuram. Lembretes só existem em categorias do grupo, não nas globais.
 | Ícone | Significado |
 |---|---|
 | 🔔 | Lembretes ligados nesta categoria. Clique para ver ou alterar. |
@@ -960,7 +990,7 @@ Um campo do memo ligado ao seletor "Destinatário" avisa outras pessoas além de
 | "grupo", "todos", "equipe" | Todos do grupo |
 | Nome que não é de membro, ou que serve a vários | Os demais encontrados e quem registrou; a prévia mostra o nome não encontrado |
 | Vazio | O destinatário padrão da categoria |
-NOTA: Renomear um campo na Estrutura do contexto atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
+NOTA: Renomear um campo em Administrar grupo → Categorias atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
 ## Antecedência por memo (campo "Lembrar antes")
 Cada memo pode ter a própria antecedência, no lugar da antecedência padrão da categoria.
 1. Na categoria (ex.: Agenda), criar o campo "Lembrar antes", do tipo texto, com uma descrição como "Antecedência do lembrete, ex.: 30 min, 2 horas, 1 dia; 2 dias; 1 hora".
@@ -1031,7 +1061,7 @@ Relatório de custos de chamadas à API de IA, filtrado por período e tipo de m
 | Relatório | Total em USD, quantidade de chamadas, custo médio por chamada. |
 
 ## Aba: Consulta de Memos (Admin)
-Igual à consulta do Painel do Owner, mas com acesso a todos os grupos do sistema. Filtros por grupo de categorias, categoria, grupo de memos, data.
+Igual à Consulta de memos de Administrar grupo, mas com acesso a todos os grupos do sistema. Filtros por grupo de categorias, categoria, grupo de memos, data.
 ## Aba: Prompts LLM
 Edição dos prompts de sistema de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com override por categoria. O último prompt efetivamente enviado pode ser conferido em /admin/llm-prompt (Seção 24).
 ## Aba: Config. IA (Provedores)
@@ -1180,7 +1210,7 @@ Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
 Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks-mymemory-operacional.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
 Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
 ## Antes de importar
-1. Na Estrutura do contexto, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
+1. Em Administrar grupo → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
 2. Criar nela os campos Seção, Tela, Rota, Perfil, Tipo e Versão. Os nomes são casados com ou sem acento ("Secao" = "Seção").
 3. Ter o arquivo .jsonl com um trecho por linha (campos obrigatórios: id e texto).
 ## Como importar
@@ -1320,8 +1350,10 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 | /admin/assinaturas | Assinaturas de usuários e grupos |
 | /admin/storage | Storage WebDAV por grupo |
 | /admin/conhecimento | Importar conhecimento em trechos para um grupo |
-| /estrutura-memo | Categorias, queries e lembretes 🔔 (owner e admin) |
-| /avisos | Avisos do usuário (monitoramento de perguntas) |
+| /grupo/:groupId/admin | Administrar grupo: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin) |
+| /avisos | Meus avisos e lembretes |
+| /perguntas-salvas | Perguntas salvas |
+| /importar-lote | Importar em lote |
 
 ## Verificação rápida de saúde do sistema
 - 1. /api/health ou /api/diagnostics → resposta HTTP 200 significa API online.
