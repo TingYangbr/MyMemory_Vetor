@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Query padrão automática
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Query padrão automática
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
 Toda categoria pode ter uma "Query padrão — Nome da categoria", consulta interna (PostgreSQL) sobre os memos da categoria, com um filtro por campo.
@@ -10,5 +10,5 @@ Toda categoria pode ter uma "Query padrão — Nome da categoria", consulta inte
 - O botão "✦ Gerar Query padrão" substitui o SQL pela versão atual. Salvando sem alterar, a query volta a ser automática.
 
 Perguntas que este trecho responde:
-- O que é query padrão automática em Estrutura de Contexto / Categorias?
+- O que é query padrão automática em Categorias?
 - Como funciona query padrão automática no MyMemory?

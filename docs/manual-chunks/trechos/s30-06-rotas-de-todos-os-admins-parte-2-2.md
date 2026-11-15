@@ -3,8 +3,10 @@ Seção: Seção 30 — Referência Rápida Admin
 Perfil: admin · Tipo: campos · Versão do manual: 2
 
 - /admin/conhecimento: Importar conhecimento em trechos para um grupo
-- /estrutura-memo: Categorias, queries e lembretes 🔔 (owner e admin)
-- /avisos: Avisos do usuário (monitoramento de perguntas)
+- /grupo/:groupId/admin: Administrar grupo: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin)
+- /avisos: Meus avisos e lembretes
+- /perguntas-salvas: Perguntas salvas
+- /importar-lote: Importar em lote
 
 Perguntas que este trecho responde:
 - Quais são as opções de rotas de todos os admins (parte 2/2) em Referência Rápida Admin?

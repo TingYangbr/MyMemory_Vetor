@@ -6,7 +6,7 @@ Perfil: usuário · Tipo: campos · Versão do manual: 2
 - Nome do grupo: Texto. Obrigatório.
 - Descrição: Texto opcional.
 - Botão Criar: Cria o grupo. O criador torna-se owner automaticamente.
-Após criar, o sistema redireciona para o Seletor de Espaço ou para o Painel do Owner.
+Após criar, o sistema redireciona para o Seletor de Espaço ou para Administrar grupo (Seção 14).
 
 Perguntas que este trecho responde:
 - Quais são as opções de criar novo grupo (/grupo/novo) em Grupos: Criar / Entrar?

@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Tipos de campo e conversão tolerante
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Tipos de campo e conversão tolerante
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - Texto: Comparação por palavras: cada palavra da pergunta precisa aparecer inteira no campo, em qualquer ordem, sem acento e sem diferenciar maiúsculas. Tratamentos e palavras de ligação (sr., sra., dr., o, a, de, da, do, com…) são ignorados. Ex.: "sr. Wilson", "Wilson da FAPESP" e "FAPESP" acham "Sr. Wilson da FAPESP"; "Wilson" não acha "Wilsons Ltda". Vale para as queries de memos; nas queries de ERP (SQL Server) a comparação continua exata, salvo quando a pergunta pede "contendo".
@@ -9,5 +9,5 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 NOTA: Em queries editadas à mão, use mymemory_parse_date(...) e mymemory_parse_number(...) em vez de ::date e ::numeric para não quebrar a pergunta quando um memo tiver texto livre.
 
 Perguntas que este trecho responde:
-- Quais são as opções de tipos de campo e conversão tolerante em Estrutura de Contexto / Categorias?
+- Quais são as opções de tipos de campo e conversão tolerante em Categorias?
 - O que significa cada item de tipos de campo e conversão tolerante?

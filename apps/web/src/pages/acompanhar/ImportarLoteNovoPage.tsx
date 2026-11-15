@@ -641,13 +641,12 @@ export default function ImportarLoteNovoPage() {
               <button type="button" role="tab" aria-selected={aba === "automaticas"} className={`${styles.tab} ${aba === "automaticas" ? styles.tabOn : ""}`} onClick={() => trocarAba("automaticas")}>
                 <IconRefresh size={15} /> Importações automáticas {automacoes ? <span className={styles.tabN}>{automacoes.length}</span> : null}
               </button>
-              {/* Só aparece quando há memo esperando dono (ou quando a aba já está aberta) */}
-              {(semDono?.itens.length ?? 0) > 0 || aba === "sem-dono" ? (
-                <button type="button" role="tab" aria-selected={aba === "sem-dono"} title={DICA_DONO}
-                  className={`${styles.tab} ${aba === "sem-dono" ? styles.tabOn : ""}`} onClick={() => trocarAba("sem-dono")}>
-                  <IconUser size={15} /> Extrair dono do memo {semDono ? <span className={styles.tabN}>{semDono.itens.length}</span> : null}
-                </button>
-              ) : null}
+              {/* Sempre visível; com cor fraca quando não há memo esperando dono */}
+              <button type="button" role="tab" aria-selected={aba === "sem-dono"} title={DICA_DONO}
+                className={`${styles.tab} ${aba === "sem-dono" ? styles.tabOn : ""} ${(semDono?.itens.length ?? 0) === 0 && aba !== "sem-dono" ? styles.tabFraca : ""}`}
+                onClick={() => trocarAba("sem-dono")}>
+                <IconUser size={15} /> Extrair dono do memo {semDono?.itens.length ? <span className={styles.tabN}>{semDono.itens.length}</span> : null}
+              </button>
             </>
           ) : null}
         </div>

@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Queries do ERP somente leitura
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Queries do ERP somente leitura
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
 Queries de SQL Server são conferidas ao salvar, ao verificar a sintaxe e a cada execução.
@@ -10,5 +10,5 @@ Queries de SQL Server são conferidas ao salvar, ao verificar a sintaxe e a cada
 - Mesmo assim, o usuário SQL da conexão deve ter só permissão de leitura no banco do ERP.
 
 Perguntas que este trecho responde:
-- O que é queries do erp somente leitura em Estrutura de Contexto / Categorias?
+- O que é queries do erp somente leitura em Categorias?
 - Como funciona queries do erp somente leitura no MyMemory?

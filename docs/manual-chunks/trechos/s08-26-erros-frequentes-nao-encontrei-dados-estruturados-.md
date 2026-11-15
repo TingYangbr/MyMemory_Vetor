@@ -4,7 +4,7 @@ Rota: / (aba Perguntar) · Componente: PerguntaPage
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: Não encontrei dados estruturados para essa pergunta
-Causa e solução: Nenhuma categoria identificada. Conferir nome e descrição das categorias na Estrutura do contexto.
+Causa e solução: Nenhuma categoria identificada. Conferir nome e descrição das categorias em Administrar grupo → Categorias.
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Não encontrei dados estruturados para essa pergunta"?

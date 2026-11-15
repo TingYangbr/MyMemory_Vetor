@@ -1145,3 +1145,8 @@ textarea.campo {
   color: var(--mm-muted);
   overflow-wrap: anywhere;
 }
+
+/* Aba sem pendências: mostra que o recurso existe, mas sem nada para fazer */
+.tabFraca {
+  opacity: 0.5;
+}
