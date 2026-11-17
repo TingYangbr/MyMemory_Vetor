@@ -408,6 +408,14 @@ Os comandos vieram para o começo porque Agenda e Lista de compras dependem dele
 - 17/11: Investimentos: correção antes de conciliar, estorno depois (seção 7).
 - 17/11: novo tipo de campo "lista", com um item por linha; a quebra de linha é o separador, nunca a vírgula.
 
+**Pendente, pedido em 17/11: "Copiar para outro grupo".** Enquanto as categorias não viram plugins, copiar uma categoria de um grupo para outro vai ser muito usado. Hoje só existe "Copiar das categorias globais" (só administrador, só de categorias sem grupo), e ela **perde** o tipo dos campos (lista e data viram texto), o Atualizável, o campo de situação, a revisão, o "Confirmar antes de alterar" e o Pessoal. A cópia nova deve:
+
+- copiar de um grupo para outro, para quem é owner dos dois grupos (ou administrador);
+- levar os campos com tipo, descrição, valores padronizados e resolução de nome abreviado, as subcategorias e todos os atributos da categoria;
+- não copiar as consultas automáticas (Query padrão e Consulta de alterações): elas são geradas de novo no destino; as consultas escritas à mão são copiadas sem conexão;
+- não copiar memos;
+- corrigir também a cópia das globais, que hoje perde os tipos e os atributos.
+
 **Não li, e pode mudar o desenho:**
 
 - Como a `PerguntaPage` organiza o estado das respostas, além do trecho do cartão de alteração.
