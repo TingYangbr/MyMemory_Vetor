@@ -41,6 +41,17 @@ function avisoDataEstranha(c: MemoAlteravelCampo, novo: string): string | null {
   return null;
 }
 
+const normNome = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+/** Valor de situação dito no comando ("cancelado", "concluida") → o valor fixo da categoria. */
+function situacaoCanonica(v: string): "Ativo" | "Concluído" | "Cancelado" | null {
+  const n = normNome(v);
+  if (n.startsWith("conclu")) return "Concluído";
+  if (n.startsWith("cancel")) return "Cancelado";
+  if (n.startsWith("ativ") || n.startsWith("reativ")) return "Ativo";
+  return null;
+}
+
 function mensagemErro(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   try {
@@ -57,15 +68,22 @@ function mensagemErro(e: unknown): string {
  */
 export function MemoAlteracaoCartao({
   memoId,
+  propostos,
   onFechar,
   onAlterado,
 }: {
   memoId: number;
+  /** Valores propostos por um comando do Perguntar (campo → valor novo); o cartão abre já com eles. */
+  propostos?: Record<string, string>;
   onFechar: () => void;
   onAlterado: (memoId: number, r: MemoAlteracaoResponse, texto: string) => void;
 }) {
   const [dados, setDados] = useState<MemoAlteravelResponse | null>(null);
   const [valores, setValores] = useState<Record<string, string>>({});
+  /** Campos que vieram preenchidos pelo comando (destacados com o valor anterior). */
+  const [propostosCampos, setPropostosCampos] = useState<Set<string>>(new Set());
+  const [situacaoProposta, setSituacaoProposta] = useState<"Ativo" | "Concluído" | "Cancelado" | null>(null);
+  const propostosKey = JSON.stringify(propostos ?? {});
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [ouvindo, setOuvindo] = useState<string | null>(null);
@@ -81,14 +99,33 @@ export function MemoAlteracaoCartao({
       .then((r) => {
         if (!vivo) return;
         setDados(r);
-        setValores(Object.fromEntries(r.campos.map((c) => [c.nome, paraTela(c)])));
+        const base: Record<string, string> = Object.fromEntries(r.campos.map((c) => [c.nome, paraTela(c)]));
+        const marcados = new Set<string>();
+        let sit: "Ativo" | "Concluído" | "Cancelado" | null = null;
+        for (const [k, v] of Object.entries(JSON.parse(propostosKey) as Record<string, string>)) {
+          const alvo = normNome(k);
+          if (normNome(r.campoSituacao) === alvo) {
+            sit = situacaoCanonica(v);
+            continue;
+          }
+          const c = r.campos.find((x) => normNome(x.nome) === alvo);
+          if (!c) continue;
+          const tela = c.tipo === "date" ? paraTela({ ...c, valor: normalizarDataParaIso(v) ?? v }) : v;
+          if (tela.trim() !== (base[c.nome] ?? "").trim()) {
+            base[c.nome] = tela;
+            marcados.add(c.nome);
+          }
+        }
+        setValores(base);
+        setPropostosCampos(marcados);
+        setSituacaoProposta(sit && sit !== r.situacao ? sit : null);
       })
       .catch((e) => vivo && setErro(mensagemErro(e)));
     return () => {
       vivo = false;
       capturaRef.current?.parar();
     };
-  }, [memoId]);
+  }, [memoId, propostosKey]);
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !salvando && onFechar();
@@ -188,6 +225,17 @@ export function MemoAlteracaoCartao({
 
         {dados ? (
           <>
+            {situacaoProposta ? (
+              <div className={styles.avisoData} role="status">
+                <div>Proposta: marcar como {situacaoProposta}.</div>
+                <button type="button" className={styles.acao} onClick={() => void mudarSituacao(situacaoProposta)} disabled={salvando}>
+                  Confirmar: {situacaoProposta}
+                </button>
+              </div>
+            ) : null}
+            {propostosCampos.size ? (
+              <p className={styles.dica}>Confira as mudanças propostas (em destaque) e salve.</p>
+            ) : null}
             <div className={styles.campos}>
               {dados.campos.map((c) => (
                 <div key={c.nome} className={styles.campo}>
@@ -195,18 +243,33 @@ export function MemoAlteracaoCartao({
                     {c.nome}
                   </label>
                   <div className={styles.linha}>
-                    <input
-                      id={`alt-${c.nome}`}
-                      className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome ? styles.inputDestaque : ""}`}
-                      value={valores[c.nome] ?? ""}
-                      placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
-                      onChange={(e) => {
-                        setValores((v) => ({ ...v, [c.nome]: e.target.value }));
-                        setAvisosData(null);
-                      }}
-                      onKeyDown={(e) => e.key === "Enter" && void salvar()}
-                      disabled={salvando}
-                    />
+                    {c.tipo === "lista" ? (
+                      <textarea
+                        id={`alt-${c.nome}`}
+                        className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
+                        rows={Math.min(12, Math.max(3, (valores[c.nome] ?? "").split("\n").length + 1))}
+                        value={valores[c.nome] ?? ""}
+                        placeholder="um item por linha"
+                        onChange={(e) => {
+                          setValores((v) => ({ ...v, [c.nome]: e.target.value }));
+                          setAvisosData(null);
+                        }}
+                        disabled={salvando}
+                      />
+                    ) : (
+                      <input
+                        id={`alt-${c.nome}`}
+                        className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
+                        value={valores[c.nome] ?? ""}
+                        placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
+                        onChange={(e) => {
+                          setValores((v) => ({ ...v, [c.nome]: e.target.value }));
+                          setAvisosData(null);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && void salvar()}
+                        disabled={salvando}
+                      />
+                    )}
                     {comVoz ? (
                       <button
                         type="button"
@@ -221,6 +284,9 @@ export function MemoAlteracaoCartao({
                     ) : null}
                   </div>
                   {ouvindo === c.nome ? <div className={styles.dica}>Ouvindo… pode falar.</div> : null}
+                  {propostosCampos.has(c.nome) ? (
+                    <div className={styles.dica}>Proposto pelo comando. Antes: {paraTela(c) || "(vazio)"}</div>
+                  ) : null}
                 </div>
               ))}
             </div>

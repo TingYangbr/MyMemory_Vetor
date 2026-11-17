@@ -1,23 +1,58 @@
 # Levantamento: fontes de dados financeiros no Perguntar (planilha, Open Finance, apps)
 
-*Versão 4 (14/11/2026). Ainda não é desenho de implementação: é para decidir o caminho.*
+*Versão 5 (15/11/2026). Ainda não é desenho de implementação: é para decidir o caminho.*
 
 > ## Resumo em 1 minuto
 >
-> **A ideia:** o usuário poder perguntar ao proMemory sobre o próprio dinheiro (gastos, orçamento, investimentos) como já pergunta sobre o ERP.
+> **A ideia:** a pessoa (ou família) perguntar ao proMemory sobre o próprio dinheiro (gastos, orçamento, investimentos) como já pergunta sobre o ERP. É a versão para público não corporativo: sai o ERP, entra o controle financeiro e de investimentos de cada pessoa.
 >
-> **De onde vêm os dados:**
-> - **planilha** que a pessoa já tem: a IA aprende o formato uma vez;
-> - **extrato exportado do banco**;
-> - depois, **ligação direta com os bancos** pelo Open Finance, usando o Pluggy.
+> **Foco da primeira etapa (decidido em 15/11): investimentos (`fin_mov_investimentos`), lidos de DOCUMENTOS pela IA.** Ver seção 0.
 >
 > **Como guardamos:** tudo vira um mesmo formato simples nas tabelas `fin_`, com as **movimentações** como base. Saldo e posição de investimento são calculados a partir delas.
 >
-> **O que já está decidido:** os dados pertencem ao grupo ou ao espaço pessoal, como os memos; a receita é por categoria; os grupos de despesa vêm da fonte; haverá limite por plano.
+> **O que já está decidido:** os dados pertencem ao grupo ou ao espaço pessoal, como os memos; os grupos de despesa vêm da fonte; haverá limite por plano; prefixo `fin_`.
 >
-> **Situação:** só planejado, **nada implementado**. O primeiro passo, quando decidir começar, é a importação de planilha e extrato (etapa 1 da seção 7).
+> **Situação:** só planejado, **nada implementado; nenhuma tabela criada**.
 >
 > **Ganho extra que motivou o desenho:** organizar desdobramentos e bonificações para o IR.
+
+## 0. Decisão de 15/11/2026: começar por investimentos, lendo documentos com IA
+
+**A ideia da Ting.** A IA consegue destrinchar um extrato de cartão de crédito e responder qualquer pergunta sobre ele. Então pode também:
+- ler um **relatório de posição** e extrair o cadastro dos investimentos (cada papel);
+- ler as **notas de corretagem** que o usuário vai fornecendo, e extrair as movimentações.
+
+Assim **some o problema de criar uma receita por pessoa** (seção 4.2). O controle de gastos de cartão cai no mesmo modelo.
+
+**Por que funciona:** nota de corretagem, relatório de posição e fatura de cartão são **documentos de instituição**, com formato próximo de um padrão (a nota segue praticamente o mesmo modelo em todas as corretoras). A IA lê cada documento sozinho, como o Catalogar já faz hoje com documentos, e devolve os dados estruturados. Não precisa de receita.
+
+| Documento | Vira |
+|---|---|
+| Relatório de posição | cadastro dos papéis (ticker, classe, instituição) + **âncora** (quantidade e preço médio na data), em `fin_ancoras` |
+| Nota de corretagem | movimentações (compra e venda, quantidade, preço, taxas), em `fin_mov_investimentos` |
+| Fatura do cartão | gastos, em `fin_movimentos` (conta do tipo cartão), no mesmo fluxo |
+
+**Quatro cuidados:**
+1. **Conferir pelos totais do próprio documento** (a ideia da receita, agora por documento). Nota: soma das operações + taxas = valor líquido. Fatura: soma dos lançamentos = total. Não bateu, o documento vai para revisão antes de gravar.
+2. **Não gravar duas vezes:** nota identificada por número + corretora + data; fatura por cartão + mês.
+3. **Eventos sem dinheiro não vêm nas notas:** desdobramento e bonificação aparecem como salto de quantidade no relatório de posição, que a âncora detecta (seção 2.6).
+4. **Modelo de IA:** tabela financeira em PDF pode precisar de modelo mais forte que o do Catalogar comum; PDF escaneado passa pela leitura de imagem. O custo é por documento, pequeno.
+
+**Fonte que pode resolver muito de uma vez:** a **Área do Investidor da B3** exporta, em planilha:
+- **Posição** e **Movimentação** de todas as corretoras juntas;
+- na Movimentação, compras, vendas, dividendos, JCP **e os desdobramentos e bonificações**.
+
+É um formato único para todo mundo, então uma única receita pronta serve a todos os usuários. Pode ser a fonte principal, com as notas de corretagem completando preços e taxas.
+
+**Proposta da etapa 1 (investimentos):**
+1. Relatório de posição → cadastro dos papéis + âncora.
+2. Notas de corretagem → movimentações, conferidas pelo total da nota.
+3. Posição e custo médio calculados, conferidos pela âncora.
+4. Opcional: Movimentação da B3 como fonte principal, incluindo eventos.
+
+**Pergunta em aberto:** a Ting usa a Área do Investidor da B3? Se sim, a Movimentação dela entra já na etapa 1.
+
+As seções seguintes (v4) continuam válidas como desenho geral. A planilha livre com receita (4.2) e o Open Finance (4.4) ficam para depois.
 
 **O que mudou na v4:**
 - saldo e posição viram **âncora + conferência**: o histórico é derivado dos movimentos;

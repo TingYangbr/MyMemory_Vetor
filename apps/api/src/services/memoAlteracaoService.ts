@@ -165,6 +165,14 @@ function valorParaGravar(valor: string, tipo: string): string {
   const v = valor.trim();
   if (!v) return "";
   if (tipo === "date") return normalizarDataParaIso(v) ?? semAcento(v);
+  // Lista: um item por linha; tira espaços das pontas de cada linha e linhas vazias
+  if (tipo === "lista") {
+    return v
+      .split(/\r?\n/)
+      .map((l) => semAcento(l.trim()))
+      .filter(Boolean)
+      .join("\n");
+  }
   return semAcento(v);
 }
 
@@ -218,7 +226,7 @@ async function gravar(input: {
   resumo: string;
   historico: { campo: string; antes: string | null; depois: string | null }[];
   userId: number;
-  origem: "edicao" | "situacao" | "desfazer";
+  origem: "edicao" | "situacao" | "desfazer" | "comando";
   costUsd: number;
 }): Promise<string> {
   const lote = crypto.randomUUID();
@@ -278,7 +286,7 @@ export async function alterarMemo(input: {
   userId: number;
   isAdmin: boolean;
   campos: Record<string, string>;
-  origem: "edicao" | "situacao";
+  origem: "edicao" | "situacao" | "comando";
 }): Promise<MemoAlteracaoResponse> {
   const { memo, cat } = await carregarParaAlterar(input.memoId, input.userId, input.isAdmin);
   const dados = { ...memo.dados };

@@ -52,6 +52,11 @@ function temCampoData(campos: { tipo?: string }[]): boolean {
   return campos.some((c) => c.tipo === "date");
 }
 
+/** Campo do tipo "lista": a IA devolve um item por linha (a vírgula pode ser decimal: "1,5 kg"). */
+function sufixoTipoCampo(f: { tipo?: string }): string {
+  return f.tipo === "lista" ? " [tipo lista: um item por linha, separados por quebra de linha, nunca por vírgula]" : "";
+}
+
 type CatCtx = {
   id: number;
   name: string;
@@ -179,7 +184,7 @@ export function formatCategoriesBlock(cats: CatCtx[]): string {
           // Descrição do campo = instrução de extração do owner (ex.: formato de data); sem ela só o 2.º passo a via
           const desc = f.description ? ` (${f.description})` : "";
           const terms = f.normalizedTerms.length ? ` [padrões: ${f.normalizedTerms.join(", ")}]` : "";
-          return `${f.name}${desc}${terms}`;
+          return `${f.name}${desc}${terms}${sufixoTipoCampo(f)}`;
         })
         .join("; ");
       return `- ID ${c.id} | Nome exato: "${c.name}"${sn ? ` | Subcategorias conhecidas: ${sn}` : ""}${fn ? ` | Campos: ${fn}` : ""}`;
@@ -193,7 +198,7 @@ export function formatCamposGuide(campos: CatCtx["campos"]): string {
     .map((c) => {
       const desc = c.description ? `: ${c.description}` : "";
       const terms = c.normalizedTerms.length ? ` [padrões: ${c.normalizedTerms.join(", ")}]` : "";
-      return `- "${c.name}"${desc}${terms}`;
+      return `- "${c.name}"${desc}${terms}${sufixoTipoCampo(c)}`;
     })
     .join("\n");
   if (!guia) return guia;
@@ -218,7 +223,7 @@ export function buildTextMemoBasicoUserPrompt(cats: CatCtx[], bodyText: string, 
       for (const f of c.campos) {
         const desc = f.description ? ` — ${f.description}` : "";
         const terms = f.normalizedTerms.length ? ` | padrões: ${f.normalizedTerms.join(", ")}` : "";
-        campoLines.push(`- ${f.name}${desc}${terms}`);
+        campoLines.push(`- ${f.name}${desc}${terms}${sufixoTipoCampo(f)}`);
       }
       campoLines.push("");
     }

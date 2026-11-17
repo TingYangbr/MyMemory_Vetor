@@ -8,7 +8,7 @@
 export interface QueryPadraoCampo {
   id: number;
   name: string;
-  /** "text" | "date" | "number" */
+  /** "text" | "date" | "number" | "lista" */
   tipo: string;
   normalizedTerms: string | null;
   isActive: number;
