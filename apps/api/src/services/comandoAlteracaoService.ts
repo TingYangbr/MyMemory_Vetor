@@ -19,7 +19,8 @@ import type {
   PerguntaClassificacao,
   PerguntaResposta,
 } from "@mymemory/shared";
-import { normalizarDataParaIso } from "@mymemory/shared";
+import { escreverItensLista, lerItensLista, normalizarDataParaIso } from "@mymemory/shared";
+import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
@@ -89,28 +90,39 @@ function linhaCasa(linha: string, termo: string): boolean {
  */
 export function aplicarOperacoesLista(atual: string, ops: Record<string, unknown>): string {
   const lista = (x: unknown): unknown[] => (Array.isArray(x) ? x : x == null ? [] : [x]);
-  let linhas = atual
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  // Cada linha é um item com estado (sem marca = pendente, "✓" = concluído, "✗" = cancelado)
+  let itens: ItemLista[] = lerItensLista(atual);
   for (const r of lista(ops.remover)) {
     const termo = String(r ?? "");
-    linhas = linhas.filter((l) => !linhaCasa(l, termo));
+    itens = itens.filter((it) => !linhaCasa(it.texto, termo));
   }
   for (const tr of lista(ops.trocar)) {
     if (!tr || typeof tr !== "object") continue;
     const de = String((tr as Record<string, unknown>).de ?? "");
     const para = String((tr as Record<string, unknown>).para ?? "").trim();
     if (!de || !para) continue;
-    const i = linhas.findIndex((l) => linhaCasa(l, de));
-    if (i >= 0) linhas[i] = para;
-    else linhas.push(para);
+    const i = itens.findIndex((it) => linhaCasa(it.texto, de));
+    if (i >= 0) itens[i] = { ...itens[i]!, texto: para };
+    else itens.push({ estado: "pendente", texto: para });
   }
+  const marcar = (chave: string, estado: EstadoItemLista) => {
+    for (const n of lista(ops[chave])) {
+      const termo = String(n ?? "");
+      for (const it of itens) if (linhaCasa(it.texto, termo)) it.estado = estado;
+    }
+  };
+  marcar("concluir", "concluido");
+  marcar("cancelar", "cancelado");
+  marcar("reabrir", "pendente");
   for (const a of lista(ops.acrescentar)) {
-    const item = String(a ?? "").trim();
-    if (item && !linhas.some((l) => norm(l) === norm(item))) linhas.push(item);
+    const texto = String(a ?? "").trim();
+    if (!texto) continue;
+    // Acrescentar um item já concluído ou cancelado o reabre, sem duplicar a linha
+    const existente = itens.find((it) => norm(it.texto) === norm(texto));
+    if (existente) existente.estado = "pendente";
+    else itens.push({ estado: "pendente", texto });
   }
-  return linhas.join("\n");
+  return escreverItensLista(itens);
 }
 
 /**
@@ -119,14 +131,25 @@ export function aplicarOperacoesLista(atual: string, ops: Record<string, unknown
  */
 function textoMudanca(campo: string, antes: string, depois: string, tipo: string): string {
   if (tipo !== "lista") return `${campo}: ${antes || "(vazio)"} → ${depois || "(vazio)"}`;
-  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  const a = linhas(antes);
-  const d = linhas(depois);
-  const entrou = d.filter((x) => !a.some((y) => norm(y) === norm(x)));
-  const saiu = a.filter((x) => !d.some((y) => norm(y) === norm(x)));
+  const a = lerItensLista(antes);
+  const d = lerItensLista(depois);
+  const acha = (xs: ItemLista[], x: ItemLista) => xs.find((y) => norm(y.texto) === norm(x.texto));
+  const entrou = d.filter((x) => !acha(a, x)).map((x) => x.texto);
+  const saiu = a.filter((x) => !acha(d, x)).map((x) => x.texto);
+  const concluidos: string[] = [];
+  const cancelados: string[] = [];
+  const reabertos: string[] = [];
+  for (const x of d) {
+    const y = acha(a, x);
+    if (!y || y.estado === x.estado) continue;
+    (x.estado === "concluido" ? concluidos : x.estado === "cancelado" ? cancelados : reabertos).push(x.texto);
+  }
   const partes = [
     ...(entrou.length ? [`entra ${entrou.join(", ")}`] : []),
     ...(saiu.length ? [`sai ${saiu.join(", ")}`] : []),
+    ...(concluidos.length ? [`concluído ${concluidos.join(", ")}`] : []),
+    ...(cancelados.length ? [`cancelado ${cancelados.join(", ")}`] : []),
+    ...(reabertos.length ? [`volta a pendente ${reabertos.join(", ")}`] : []),
   ];
   return `${campo}: ${partes.join("; ") || "ordem dos itens"}`;
 }
@@ -189,7 +212,7 @@ const SYSTEM = [
   "- Datas: formato AAAA-MM-DD. Datas relativas (amanhã, quinta, semana que vem) contam a partir da data de hoje. Horas: HH:MM.",
   "- Adiar ou remarcar muda a data e/ou a hora; mantenha o resto.",
   "- Cancelar, concluir ou reativar: use o campo de situação da categoria com o valor Cancelado, Concluído ou Ativo.",
-  '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Inclua só as chaves necessárias.',
+  '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Para marcar itens: "concluir" (comprado, feito), "cancelar" (não vai mais) ou "reabrir" (volta a pendente), cada um com a lista de nomes, ex.: {"concluir":["arroz"]}. "Comprei o arroz" marca o item; "comprei tudo" ou "terminei a lista" é a situação da lista inteira (Concluído). Inclua só as chaves necessárias.',
   "- motivo: uma frase curta explicando a escolha.",
 ].join("\n");
 

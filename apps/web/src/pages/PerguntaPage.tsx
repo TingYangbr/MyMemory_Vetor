@@ -16,7 +16,8 @@ import type {
   PerguntaChip,
   PerguntaChipValor,
 } from "@mymemory/shared";
-import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
+import { derivarChips, escreverItensLista, lerItensLista, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
+import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
@@ -470,6 +471,8 @@ interface AlteracaoCtxValor {
   mudarSituacao: (memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void;
   /** Valores gravados por uma alteração: as tabelas e listas da tela mostram o valor novo. */
   aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
+  /** Grava um campo do memo (ex.: a lista com o estado de um item mudado), com aviso e Desfazer. */
+  alterarCampo: (memoId: number, campo: string, valor: string, aviso: string) => Promise<void>;
 }
 const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   alteraveis: new Set(),
@@ -478,27 +481,37 @@ const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   abrirCriacao: () => {},
   mudarSituacao: () => {},
   aplicarLocal: () => {},
+  alterarCampo: async () => {},
 });
 
 /** Uma mudança mostrada no formato do usuário: lista com o que entra destacado e o que sai riscado. */
 function MudancaVisual({ m }: { m: { campo: string; antes: string; depois: string } }) {
-  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const ehLista = m.antes.includes("\n") || m.depois.includes("\n");
-  const igual = (a: string, b: string) => toParamName(a) === toParamName(b);
+  const igual = (a: ItemLista, b: ItemLista) => toParamName(a.texto) === toParamName(b.texto);
   if (ehLista) {
-    const antes = linhas(m.antes);
-    const depois = linhas(m.depois);
+    const antes = lerItensLista(m.antes);
+    const depois = lerItensLista(m.depois);
     const saiu = antes.filter((x) => !depois.some((y) => igual(x, y)));
     return (
-      <ul className={styles.listaItens}>
-        {depois.map((it, k) => (
-          <li key={`d${k}`} className={antes.some((y) => igual(y, it)) ? undefined : styles.comandoEntra}>
-            {it}
-          </li>
-        ))}
+      <ul className={styles.listaItensMarcados}>
+        {depois.map((it, k) => {
+          const anterior = antes.find((y) => igual(y, it));
+          // Novo ou com estado mudado: destacado; concluído/cancelado: riscado
+          const mudou = !anterior || anterior.estado !== it.estado;
+          const classe = it.estado === "concluido" ? styles.itemConcluido : it.estado === "cancelado" ? styles.itemCancelado : undefined;
+          return (
+            <li key={`d${k}`} className={styles.itemLinha}>
+              <span className={`${classe ?? ""} ${mudou ? styles.comandoEntra : ""}`}>{it.texto}</span>
+              <span className={mudou ? styles.comandoEntra : styles.listaSub}>
+                {mudou ? (anterior ? `→ ${it.estado === "pendente" ? "pendente" : it.estado === "concluido" ? "✓ concluído" : "✗ cancelado"}` : "novo") : ""}
+              </span>
+            </li>
+          );
+        })}
         {saiu.map((it, k) => (
-          <li key={`s${k}`} className={styles.comandoSai}>
-            {it}
+          <li key={`s${k}`} className={styles.itemLinha}>
+            <span className={styles.comandoSai}>{it.texto}</span>
+            <span className={styles.listaSub}>sai</span>
           </li>
         ))}
       </ul>
@@ -609,6 +622,79 @@ function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
   );
 }
 
+const ROTULO_ESTADO: Record<EstadoItemLista, string> = { pendente: "Pendente", concluido: "Concluído", cancelado: "Cancelado" };
+const SIMBOLO_ESTADO: Record<EstadoItemLista, string> = { pendente: "○", concluido: "✓", cancelado: "✗" };
+
+/**
+ * Itens da lista com um marcador à direita de cada um. Tocar no marcador oferece os outros dois
+ * estados (pendente → concluído ou cancelado; concluído → pendente ou cancelado...). Cada escolha
+ * grava o campo da lista pela alteração de sempre (histórico e Desfazer). Os pendentes aparecem
+ * primeiro; os concluídos e cancelados ficam atrás de "ver N concluídos/cancelados".
+ */
+function ItensMarcados({ memoId, colLista, itens, podeAlterar }: { memoId: number | null; colLista: string; itens: ItemLista[]; podeAlterar: boolean }) {
+  const { alterarCampo } = useContext(AlteracaoCtx);
+  const [menu, setMenu] = useState<number | null>(null);
+  const [verFeitos, setVerFeitos] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const feitos = itens.filter((it) => it.estado !== "pendente").length;
+
+  async function escolher(idx: number, estado: EstadoItemLista) {
+    if (memoId == null) return;
+    setMenu(null);
+    setGravando(true);
+    const novos = itens.map((it, k) => (k === idx ? { ...it, estado } : it));
+    await alterarCampo(memoId, colLista, escreverItensLista(novos), `${itens[idx]!.texto}: ${ROTULO_ESTADO[estado].toLowerCase()}.`);
+    setGravando(false);
+  }
+
+  return (
+    <>
+      <ul className={styles.listaItensMarcados}>
+        {itens.map((it, k) => {
+          if (it.estado !== "pendente" && !verFeitos) return null;
+          const outros = (["pendente", "concluido", "cancelado"] as EstadoItemLista[]).filter((e) => e !== it.estado);
+          return (
+            <li key={k} className={styles.itemLinha}>
+              <span className={it.estado === "concluido" ? styles.itemConcluido : it.estado === "cancelado" ? styles.itemCancelado : undefined}>
+                {it.texto}
+              </span>
+              {podeAlterar ? (
+                menu === k ? (
+                  <span className={styles.marcadorMenu}>
+                    {outros.map((e) => (
+                      <button key={e} type="button" className={styles.refazerBtn} disabled={gravando} onClick={() => void escolher(k, e)}>
+                        {SIMBOLO_ESTADO[e]} {ROTULO_ESTADO[e]}
+                      </button>
+                    ))}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className={styles.marcador}
+                    disabled={gravando}
+                    onClick={() => setMenu(k)}
+                    title={`${ROTULO_ESTADO[it.estado]} — toque para mudar`}
+                    aria-label={`${it.texto}: ${ROTULO_ESTADO[it.estado]}. Mudar estado`}
+                  >
+                    {SIMBOLO_ESTADO[it.estado]}
+                  </button>
+                )
+              ) : (
+                <span className={styles.listaSub}>{it.estado === "pendente" ? "" : SIMBOLO_ESTADO[it.estado]}</span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {feitos ? (
+        <button type="button" className={styles.listaVerTabela} onClick={() => setVerFeitos((v) => !v)}>
+          {verFeitos ? "esconder concluídos e cancelados" : `ver ${feitos} concluído(s) ou cancelado(s)`}
+        </button>
+      ) : null}
+    </>
+  );
+}
+
 /** Colunas técnicas que não entram no título do cartão da lista. */
 const COLUNAS_FORA_DO_TITULO = new Set(["id", "mediatext", "mediatype", "mediafileurl", "attachmentdisplayname", "keywords", "createdat", "userid", "groupid", "category"]);
 
@@ -630,10 +716,7 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
           const l = valorLocal(local, col);
           return l !== undefined ? l : linha[col];
         };
-        const itens = String(valor(colLista) ?? "")
-          .split(/\r?\n/)
-          .map((x) => x.trim())
-          .filter(Boolean);
+        const itens = lerItensLista(String(valor(colLista) ?? ""));
         const partes = colTitulo
           .map((c) => [c, valor(c)] as const)
           .filter(([, v]) => v != null && String(v).trim() !== "")
@@ -663,11 +746,7 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
               ) : null}
             </div>
             {itens.length ? (
-              <ul className={styles.listaItens}>
-                {itens.map((it, k) => (
-                  <li key={k}>{it}</li>
-                ))}
-              </ul>
+              <ItensMarcados memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar && !encerrada} />
             ) : (
               <p className={styles.listaSub}>Sem itens.</p>
             )}
@@ -1618,6 +1697,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...r.campos } }));
   }
 
+  /** Um campo gravado direto da resposta (ex.: estado de um item da lista), com aviso e Desfazer. */
+  async function alterarCampoDireto(memoId: number, campo: string, valor: string, aviso: string) {
+    try {
+      const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/${memoId}/alterar`, { campos: { [campo]: valor } });
+      aplicarAlteracaoLocal(memoId, r);
+      setAvisoAlteracao({ texto: r.mudancas.length ? aviso : "Nada mudou.", lote: r.lote, memoId });
+    } catch (e) {
+      setAvisoAlteracao({ texto: `Não foi possível alterar: ${e instanceof Error ? e.message : String(e)}`, lote: null, memoId });
+    }
+  }
+
   /** Situação mudada direto da resposta (ex.: "✓ Concluir" na visão de lista), com aviso e Desfazer. */
   async function mudarSituacaoDireto(memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") {
     try {
@@ -1676,6 +1766,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       abrirCriacao: (c: ComandoCriacao) => setCriando(c),
       mudarSituacao: (id: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
+      alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
     }),
     [alteraveis, alteracoesLocais]
   );

@@ -9,7 +9,7 @@
  */
 import crypto from "node:crypto";
 import type { MemoAlteracaoResponse, MemoAlteravelResponse } from "@mymemory/shared";
-import { normalizarDataParaIso } from "@mymemory/shared";
+import { normalizarDataParaIso, toParamName } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { config } from "../config.js";
@@ -292,7 +292,10 @@ export async function alterarMemo(input: {
   const dados = { ...memo.dados };
   const mudancas: { campo: string; antes: string; depois: string }[] = [];
   for (const [nome, valorBruto] of Object.entries(input.campos)) {
-    const def = cat.campos.find((c) => norm(c.nome) === norm(nome));
+    // Pelo nome do campo, ou pelo nome do parâmetro da consulta (a tela da resposta só conhece este)
+    const def =
+      cat.campos.find((c) => norm(c.nome) === norm(nome)) ??
+      cat.campos.find((c) => toParamName(c.nome) === toParamName(nome));
     if (!def) continue;
     const novo = valorParaGravar(String(valorBruto ?? ""), def.tipo);
     const chave = chaveDoCampo(dados, def.nome) ?? def.nome;
