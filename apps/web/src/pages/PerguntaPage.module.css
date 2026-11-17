@@ -2225,3 +2225,59 @@
   margin: 0.45rem 0 0;
   color: var(--mm-text);
 }
+
+/* ── Marcador de estado por item da lista ───────────────────────────────────────────── */
+.listaItensMarcados {
+  list-style: none;
+  margin: 0.45rem 0 0;
+  padding: 0;
+}
+
+.itemLinha {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  border-bottom: 1px solid var(--mm-border);
+  color: var(--mm-text);
+}
+
+.itemLinha:last-child {
+  border-bottom: none;
+}
+
+.itemConcluido {
+  color: var(--mm-muted);
+  text-decoration: line-through;
+}
+
+.itemCancelado {
+  color: var(--mm-muted);
+  text-decoration: line-through;
+  opacity: 0.7;
+}
+
+.marcador {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  border-radius: 50%;
+  border: 1.5px solid var(--mm-border);
+  background: var(--mm-card);
+  color: var(--mm-primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.marcador:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.marcadorMenu {
+  display: flex;
+  gap: 0.3rem;
+  flex: none;
+}
