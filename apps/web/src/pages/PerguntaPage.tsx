@@ -17,7 +17,7 @@ import type {
   PerguntaChipValor,
 } from "@mymemory/shared";
 import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
-import type { ComandoAlteracao, MemoAlteracaoResponse } from "@mymemory/shared";
+import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -26,6 +26,7 @@ import { MemoFilePreviewModal } from "../components/MemoFilePreviewModal";
 import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
 import { MemoAlteracaoCartao } from "../components/MemoAlteracaoCartao";
+import { MemoNovoCartao } from "../components/MemoNovoCartao";
 import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -456,8 +457,10 @@ interface AlteracaoCtxValor {
   alteraveis: Set<number>;
   locais: Record<number, Record<string, string>>;
   abrir: (memoId: number, propostos?: Record<string, string>) => void;
+  /** Reabre o cartão de memo novo de um pedido de criação. */
+  abrirCriacao: (c: ComandoCriacao) => void;
 }
-const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {} });
+const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {}, abrirCriacao: () => {} });
 
 /** Valor alterado nesta tela para a coluna (nome do campo ou o alias da Query padrão). */
 function valorLocal(locais: Record<string, string> | undefined, col: string): string | undefined {
@@ -563,6 +566,17 @@ function ComandoPropostas({ comando }: { comando: ComandoAlteracao | undefined }
         </li>
       ))}
     </ul>
+  );
+}
+
+/** Pedido de criação: botão para (re)abrir o cartão do registro novo. */
+function CriacaoBotao({ criacao }: { criacao: ComandoCriacao | undefined }) {
+  const { abrirCriacao } = useContext(AlteracaoCtx);
+  if (!criacao) return null;
+  return (
+    <button type="button" className={styles.refazerBtn} onClick={() => abrirCriacao(criacao)}>
+      Revisar e salvar o registro novo
+    </button>
   );
 }
 
@@ -910,7 +924,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [alterandoMemoId, setAlterandoMemoId] = useState<number | null>(null);
   /** Valores propostos por um comando do Perguntar para o cartão aberto. */
   const [propostosAbertos, setPropostosAbertos] = useState<Record<string, string> | undefined>(undefined);
-  const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number } | null>(null);
+  const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number; criadoId?: number } | null>(null);
+  /** Pedido de criação aberto no cartão de memo novo. */
+  const [criando, setCriando] = useState<ComandoCriacao | null>(null);
   const idsVerificadosRef = useRef<Set<number>>(new Set());
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
   const [memoEditMode, setMemoEditMode] = useState(false);
@@ -1325,6 +1341,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
       if (res.comando) tratarComando(res.comando);
+      if (res.criacao) setCriando(res.criacao);
       setHistorico((prev) => [
         ...prev,
         {
@@ -1396,6 +1413,18 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
 
   async function desfazerAlteracao() {
     const aviso = avisoAlteracao;
+    if (aviso?.criadoId) {
+      // Desfazer de uma criação: exclui o memo recém-criado (exclusão lógica)
+      const id = aviso.criadoId;
+      setAvisoAlteracao(null);
+      try {
+        await apiDeleteJson(`/api/memos/${id}`);
+        setAvisoAlteracao({ texto: "Registro desfeito.", lote: null, memoId: id });
+      } catch (e) {
+        setAvisoAlteracao({ texto: `Não foi possível desfazer: ${e instanceof Error ? e.message : String(e)}`, lote: null, memoId: id });
+      }
+      return;
+    }
     if (!aviso?.lote) return;
     setAvisoAlteracao(null);
     try {
@@ -1408,7 +1437,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
   const alteracaoCtx = useMemo<AlteracaoCtxValor>(
-    () => ({ alteraveis, locais: alteracoesLocais, abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); } }),
+    () => ({
+      alteraveis,
+      locais: alteracoesLocais,
+      abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); },
+      abrirCriacao: (c: ComandoCriacao) => setCriando(c),
+    }),
     [alteraveis, alteracoesLocais]
   );
 
@@ -1947,10 +1981,20 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
           }}
         />
       ) : null}
+      {criando ? (
+        <MemoNovoCartao
+          criacao={criando}
+          onFechar={() => setCriando(null)}
+          onCriado={(memo, texto) => {
+            setCriando(null);
+            setAvisoAlteracao({ texto, lote: null, memoId: memo.id, criadoId: memo.id });
+          }}
+        />
+      ) : null}
       {avisoAlteracao ? (
         <div className={styles.avisoAlteracao} role="status">
           <span>{avisoAlteracao.texto}</span>
-          {avisoAlteracao.lote ? (
+          {avisoAlteracao.lote || avisoAlteracao.criadoId ? (
             <button type="button" className={styles.avisoAlteracaoBtn} onClick={() => void desfazerAlteracao()}>
               ↶ Desfazer
             </button>
@@ -2489,6 +2533,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     );
                   })()}
                   <ComandoPropostas comando={r.comando} />
+                  <CriacaoBotao criacao={r.criacao} />
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
