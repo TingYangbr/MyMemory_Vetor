@@ -435,7 +435,14 @@ interface TabelaEstruturadaProps {
 /** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
 function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   const grafico = useMemo(() => buildDadosGrafico(props.dados, props.pergunta ?? ""), [props.dados, props.pergunta]);
+  // Campo do tipo lista (valor com várias linhas): mostra primeiro a lista, a tabela fica atrás de um botão
+  const colLista = useMemo(
+    () => props.dados.colunas.find((c) => props.dados.linhas.some((l) => typeof l[c] === "string" && (l[c] as string).includes("\n"))) ?? null,
+    [props.dados]
+  );
+  const [verTabela, setVerTabela] = useState(false);
   if (!props.dados.totalLinhas) return null;
+  if (colLista && !verTabela) return <VisaoLista dados={props.dados} colLista={colLista} onVerTabela={() => setVerTabela(true)} />;
   if (!grafico) return <TabelaEstruturada {...props} />;
   return (
     <div className={styles.chartTableRow}>
@@ -459,8 +466,82 @@ interface AlteracaoCtxValor {
   abrir: (memoId: number, propostos?: Record<string, string>) => void;
   /** Reabre o cartão de memo novo de um pedido de criação. */
   abrirCriacao: (c: ComandoCriacao) => void;
+  /** Muda a situação do memo direto da resposta (ex.: "Concluir lista"), com aviso e Desfazer. */
+  mudarSituacao: (memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void;
 }
-const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {}, abrirCriacao: () => {} });
+const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {}, abrirCriacao: () => {}, mudarSituacao: () => {} });
+
+/** Colunas técnicas que não entram no título do cartão da lista. */
+const COLUNAS_FORA_DO_TITULO = new Set(["id", "mediatext", "mediatype", "mediafileurl", "attachmentdisplayname", "keywords", "createdat", "userid", "groupid", "category"]);
+
+/**
+ * Visão de lista: um cartão por registro, com o título (os outros campos), os itens um por linha e as
+ * ações (✎ alterar, ✓ concluir). A tabela continua disponível em "ver como tabela".
+ */
+function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultadoEstruturado; colLista: string; onVerTabela: () => void }) {
+  const { alteraveis, locais, abrir, mudarSituacao } = useContext(AlteracaoCtx);
+  const colTitulo = dados.colunas.filter(
+    (c) => c !== colLista && !COLUNAS_FORA_DO_TITULO.has(c.toLowerCase()) && !/situa/i.test(toParamName(c))
+  );
+  return (
+    <div className={styles.listaCards}>
+      {dados.linhas.map((linha, i) => {
+        const id = linha["id"] != null ? Number(linha["id"]) : null;
+        const local = id != null ? locais[id] : undefined;
+        const valor = (col: string) => {
+          const l = valorLocal(local, col);
+          return l !== undefined ? l : linha[col];
+        };
+        const itens = String(valor(colLista) ?? "")
+          .split(/\r?\n/)
+          .map((x) => x.trim())
+          .filter(Boolean);
+        const partes = colTitulo
+          .map((c) => [c, valor(c)] as const)
+          .filter(([, v]) => v != null && String(v).trim() !== "")
+          .map(([c, v]) => textoCelula(c, v));
+        const situacaoCol = dados.colunas.find((c) => /situa/i.test(toParamName(c)));
+        const encerrada = linhaEncerrada(local) || (situacaoCol ? situacaoEncerrada(String(valor(situacaoCol) ?? "")) : false);
+        const podeAlterar = id != null && alteraveis.has(id);
+        return (
+          <div key={id ?? i} className={`${styles.listaCard}${encerrada ? ` ${styles.listaCardEncerrada}` : ""}`}>
+            <div className={styles.listaTopo}>
+              <div>
+                <span className={styles.listaTitulo}>{partes[0] ?? "Lista"}</span>
+                {partes.length > 1 ? <span className={styles.listaSub}>{partes.slice(1).join(" · ")}</span> : null}
+                {encerrada ? <span className={styles.listaSub}>· encerrada</span> : null}
+              </div>
+              {podeAlterar ? (
+                <div className={styles.listaAcoes}>
+                  <button type="button" className={styles.refazerBtn} onClick={() => abrir(id!)} title="Alterar a lista">
+                    ✎ Alterar
+                  </button>
+                  {!encerrada ? (
+                    <button type="button" className={styles.refazerBtn} onClick={() => mudarSituacao(id!, "Concluído")} title="Marcar a lista como concluída">
+                      ✓ Concluir
+                    </button>
+                  ) : null}
+                </div>
+              ) : null}
+            </div>
+            {itens.length ? (
+              <ul className={styles.listaItens}>
+                {itens.map((it, k) => (
+                  <li key={k}>{it}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className={styles.listaSub}>Sem itens.</p>
+            )}
+          </div>
+        );
+      })}
+      <button type="button" className={styles.listaVerTabela} onClick={onVerTabela}>
+        ver como tabela ▸
+      </button>
+    </div>
+  );
+}
 
 /** Valor alterado nesta tela para a coluna (nome do campo ou o alias da Query padrão). */
 function valorLocal(locais: Record<string, string> | undefined, col: string): string | undefined {
@@ -1423,6 +1504,18 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...r.campos } }));
   }
 
+  /** Situação mudada direto da resposta (ex.: "✓ Concluir" na visão de lista), com aviso e Desfazer. */
+  async function mudarSituacaoDireto(memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") {
+    try {
+      const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/${memoId}/situacao`, { situacao });
+      aplicarAlteracaoLocal(memoId, r);
+      const texto = situacao === "Concluído" ? "Marcado como concluído." : situacao === "Cancelado" ? "Marcado como cancelado." : "Reativado.";
+      setAvisoAlteracao({ texto, lote: r.lote, memoId });
+    } catch (e) {
+      setAvisoAlteracao({ texto: `Não foi possível alterar: ${e instanceof Error ? e.message : String(e)}`, lote: null, memoId });
+    }
+  }
+
   /** Comando de alteração: gravado → aviso com Desfazer; pede confirmação → abre o cartão com a proposta. */
   function tratarComando(cmd: ComandoAlteracao) {
     const ids = (cmd.candidatos ?? []).map((c) => c.memoId);
@@ -1469,6 +1562,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       locais: alteracoesLocais,
       abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); },
       abrirCriacao: (c: ComandoCriacao) => setCriando(c),
+      mudarSituacao: (id: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
     }),
     [alteraveis, alteracoesLocais]
   );

@@ -2141,3 +2141,64 @@
   font-size: 0.9rem;
 }
 .memoDeleteConfirmBtns { display: flex; gap: 8px; }
+
+/* ── Visão de lista: resposta com campo do tipo lista (um item por linha) ─────────────── */
+.listaCards {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 0.75rem;
+}
+
+.listaCard {
+  border: 1.5px solid var(--mm-border);
+  border-radius: 12px;
+  background: var(--mm-card);
+  padding: 0.7rem 0.9rem;
+}
+
+.listaCardEncerrada {
+  opacity: 0.6;
+}
+
+.listaTopo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.listaTitulo {
+  font-weight: 600;
+  color: var(--mm-text);
+}
+
+.listaSub {
+  color: var(--mm-muted);
+  font-size: 0.85rem;
+  margin-left: 0.4rem;
+}
+
+.listaAcoes {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.listaItens {
+  margin: 0.45rem 0 0;
+  padding-left: 1.2rem;
+  color: var(--mm-text);
+  line-height: 1.6;
+}
+
+.listaVerTabela {
+  margin-top: 0.3rem;
+  align-self: flex-end;
+  background: none;
+  border: none;
+  color: var(--mm-accent);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+}
