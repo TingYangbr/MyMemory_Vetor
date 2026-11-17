@@ -1118,7 +1118,8 @@ export interface ComandoAlteracaoCandidato {
   resumo: string;
   /** Campo → valor novo proposto (pode incluir o campo de situação). */
   propostos: Record<string, string>;
-  mudancas: { campo: string; antes: string; depois: string }[];
+  /** `texto`: a mudança dita para a pessoa (em listas, só o que entrou e o que saiu). */
+  mudancas: { campo: string; antes: string; depois: string; texto?: string }[];
 }
 
 /**

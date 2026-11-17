@@ -74,6 +74,63 @@ function comoGravado(valor: string, tipo: string): string {
   return v;
 }
 
+/** O item da linha corresponde ao nome dito? (sem acento, sem maiúsculas, plural simples) */
+function linhaCasa(linha: string, termo: string): boolean {
+  const t = norm(termo);
+  if (!t) return false;
+  const l = norm(linha);
+  return l.includes(t) || (t.endsWith("s") && t.length > 3 && l.includes(t.slice(0, -1)));
+}
+
+/**
+ * Aplica as operações de um comando sobre um campo do tipo lista (um item por linha):
+ * remover tira as linhas do item; trocar substitui a linha do item (ou acrescenta, se não houver);
+ * acrescentar põe no fim, sem repetir uma linha igual. Os outros itens ficam como estão.
+ */
+export function aplicarOperacoesLista(atual: string, ops: Record<string, unknown>): string {
+  const lista = (x: unknown): unknown[] => (Array.isArray(x) ? x : x == null ? [] : [x]);
+  let linhas = atual
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  for (const r of lista(ops.remover)) {
+    const termo = String(r ?? "");
+    linhas = linhas.filter((l) => !linhaCasa(l, termo));
+  }
+  for (const tr of lista(ops.trocar)) {
+    if (!tr || typeof tr !== "object") continue;
+    const de = String((tr as Record<string, unknown>).de ?? "");
+    const para = String((tr as Record<string, unknown>).para ?? "").trim();
+    if (!de || !para) continue;
+    const i = linhas.findIndex((l) => linhaCasa(l, de));
+    if (i >= 0) linhas[i] = para;
+    else linhas.push(para);
+  }
+  for (const a of lista(ops.acrescentar)) {
+    const item = String(a ?? "").trim();
+    if (item && !linhas.some((l) => norm(l) === norm(item))) linhas.push(item);
+  }
+  return linhas.join("\n");
+}
+
+/**
+ * A mudança dita para a pessoa. Em campo do tipo lista não repete a lista inteira (antes → depois
+ * ficava parecendo itens repetidos): diz só o que entrou e o que saiu.
+ */
+function textoMudanca(campo: string, antes: string, depois: string, tipo: string): string {
+  if (tipo !== "lista") return `${campo}: ${antes || "(vazio)"} → ${depois || "(vazio)"}`;
+  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const a = linhas(antes);
+  const d = linhas(depois);
+  const entrou = d.filter((x) => !a.some((y) => norm(y) === norm(x)));
+  const saiu = a.filter((x) => !d.some((y) => norm(y) === norm(x)));
+  const partes = [
+    ...(entrou.length ? [`entra ${entrou.join(", ")}`] : []),
+    ...(saiu.length ? [`sai ${saiu.join(", ")}`] : []),
+  ];
+  return `${campo}: ${partes.join("; ") || "ordem dos itens"}`;
+}
+
 function hojeTexto(): string {
   const d = new Date();
   const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -132,7 +189,7 @@ const SYSTEM = [
   "- Datas: formato AAAA-MM-DD. Datas relativas (amanhã, quinta, semana que vem) contam a partir da data de hoje. Horas: HH:MM.",
   "- Adiar ou remarcar muda a data e/ou a hora; mantenha o resto.",
   "- Cancelar, concluir ou reativar: use o campo de situação da categoria com o valor Cancelado, Concluído ou Ativo.",
-  "- Campos do tipo lista: devolva a lista inteira atualizada, um item por linha. Para acrescentar, mantenha os itens que já existem e inclua os novos; para tirar, remova a linha do item.",
+  '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Inclua só as chaves necessárias.',
   "- motivo: uma frase curta explicando a escolha.",
 ].join("\n");
 
@@ -220,15 +277,20 @@ export async function executarComandoAlteracao(input: {
     const brutos = mudancasIa[String(id)];
     const campos = brutos && typeof brutos === "object" ? (brutos as Record<string, unknown>) : {};
     const propostos: Record<string, string> = {};
-    const mudancas: { campo: string; antes: string; depois: string }[] = [];
+    const mudancas: { campo: string; antes: string; depois: string; texto: string }[] = [];
     for (const [nome, valorBruto] of Object.entries(campos)) {
       const def = cat.campos.find((f) => f.isActive === 1 && norm(f.name) === norm(nome));
       if (!def || valorBruto == null) continue;
-      const novo = comoGravado(String(valorBruto), def.tipo);
       const antes = valorAtual(cand.dados, def.name);
+      // Lista: a IA devolve operações (acrescentar, remover, trocar), aplicadas aqui por regra,
+      // para os itens que o comando não menciona nunca serem perdidos ou duplicados
+      const novo =
+        def.tipo === "lista" && typeof valorBruto === "object" && !Array.isArray(valorBruto)
+          ? aplicarOperacoesLista(antes, valorBruto as Record<string, unknown>)
+          : comoGravado(String(valorBruto), def.tipo);
       if (norm(novo) === norm(antes)) continue;
       propostos[def.name] = novo;
-      mudancas.push({ campo: def.name, antes, depois: novo });
+      mudancas.push({ campo: def.name, antes, depois: novo, texto: textoMudanca(def.name, antes, novo, def.tipo) });
     }
     if (mudancas.length) {
       propostas.push({ memoId: id, categoria: cand.categoria, resumo: cand.resumo, propostos, mudancas });
@@ -246,7 +308,7 @@ export async function executarComandoAlteracao(input: {
   }
 
   const descreve = (p: ComandoAlteracaoCandidato) =>
-    p.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ");
+    p.mudancas.map((m) => m.texto ?? `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ");
   const usados = propostas.map((p) => porId.get(p.memoId)!);
 
   // Vários alvos, ou ação em lote: sempre o usuário escolhe ou confirma cada um
@@ -295,9 +357,7 @@ export async function executarComandoAlteracao(input: {
       costUsd,
     };
   }
-  const feitas = r.mudancas.length
-    ? r.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")
-    : "nada mudou";
+  const feitas = r.mudancas.length ? descreve(unica) : "nada mudou";
   const msg = `Alterei ${unica.categoria} #${unica.memoId}: ${feitas}.`;
   return {
     resposta: resposta(msg, usados),
