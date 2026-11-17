@@ -170,7 +170,7 @@ export async function executarComandoAlteracao(input: {
     confianca_estimada: usados.length ? 0.8 : 0,
   });
   if (!candidatos.length) {
-    const msg = "Não encontrei um registro ativo que você possa alterar para esse pedido.";
+    const msg = "Não encontrei um registro ativo que você possa alterar para esse pedido. Se é um registro novo (por exemplo, a primeira lista), crie pelo Catalogar.";
     return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd: 0 };
   }
 
