@@ -27,6 +27,7 @@ import {
 } from "./perfilPerguntaService.js";
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
+import { prepararCriacao } from "./comandoCriacaoService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -260,6 +261,7 @@ export async function perguntarMemory(input: {
   apiCost: number;
   aguardaFase2?: boolean;
   comando?: import("@mymemory/shared").ComandoAlteracao;
+  criacao?: import("@mymemory/shared").ComandoCriacao;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -314,20 +316,31 @@ export async function perguntarMemory(input: {
       limitacoes: [limitacao],
       confianca_estimada: 0,
     });
-    if (classificacao.acao === "criar") {
-      return {
-        resposta: respostaComando(
-          "Isto parece um registro novo. Por enquanto, registre pelo Catalogar (botão + Catalogar); criar pelo Perguntar vem na próxima etapa. Se era uma pergunta, use ↺ Refazer.",
-          "Criação pelo Perguntar ainda não disponível."
-        ),
-        classificacao,
-        apiCost: totalCost,
-      };
-    }
     // Perfil de acesso ligado: só as categorias que o perfil libera
     const efetivo = input.perfil?.efetivo;
     const liberadas = efetivo && !efetivo.todas ? new Set(efetivo.categoriasPermitidas) : null;
     const cats = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
+    if (classificacao.acao === "criar") {
+      // Mesmo processamento do Catalogar; nada é gravado até o usuário salvar no cartão.
+      // O custo do processamento vai no memo (como no Catalogar), não na pergunta.
+      const criacao = await withSpan("Registro novo", () => prepararCriacao({
+        texto: input.pergunta,
+        userId: input.userId,
+        isAdmin: input.isAdmin,
+        groupId: input.groupId,
+        categories: cats,
+        classificacao,
+      }));
+      return {
+        resposta: respostaComando(
+          `${criacao.mensagem} Se era uma pergunta, use ↺ Refazer.`,
+          "Registro novo ainda não gravado: confira no cartão e salve."
+        ),
+        classificacao,
+        apiCost: totalCost,
+        criacao,
+      };
+    }
     const cmd = await withSpan("Comando de alteração", () => executarComandoAlteracao({
       texto: input.pergunta,
       userId: input.userId,
