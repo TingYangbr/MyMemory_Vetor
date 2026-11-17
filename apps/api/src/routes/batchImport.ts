@@ -65,6 +65,23 @@ const PREVIEW_INLINE_EXT = new Set([
 ]);
 
 const MAX_BATCH_FILES = 50;
+/** Um arquivo por requisição; o proxy aceita até 110 MB. */
+const MAX_ARQUIVO_NAVEGADOR = 100 * 1024 * 1024;
+
+const verifyNavegadorBody = z.object({
+  provider: z.enum(["LOCAL", "REDE"]),
+  groupId: z.number().int().positive().nullable().optional(),
+  files: z
+    .array(z.object({ originalFileName: z.string().min(1).max(1024), chave: z.string().min(1).max(2048), sizeBytes: z.number().int().min(0) }))
+    .max(1000),
+});
+
+const iniciarNavegadorBody = z.object({
+  provider: z.enum(["LOCAL", "REDE"]),
+  iaLevel: z.enum(["semIA", "basico", "completo"]),
+  groupId: z.number().int().positive().nullable().optional(),
+  nomes: z.array(z.string().min(1).max(1024)).min(1).max(MAX_BATCH_FILES),
+});
 
 // ── Jobs em segundo plano ─────────────────────────────────────────────────────
 // O Processar baixa, extrai (OCR/IA) e grava arquivo por arquivo; com 10+ arquivos passa fácil dos
@@ -82,6 +99,20 @@ interface BatchJob {
   results: BatchProcessResult[];
   finished: boolean;
   finishedAt: number | null;
+  /** Envio pelo navegador: os arquivos chegam um a um e entram nesta fila. */
+  navegador?: JobNavegador;
+}
+
+interface JobNavegador {
+  provider: "LOCAL" | "REDE";
+  iaLevel: "semIA" | "basico" | "completo";
+  groupId: number | null;
+  isAdmin: boolean;
+  nomes: string[];
+  fila: { name: string; run: () => Promise<BatchProcessResult> }[];
+  recebidos: number;
+  rodando: boolean;
+  ultimoEnvio: number;
 }
 
 const batchJobs = new Map<string, BatchJob>();
@@ -113,23 +144,85 @@ function startBatchJob(
   batchJobs.set(job.id, job);
 
   void (async () => {
-    for (const item of items) {
-      let result: BatchProcessResult;
-      try {
-        result = await item.run();
-      } catch (err) {
-        result = { originalFileName: item.name, ok: false, error: err instanceof Error ? err.message : String(err) };
-      }
-      job.results.push(result);
-      job.processed++;
-      if (result.ok) job.totalCreated++;
-      else job.totalErrors++;
-    }
+    for (const item of items) await executarItem(job, item);
     job.finished = true;
     job.finishedAt = Date.now();
   })();
 
   return job;
+}
+
+async function executarItem(job: BatchJob, item: { name: string; run: () => Promise<BatchProcessResult> }): Promise<void> {
+  let result: BatchProcessResult;
+  try {
+    result = await item.run();
+  } catch (err) {
+    result = { originalFileName: item.name, ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+  job.results.push(result);
+  job.processed++;
+  if (result.ok) job.totalCreated++;
+  else job.totalErrors++;
+}
+
+// ── Envio pelo navegador (Disco local / Rede local) ───────────────────────────
+// O servidor não enxerga o computador nem a rede do usuário: a tela escolhe a pasta e envia os
+// arquivos um por requisição (cada um cabe no limite do proxy). O arquivo é lido, vira memo e é
+// descartado; o memo não guarda arquivo nem caminho.
+
+/** Sem novo arquivo por este tempo (tela fechada no meio do envio), o lote é encerrado. */
+const NAVEGADOR_ESPERA_MS = 3 * 60 * 1000;
+/** Quantos arquivos podem esperar na fila antes de a tela mandar o próximo. */
+const NAVEGADOR_FILA_MAX = 2;
+
+function criarJobNavegador(userId: number, ctx: Omit<JobNavegador, "fila" | "recebidos" | "rodando" | "ultimoEnvio">): BatchJob {
+  pruneBatchJobs();
+  const job: BatchJob = {
+    id: randomUUID(),
+    userId,
+    totalRequested: ctx.nomes.length,
+    processed: 0,
+    totalCreated: 0,
+    totalErrors: 0,
+    results: [],
+    finished: false,
+    finishedAt: null,
+    navegador: { ...ctx, fila: [], recebidos: 0, rodando: false, ultimoEnvio: Date.now() },
+  };
+  batchJobs.set(job.id, job);
+  return job;
+}
+
+function encerrarJob(job: BatchJob): void {
+  job.finished = true;
+  job.finishedAt = Date.now();
+}
+
+async function drenarFila(job: BatchJob): Promise<void> {
+  const nav = job.navegador!;
+  if (nav.rodando) return;
+  nav.rodando = true;
+  try {
+    while (nav.fila.length) await executarItem(job, nav.fila.shift()!);
+  } finally {
+    nav.rodando = false;
+  }
+  if (nav.recebidos >= job.totalRequested) encerrarJob(job);
+}
+
+/** Tela fechada no meio do envio: marca o que não chegou e encerra o lote. */
+function verificarAbandono(job: BatchJob): void {
+  const nav = job.navegador;
+  if (!nav || job.finished || nav.rodando || nav.fila.length) return;
+  if (Date.now() - nav.ultimoEnvio < NAVEGADOR_ESPERA_MS) return;
+  const feitos = new Set(job.results.map((r) => r.originalFileName));
+  for (const nome of nav.nomes) {
+    if (feitos.has(nome)) continue;
+    job.results.push({ originalFileName: nome, ok: false, error: "Não chegou: a tela foi fechada antes de enviar este arquivo." });
+    job.processed++;
+    job.totalErrors++;
+  }
+  encerrarJob(job);
 }
 
 function jobStatus(job: BatchJob): BatchProcessJobStatus {
@@ -368,7 +461,89 @@ const plugin: FastifyPluginAsync = async (app) => {
     const { jobId } = req.params as { jobId: string };
     const job = batchJobs.get(jobId);
     if (!job || job.userId !== userId) return reply.code(404).send({ error: "job_not_found" });
+    verificarAbandono(job);
     return jobStatus(job);
+  });
+
+  /**
+   * Disco local / Rede local pelo navegador — passo "conferir": só nomes e tamanhos (nada é enviado).
+   * `fullPath` é a chave da tela (caminho relativo dentro da pasta escolhida); não é guardado.
+   */
+  app.post("/api/memos/batch/verify/navegador", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const parsed = verifyNavegadorBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    const { provider, groupId, files } = parsed.data;
+    const result = await verifyBatchFiles({
+      userId,
+      groupId: groupId ?? null,
+      files: files.map((f) => ({ originalFileName: path.basename(f.originalFileName), fullPath: f.chave, sizeBytes: f.sizeBytes })),
+      provider,
+      origemNavegador: true,
+    });
+    return { ...result, groupId: groupId ?? null };
+  });
+
+  /** Abre um lote do navegador: a tela informa os nomes e depois envia os arquivos um a um. */
+  app.post("/api/memos/batch/navegador/iniciar", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const isAdmin = await getUserIsAdmin(userId);
+    const parsed = iniciarNavegadorBody.safeParse(req.body);
+    if (!parsed.success) return reply.code(400).send({ error: "invalid_body", details: parsed.error.flatten() });
+    const { provider, iaLevel, groupId, nomes } = parsed.data;
+    if (groupId != null) {
+      try {
+        await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
+      } catch {
+        return reply.code(403).send({ error: "forbidden_group" });
+      }
+    }
+    const job = criarJobNavegador(userId, { provider, iaLevel, groupId: groupId ?? null, isAdmin, nomes: nomes.slice(0, MAX_BATCH_FILES) });
+    return reply.code(202).send({ jobId: job.id, totalRequested: job.totalRequested } satisfies BatchProcessStartResponse);
+  });
+
+  /**
+   * Um arquivo do lote do navegador. Lê em memória, entra na fila e é descartado depois de virar memo.
+   * Responde na hora; `pendentes` diz quantos ainda esperam a vez (a tela segura o próximo envio).
+   */
+  app.post("/api/memos/batch/navegador/:jobId/arquivo", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const { jobId } = req.params as { jobId: string };
+    const job = batchJobs.get(jobId);
+    const nav = job?.navegador;
+    if (!job || !nav || job.userId !== userId) return reply.code(404).send({ error: "job_not_found" });
+    if (job.finished || nav.recebidos >= job.totalRequested) return reply.code(409).send({ error: "job_closed" });
+
+    const part = await req.file({ limits: { fileSize: MAX_ARQUIVO_NAVEGADOR, files: 1 } });
+    if (!part) return reply.code(400).send({ error: "no_file" });
+    const buffer = await part.toBuffer().catch(() => null);
+    const nome = path.basename(part.filename || "arquivo");
+    nav.recebidos++;
+    nav.ultimoEnvio = Date.now();
+    if (!buffer || part.file.truncated) {
+      nav.fila.push({ name: nome, run: async () => ({ originalFileName: nome, ok: false, error: "Arquivo grande demais (máx. 100 MB)." }) });
+    } else {
+      nav.fila.push({
+        name: nome,
+        run: () =>
+          processBatchFileFromBuffer({
+            userId,
+            groupId: nav.groupId,
+            isAdmin: nav.isAdmin,
+            originalFileName: nome,
+            buffer,
+            sizeBytes: buffer.length,
+            provider: nav.provider,
+            iaLevel: nav.iaLevel,
+            externalFileRef: null,
+          }),
+      });
+    }
+    void drenarFila(job);
+    return reply.code(202).send({ recebidos: nav.recebidos, pendentes: nav.fila.length + (nav.rodando ? 1 : 0), filaMax: NAVEGADOR_FILA_MAX });
   });
 
   /**
@@ -461,5 +636,6 @@ import {
   estimateBatchCreditCost,
 } from "../services/batchImportService.js";
 import { processBatchFileFromBuffer } from "../services/batchImportBufferService.js";
+import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 
 export default plugin;

@@ -191,6 +191,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     pessoal: z.boolean().optional(),
     campoDono: z.string().max(255).nullable().optional(),
     atualizavel: z.boolean().optional(),
+    confirmarAlteracao: z.boolean().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -214,6 +215,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.pessoal !== undefined ? { pessoal: parsed.data.pessoal } : {}),
         ...(parsed.data.campoDono !== undefined ? { campoDono: parsed.data.campoDono } : {}),
         ...(parsed.data.atualizavel !== undefined ? { atualizavel: parsed.data.atualizavel } : {}),
+        ...(parsed.data.confirmarAlteracao !== undefined ? { confirmarAlteracao: parsed.data.confirmarAlteracao } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });
@@ -252,7 +254,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     isActive: z.number().int().min(0).max(1).optional(),
   });
 
-  const campoTipoEnum = z.enum(["text", "date", "number"]);
+  const campoTipoEnum = z.enum(["text", "date", "number", "lista"]);
 
   const createCampoBody = z.object({
     name: z.string().min(1).max(255),

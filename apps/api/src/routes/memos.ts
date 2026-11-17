@@ -1414,7 +1414,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
       if (msg === "forbidden" || msg === "forbidden_group" || msg === "group_not_found") {
-        return reply.code(403).send({ error: "forbidden" });
+        return reply.code(403).send({ error: "forbidden", message: mensagemSemPermissao(e) });
       }
       throw e;
     }
@@ -1438,7 +1438,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
-      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: "S? o autor pode ver/editar." });
+      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: mensagemSemPermissao(e) });
       if (msg === "forbidden_group" || msg === "group_not_found") {
         return reply.code(403).send({ error: "forbidden", message: "Sem acesso a este memo." });
       }
@@ -1478,7 +1478,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
-      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: "S? o autor pode editar." });
+      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: mensagemSemPermissao(e) });
       if (msg === "forbidden_group" || msg === "group_not_found") {
         return reply.code(403).send({ error: "forbidden", message: "Sem acesso a este memo." });
       }
@@ -1501,7 +1501,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
       if (msg === "not_found") return reply.code(404).send({ error: "not_found" });
-      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: "S? o autor pode excluir." });
+      if (msg === "forbidden") return reply.code(403).send({ error: "forbidden", message: "Só o autor do memo pode excluir." });
       if (msg === "forbidden_group" || msg === "group_not_found") {
         return reply.code(403).send({ error: "forbidden", message: "Sem acesso a este memo." });
       }
@@ -1509,5 +1509,12 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
   });
 };
+
+
+/** Mensagem do 403 da edição: diz de quem é o memo e quem pode editar (vem de assertMemoAuthorCanModify). */
+function mensagemSemPermissao(e: unknown): string {
+  const m = (e as { mensagemUsuario?: unknown } | null)?.mensagemUsuario;
+  return typeof m === "string" && m ? m : "Você não tem permissão para editar este memo.";
+}
 
 export default plugin;

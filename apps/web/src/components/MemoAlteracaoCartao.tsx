@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MemoAlteracaoResponse, MemoAlteravelCampo, MemoAlteravelResponse } from "@mymemory/shared";
-import { situacaoEncerrada } from "@mymemory/shared";
+import { normalizarDataParaIso, situacaoEncerrada } from "@mymemory/shared";
 import { apiGet, apiPostJson } from "../api";
 import { capturarFalaCurta, vozDisponivel, type CapturaVoz } from "../lib/vozCurta";
 import styles from "./MemoAlteracaoCartao.module.css";
@@ -22,6 +22,36 @@ function ajustarFalado(c: MemoAlteravelCampo, falado: string): string {
   return hh <= 23 && mm <= 59 ? `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}` : t;
 }
 
+/**
+ * Data nova que merece confirmação: não é data, já passou há mais de 30 dias ou fica a mais de 2 anos.
+ * Ex.: falar "16 de novembro de 2016" em vez de 2026 — sem isso o memo some das perguntas da semana.
+ */
+function avisoDataEstranha(c: MemoAlteravelCampo, novo: string): string | null {
+  if (c.tipo !== "date" || !novo.trim()) return null;
+  const iso = normalizarDataParaIso(novo);
+  if (!iso) return `${c.nome}: "${novo}" não parece uma data (use dd/mm/aaaa).`;
+  const [a, m, d] = iso.split("-");
+  const tela = `${d}/${m}/${a}`;
+  const hoje = new Date();
+  hoje.setHours(12, 0, 0, 0);
+  const dias = Math.round((new Date(`${iso}T12:00:00`).getTime() - hoje.getTime()) / 86_400_000);
+  const quanto = (n: number) => (n >= 365 ? `${Math.round(n / 365)} ano(s)` : n >= 60 ? `${Math.round(n / 30)} meses` : `${n} dias`);
+  if (dias < -30) return `${c.nome}: ${tela} já passou (há ${quanto(-dias)}).`;
+  if (dias > 730) return `${c.nome}: ${tela} fica daqui a ${quanto(dias)}.`;
+  return null;
+}
+
+const normNome = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+
+/** Valor de situação dito no comando ("cancelado", "concluida") → o valor fixo da categoria. */
+function situacaoCanonica(v: string): "Ativo" | "Concluído" | "Cancelado" | null {
+  const n = normNome(v);
+  if (n.startsWith("conclu")) return "Concluído";
+  if (n.startsWith("cancel")) return "Cancelado";
+  if (n.startsWith("ativ") || n.startsWith("reativ")) return "Ativo";
+  return null;
+}
+
 function mensagemErro(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   try {
@@ -38,19 +68,28 @@ function mensagemErro(e: unknown): string {
  */
 export function MemoAlteracaoCartao({
   memoId,
+  propostos,
   onFechar,
   onAlterado,
 }: {
   memoId: number;
+  /** Valores propostos por um comando do Perguntar (campo → valor novo); o cartão abre já com eles. */
+  propostos?: Record<string, string>;
   onFechar: () => void;
   onAlterado: (memoId: number, r: MemoAlteracaoResponse, texto: string) => void;
 }) {
   const [dados, setDados] = useState<MemoAlteravelResponse | null>(null);
   const [valores, setValores] = useState<Record<string, string>>({});
+  /** Campos que vieram preenchidos pelo comando (destacados com o valor anterior). */
+  const [propostosCampos, setPropostosCampos] = useState<Set<string>>(new Set());
+  const [situacaoProposta, setSituacaoProposta] = useState<"Ativo" | "Concluído" | "Cancelado" | null>(null);
+  const propostosKey = JSON.stringify(propostos ?? {});
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
   const [ouvindo, setOuvindo] = useState<string | null>(null);
   const [destaque, setDestaque] = useState<string | null>(null);
+  /** Avisos de data estranha mostrados; um segundo clique em Salvar confirma. */
+  const [avisosData, setAvisosData] = useState<string[] | null>(null);
   const capturaRef = useRef<CapturaVoz | null>(null);
   const comVoz = vozDisponivel();
 
@@ -60,14 +99,33 @@ export function MemoAlteracaoCartao({
       .then((r) => {
         if (!vivo) return;
         setDados(r);
-        setValores(Object.fromEntries(r.campos.map((c) => [c.nome, paraTela(c)])));
+        const base: Record<string, string> = Object.fromEntries(r.campos.map((c) => [c.nome, paraTela(c)]));
+        const marcados = new Set<string>();
+        let sit: "Ativo" | "Concluído" | "Cancelado" | null = null;
+        for (const [k, v] of Object.entries(JSON.parse(propostosKey) as Record<string, string>)) {
+          const alvo = normNome(k);
+          if (normNome(r.campoSituacao) === alvo) {
+            sit = situacaoCanonica(v);
+            continue;
+          }
+          const c = r.campos.find((x) => normNome(x.nome) === alvo);
+          if (!c) continue;
+          const tela = c.tipo === "date" ? paraTela({ ...c, valor: normalizarDataParaIso(v) ?? v }) : v;
+          if (tela.trim() !== (base[c.nome] ?? "").trim()) {
+            base[c.nome] = tela;
+            marcados.add(c.nome);
+          }
+        }
+        setValores(base);
+        setPropostosCampos(marcados);
+        setSituacaoProposta(sit && sit !== r.situacao ? sit : null);
       })
       .catch((e) => vivo && setErro(mensagemErro(e)));
     return () => {
       vivo = false;
       capturaRef.current?.parar();
     };
-  }, [memoId]);
+  }, [memoId, propostosKey]);
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && !salvando && onFechar();
@@ -109,6 +167,16 @@ export function MemoAlteracaoCartao({
     if (!Object.keys(mudados).length) {
       onFechar();
       return;
+    }
+    if (!avisosData) {
+      const avisos = dados.campos
+        .filter((c) => c.nome in mudados)
+        .map((c) => avisoDataEstranha(c, mudados[c.nome] ?? ""))
+        .filter((a): a is string => a != null);
+      if (avisos.length) {
+        setAvisosData(avisos);
+        return;
+      }
     }
     setSalvando(true);
     setErro(null);
@@ -157,6 +225,17 @@ export function MemoAlteracaoCartao({
 
         {dados ? (
           <>
+            {situacaoProposta ? (
+              <div className={styles.avisoData} role="status">
+                <div>Proposta: marcar como {situacaoProposta}.</div>
+                <button type="button" className={styles.acao} onClick={() => void mudarSituacao(situacaoProposta)} disabled={salvando}>
+                  Confirmar: {situacaoProposta}
+                </button>
+              </div>
+            ) : null}
+            {propostosCampos.size ? (
+              <p className={styles.dica}>Confira as mudanças propostas (em destaque) e salve.</p>
+            ) : null}
             <div className={styles.campos}>
               {dados.campos.map((c) => (
                 <div key={c.nome} className={styles.campo}>
@@ -164,15 +243,33 @@ export function MemoAlteracaoCartao({
                     {c.nome}
                   </label>
                   <div className={styles.linha}>
-                    <input
-                      id={`alt-${c.nome}`}
-                      className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome ? styles.inputDestaque : ""}`}
-                      value={valores[c.nome] ?? ""}
-                      placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
-                      onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}
-                      onKeyDown={(e) => e.key === "Enter" && void salvar()}
-                      disabled={salvando}
-                    />
+                    {c.tipo === "lista" ? (
+                      <textarea
+                        id={`alt-${c.nome}`}
+                        className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
+                        rows={Math.min(12, Math.max(3, (valores[c.nome] ?? "").split("\n").length + 1))}
+                        value={valores[c.nome] ?? ""}
+                        placeholder="um item por linha"
+                        onChange={(e) => {
+                          setValores((v) => ({ ...v, [c.nome]: e.target.value }));
+                          setAvisosData(null);
+                        }}
+                        disabled={salvando}
+                      />
+                    ) : (
+                      <input
+                        id={`alt-${c.nome}`}
+                        className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
+                        value={valores[c.nome] ?? ""}
+                        placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
+                        onChange={(e) => {
+                          setValores((v) => ({ ...v, [c.nome]: e.target.value }));
+                          setAvisosData(null);
+                        }}
+                        onKeyDown={(e) => e.key === "Enter" && void salvar()}
+                        disabled={salvando}
+                      />
+                    )}
                     {comVoz ? (
                       <button
                         type="button"
@@ -187,12 +284,23 @@ export function MemoAlteracaoCartao({
                     ) : null}
                   </div>
                   {ouvindo === c.nome ? <div className={styles.dica}>Ouvindo… pode falar.</div> : null}
+                  {propostosCampos.has(c.nome) ? (
+                    <div className={styles.dica}>Proposto pelo comando. Antes: {paraTela(c) || "(vazio)"}</div>
+                  ) : null}
                 </div>
               ))}
             </div>
             {erro ? <p className="mm-error">{erro}</p> : null}
+            {avisosData ? (
+              <div className={styles.avisoData} role="alert">
+                {avisosData.map((a) => (
+                  <div key={a}>⚠ {a}</div>
+                ))}
+                <div>Confira a data. Se estiver certa, clique em salvar de novo.</div>
+              </div>
+            ) : null}
             <button type="button" className={`mm-btn mm-btn--primary ${styles.salvar}`} onClick={() => void salvar()} disabled={salvando}>
-              {salvando ? "Salvando…" : "Salvar alterações"}
+              {salvando ? "Salvando…" : avisosData ? "Salvar mesmo assim" : "Salvar alterações"}
             </button>
             <div className={styles.acoes}>
               {encerrado ? (

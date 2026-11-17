@@ -185,6 +185,8 @@ export async function aplicarDonoPessoal(
 export interface MemoSemDono {
   id: number;
   category: string | null;
+  /** Assunto (título curto) do memo, quando houver. */
+  titulo: string | null;
   resumo: string;
   campo: string | null;
   valor: string | null;
@@ -196,7 +198,7 @@ export interface MemoSemDono {
 /** Memos do grupo com dono pendente (para a lista "Atribuir a"). */
 export async function listarMemosSemDono(groupId: number): Promise<MemoSemDono[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, category, mediatext, mediametadata, userid, createdat FROM memos
+    `SELECT id, category, NULLIF(titulo_curto, '') AS titulo, mediatext, mediametadata, userid, createdat FROM memos
      WHERE groupid = ? AND isactive = 1 AND mediametadata LIKE '%"donoPendente"%'
      ORDER BY createdat DESC LIMIT 200`,
     [groupId]
@@ -208,6 +210,7 @@ export async function listarMemosSemDono(groupId: number): Promise<MemoSemDono[]
     return [{
       id: Number(r.id),
       category: (r.category as string | null) ?? null,
+      titulo: (r.titulo as string | null) ?? null,
       resumo: texto.length > 140 ? `${texto.slice(0, 140)}…` : texto,
       campo: p.campo ?? null,
       valor: p.valor ?? null,

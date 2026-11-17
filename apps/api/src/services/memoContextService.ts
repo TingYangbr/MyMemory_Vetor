@@ -14,7 +14,10 @@ import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
 import { motivoSqlIsoladoProibido, pool, queryIsoladaPorGrupo } from "../db.js";
 import { motivoSqlErpCadastro } from "../lib/sqlErpSomenteLeitura.js";
 import {
+  gerarQueryAlteracoesMemos,
   gerarQueryPadraoMemos,
+  queryAlteracoesDescricao,
+  queryAlteracoesNome,
   SITUACOES_MEMO,
   queryPadraoDescricao,
   queryPadraoNome,
@@ -264,7 +267,7 @@ export async function loadMemoContextStructure(
 
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
-            atualizavel, campo_situacao AS "campoSituacao",
+            atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -308,7 +311,7 @@ export async function loadMemoContextStructure(
   let queryParamRows: RowDataPacket[] = [];
   try {
     const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, sqlgerado, isactive, createdat, updatedat
+      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, sqlgerado, autotipo, isactive, createdat, updatedat
        FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -385,6 +388,7 @@ export async function loadMemoContextStructure(
         conexaoPendente: Number(r.conexaoPendente) === 1,
         autoGerada: r.sqlGerado != null && String(r.sentencaSql).trim() === String(r.sqlGerado).trim(),
         autoEditada: r.sqlGerado != null && String(r.sentencaSql).trim() !== String(r.sqlGerado).trim(),
+        autoTipo: r.sqlGerado != null ? ((r.autotipo ?? r.autoTipo) === "alteracoes" ? "alteracoes" : "padrao") : null,
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
@@ -426,6 +430,7 @@ export async function loadMemoContextStructure(
     campoDono: (r.campoDono as string | null) ?? null,
     atualizavel: Number(r.atualizavel ?? 0) === 1,
     campoSituacao: (r.campoSituacao as string | null) ?? null,
+    confirmarAlteracao: Number(r.atualizavel ?? 0) === 1 && Number(r.confirmarAlteracao ?? 0) === 1,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -470,12 +475,13 @@ async function aplicarQueryPadraoGerada(
   queryId: number,
   gerada: { nome: string; sql: string; params: ReturnType<typeof gerarQueryPadraoMemos>["params"] },
   /** false = mantém o nome que o usuário deu à query */
-  renomear = true
+  renomear = true,
+  nomeQuery: (categoria: string) => string = queryPadraoNome
 ): Promise<void> {
   if (renomear) {
     await pool.query(
       `UPDATE queries_categoria SET nome = ?, sentencasql = ?, sqlgerado = ?, updatedat = NOW() WHERE id = ?`,
-      [queryPadraoNome(gerada.nome), gerada.sql, gerada.sql, queryId]
+      [nomeQuery(gerada.nome), gerada.sql, gerada.sql, queryId]
     );
   } else {
     await pool.query(
@@ -506,10 +512,12 @@ async function sincronizarQueryPadrao(categoryId: number): Promise<void> {
   try {
     const gerada = await gerarQueryPadraoDaCategoria(categoryId);
     if (!gerada) return;
-    const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, sentencasql, sqlgerado FROM queries_categoria WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+    const [todas] = await pool.query<RowDataPacket[]>(
+      `SELECT id, sentencasql, sqlgerado, autotipo FROM queries_categoria WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
       [categoryId]
     );
+    // A Consulta de alterações é mantida à parte (sincronizarQueryAlteracoes)
+    const qRows = todas.filter((q) => (q.autotipo ?? q.autoTipo) !== "alteracoes");
     const automatica = qRows.find((q) => q.sqlGerado != null);
     if (automatica) {
       const intacta = String(automatica.sentencaSql).trim() === String(automatica.sqlGerado).trim();
@@ -520,13 +528,66 @@ async function sincronizarQueryPadrao(categoryId: number): Promise<void> {
     }
     if (qRows.length > 0) return;
     const [ins] = await pool.query<{ id: number }[]>(
-      `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, isactive)
-       VALUES (?, ?, ?, ?, ?, NULL, 1) RETURNING id`,
+      `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, autotipo, conexaoid, isactive)
+       VALUES (?, ?, ?, ?, ?, 'padrao', NULL, 1) RETURNING id`,
       [categoryId, queryPadraoNome(gerada.nome), queryPadraoDescricao(gerada.nome), gerada.sql, gerada.sql]
     );
     await aplicarQueryPadraoGerada(ins[0].id, gerada);
   } catch (err) {
     console.error(`[queryPadrao] Falha ao sincronizar a categoria ${categoryId}:`, err instanceof Error ? err.message : err);
+  } finally {
+    await sincronizarQueryAlteracoes(categoryId);
+  }
+}
+
+/**
+ * Consulta de alterações (histórico de memo_alteracoes) das categorias atualizáveis, para o Perguntar
+ * responder "o que foi remarcado/cancelado". Mesmas regras da Query padrão:
+ *  - categoria atualizável e ativa sem a consulta -> cria;
+ *  - consulta automática (sentencasql = sqlgerado) -> regera se os campos ou o nome mudaram;
+ *  - editada à mão -> não toca;
+ *  - categoria deixou de ser atualizável (ou foi desativada) -> desativa a consulta automática.
+ */
+async function sincronizarQueryAlteracoes(categoryId: number): Promise<void> {
+  try {
+    const [catRows] = await pool.query<RowDataPacket[]>(
+      `SELECT name, isactive, atualizavel FROM categories WHERE id = ? LIMIT 1`,
+      [categoryId]
+    );
+    const cat = catRows[0];
+    const [qRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, sentencasql, sqlgerado FROM queries_categoria
+       WHERE categoryid = ? AND isactive = 1 AND autotipo = 'alteracoes' ORDER BY id ASC`,
+      [categoryId]
+    );
+    const atual = qRows[0];
+    const intacta = atual ? String(atual.sentencaSql).trim() === String(atual.sqlGerado ?? "").trim() : false;
+    const ativa = cat != null && Number(cat.isActive) === 1 && Number(cat.atualizavel ?? 0) === 1;
+    if (!ativa) {
+      if (atual && intacta) await pool.query(`UPDATE queries_categoria SET isactive = 0, updatedat = NOW() WHERE id = ?`, [atual.id]);
+      return;
+    }
+    const [campoRows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, name, tipo, normalizedterms, isactive FROM categorycampos
+       WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+      [categoryId]
+    );
+    const nome = String(cat.name);
+    const gerada = { nome, ...gerarQueryAlteracoesMemos(nome, campoRows as unknown as QueryPadraoCampo[]) };
+    if (atual) {
+      if (intacta && String(atual.sqlGerado) !== gerada.sql) {
+        await aplicarQueryPadraoGerada(atual.id as number, gerada, true, queryAlteracoesNome);
+      }
+      return;
+    }
+    const [ins] = await pool.query<{ id: number }[]>(
+      `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, autotipo, conexaoid, isactive)
+       VALUES (?, ?, ?, ?, ?, 'alteracoes', NULL, 1) RETURNING id`,
+      [categoryId, queryAlteracoesNome(nome), queryAlteracoesDescricao(nome), gerada.sql, gerada.sql]
+    );
+    await aplicarQueryPadraoGerada(ins[0].id, gerada, true, queryAlteracoesNome);
+  } catch (err) {
+    console.error(`[queryAlteracoes] Falha ao sincronizar a categoria ${categoryId}:`, err instanceof Error ? err.message : err);
   }
 }
 
@@ -569,6 +630,7 @@ export async function updateCategory(
     pessoal?: boolean;
     campoDono?: string | null;
     atualizavel?: boolean;
+    confirmarAlteracao?: boolean;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -616,6 +678,10 @@ export async function updateCategory(
       sets.push("campo_situacao = ?");
       vals.push(await garantirCampoSituacao(categoryId));
     }
+  }
+  if (patch.confirmarAlteracao !== undefined) {
+    sets.push("confirmar_alteracao = ?");
+    vals.push(patch.confirmarAlteracao ? 1 : 0);
   }
   if (patch.revisaoSempre !== undefined) {
     sets.push("revisao_sempre = ?");
@@ -739,7 +805,7 @@ export async function createCampo(
   input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
-  const tipo = input.tipo && ["text", "date", "number"].includes(input.tipo) ? input.tipo : "text";
+  const tipo = input.tipo && ["text", "date", "number", "lista"].includes(input.tipo) ? input.tipo : "text";
   const [rows] = await pool.query<{ id: number }[]>(
     `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
     [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
@@ -784,7 +850,7 @@ export async function updateCampo(
     sets.push("resolucaoNomeAbrev = ?");
     vals.push(patch.resolucaoNomeAbrev ? 1 : 0);
   }
-  if (patch.tipo !== undefined && ["text", "date", "number"].includes(patch.tipo)) {
+  if (patch.tipo !== undefined && ["text", "date", "number", "lista"].includes(patch.tipo)) {
     sets.push("tipo = ?");
     vals.push(patch.tipo);
   }
@@ -933,9 +999,17 @@ export async function createQueryCategoria(
   assertSqlPermitido(input.sentencaSql, input.conexaoId ?? null);
   const sqlGerado = gerada && input.sentencaSql.trim() === gerada.sql ? gerada.sql : null;
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, isactive)
-     VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.nome.trim(), input.descricao?.trim() ?? null, input.sentencaSql.trim(), sqlGerado, input.conexaoId ?? null]
+    `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, autotipo, conexaoid, isactive)
+     VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [
+      categoryId,
+      input.nome.trim(),
+      input.descricao?.trim() ?? null,
+      input.sentencaSql.trim(),
+      sqlGerado,
+      sqlGerado ? "padrao" : null,
+      input.conexaoId ?? null,
+    ]
   );
   return rows[0].id;
 }

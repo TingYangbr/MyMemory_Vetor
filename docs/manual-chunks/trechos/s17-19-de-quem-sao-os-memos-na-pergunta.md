@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › De quem são os memos na pergunta
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › De quem são os memos na pergunta
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 - Sem citar ninguém ("qual minha agenda amanhã"): Os de quem pergunta.
@@ -14,5 +14,5 @@ A resposta informa o escopo aplicado (ex.: Mostrando só os memos de Suporte em 
 NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo quando a palavra aparece em outro sentido ("agenda de suporte técnico").
 
 Perguntas que este trecho responde:
-- Quais são as opções de de quem são os memos na pergunta em Estrutura de Contexto / Categorias?
+- Quais são as opções de de quem são os memos na pergunta em Categorias?
 - O que significa cada item de de quem são os memos na pergunta?

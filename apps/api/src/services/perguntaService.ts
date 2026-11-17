@@ -26,6 +26,7 @@ import {
   type PerfilNaPergunta,
 } from "./perfilPerguntaService.js";
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
+import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ export async function classificarPergunta(input: {
     2
   );
 
-  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":""}`;
+  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":"","acao":"consultar | criar | alterar"}\n\nCampo "acao": "alterar" quando o texto pede para mudar um registro que já existe (adiar, remarcar, mudar, cancelar, concluir, reativar, acrescentar ou tirar itens de uma lista); "criar" quando pede para registrar algo novo (criar, agendar, marcar uma reunião, anotar); "consultar" quando é uma pergunta ou um pedido de informação. Na dúvida, "consultar".`;
 
   const systemClassificacao = await getActiveSystemPrompt("perguntas_pipe1_classificacao_system");
   const { text, costUsd } = await invokeLLM({ system: systemClassificacao, user, jsonObject: true, source: "classificacao" });
@@ -227,6 +228,7 @@ export async function classificarPergunta(input: {
     escopo_sugerido: (["global", "contexto_sessao", "indefinido"].includes(String(parsed.escopo_sugerido ?? "")) ? parsed.escopo_sugerido : "global") as PerguntaClassificacao["escopo_sugerido"],
     categoria_principal: categoriaPrincipal,
     justificativa: String(parsed.justificativa ?? ""),
+    acao: (["consultar", "criar", "alterar"].includes(String(parsed.acao ?? "")) ? parsed.acao : "consultar") as PerguntaClassificacao["acao"],
   };
 
   return { classificacao, costUsd };
@@ -250,11 +252,14 @@ export async function perguntarMemory(input: {
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
   perfil?: PerfilNaPergunta | null;
+  /** Aceita comandos de alteração (só a tela do usuário; nunca chave de integração). */
+  permitirComandos?: boolean;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
   apiCost: number;
   aguardaFase2?: boolean;
+  comando?: import("@mymemory/shared").ComandoAlteracao;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -297,6 +302,23 @@ export async function perguntarMemory(input: {
   ) {
     const match = encontrarCategoriaProxima(classificacao.categoria_principal, input.categories);
     if (match) classificacao.categorias = [match];
+  }
+
+  // Comando de alteração ("adiar a reunião para 14h"): não é pergunta. Só pela tela do usuário
+  // (nunca por chave de integração) e sem perfil de acesso ligado no grupo.
+  if (classificacao.acao === "alterar" && input.permitirComandos && !input.perfil) {
+    const cmd = await withSpan("Comando de alteração", () => executarComandoAlteracao({
+      texto: input.pergunta,
+      userId: input.userId,
+      isAdmin: input.isAdmin,
+      groupId: input.groupId,
+      categories: input.categories,
+      classificacao,
+    }));
+    if (cmd) {
+      totalCost += cmd.costUsd;
+      return { resposta: cmd.resposta, classificacao, apiCost: totalCost, comando: cmd.comando };
+    }
   }
 
   // Guarda estruturada: sem categoria identificada não há queries disponíveis e o resultado

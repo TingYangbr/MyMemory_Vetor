@@ -1,9 +1,9 @@
 Manual MyMemory › Lembretes por e-mail › Acesso
 Seção: Seção 18 — Lembretes por e-mail
-Rota: /estrutura-memo (botão 🔔 na categoria)
+Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
-Na Estrutura do contexto, clicar no ícone de lembrete da categoria. Disponível para admin e owner do grupo.
+Em Administrar grupo → Categorias, abrir a categoria e ir à parte Lembretes (a categoria precisa de um campo de data). Só o dono do grupo e o admin configuram. Lembretes só existem em categorias do grupo, não nas globais.
 - 🔔: Lembretes ligados nesta categoria. Clique para ver ou alterar.
 - 🔕 esmaecido: Lembretes desligados. Clique para configurar.
 - 🔕 desabilitado: Indisponível: a categoria é global (lembretes só em categorias do grupo) ou não tem nenhum campo do tipo data. Passe o mouse para ver o motivo.

@@ -93,6 +93,40 @@ const plugin: FastifyPluginAsync = async (app) => {
   });
 
   // POST /api/sino/lido — marca os avisos como lidos (abrir o painel)
+  // GET /api/lembretes/meus?dias=N — compromissos do usuário nos próximos N dias (aba Lembretes de Meus avisos).
+  // O botão "Mais" da tela pede de 7 em 7 dias; limite de 365.
+  app.get("/api/lembretes/meus", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const diasRaw = Number((req.query as { dias?: string }).dias ?? 7);
+    const dias = Math.min(365, Math.max(1, Number.isFinite(diasRaw) ? Math.floor(diasRaw) : 7));
+    const [uRows] = await pool.query<{ email: string | null }[]>(`SELECT email FROM users WHERE id = ?`, [userId]);
+    const compromissos = await compromissosDoUsuario(userId, uRows[0]?.email ?? "", dias);
+    const ids = [...new Set(compromissos.map((c) => c.memoId))];
+    const infoMemo = new Map<number, { titulo: string | null; texto: string | null }>();
+    if (ids.length) {
+      const [mRows] = await pool.query<{ id: number; titulo: string | null; texto: string | null }[]>(
+        `SELECT id, NULLIF(titulo_curto, '') AS titulo, LEFT(mediatext, 160) AS texto FROM memos WHERE id = ANY(?::int[])`,
+        [ids]
+      );
+      for (const m of mRows) infoMemo.set(Number(m.id), { titulo: m.titulo, texto: m.texto });
+    }
+    return reply.send({
+      dias,
+      lembretes: compromissos.map((c) => ({
+        id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
+        memoId: c.memoId,
+        categoria: c.categoria,
+        titulo: infoMemo.get(c.memoId)?.titulo ?? null,
+        texto: infoMemo.get(c.memoId)?.texto ?? null,
+        momento: iso(c.momento),
+        hora: c.hora,
+        noPrazo: c.noPrazo,
+        envios: c.envios.map((e) => ({ enviarEm: iso(e.enviarEm), situacao: e.situacao })),
+      })),
+    });
+  });
+
   app.post("/api/sino/lido", async (req, reply) => {
     const userId = await resolveUserId(req);
     if (!userId) return reply.code(401).send({ error: "unauthorized" });

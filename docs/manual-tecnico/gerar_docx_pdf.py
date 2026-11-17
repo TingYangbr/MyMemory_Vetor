@@ -23,7 +23,7 @@ capa = [
     "Manual Técnico — Integração, perfis de acesso e suporte",
     f"Versão 2 — {MESES[hoje.month - 1]} de {hoje.year}",
     "Para administradores do sistema, donos de grupo e suporte: perfis de acesso, ligação com o ERP, "
-    "chaves de integração, segurança, renomeação de campos e montagem da resposta estruturada.",
+    "chaves de integração, segurança, renomeação de campos, montagem da resposta estruturada e histórico de alterações.",
     "# ÍNDICE",
     *[f"- Seção {n} — {t}" for n, t in secoes],
 ]

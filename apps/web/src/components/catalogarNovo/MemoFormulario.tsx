@@ -264,6 +264,26 @@ export default function MemoFormulario(p: MemoFormularioProps) {
                     </div>
                   );
                 }
+                if (c.tipo === "lista") {
+                  // Tipo "lista": um item por linha, como numa lista de WhatsApp
+                  return (
+                    <label key={c.key} htmlFor={id} style={{ gridColumn: "1 / -1" }}>
+                      <span className={s.cgNome} title={c.descricao ?? undefined}>
+                        {c.key}
+                        {c.antigo ? <em>campo antigo</em> : null}
+                      </span>
+                      <textarea
+                        id={id}
+                        className={cls}
+                        rows={Math.min(12, Math.max(3, c.value.split("\n").length + 1))}
+                        value={c.value}
+                        placeholder={vazio ? "um item por linha" : undefined}
+                        onChange={(e) => p.setDado(c.key, e.target.value)}
+                        {...(p.voz?.voiceDadosProps(c.key) ?? {})}
+                      />
+                    </label>
+                  );
+                }
                 const ehData = c.tipo === "date";
                 const ehHora = !ehData && ehCampoHora(c.key);
                 const longo = c.value.length > 40;

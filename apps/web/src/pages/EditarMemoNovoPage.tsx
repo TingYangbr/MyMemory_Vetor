@@ -102,7 +102,7 @@ export default function EditarMemoNovoPage() {
         const t = e instanceof Error ? e.message : "";
         setErroCarga(
           t.includes("403") || t.includes("forbidden")
-            ? "Você não tem permissão para editar este memo."
+            ? mensagemDeErro(e, "Você não tem permissão para editar este memo.")
             : t.includes("404") || t.includes("not_found")
               ? "Memo não encontrado."
               : "Não foi possível carregar o memo."
@@ -238,6 +238,8 @@ export default function EditarMemoNovoPage() {
   const arquivo = `${apiBase}/api/memos/${memo.id}/file`;
   const ext = attachmentExt(memo.mediaFileUrl) || attachmentExt(memo.originalFileName);
   const metadados = metadadosLegiveis(memo.mediaMetadata);
+  // Memo de arquivo sem o arquivo: o original foi descartado (Importar em lote pelo navegador)
+  const semOriginal = !memo.hasFile && (memo.mediaType === "image" || memo.mediaType === "audio" || memo.mediaType === "video" || memo.mediaType === "document");
   const ultimaAlteracao = historico[0];
   const custo = memo.usedApiCred > 0 ? memo.usedApiCred : memo.apiCost * me.mult;
 
@@ -274,6 +276,13 @@ export default function EditarMemoNovoPage() {
     );
   } else if (memo.hasFile) {
     original = <p className={s.semCampos}>Arquivo {ext ? `.${ext}` : ""} guardado. Use "Abrir o arquivo" para ver.</p>;
+  } else if (semOriginal) {
+    original = (
+      <p className={s.semCampos}>
+        <b>Original descartado na importação.</b> Este memo veio do Importar em lote (Disco local ou Rede local): só o texto
+        foi guardado, o arquivo não.
+      </p>
+    );
   } else {
     original = <p className={s.semCampos}>Memo de texto: o texto está no resumo ao lado.</p>;
   }
@@ -381,7 +390,7 @@ export default function EditarMemoNovoPage() {
                   Detalhes do arquivo<small>armazenamento, metadados{me.showApiCost ? ", custo" : ""}</small>
                 </summary>
                 <div style={{ display: "grid", gap: 8, fontSize: 12.5, color: "var(--mm-text-secondary)" }}>
-                  {memo.storageProvider ? <span>Armazenamento: {memo.storageProvider}</span> : null}
+                  {semOriginal ? <span>Armazenamento: original descartado na importação</span> : memo.storageProvider ? <span>Armazenamento: {memo.storageProvider}</span> : null}
                   {memo.externalFileRef ? <span style={{ wordBreak: "break-all" }}>Local: {memo.externalFileRef}</span> : null}
                   {me.showApiCost ? (
                     <span>

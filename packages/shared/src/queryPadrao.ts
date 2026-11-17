@@ -8,7 +8,7 @@
 export interface QueryPadraoCampo {
   id: number;
   name: string;
-  /** "text" | "date" | "number" */
+  /** "text" | "date" | "number" | "lista" */
   tipo: string;
   normalizedTerms: string | null;
   isActive: number;
@@ -29,6 +29,100 @@ export function queryPadraoNome(categoriaNome: string): string {
 
 export function queryPadraoDescricao(categoriaNome: string): string {
   return `Query padrão para categoria "${categoriaNome}". Adapte os filtros conforme necessário.`;
+}
+
+/** Tipo de consulta mantida pelo sistema (queries_categoria.autotipo). */
+export type QueryAutoTipo = "padrao" | "alteracoes";
+
+export function queryAlteracoesNome(categoriaNome: string): string {
+  return `Alterações — ${categoriaNome}`;
+}
+
+export function queryAlteracoesDescricao(categoriaNome: string): string {
+  return (
+    `Histórico de alterações dos memos da categoria "${categoriaNome}": o que foi remarcado, mudado, ` +
+    `concluído ou cancelado, com valor anterior, valor novo e quando foi alterado. ` +
+    `Use para perguntas sobre remarcações, mudanças, cancelamentos e histórico.`
+  );
+}
+
+/** Data/hora da alteração no fuso do Brasil (as perguntas falam do dia local). */
+const ALTERADO_EM_LOCAL = "(a.createdat AT TIME ZONE 'America/Sao_Paulo')";
+
+/**
+ * "Consulta de alterações" de uma categoria atualizável: lê memo_alteracoes (uma linha por campo
+ * alterado) dos memos da categoria. Filtros:
+ *  - alterado_em_ini/_fin: QUANDO a alteração foi feita ("remarcado nesta semana");
+ *  - valor_novo_ini/_fin: a NOVA data ("remarcado para esta semana");
+ *  - campo_alterado / valor_novo: o que mudou (ex.: Situação → Cancelado);
+ *  - um parâmetro por campo com o valor ATUAL do memo (ex.: com_quem).
+ * Mesmo contrato da Query padrão: o backend compara o SQL salvo com o gerado para saber se é automática.
+ */
+export function gerarQueryAlteracoesMemos(
+  categoriaNome: string,
+  campos: QueryPadraoCampo[]
+): { sql: string; params: QueryPadraoParam[] } {
+  const activeCampos = campos.filter((c) => c.isActive === 1);
+  const catNameSafe = categoriaNome.replace(/'/g, "''");
+  const reservados = new Set(["alterado_em_ini", "alterado_em_fin", "campo_alterado", "valor_novo", "valor_novo_ini", "valor_novo_fin"]);
+
+  const whereParts: string[] = [
+    "  m.isactive = 1",
+    `  AND m.category = '${catNameSafe}'`,
+    "  AND (",
+    "    (:groupId IS NOT NULL AND m.groupid = :groupId)",
+    "    OR (:groupId IS NULL AND m.groupid IS NULL AND m.userid = :userId)",
+    "  )",
+    "  AND a.campo <> '__resumo'",
+    `  AND (:alterado_em_ini IS NULL OR ${ALTERADO_EM_LOCAL}::date >= :alterado_em_ini)`,
+    `  AND (:alterado_em_fin IS NULL OR ${ALTERADO_EM_LOCAL}::date <= :alterado_em_fin)`,
+    "  AND (:campo_alterado IS NULL OR a.campo ILIKE :campo_alterado)",
+    "  AND (:valor_novo IS NULL OR a.depois ILIKE :valor_novo)",
+    "  AND (:valor_novo_ini IS NULL OR mymemory_parse_date(a.depois) >= :valor_novo_ini)",
+    "  AND (:valor_novo_fin IS NULL OR mymemory_parse_date(a.depois) <= :valor_novo_fin)",
+  ];
+
+  const camposUsados: { campo: QueryPadraoCampo; p: string }[] = [];
+  for (const campo of activeCampos) {
+    const p = toParamName(campo.name);
+    if (!p || reservados.has(p)) continue;
+    camposUsados.push({ campo, p });
+    whereParts.push(`  AND (:${p} IS NULL OR m.dadosespecificosjson::jsonb->>'${campo.name}' ILIKE :${p})`);
+  }
+
+  const sql = [
+    "SELECT",
+    "  m.id,",
+    "  m.titulo_curto AS assunto,",
+    "  a.campo AS campo_alterado,",
+    "  a.antes AS valor_anterior,",
+    "  a.depois AS valor_novo,",
+    `  ${ALTERADO_EM_LOCAL} AS alterado_em,`,
+    ...camposUsados.map(({ campo, p }) => `  m.dadosespecificosjson::jsonb->>'${campo.name}' AS ${p},`),
+    "  m.mediatext",
+    "FROM memo_alteracoes a",
+    "JOIN memos m ON m.id = a.memoid",
+    "WHERE",
+    ...whereParts,
+    "ORDER BY a.createdat DESC",
+    "LIMIT 200",
+  ].join("\n");
+
+  let ordem = 0;
+  const params: QueryPadraoParam[] = [
+    { campo: "groupId", tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: ordem++ },
+    { campo: "userId", tipo: "number", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: ordem++ },
+    { campo: "alterado_em_ini", tipo: "date", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: ordem++ },
+    { campo: "alterado_em_fin", tipo: "date", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: ordem++ },
+    { campo: "campo_alterado", tipo: "string", obrigatorio: 0, operadorSql: "LIKE", normalizar: 0, ordem: ordem++ },
+    { campo: "valor_novo", tipo: "string", obrigatorio: 0, operadorSql: "LIKE", normalizar: 0, ordem: ordem++ },
+    { campo: "valor_novo_ini", tipo: "date", obrigatorio: 0, operadorSql: ">=", normalizar: 0, ordem: ordem++ },
+    { campo: "valor_novo_fin", tipo: "date", obrigatorio: 0, operadorSql: "<=", normalizar: 0, ordem: ordem++ },
+  ];
+  for (const { campo, p } of camposUsados) {
+    params.push({ campo: p, tipo: "string", obrigatorio: 0, operadorSql: "LIKE", normalizar: campo.normalizedTerms ? 1 : 0, ordem: ordem++ });
+  }
+  return { sql, params };
 }
 
 /** Nome de campo → nome de parâmetro SQL (sem acento, minúsculo, "_" no lugar de espaço). */

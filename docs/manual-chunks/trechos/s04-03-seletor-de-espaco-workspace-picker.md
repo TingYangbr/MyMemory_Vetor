@@ -5,7 +5,7 @@ Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 Aparece quando o usuário clica no indicador de espaço ou acessa /?escolherEspaco=1.
 - Exibe card 'Meus Memos Pessoais' e cards de cada grupo do qual faz parte.
-- Card do grupo com isOwner=true exibe link extra 'Painel do owner'.
+- Card do grupo em que o usuário é dono exibe o link 'Administrar grupo' (Seção 14).
 - Botões: 'Criar novo grupo' → /grupo/novo · 'Entrar em outro Grupo' → /grupo/entrar · 'Cancelar'.
 
 Perguntas que este trecho responde:

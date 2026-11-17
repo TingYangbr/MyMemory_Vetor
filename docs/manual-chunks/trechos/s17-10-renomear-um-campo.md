@@ -1,6 +1,6 @@
-Manual MyMemory › Estrutura de Contexto / Categorias › Renomear um campo
-Seção: Seção 17 — Estrutura de Contexto / Categorias
-Rota: /estrutura-memo
+Manual MyMemory › Categorias › Renomear um campo
+Seção: Seção 17 — Categorias (Administrar grupo)
+Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: conceito · Versão do manual: 2
 
 Ao trocar o nome de um campo (✎), o sistema leva o novo nome a tudo o que já existe na categoria: os memos já gravados, o campo dono e o campo de situação da categoria, os parâmetros das queries, o nome entre aspas simples (ex.: 'Proprietario') no SQL das queries de memos escritas à mão e a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem). Ao final, uma janela do navegador informa quantos memos e queries foram atualizados; ela só aparece quando o nome muda (trocar só a descrição não gera a mensagem).
@@ -10,5 +10,5 @@ Ao trocar o nome de um campo (✎), o sistema leva o novo nome a tudo o que já 
 - Queries de ERP (SQL Server) não são alteradas: os nomes ali são colunas do banco do ERP.
 
 Perguntas que este trecho responde:
-- O que é renomear um campo em Estrutura de Contexto / Categorias?
+- O que é renomear um campo em Categorias?
 - Como funciona renomear um campo no MyMemory?

@@ -612,6 +612,8 @@ export interface MemoContextCategory {
   atualizavel?: boolean;
   /** Em categoria Atualizável: campo do memo com a situação. */
   campoSituacao?: string | null;
+  /** Em categoria Atualizável: alteração pedida em linguagem natural mostra antes → depois e só grava após confirmação. */
+  confirmarAlteracao?: boolean;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */
@@ -633,7 +635,8 @@ export interface MemoContextSubcategory {
   updatedAt: string;
 }
 
-export type MemoContextCampoTipo = "text" | "date" | "number";
+/** "lista": um item por linha (lista de compras, pauta); a quebra de linha é o separador, nunca a vírgula. */
+export type MemoContextCampoTipo = "text" | "date" | "number" | "lista";
 
 export interface MemoContextCampo {
   id: number;
@@ -688,6 +691,8 @@ export interface QueryCategoria {
   autoGerada: boolean;
   /** true = era Query padrão automática, mas foi editada à mão: não é mais atualizada sozinha */
   autoEditada: boolean;
+  /** Consulta mantida pelo sistema: "padrao" (Query padrão) ou "alteracoes" (histórico de alterações); null = escrita à mão */
+  autoTipo?: "padrao" | "alteracoes" | null;
   isActive: number;
   createdAt: string;
   updatedAt: string;
@@ -1100,6 +1105,35 @@ export interface PerguntaClassificacao {
   /** Categoria sugerida pelo LLM que NÃO está no catálogo — usada para tuning. Null quando a categoria está na lista. */
   categoria_principal?: string | null;
   justificativa: string;
+  /** O que o texto quer: consultar (pergunta), criar um registro novo ou alterar um existente. Ausente = consultar. */
+  acao?: PerguntaAcao;
+}
+
+export type PerguntaAcao = "consultar" | "criar" | "alterar";
+
+/** Um memo que o comando de alteração pode atingir, com o que mudaria nele. */
+export interface ComandoAlteracaoCandidato {
+  memoId: number;
+  categoria: string;
+  resumo: string;
+  /** Campo → valor novo proposto (pode incluir o campo de situação). */
+  propostos: Record<string, string>;
+  mudancas: { campo: string; antes: string; depois: string }[];
+}
+
+/**
+ * Resultado de um comando de alteração feito no Perguntar ("adiar a reunião para 14h").
+ *  - alterado: gravou direto (categoria sem "Confirmar antes de alterar"); `lote` serve ao Desfazer;
+ *  - confirmar: um alvo, mas a categoria pede confirmação; o cartão abre com os valores propostos;
+ *  - escolher: mais de um alvo possível, ou ação em lote; o usuário escolhe/confirma cada um;
+ *  - nao_encontrado: nenhum registro alterável corresponde ao pedido.
+ */
+export interface ComandoAlteracao {
+  status: "alterado" | "confirmar" | "escolher" | "nao_encontrado";
+  mensagem: string;
+  lote?: string | null;
+  memoId?: number;
+  candidatos?: ComandoAlteracaoCandidato[];
 }
 
 export interface PerguntaMemoUsado {
@@ -1199,6 +1233,8 @@ export interface PerguntaResponse {
   planoSalvavel?: PerguntaPlanoSalvo;
   /** true = resposta gerada a partir de pergunta salva com plano (sem classificação/planejamento) */
   planoReaproveitado?: boolean;
+  /** Presente quando o texto era um comando de alteração, e não uma pergunta. */
+  comando?: ComandoAlteracao;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
@@ -1523,7 +1559,7 @@ export * from "./queryPadrao.js";
 /** Cartão de alteração de um memo de categoria atualizável (a partir da resposta do Perguntar). */
 export interface MemoAlteravelCampo {
   nome: string;
-  /** "text" | "date" | "number" */
+  /** "text" | "date" | "number" | "lista" */
   tipo: string;
   descricao: string | null;
   valor: string;

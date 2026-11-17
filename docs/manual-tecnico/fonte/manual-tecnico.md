@@ -1,5 +1,5 @@
 # SEÇÃO 1 — Perfis de acesso: conceitos
-Rota: Painel administrativo → aba Perfis (admin do sistema) · Painel do dono do grupo → aba Perfis
+Rota: Painel administrativo → aba Perfis (admin do sistema) · Administrar grupo → Perfis de acesso
 
 ## Propósito
 O perfil de acesso controla o que cada pessoa pode perguntar no Perguntar (dentro do myMemory ou no gadget embutido de um ERP). Um perfil é uma lista de categorias com um nome, definida por grupo, por exemplo Financeiro, Fiscal ou Geral. A pessoa só obtém respostas sobre as categorias do perfil dela. Pergunta sobre uma categoria que não está no perfil recebe "Resposta bloqueada com dados restritos", seguida do nome da categoria.
@@ -15,7 +15,7 @@ O perfil controla só o Perguntar. O Localizar e a navegação pelo site continu
 - **Chaves do grupo**: duas chaves ligam o modelo, "Aplicar os perfis nas perguntas deste grupo" e "Exigir cadastro no de-para". Nascem desligadas.
 
 ## Quem pode configurar
-O administrador do sistema (escolhendo o grupo) e o dono do grupo (só o grupo dele). Membros comuns não veem a aba Perfis.
+O administrador do sistema (escolhendo o grupo) e o dono do grupo (só o grupo dele). Membros comuns não veem a aba Perfis nem Administrar grupo.
 
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
@@ -24,7 +24,7 @@ O administrador do sistema (escolhendo o grupo) e o dono do grupo (só o grupo d
 | Configurei o perfil, mas a pessoa continua vendo tudo | A chave "Aplicar os perfis nas perguntas deste grupo" está desligada. Ligue-a (Seção 8). Enquanto estiver desligada, todos perguntam com o acesso de antes. |
 
 # SEÇÃO 2 — Aba Perfis: matriz de categorias por perfil
-Rota: Painel administrativo → Perfis · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
 
 ## Propósito
 A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são as categorias do grupo e as colunas são os perfis. Uma marca na célula significa que o perfil inclui a categoria. É a tela central para configurar e conferir os acessos.
@@ -32,7 +32,7 @@ A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são a
 ## Campos e elementos
 | Campo / Elemento | Descrição |
 |---|---|
-| Grupo | Só no painel administrativo: escolhe qual grupo configurar. No painel do dono, o grupo é sempre o dele. |
+| Grupo | Só no painel administrativo: escolhe qual grupo configurar. Em Administrar grupo, o seletor mostra só os grupos em que a pessoa é dona. |
 | Aplicação dos perfis | Duas caixas de seleção do grupo: "Aplicar os perfis nas perguntas deste grupo" e "Exigir cadastro no de-para para perguntar pelo ERP" (Seção 8). |
 | Avisos | Alertas de configuração: categoria que nenhum perfil inclui, perfil sem ninguém e categoria marcada "Pessoal" com queries escritas à mão. |
 | Coluna de perfil | Uma por perfil, com o nome, o selo "padrão" no perfil padrão e o número de pessoas que o usam. Abaixo ficam três ícones, cada um com uma dica ao passar o mouse: duplicar (copia o perfil), ✓ tornar padrão e lixeira (excluir). O perfil padrão só tem o ícone de duplicar. |
@@ -51,7 +51,7 @@ A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são a
 | A categoria que criei hoje não aparece na matriz | A matriz mostra as categorias do próprio grupo e, se o grupo não tiver nenhuma, as globais. Confira se a categoria está ativa e pertence ao grupo escolhido. |
 
 # SEÇÃO 3 — Criar, editar e excluir perfis
-Rota: Painel administrativo → Perfis · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Cada perfil é criado uma vez por grupo e reutilizado por quantas pessoas precisarem. Quando alguém precisa de um acesso diferente, cria-se um perfil novo em vez de abrir uma exceção para a pessoa.
@@ -77,7 +77,7 @@ O ícone da lixeira, no alto da coluna, remove o perfil. As pessoas que o usavam
 | Salvei e voltou ao que estava antes | Se a tela mostrou erro vermelho, a gravação falhou: leia a mensagem. Sem mensagem, clique em Salvar alterações de novo e confira se a contagem ao lado do botão zerou. |
 
 # SEÇÃO 4 — Perfil padrão do grupo
-Rota: Painel administrativo → Perfis · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Cada grupo tem um e só um perfil padrão. Todo membro, novo ou antigo, que não recebeu um perfil explícito usa o padrão. Mudar o padrão muda de uma vez o acesso de todos que o usam.
@@ -95,7 +95,7 @@ Cada grupo tem um e só um perfil padrão. Todo membro, novo ou antigo, que não
 | Um membro novo não consegue perguntar sobre nada | Ele usa o perfil padrão, e o padrão do grupo está sem categorias. Marque as categorias necessárias no padrão. |
 
 # SEÇÃO 5 — Marca "Pessoal"
-Rota: Painel administrativo → Perfis → coluna "Pessoal" · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis → coluna "Pessoal" · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "quais são minhas reuniões em março?" não deve trazer as de todo o grupo. A marca "Pessoal" faz a categoria responder, por padrão, só com os memos da própria pessoa que perguntou.
@@ -117,7 +117,7 @@ Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "qua
 | A pessoa pediu as próprias agendas e veio vazio | A Agenda não está no perfil dela, ou ela não tem memos nessa categoria. Confira o perfil na seção Pessoas. |
 
 # SEÇÃO 6 — Pessoas, perfis e limite de membros
-Rota: Painel administrativo → Perfis → Pessoas · Painel do dono do grupo → Perfis → Pessoas
+Rota: Painel administrativo → Perfis → Pessoas · Administrar grupo → Pessoas
 
 ## Propósito
 A seção Pessoas lista os membros do grupo, o perfil que cada um usa e a ligação dele com o ERP. Aqui se troca o perfil de alguém e se confere quantos membros o grupo tem em relação ao limite do plano.
@@ -143,7 +143,7 @@ O usuário do ERP que vai usar o Perguntar é um usuário comum do myMemory. O d
 | Entre com a conta do mesmo e-mail que recebeu o convite. | O convite só vale para o e-mail para o qual foi enviado. Entre com essa conta. |
 
 # SEÇÃO 7 — Ligar usuários do ERP (de-para)
-Rota: Painel administrativo → Perfis → Pessoas → Ligação com o ERP · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis → Pessoas → Ligação com o ERP · Administrar grupo → Pessoas (coluna Usuário no ERP)
 
 ## Propósito
 O de-para liga uma pessoa do myMemory ao id dela no ERP. O ERP só informa "é o usuário 57"; o myMemory decide quem é essa pessoa e aplica o perfil dela. Sem a ligação, o myMemory não sabe quem está perguntando dentro do ERP.
@@ -177,7 +177,7 @@ O de-para liga uma pessoa do myMemory ao id dela no ERP. O ERP só informa "é o
 | Liguei, mas o botão não apareceu no ERP | Espere cerca de 1 minuto e recarregue a tela. Se continuar sem aparecer, confira se o id digitado é o do usuário que está logado no ERP, se o sistema e o banco são os da chave do grupo e se o módulo está habilitado na tela Integração myMemory do Softing-erp. |
 
 # SEÇÃO 8 — Chaves do grupo: aplicar perfis e exigir cadastro
-Rota: Painel administrativo → Perfis → Aplicação dos perfis · Painel do dono do grupo → Perfis
+Rota: Painel administrativo → Perfis → Aplicação dos perfis · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Duas chaves por grupo ligam o modelo de acesso. As duas nascem desligadas: o modelo entra por adesão, nunca por bloqueio. Com ambas desligadas, tudo funciona como antes de os perfis existirem.
@@ -292,20 +292,20 @@ Quem tem a chave de integração do grupo (Seção 10) pode perguntar como qualq
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | Fora do seu perfil de acesso: (categoria) | Pergunta salva ou aviso usa query de categoria fora do perfil da pessoa. Incluir a categoria no perfil (aba Perfis) ou dar outro perfil. |
-| Query #N usa uma conexão de outro grupo | Query clonada ainda apontando para a conexão do grupo de origem. Escolher a conexão do grupo atual na Estrutura do contexto. |
+| Query #N usa uma conexão de outro grupo | Query clonada ainda apontando para a conexão do grupo de origem. Escolher a conexão do grupo atual em Administrar grupo → Categorias. |
 | A query do ERP contém "palavra". Queries do ERP são somente leitura. | O SQL tem comando de gravação ou proibido. Reescrever como SELECT puro (use #tabela temporária se precisar de INTO). |
 | Endereço interno não é permitido | Conexão de owner apontando para a rede interna. Usar o endereço público do servidor do ERP ou pedir ao administrador do sistema. |
 | Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado. |
 | Aviso ficou Pausado sozinho | Na execução agendada a pessoa não tinha mais acesso às queries do aviso. Ajustar o acesso e reativar, ou excluir o aviso. |
 
 # SEÇÃO 12 — Renomear campo de categoria: o que muda
-Rota: Estrutura do contexto → categoria → ✎ no campo (admin ou dono do grupo)
+Rota: Administrar grupo → Categorias → categoria → ✎ no campo (admin ou dono do grupo)
 
 ## Propósito
 Explica, para o suporte, o que o sistema atualiza sozinho quando o nome de um campo de categoria é trocado, o que fica para revisar à mão e como conferir. O nome do campo é a chave usada nos memos, nas queries de memos, no campo dono, na situação e nos lembretes; por isso a troca é propagada.
 
 ## Passo a passo
-1. Na Estrutura do contexto, escolher o grupo e a categoria.
+1. Em Administrar grupo → Categorias, escolher o grupo e a categoria.
 2. Clicar em ✎ na linha do campo e trocar o Nome (a Descrição pode ser ajustada junto).
 3. Salvar. Uma janela do navegador informa: Campo "antigo" renomeado para "novo". Atualizados: N memo(s) já gravado(s) e N query(s) da categoria.
 4. Conferir os itens da subseção "O que revisar à mão".
@@ -395,3 +395,67 @@ Uma consulta cuja lista só serve de filtro para outra (origem de cross_query_fi
 | Variação: "não é possível cruzar os dois meses" | A comparação não foi ativada. Ver "Quando a comparação não é ativada" e o plano no trace. Pedir ao usuário para refazer em Nova sessão citando os dois períodos e as medidas. |
 | "Ordene por X" não foi respeitado | O plano veio sem order_by. Conferir em planejamento_estruturado; refazer em Nova sessão. Se repetir, enviar o trace para análise. |
 | CMV total muito menor que o faturamento | A soma foi feita sobre Custo_Unitario. Incluir na query a coluna de custo total e descrevê-la como CMV total. |
+
+# SEÇÃO 14 — Categorias atualizáveis: histórico de alterações e permissões de edição
+Rota: / (aba Perguntar) → ✎ da resposta · /memo/:id/editar → Histórico · Administrar grupo → Categorias → categoria → Consultas
+
+## Propósito
+Explica onde as alterações dos memos de categorias atualizáveis (Agenda, tarefas, pedidos) ficam gravadas, como o Perguntar responde "o que foi remarcado/cancelado", e quem pode abrir a edição e o histórico. Serve para diagnosticar respostas erradas sobre remarcações e reclamações de "sem permissão".
+
+## Onde o histórico fica gravado
+Cada salvamento pelo ✎ da resposta ou pela tela Editar memo grava na tabela memo_alteracoes uma linha por campo alterado.
+| Campo / Elemento | Descrição |
+|---|---|
+| memoid | Memo alterado. |
+| lote | Identifica um mesmo salvamento (data e hora mudadas juntas têm o mesmo lote). O ↶ Desfazer volta o lote inteiro. |
+| userid | Quem alterou. |
+| campo | Campo alterado (ex.: Data, Hora, Situação). O campo especial __resumo guarda o resumo anterior e o reescrito pela IA. |
+| antes / depois | Valor anterior e valor novo (datas em aaaa-mm-dd). |
+| createdat | Quando foi alterado (UTC; as consultas convertem para o horário de Brasília). |
+
+## Consulta de alterações (automática)
+Toda categoria atualizável e ativa tem a consulta "Alterações — Nome da categoria" (queries_categoria.autotipo = 'alteracoes', criada pela migration 170 e mantida por sincronizarQueryAlteracoes). Em Administrar grupo → Categorias ela aparece com a etiqueta "Automática · histórico".
+- Lê memo_alteracoes junto com o memo (assunto, valores atuais dos campos), sem as linhas __resumo, mais recentes primeiro (até 200).
+- É regerada quando os campos ou o nome da categoria mudam; editada à mão, deixa de ser tocada ("Voltar ao automático" a regera); desmarcar Atualizável a desativa.
+- A Query padrão continua sendo a do valor atual (autotipo = 'padrao'); "Criar query padrão" não conta a consulta de alterações.
+| Campo / Elemento | Descrição |
+|---|---|
+| alterado_em_ini / alterado_em_fin | QUANDO a alteração foi feita: "remarcado NESTA semana", "cancelado em outubro". |
+| valor_novo_ini / valor_novo_fin | A NOVA data: "remarcado PARA esta semana", "para sexta". |
+| campo_alterado | Qual campo mudou (Data, Hora, Situação). |
+| valor_novo | Valor novo em texto (ex.: Cancelado, Concluído). |
+| um parâmetro por campo | Valor ATUAL do memo (ex.: com_quem = Carlos), para "quando a reunião com o Carlos mudou". |
+
+## Como o Perguntar escolhe essa consulta
+A REGRA CRÍTICA 13 do planejamento manda usar "Alterações — categoria" (e não a Query padrão) em perguntas sobre remarcado, alterado, mudado, adiado, antecipado, cancelado, concluído ou histórico.
+- "NESTA semana / EM outubro / ontem" → alterado_em_*; "PARA esta semana / PARA sexta" → valor_novo_*.
+- "Cancelado/concluído" → campo_alterado = campo de situação e valor_novo = Cancelado/Concluído.
+- "Remarcado" sem citar o campo → campo_alterado = campo de data (ou de horário, se a pergunta fala de hora).
+- Sem período citado, alterado_em_* fica vazio.
+DICA: No trace, planejamento_estruturado mostra qual query foi escolhida e os parâmetros; consulta_sql mostra as linhas do histórico retornadas.
+
+## Isolamento por grupo
+A consulta roda como as demais queries de memos: transação somente leitura no papel mm_query_reader. memo_alteracoes tem RLS (migration 170): o papel só enxerga alterações de memos que ele enxerga em memos, ou seja, do grupo ativo (ou do próprio usuário, fora de grupo).
+
+## Conferência da data no cartão de alteração
+Antes de salvar, o cartão do ✎ confere cada campo de data alterado. Data que já passou há mais de 30 dias, que fica a mais de 2 anos ou que não é data mostra um aviso e exige um segundo clique ("Salvar mesmo assim"). Caso real: "16 de novembro de 2016" falado em vez de 2026 tirou o memo das perguntas da semana.
+
+## Quem pode editar e ver o histórico
+A tela Editar memo (/memo/:id/editar), o histórico (GET /api/memos/:id/historico) e o salvamento (PATCH /api/memos/:id) seguem a mesma regra do ✎ das categorias atualizáveis.
+| Campo / Elemento | Descrição |
+|---|---|
+| Dono do memo (memos.userid) | Pode. |
+| Quem catalogou (memos.criado_por) | Pode, mesmo depois de o memo passar para outro membro pelo campo dono. |
+| Owner ou editor do grupo do memo | Pode. |
+| Administrador do sistema | Pode. |
+| Demais membros | Recebem 403 com a mensagem "Você não tem permissão para editar este memo de <nome do dono>. Podem editar: quem criou ou catalogou o memo e os donos e editores do grupo." |
+NOTA: Excluir o memo continua só com o autor ("Só o autor do memo pode excluir.").
+
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| "O que foi remarcado" traz memos com data na semana, mas que não foram mudados | O planejador usou a Query padrão. Conferir no trace; a categoria precisa ser Atualizável e ter a consulta "Alterações — categoria" ativa. Se ela foi editada à mão e quebrou, usar "Voltar ao automático". Refazer em Nova sessão. |
+| Pergunta sobre remarcação volta vazia | Não há linhas em memo_alteracoes para o período: só existem alterações feitas pelo ✎ ou pela tela Editar memo depois de 26/10/2026. Conferir também se a pergunta pedia "nesta semana" (data da alteração) ou "para esta semana" (nova data). |
+| A categoria atualizável não tem a consulta de alterações | Ela foi desativada (categoria desmarcada como Atualizável em algum momento) ou a categoria ficou inativa. Salvar a categoria de novo (ou um campo dela) dispara sincronizarQueryAlteracoes. |
+| Você não tem permissão para editar este memo de Fulano | Quem pediu não é dono, não catalogou e não é owner/editor do grupo do memo. Conferir o papel em group_members e memos.criado_por. |
+| Histórico não aparece na tela Editar memo | A tela não abriu por falta de permissão (ver linha acima) ou o memo nunca foi alterado (caixa vazia). |
