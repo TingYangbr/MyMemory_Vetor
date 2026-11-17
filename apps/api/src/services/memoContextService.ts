@@ -267,7 +267,7 @@ export async function loadMemoContextStructure(
 
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
-            atualizavel, campo_situacao AS "campoSituacao",
+            atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -430,6 +430,7 @@ export async function loadMemoContextStructure(
     campoDono: (r.campoDono as string | null) ?? null,
     atualizavel: Number(r.atualizavel ?? 0) === 1,
     campoSituacao: (r.campoSituacao as string | null) ?? null,
+    confirmarAlteracao: Number(r.atualizavel ?? 0) === 1 && Number(r.confirmarAlteracao ?? 0) === 1,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -629,6 +630,7 @@ export async function updateCategory(
     pessoal?: boolean;
     campoDono?: string | null;
     atualizavel?: boolean;
+    confirmarAlteracao?: boolean;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -676,6 +678,10 @@ export async function updateCategory(
       sets.push("campo_situacao = ?");
       vals.push(await garantirCampoSituacao(categoryId));
     }
+  }
+  if (patch.confirmarAlteracao !== undefined) {
+    sets.push("confirmar_alteracao = ?");
+    vals.push(patch.confirmarAlteracao ? 1 : 0);
   }
   if (patch.revisaoSempre !== undefined) {
     sets.push("revisao_sempre = ?");
@@ -799,7 +805,7 @@ export async function createCampo(
   input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
-  const tipo = input.tipo && ["text", "date", "number"].includes(input.tipo) ? input.tipo : "text";
+  const tipo = input.tipo && ["text", "date", "number", "lista"].includes(input.tipo) ? input.tipo : "text";
   const [rows] = await pool.query<{ id: number }[]>(
     `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
     [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
@@ -844,7 +850,7 @@ export async function updateCampo(
     sets.push("resolucaoNomeAbrev = ?");
     vals.push(patch.resolucaoNomeAbrev ? 1 : 0);
   }
-  if (patch.tipo !== undefined && ["text", "date", "number"].includes(patch.tipo)) {
+  if (patch.tipo !== undefined && ["text", "date", "number", "lista"].includes(patch.tipo)) {
     sets.push("tipo = ?");
     vals.push(patch.tipo);
   }

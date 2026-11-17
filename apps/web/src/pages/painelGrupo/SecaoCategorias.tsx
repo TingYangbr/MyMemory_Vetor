@@ -27,7 +27,7 @@ const MIDIAS: { v: MemoContextMediaType | ""; nome: string }[] = [
   { v: "url", nome: "URL" },
 ];
 
-const TIPO_CAMPO: Record<MemoContextCampoTipo, string> = { text: "texto", date: "data", number: "número" };
+const TIPO_CAMPO: Record<MemoContextCampoTipo, string> = { text: "texto", date: "data", number: "número", lista: "lista" };
 
 type Aba = "campos" | "lembrete" | "memos" | "consultas";
 
@@ -617,6 +617,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
               <option value="text">texto</option>
               <option value="date">data</option>
               <option value="number">número</option>
+              <option value="lista">lista (um item por linha)</option>
             </select>
           </div>
           <div>
@@ -679,6 +680,7 @@ function EditarCategoriaModal({
   const [pessoal, setPessoal] = useState(!!cat.pessoal);
   const [campoDono, setCampoDono] = useState(cat.campoDono ?? "");
   const [atualizavel, setAtualizavel] = useState(!!cat.atualizavel);
+  const [confirmarAlteracao, setConfirmarAlteracao] = useState(!!cat.confirmarAlteracao);
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -697,6 +699,7 @@ function EditarCategoriaModal({
         pessoal,
         campoDono: pessoal ? campoDono || null : null,
         atualizavel,
+        confirmarAlteracao: atualizavel && confirmarAlteracao,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -782,6 +785,15 @@ function EditarCategoriaModal({
           </label>
           <input id="ec-atual" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={atualizavel} onChange={(e) => setAtualizavel(e.target.checked)} />
         </div>
+        {atualizavel ? (
+          <div className={s.switchRow} style={{ padding: "0 0 10px 16px" }}>
+            <label htmlFor="ec-confalt" style={{ cursor: "pointer" }}>
+              <b>Confirmar antes de alterar</b>
+              <p>Quando a alteração for pedida por texto, mostra o que vai mudar e só grava depois do sim. Desligado, grava direto e você pode desfazer.</p>
+            </label>
+            <input id="ec-confalt" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={confirmarAlteracao} onChange={(e) => setConfirmarAlteracao(e.target.checked)} />
+          </div>
+        ) : null}
         <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 4, paddingTop: 10 }}>
           <b style={{ fontSize: 14 }}>Revisão antes de salvar</b>
           <div className={s.switchRow} style={{ padding: "8px 0" }}>

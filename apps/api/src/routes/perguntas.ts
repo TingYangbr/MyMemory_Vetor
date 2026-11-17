@@ -166,6 +166,8 @@ const plugin: FastifyPluginAsync = async (app) => {
           thresholdMin: thresholds.min,
           contextoTela: parsed.data.contextoTela,
           perfil,
+          // Comandos de alteração só pela tela do usuário, nunca por chave de integração (ERP)
+          permitirComandos: auth.apiKeyGroupId === null,
         })
       )));
       result = ran.value;
@@ -214,6 +216,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       sugestaoAviso: result.sugestaoAviso,
       avisoSnapshot: result.avisoSnapshot,
       planoSalvavel: result.planoSalvavel,
+      comando: result.comando,
     };
 
     sendEvent({ type: "result", data: body });

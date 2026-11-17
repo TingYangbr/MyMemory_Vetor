@@ -17,7 +17,7 @@ import type {
   PerguntaChipValor,
 } from "@mymemory/shared";
 import { derivarChips, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
-import type { MemoAlteracaoResponse } from "@mymemory/shared";
+import type { ComandoAlteracao, MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -455,7 +455,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
 interface AlteracaoCtxValor {
   alteraveis: Set<number>;
   locais: Record<number, Record<string, string>>;
-  abrir: (memoId: number) => void;
+  abrir: (memoId: number, propostos?: Record<string, string>) => void;
 }
 const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {} });
 
@@ -538,6 +538,31 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
         document.body
       ) : null}
     </span>
+  );
+}
+
+/**
+ * Comando de alteração com mais de um alvo, ou que pede confirmação: um botão por registro.
+ * O clique abre o cartão de alteração já com os valores propostos; quem grava é o cartão.
+ */
+function ComandoPropostas({ comando }: { comando: ComandoAlteracao | undefined }) {
+  const { abrir } = useContext(AlteracaoCtx);
+  if (!comando || (comando.status !== "escolher" && comando.status !== "confirmar") || !comando.candidatos?.length) return null;
+  return (
+    <ul className={styles.escolherMemoLista}>
+      {comando.candidatos.map((c) => (
+        <li key={c.memoId}>
+          <button type="button" className={styles.escolherMemoItem} onClick={() => abrir(c.memoId, c.propostos)}>
+            <span className={styles.escolherMemoId}>#{c.memoId}</span>
+            <span>
+              {c.resumo || c.categoria}
+              <br />
+              <small>{c.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")}</small>
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -883,6 +908,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [alteraveis, setAlteraveis] = useState<Set<number>>(() => new Set());
   const [alteracoesLocais, setAlteracoesLocais] = useState<Record<number, Record<string, string>>>({});
   const [alterandoMemoId, setAlterandoMemoId] = useState<number | null>(null);
+  /** Valores propostos por um comando do Perguntar para o cartão aberto. */
+  const [propostosAbertos, setPropostosAbertos] = useState<Record<string, string> | undefined>(undefined);
   const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number } | null>(null);
   const idsVerificadosRef = useRef<Set<number>>(new Set());
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
@@ -1297,6 +1324,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (!res) throw new Error("Resposta não recebida.");
       const card = { ...res, perguntaTexto: q };
       setRespostas((prev) => [card, ...prev]);
+      if (res.comando) tratarComando(res.comando);
       setHistorico((prev) => [
         ...prev,
         {
@@ -1351,6 +1379,21 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...r.campos } }));
   }
 
+  /** Comando de alteração: gravado → aviso com Desfazer; pede confirmação → abre o cartão com a proposta. */
+  function tratarComando(cmd: ComandoAlteracao) {
+    const ids = (cmd.candidatos ?? []).map((c) => c.memoId);
+    if (ids.length) setAlteraveis((s) => new Set([...s, ...ids]));
+    if (cmd.status === "alterado" && cmd.memoId != null) {
+      const memoId = cmd.memoId;
+      const prop = cmd.candidatos?.find((c) => c.memoId === memoId)?.propostos ?? {};
+      setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...prop } }));
+      setAvisoAlteracao({ texto: cmd.mensagem, lote: cmd.lote ?? null, memoId });
+    } else if (cmd.status === "confirmar" && cmd.candidatos?.[0]) {
+      setPropostosAbertos(cmd.candidatos[0].propostos);
+      setAlterandoMemoId(cmd.candidatos[0].memoId);
+    }
+  }
+
   async function desfazerAlteracao() {
     const aviso = avisoAlteracao;
     if (!aviso?.lote) return;
@@ -1365,7 +1408,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
   const alteracaoCtx = useMemo<AlteracaoCtxValor>(
-    () => ({ alteraveis, locais: alteracoesLocais, abrir: (id: number) => setAlterandoMemoId(id) }),
+    () => ({ alteraveis, locais: alteracoesLocais, abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); } }),
     [alteraveis, alteracoesLocais]
   );
 
@@ -1894,9 +1937,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       {alterandoMemoId != null ? (
         <MemoAlteracaoCartao
           memoId={alterandoMemoId}
-          onFechar={() => setAlterandoMemoId(null)}
+          propostos={propostosAbertos}
+          onFechar={() => { setAlterandoMemoId(null); setPropostosAbertos(undefined); }}
           onAlterado={(memoId, r, texto) => {
             setAlterandoMemoId(null);
+            setPropostosAbertos(undefined);
             if (r.lote) aplicarAlteracaoLocal(memoId, r);
             setAvisoAlteracao({ texto, lote: r.lote, memoId });
           }}
@@ -2443,6 +2488,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       </div>
                     );
                   })()}
+                  <ComandoPropostas comando={r.comando} />
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
