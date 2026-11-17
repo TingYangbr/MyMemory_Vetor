@@ -304,21 +304,50 @@ export async function perguntarMemory(input: {
     if (match) classificacao.categorias = [match];
   }
 
-  // Comando de alteração ("adiar a reunião para 14h"): não é pergunta. Só pela tela do usuário
-  // (nunca por chave de integração) e sem perfil de acesso ligado no grupo.
-  if (classificacao.acao === "alterar" && input.permitirComandos && !input.perfil) {
+  // Comando ("adiar a reunião para 14h", "acrescentar arroz na lista"): não é pergunta e nunca vai
+  // aos pipes de consulta, que só leem. Só pela tela do usuário (nunca por chave de integração).
+  if ((classificacao.acao === "alterar" || classificacao.acao === "criar") && input.permitirComandos) {
+    const respostaComando = (texto: string, limitacao: string): import("@mymemory/shared").PerguntaResposta => ({
+      resposta: texto,
+      tipo_resposta: classificacao.pipe,
+      dados_usados: [],
+      limitacoes: [limitacao],
+      confianca_estimada: 0,
+    });
+    if (classificacao.acao === "criar") {
+      return {
+        resposta: respostaComando(
+          "Isto parece um registro novo. Por enquanto, registre pelo Catalogar (botão + Catalogar); criar pelo Perguntar vem na próxima etapa. Se era uma pergunta, use ↺ Refazer.",
+          "Criação pelo Perguntar ainda não disponível."
+        ),
+        classificacao,
+        apiCost: totalCost,
+      };
+    }
+    // Perfil de acesso ligado: só as categorias que o perfil libera
+    const efetivo = input.perfil?.efetivo;
+    const liberadas = efetivo && !efetivo.todas ? new Set(efetivo.categoriasPermitidas) : null;
+    const cats = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
     const cmd = await withSpan("Comando de alteração", () => executarComandoAlteracao({
       texto: input.pergunta,
       userId: input.userId,
       isAdmin: input.isAdmin,
       groupId: input.groupId,
-      categories: input.categories,
+      categories: cats,
       classificacao,
     }));
     if (cmd) {
       totalCost += cmd.costUsd;
       return { resposta: cmd.resposta, classificacao, apiCost: totalCost, comando: cmd.comando };
     }
+    return {
+      resposta: respostaComando(
+        "Isto parece um pedido de alteração, mas não há neste grupo uma categoria atualizável que você possa alterar. Ligue \"Atualizável\" na categoria. Se era uma pergunta, use ↺ Refazer.",
+        "Nenhuma categoria atualizável disponível para o comando."
+      ),
+      classificacao,
+      apiCost: totalCost,
+    };
   }
 
   // Guarda estruturada: sem categoria identificada não há queries disponíveis e o resultado
