@@ -1128,6 +1128,23 @@ export interface ComandoAlteracaoCandidato {
  *  - escolher: mais de um alvo possível, ou ação em lote; o usuário escolhe/confirma cada um;
  *  - nao_encontrado: nenhum registro alterável corresponde ao pedido.
  */
+/**
+ * Pedido de criação feito no Perguntar ("criar reunião interna dia 10 às 10h"): o texto passou pelo
+ * mesmo processamento do Catalogar e volta como proposta. O cartão de memo novo mostra e grava
+ * pelo mesmo caminho do Catalogar (POST /api/memos/text/confirm).
+ */
+export interface ComandoCriacao {
+  mensagem: string;
+  groupId: number | null;
+  /** Categoria escolhida (nome), quando houver. */
+  categoria: string | null;
+  /** Campos da categoria, para o cartão montar o formulário (situação fora da lista). */
+  campos: { nome: string; tipo: MemoContextCampoTipo; descricao: string | null }[];
+  /** Campo de situação da categoria atualizável (preenchido com Ativo ao gravar), ou null. */
+  campoSituacao: string | null;
+  processado: TextMemoProcessResponse;
+}
+
 export interface ComandoAlteracao {
   status: "alterado" | "confirmar" | "escolher" | "nao_encontrado";
   mensagem: string;
@@ -1235,6 +1252,8 @@ export interface PerguntaResponse {
   planoReaproveitado?: boolean;
   /** Presente quando o texto era um comando de alteração, e não uma pergunta. */
   comando?: ComandoAlteracao;
+  /** Presente quando o texto pedia para criar um registro novo. */
+  criacao?: ComandoCriacao;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
