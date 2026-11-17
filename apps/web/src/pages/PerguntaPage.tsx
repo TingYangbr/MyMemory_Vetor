@@ -596,6 +596,33 @@ function BotaoAlterar({ memoId }: { memoId: number }) {
   );
 }
 
+/** Até quantas linhas um valor com várias linhas (campo do tipo lista) aparece inteiro na célula. */
+const MAX_LINHAS_CELULA = 12;
+
+/**
+ * Conteúdo da célula: texto com quebras de linha (campo do tipo lista) mostra um item por linha,
+ * sem cortar; o resto segue a regra de antes (corta em 80 caracteres e abre o texto completo).
+ */
+function ConteudoCelula({ texto, onExpandir }: { texto: string; onExpandir: (t: string) => void }) {
+  const linhas = texto.includes("\n") ? texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean) : null;
+  if (linhas && linhas.length > 1) {
+    const mostradas = linhas.slice(0, MAX_LINHAS_CELULA);
+    return (
+      <>
+        {mostradas.map((l, i) => (
+          <div key={i}>{l}</div>
+        ))}
+        {linhas.length > MAX_LINHAS_CELULA ? (
+          <button type="button" className={styles.lerMaisBtn} onClick={(e) => { e.stopPropagation(); onExpandir(texto); }}>
+            mais {linhas.length - MAX_LINHAS_CELULA}…
+          </button>
+        ) : null}
+      </>
+    );
+  }
+  return <>{texto.length > 80 ? texto.slice(0, 80) + "…" : texto}</>;
+}
+
 function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
@@ -612,7 +639,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
       {expandedCell ? (
         <div className={styles.cellModalOverlay} onClick={() => setExpandedCell(null)}>
           <div className={styles.cellModal} onClick={(e) => e.stopPropagation()}>
-            <p className={styles.cellModalText}>{expandedCell}</p>
+            <p className={styles.cellModalText} style={{ whiteSpace: "pre-line" }}>{expandedCell}</p>
           </div>
         </div>
       ) : null}
@@ -641,7 +668,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                   const local = valorLocal(locais, col);
                   const val = local !== undefined ? local : linha[col];
                   const display = textoCelula(col, val);
-                  const isLong = display.length > 80;
+                  const isLong = display.length > 80 && !display.includes("\n");
                   if (col === "id" && val != null) {
                     const id = Number(val);
                     const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
@@ -684,7 +711,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                       onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
                       title={isLong ? "Clique para ver texto completo" : undefined}
                     >
-                      {isLong ? display.slice(0, 80) + "…" : display}
+                      <ConteudoCelula texto={display} onExpandir={setExpandedCell} />
                     </td>
                   );
                 })}
@@ -723,14 +750,14 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
   const LABELS: Record<string, string> = { memo_id: "ID", mediaType: "Tipo", mediatext: "Conteúdo" };
 
   function renderCell(val: string) {
-    const isLong = val.length > 80;
+    const isLong = val.length > 80 && !val.includes("\n");
     return (
       <td
         className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
         onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(val); } : undefined}
         title={isLong ? "Clique para ver texto completo" : undefined}
       >
-        {isLong ? val.slice(0, 80) + "…" : val}
+        <ConteudoCelula texto={val} onExpandir={setExpandedCell} />
       </td>
     );
   }
@@ -740,7 +767,7 @@ function TabelaSemantica({ dados_usados, onOpenMemo, onOpenMemoFile, loadingCard
       {expandedCell ? (
         <div className={styles.cellModalOverlay} onClick={() => setExpandedCell(null)}>
           <div className={styles.cellModal} onClick={(e) => e.stopPropagation()}>
-            <p className={styles.cellModalText}>{expandedCell}</p>
+            <p className={styles.cellModalText} style={{ whiteSpace: "pre-line" }}>{expandedCell}</p>
           </div>
         </div>
       ) : null}
