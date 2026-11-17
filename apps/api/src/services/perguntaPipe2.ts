@@ -1379,7 +1379,15 @@ async function gerarRespostaEstruturada(input: {
     "NÃO acrescente outras colunas (data, nota, cliente, vendedor, impostos…) a menos que a pergunta as cite " +
     "(ex.: \"incluir o cliente\", \"com o número da nota\"). " +
     "Deixe vazio para mostrar todas (resultados com poucas colunas, ex.: agregações).";
-  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}\n\nRetorne somente JSON:\n{"resposta":"","colunas_exibir":[],"tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
+  // Campo do tipo lista (valor com vários itens em linhas): a tela já mostra a lista inteira em
+  // cartões, então a resposta não repete os itens — fica mais curta e mais rápida.
+  const temLista = resultados.some(
+    (r) => "linhas" in r && r.linhas.some((l) => Object.values(l).some((v) => typeof v === "string" && v.includes("\n")))
+  );
+  const regraLista = temLista
+    ? "\n\nHá campo com vários itens, um por linha (lista). A tela mostra a lista inteira logo abaixo da resposta: NÃO repita os itens no texto. Diga só quantas listas há, o nome de cada uma e quantos itens tem, em uma ou duas frases."
+    : "";
+  const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}${regraLista}\n\nRetorne somente JSON:\n{"resposta":"","colunas_exibir":[],"tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
 
   // Trace dedicado mostrando as linhas do resultado entregues ao LLM de síntese
   setLastLlmPromptTrace({
