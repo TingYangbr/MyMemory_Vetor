@@ -468,8 +468,146 @@ interface AlteracaoCtxValor {
   abrirCriacao: (c: ComandoCriacao) => void;
   /** Muda a situação do memo direto da resposta (ex.: "Concluir lista"), com aviso e Desfazer. */
   mudarSituacao: (memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void;
+  /** Valores gravados por uma alteração: as tabelas e listas da tela mostram o valor novo. */
+  aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
 }
-const AlteracaoCtx = createContext<AlteracaoCtxValor>({ alteraveis: new Set(), locais: {}, abrir: () => {}, abrirCriacao: () => {}, mudarSituacao: () => {} });
+const AlteracaoCtx = createContext<AlteracaoCtxValor>({
+  alteraveis: new Set(),
+  locais: {},
+  abrir: () => {},
+  abrirCriacao: () => {},
+  mudarSituacao: () => {},
+  aplicarLocal: () => {},
+});
+
+/** Uma mudança mostrada no formato do usuário: lista com o que entra destacado e o que sai riscado. */
+function MudancaVisual({ m }: { m: { campo: string; antes: string; depois: string } }) {
+  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const ehLista = m.antes.includes("\n") || m.depois.includes("\n");
+  const igual = (a: string, b: string) => toParamName(a) === toParamName(b);
+  if (ehLista) {
+    const antes = linhas(m.antes);
+    const depois = linhas(m.depois);
+    const saiu = antes.filter((x) => !depois.some((y) => igual(x, y)));
+    return (
+      <ul className={styles.listaItens}>
+        {depois.map((it, k) => (
+          <li key={`d${k}`} className={antes.some((y) => igual(y, it)) ? undefined : styles.comandoEntra}>
+            {it}
+          </li>
+        ))}
+        {saiu.map((it, k) => (
+          <li key={`s${k}`} className={styles.comandoSai}>
+            {it}
+          </li>
+        ))}
+      </ul>
+    );
+  }
+  return (
+    <p className={styles.comandoCampo}>
+      {m.campo}: {m.antes ? <span className={styles.comandoSai}>{m.antes}</span> : null} <span className={styles.comandoEntra}>{m.depois || "(vazio)"}</span>
+    </p>
+  );
+}
+
+/**
+ * Comando de alteração na resposta: a mudança no formato do usuário (lista com o que entra e sai,
+ * campo com o valor antigo riscado) e os botões ali mesmo: Confirmar grava, Ajustar abre o cartão de
+ * edição, Cancelar descarta. Depois de gravar, o mesmo cartão mostra "✓ Alterado" e o Desfazer.
+ */
+function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
+  const { abrir, aplicarLocal } = useContext(AlteracaoCtx);
+  const [estado, setEstado] = useState<Record<number, { situacao: "feito" | "desfeito" | "cancelado"; lote: string | null }>>({});
+  const [ocupado, setOcupado] = useState<number | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  if (!comando) return null;
+  if (comando.status === "nao_encontrado" || !comando.candidatos?.length) {
+    return <p className={styles.cardRespostaText}>{comando.mensagem}</p>;
+  }
+  const varios = comando.candidatos.length > 1;
+
+  async function confirmar(memoId: number, propostos: Record<string, string>) {
+    setOcupado(memoId);
+    setErro(null);
+    try {
+      const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/${memoId}/alterar`, { campos: propostos });
+      aplicarLocal(memoId, r);
+      setEstado((s) => ({ ...s, [memoId]: { situacao: "feito", lote: r.lote } }));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  async function desfazer(memoId: number, lote: string | null) {
+    if (!lote) return;
+    setOcupado(memoId);
+    setErro(null);
+    try {
+      const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/alteracoes/${lote}/desfazer`, {});
+      aplicarLocal(memoId, r);
+      setEstado((s) => ({ ...s, [memoId]: { situacao: "desfeito", lote: null } }));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : String(e));
+    } finally {
+      setOcupado(null);
+    }
+  }
+
+  return (
+    <div className={styles.listaCards}>
+      {varios ? <p className={styles.cardRespostaText}>{comando.mensagem}</p> : null}
+      {comando.candidatos.map((c) => {
+        const st = estado[c.memoId];
+        const pendente = !st || st.situacao === "desfeito";
+        return (
+          <div key={c.memoId} className={`${styles.listaCard}${st?.situacao === "cancelado" ? ` ${styles.listaCardEncerrada}` : ""}`}>
+            <div className={styles.listaTopo}>
+              <div>
+                <span className={styles.listaTitulo}>{c.categoria}</span>
+                <span className={styles.listaSub}>#{c.memoId}</span>
+                {st?.situacao === "feito" ? <span className={styles.comandoFeito}>✓ Alterado</span> : null}
+                {st?.situacao === "desfeito" ? <span className={styles.listaSub}>· desfeito</span> : null}
+                {st?.situacao === "cancelado" ? <span className={styles.listaSub}>· não alterado</span> : null}
+              </div>
+              <div className={styles.listaAcoes}>
+                {pendente ? (
+                  <>
+                    <button type="button" className={styles.refazerBtn} disabled={ocupado === c.memoId} onClick={() => void confirmar(c.memoId, c.propostos)}>
+                      {ocupado === c.memoId ? "Gravando…" : "✓ Confirmar"}
+                    </button>
+                    <button type="button" className={styles.refazerBtn} disabled={ocupado === c.memoId} onClick={() => abrir(c.memoId, c.propostos)}>
+                      ✎ Ajustar
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.refazerBtn}
+                      disabled={ocupado === c.memoId}
+                      onClick={() => setEstado((s) => ({ ...s, [c.memoId]: { situacao: "cancelado", lote: null } }))}
+                    >
+                      Cancelar
+                    </button>
+                  </>
+                ) : st?.situacao === "feito" ? (
+                  <button type="button" className={styles.refazerBtn} disabled={ocupado === c.memoId} onClick={() => void desfazer(c.memoId, st.lote)}>
+                    ↶ Desfazer
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            {varios ? <p className={styles.listaSub}>{c.resumo}</p> : null}
+            {c.mudancas.map((m) => (
+              <MudancaVisual key={m.campo} m={m} />
+            ))}
+          </div>
+        );
+      })}
+      {erro ? <p className="mm-error">{erro}</p> : null}
+    </div>
+  );
+}
 
 /** Colunas técnicas que não entram no título do cartão da lista. */
 const COLUNAS_FORA_DO_TITULO = new Set(["id", "mediatext", "mediatype", "mediafileurl", "attachmentdisplayname", "keywords", "createdat", "userid", "groupid", "category"]);
@@ -625,30 +763,6 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
   );
 }
 
-/**
- * Comando de alteração com mais de um alvo, ou que pede confirmação: um botão por registro.
- * O clique abre o cartão de alteração já com os valores propostos; quem grava é o cartão.
- */
-function ComandoPropostas({ comando }: { comando: ComandoAlteracao | undefined }) {
-  const { abrir } = useContext(AlteracaoCtx);
-  if (!comando || (comando.status !== "escolher" && comando.status !== "confirmar") || !comando.candidatos?.length) return null;
-  return (
-    <ul className={styles.escolherMemoLista}>
-      {comando.candidatos.map((c) => (
-        <li key={c.memoId}>
-          <button type="button" className={styles.escolherMemoItem} onClick={() => abrir(c.memoId, c.propostos)}>
-            <span className={styles.escolherMemoId}>#{c.memoId}</span>
-            <span>
-              {c.resumo || c.categoria}
-              <br />
-              <small>{c.mudancas.map((m) => m.texto ?? `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")}</small>
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 /** Pedido de criação: botão para (re)abrir o cartão do registro novo. */
 function CriacaoBotao({ criacao }: { criacao: ComandoCriacao | undefined }) {
@@ -1525,10 +1639,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       const prop = cmd.candidatos?.find((c) => c.memoId === memoId)?.propostos ?? {};
       setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...prop } }));
       setAvisoAlteracao({ texto: cmd.mensagem, lote: cmd.lote ?? null, memoId });
-    } else if (cmd.status === "confirmar" && cmd.candidatos?.[0]) {
-      setPropostosAbertos(cmd.candidatos[0].propostos);
-      setAlterandoMemoId(cmd.candidatos[0].memoId);
     }
+    // "confirmar" e "escolher": o cartão de comando na própria resposta mostra a mudança e os botões
   }
 
   async function desfazerAlteracao() {
@@ -1563,6 +1675,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); },
       abrirCriacao: (c: ComandoCriacao) => setCriando(c),
       mudarSituacao: (id: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
+      aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
     }),
     [alteraveis, alteracoesLocais]
   );
@@ -2522,7 +2635,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ) : null}
                 </div>
                 <div className={styles.cardResposta}>
-                  <div className={styles.cardRespostaMeta}>
+                  {/* Comando (alterar/criar): sem as marcas técnicas da consulta */}
+                  <div className={styles.cardRespostaMeta} style={r.comando || r.criacao ? { display: "none" } : undefined}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
                     </span>
@@ -2633,7 +2747,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  {(() => {
+                  {r.comando ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
                     const recolhido = textoLongo(texto) && !expandidos.has(r);
                     return (
@@ -2653,7 +2767,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       </div>
                     );
                   })()}
-                  <ComandoPropostas comando={r.comando} />
+                  <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
@@ -2665,12 +2779,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
-                  {r.resposta.limitacoes.length > 0 ? (
+                  {r.resposta.limitacoes.length > 0 && !r.comando && !r.criacao ? (
                     <ul className={styles.limitacoes}>
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>
                   ) : null}
-                  {r.resposta.dados_usados.length > 0 ? (
+                  {r.resposta.dados_usados.length > 0 && !r.comando ? (
                     <details className={styles.memosDetails}>
                       <summary className={styles.memosSummary}>
                         {r.resposta.dados_usados.length} memo(s) utilizado(s)
