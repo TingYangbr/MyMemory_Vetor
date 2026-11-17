@@ -433,14 +433,22 @@ interface TabelaEstruturadaProps {
   loadingFileId?: number | null;
 }
 
+/** Coluna de um campo do tipo lista (valor com várias linhas) no resultado, ou null. */
+function colunaDeLista(dados: PerguntaResultadoEstruturado): string | null {
+  return dados.colunas.find((c) => dados.linhas.some((l) => typeof l[c] === "string" && (l[c] as string).includes("\n"))) ?? null;
+}
+
+/** A resposta traz um campo do tipo lista? Aí ela vira uma linha e a lista (o texto longo some). */
+function respostaComLista(resposta: PerguntaResponse["resposta"]): boolean {
+  const de = resposta.dados_estruturados;
+  return (de ? (Array.isArray(de) ? de : [de]) : []).some((d) => d.totalLinhas > 0 && colunaDeLista(d) != null);
+}
+
 /** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
 function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   const grafico = useMemo(() => buildDadosGrafico(props.dados, props.pergunta ?? ""), [props.dados, props.pergunta]);
   // Campo do tipo lista (valor com várias linhas): mostra primeiro a lista, a tabela fica atrás de um botão
-  const colLista = useMemo(
-    () => props.dados.colunas.find((c) => props.dados.linhas.some((l) => typeof l[c] === "string" && (l[c] as string).includes("\n"))) ?? null,
-    [props.dados]
-  );
+  const colLista = useMemo(() => colunaDeLista(props.dados), [props.dados]);
   const [verTabela, setVerTabela] = useState(false);
   if (!props.dados.totalLinhas) return null;
   if (colLista && !verTabela) return <VisaoLista dados={props.dados} colLista={colLista} onVerTabela={() => setVerTabela(true)} />;
@@ -707,8 +715,18 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
   const colTitulo = dados.colunas.filter(
     (c) => c !== colLista && !COLUNAS_FORA_DO_TITULO.has(c.toLowerCase()) && !/situa/i.test(toParamName(c))
   );
+  // Uma linha só no lugar do texto da resposta: quantas listas e quantos itens pendentes
+  const pendentes = dados.linhas.reduce((n, linha) => {
+    const id = linha["id"] != null ? Number(linha["id"]) : null;
+    const l = valorLocal(id != null ? locais[id] : undefined, colLista);
+    const texto = String(l !== undefined ? l : linha[colLista] ?? "");
+    return n + lerItensLista(texto).filter((it) => it.estado === "pendente").length;
+  }, 0);
   return (
     <div className={styles.listaCards}>
+      <p className={styles.listaResumo}>
+        {dados.linhas.length === 1 ? "1 lista" : `${dados.linhas.length} listas`} · {pendentes === 1 ? "1 item pendente" : `${pendentes} itens pendentes`}
+      </p>
       {dados.linhas.map((linha, i) => {
         const id = linha["id"] != null ? Number(linha["id"]) : null;
         const local = id != null ? locais[id] : undefined;
@@ -738,8 +756,18 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
                     ✎ Alterar
                   </button>
                   {!encerrada ? (
-                    <button type="button" className={styles.refazerBtn} onClick={() => mudarSituacao(id!, "Concluído")} title="Marcar a lista como concluída">
-                      ✓ Concluir
+                    <button
+                      type="button"
+                      className={styles.refazerBtn}
+                      onClick={() => {
+                        // A lista inteira sai das respostas: pede confirmação para não confundir com o ✓ de um item
+                        if (window.confirm("Encerrar a lista inteira? Ela sai das respostas (dá para desfazer em seguida).")) {
+                          mudarSituacao(id!, "Concluído");
+                        }
+                      }}
+                      title="Encerrar a lista inteira (concluída)"
+                    >
+                      Encerrar lista
                     </button>
                   ) : null}
                 </div>
@@ -2838,7 +2866,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  {r.comando ? null : (() => {
+                  {r.comando || respostaComLista(r.resposta) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
                     const recolhido = textoLongo(texto) && !expandidos.has(r);
                     return (
