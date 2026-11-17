@@ -2202,3 +2202,26 @@
   font-size: 0.85rem;
   cursor: pointer;
 }
+
+/* ── Cartão de comando: a mudança mostrada no formato do usuário ─────────────────────── */
+.comandoEntra {
+  color: var(--mm-primary);
+  font-weight: 600;
+}
+
+.comandoSai {
+  color: var(--mm-muted);
+  text-decoration: line-through;
+}
+
+.comandoFeito {
+  color: var(--mm-primary);
+  font-weight: 600;
+  margin-left: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.comandoCampo {
+  margin: 0.45rem 0 0;
+  color: var(--mm-text);
+}
