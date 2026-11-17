@@ -182,6 +182,16 @@ Para registrar o resultado de uma reunião, recomendo **memo novo ligado ao memo
 
 Outros usos: recebimento ligado à empreitada, aditivo ao contrato, estorno à operação de investimento. Na memória do projeto há uma decisão anterior de GraphRAG; esta tabela seria um primeiro passo nessa direção. Não reli essa decisão.
 
+**Como a ligação é criada: automática, não manual.** *Decidido em 17/11.* Quando o memo do resultado é criado ("resultado da reunião com Wilson"), o sistema procura o memo de origem com a mesma busca de candidatos dos comandos, usando três pistas:
+
+- **a data:** "a reunião de hoje" ou "de ontem", ou o registro feito logo depois do horário marcado;
+- **as pessoas:** "Wilson", "Fapesp";
+- **o assunto:** "reunião interna Softing".
+
+A confiança decide: **alta** liga sozinho e avisa ("Liguei à reunião de 15/11 com Wilson", com desfazer); **média** pergunta ("É da reunião de 15/11 com Wilson?", com botões); **nenhuma** não liga, e o usuário pode ligar depois pelo cartão.
+
+**Cuidado:** essa busca precisa incluir os registros que **já passaram**. "Encerra pela data" tira a reunião de ontem das respostas, mas não pode tirá-la da busca de ligação. Pelo mesmo motivo, a busca não pode se limitar aos memos ativos, como faz hoje a busca dos comandos.
+
 ### 5.6 Rotina após gravar (só o contrato, agora)
 
 Recebe o evento (criado, alterado, apagado), o `memoId` e a categoria; é idempotente; e não engole erro, ao contrário do funil de hoje.
@@ -202,6 +212,10 @@ O Perguntar já começa com uma chamada de IA de classificação (`classificarPe
 **O desvio fica oculto, o resultado não:** o usuário vê o que foi feito ("Registrei na Agenda: reunião interna Softing, 10/12 às 10h") com o Desfazer. Uma criação mal classificada é pega pelo cartão antes de gravar.
 
 O Catalogar continua funcionando como hoje, para quem preferir.
+
+**Linguagem livre, sem palavras-chave.** *Decidido em 17/11.* Quem entende o comando é a IA, lendo a frase. Os verbos citados no prompt ("adiar", "remarcar", "cancelar", "tirar") são exemplos, não uma lista fechada: "joga a reunião do Wilson pra quinta", "não vou mais na reunião interna" e "passa a reunião pra depois do almoço" devem funcionar. O único vocabulário fixo é o dos **valores** de um estado (Aberto, Baixado), não o das palavras: "paguei", "quitei" e "já acertei" levam a Baixado.
+
+**Conjunto de frases reais para teste:** juntar umas 20 frases do jeito que os usuários falam de verdade (criar, adiar, cancelar, acrescentar e tirar da lista, perguntas parecidas com comandos) e testar uma por uma quando o app estiver rodando. Onde a IA errar, ajusta-se o prompt. Isso ainda não foi testado.
 
 ### 6.2 Fluxo
 
@@ -362,7 +376,9 @@ A entrevista de 17/11 mostrou que a lista é usada como **um texto**: copia-se a
 6. **Relações entre memos**, se entrarem nesta etapa. *Pronto quando:* "resultado da reunião com Wilson de ontem" cria um memo ligado à agenda certa, e "o que foi decidido?" responde com ele.
 7. **Contrato da rotina após gravar.** Só a interface e a coluna reservada.
 
-Os comandos vieram para o começo porque Agenda e Lista de compras dependem deles, e os testes da sua esposa e os seus são justamente comandos. O projeto não tem scripts de teste: a verificação é o `tsc` mais os cenários manuais das seções 8 e 10.
+Os comandos vieram para o começo porque Agenda e Lista de compras dependem deles, e os testes da sua esposa e os seus são justamente comandos. O projeto não tem scripts de teste: a verificação é o `tsc`, os cenários manuais das seções 8 e 10 e o **conjunto de frases reais** da seção 6.1.
+
+**Situação em 17/11:** os passos 1 (comando de alteração e tipo "lista") e o marcador "Confirmar antes de alterar" estão implementados no commit `4f388a6`, verificados só com `tsc`. Ainda não foram testados com o app rodando.
 
 ## 11. Decisões e o que não li
 
