@@ -113,6 +113,24 @@ export function aplicarOperacoesLista(atual: string, ops: Record<string, unknown
   return linhas.join("\n");
 }
 
+/**
+ * A mudança dita para a pessoa. Em campo do tipo lista não repete a lista inteira (antes → depois
+ * ficava parecendo itens repetidos): diz só o que entrou e o que saiu.
+ */
+function textoMudanca(campo: string, antes: string, depois: string, tipo: string): string {
+  if (tipo !== "lista") return `${campo}: ${antes || "(vazio)"} → ${depois || "(vazio)"}`;
+  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const a = linhas(antes);
+  const d = linhas(depois);
+  const entrou = d.filter((x) => !a.some((y) => norm(y) === norm(x)));
+  const saiu = a.filter((x) => !d.some((y) => norm(y) === norm(x)));
+  const partes = [
+    ...(entrou.length ? [`entra ${entrou.join(", ")}`] : []),
+    ...(saiu.length ? [`sai ${saiu.join(", ")}`] : []),
+  ];
+  return `${campo}: ${partes.join("; ") || "ordem dos itens"}`;
+}
+
 function hojeTexto(): string {
   const d = new Date();
   const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -259,7 +277,7 @@ export async function executarComandoAlteracao(input: {
     const brutos = mudancasIa[String(id)];
     const campos = brutos && typeof brutos === "object" ? (brutos as Record<string, unknown>) : {};
     const propostos: Record<string, string> = {};
-    const mudancas: { campo: string; antes: string; depois: string }[] = [];
+    const mudancas: { campo: string; antes: string; depois: string; texto: string }[] = [];
     for (const [nome, valorBruto] of Object.entries(campos)) {
       const def = cat.campos.find((f) => f.isActive === 1 && norm(f.name) === norm(nome));
       if (!def || valorBruto == null) continue;
@@ -272,7 +290,7 @@ export async function executarComandoAlteracao(input: {
           : comoGravado(String(valorBruto), def.tipo);
       if (norm(novo) === norm(antes)) continue;
       propostos[def.name] = novo;
-      mudancas.push({ campo: def.name, antes, depois: novo });
+      mudancas.push({ campo: def.name, antes, depois: novo, texto: textoMudanca(def.name, antes, novo, def.tipo) });
     }
     if (mudancas.length) {
       propostas.push({ memoId: id, categoria: cand.categoria, resumo: cand.resumo, propostos, mudancas });
@@ -290,7 +308,7 @@ export async function executarComandoAlteracao(input: {
   }
 
   const descreve = (p: ComandoAlteracaoCandidato) =>
-    p.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ");
+    p.mudancas.map((m) => m.texto ?? `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ");
   const usados = propostas.map((p) => porId.get(p.memoId)!);
 
   // Vários alvos, ou ação em lote: sempre o usuário escolhe ou confirma cada um
@@ -339,9 +357,7 @@ export async function executarComandoAlteracao(input: {
       costUsd,
     };
   }
-  const feitas = r.mudancas.length
-    ? r.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")
-    : "nada mudou";
+  const feitas = r.mudancas.length ? descreve(unica) : "nada mudou";
   const msg = `Alterei ${unica.categoria} #${unica.memoId}: ${feitas}.`;
   return {
     resposta: resposta(msg, usados),
