@@ -263,7 +263,11 @@ export async function executarComandoAlteracao(input: {
 
   const unica = propostas[0]!;
   const cat = catPorNome.get(unica.categoria)!;
-  if (cat.confirmarAlteracao) {
+  // Enquanto os comandos não forem validados com frases reais, todo comando pede confirmação,
+  // mesmo com o marcador desligado (decisão de 17/11). Para liberar a gravação direta nas
+  // categorias sem "Confirmar antes de alterar", trocar para true.
+  const GRAVAR_DIRETO_LIBERADO = false;
+  if (cat.confirmarAlteracao || !GRAVAR_DIRETO_LIBERADO) {
     const msg = `Confirme a alteração em ${unica.categoria} #${unica.memoId}: ${descreve(unica)}.`;
     return {
       resposta: resposta(msg, usados),
