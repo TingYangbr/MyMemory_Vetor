@@ -641,7 +641,7 @@ function ComandoPropostas({ comando }: { comando: ComandoAlteracao | undefined }
             <span>
               {c.resumo || c.categoria}
               <br />
-              <small>{c.mudancas.map((m) => `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")}</small>
+              <small>{c.mudancas.map((m) => m.texto ?? `${m.campo}: ${m.antes || "(vazio)"} → ${m.depois || "(vazio)"}`).join("; ")}</small>
             </span>
           </button>
         </li>

@@ -52,6 +52,17 @@ function situacaoCanonica(v: string): "Ativo" | "Concluído" | "Cancelado" | nul
   return null;
 }
 
+/** Lista: em vez de mostrar a lista anterior inteira, diz só o que entra e o que sai. */
+function diferencaLista(antes: string, depois: string): string {
+  const linhas = (s: string) => s.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const a = linhas(antes);
+  const d = linhas(depois);
+  const entrou = d.filter((x) => !a.some((y) => normNome(y) === normNome(x)));
+  const saiu = a.filter((x) => !d.some((y) => normNome(y) === normNome(x)));
+  const partes = [...(entrou.length ? [`entra ${entrou.join(", ")}`] : []), ...(saiu.length ? [`sai ${saiu.join(", ")}`] : [])];
+  return partes.join("; ") || "itens reordenados";
+}
+
 function mensagemErro(e: unknown): string {
   const raw = e instanceof Error ? e.message : String(e);
   try {
@@ -285,7 +296,11 @@ export function MemoAlteracaoCartao({
                   </div>
                   {ouvindo === c.nome ? <div className={styles.dica}>Ouvindo… pode falar.</div> : null}
                   {propostosCampos.has(c.nome) ? (
-                    <div className={styles.dica}>Proposto pelo comando. Antes: {paraTela(c) || "(vazio)"}</div>
+                    <div className={styles.dica}>
+                      {c.tipo === "lista"
+                        ? `Proposto pelo comando: ${diferencaLista(paraTela(c), valores[c.nome] ?? "")}`
+                        : `Proposto pelo comando. Antes: ${paraTela(c) || "(vazio)"}`}
+                    </div>
                   ) : null}
                 </div>
               ))}
