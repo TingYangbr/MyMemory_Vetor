@@ -268,6 +268,7 @@ export async function loadMemoContextStructure(
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
             atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
+            campo_encerra_data AS "campoEncerraData",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -431,6 +432,7 @@ export async function loadMemoContextStructure(
     atualizavel: Number(r.atualizavel ?? 0) === 1,
     campoSituacao: (r.campoSituacao as string | null) ?? null,
     confirmarAlteracao: Number(r.atualizavel ?? 0) === 1 && Number(r.confirmarAlteracao ?? 0) === 1,
+    campoEncerraData: Number(r.atualizavel ?? 0) === 1 ? ((r.campoEncerraData as string | null) ?? null) : null,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -455,19 +457,20 @@ export async function loadStructureForGroup(
 /** Gera a Query padrão com o nome e os campos ativos atuais da categoria (null se inativa/inexistente). */
 async function gerarQueryPadraoDaCategoria(categoryId: number) {
   const [catRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao" FROM categories WHERE id = ? LIMIT 1`,
+    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao", campo_encerra_data AS "campoEncerraData" FROM categories WHERE id = ? LIMIT 1`,
     [categoryId]
   );
   const cat = catRows[0];
   if (!cat || Number(cat.isActive) !== 1) return null;
   const campoSituacao = Number(cat.atualizavel ?? 0) === 1 ? ((cat.campoSituacao as string | null) ?? null) : null;
+  const campoEncerraData = Number(cat.atualizavel ?? 0) === 1 ? ((cat.campoEncerraData as string | null) ?? null) : null;
   const [campoRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, name, tipo, normalizedterms, isactive FROM categorycampos
      WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
     [categoryId]
   );
   const nome = String(cat.name);
-  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao }) };
+  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao, campoEncerraData }) };
 }
 
 /** Grava o SQL gerado como atual + "último gerado" e troca os parâmetros pelos gerados. */
@@ -508,7 +511,7 @@ async function aplicarQueryPadraoGerada(
  * planejador não preferir uma consulta de memos vazia no lugar da do ERP.
  * Falha aqui não pode impedir a gravação da categoria/campo: só registra no log.
  */
-async function sincronizarQueryPadrao(categoryId: number): Promise<void> {
+export async function sincronizarQueryPadrao(categoryId: number): Promise<void> {
   try {
     const gerada = await gerarQueryPadraoDaCategoria(categoryId);
     if (!gerada) return;
@@ -631,6 +634,7 @@ export async function updateCategory(
     campoDono?: string | null;
     atualizavel?: boolean;
     confirmarAlteracao?: boolean;
+    campoEncerraData?: string | null;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -683,6 +687,10 @@ export async function updateCategory(
     sets.push("confirmar_alteracao = ?");
     vals.push(patch.confirmarAlteracao ? 1 : 0);
   }
+  if (patch.campoEncerraData !== undefined) {
+    sets.push("campo_encerra_data = ?");
+    vals.push(patch.campoEncerraData?.trim() || null);
+  }
   if (patch.revisaoSempre !== undefined) {
     sets.push("revisao_sempre = ?");
     vals.push(patch.revisaoSempre ? 1 : 0);
@@ -696,7 +704,7 @@ export async function updateCategory(
   await pool.query(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
   // O nome da categoria entra no SQL (m.category = '...'); reativar também pede query em dia;
   // atualizável muda o filtro de situação da Query padrão
-  if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined) {
+  if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined || patch.campoEncerraData !== undefined) {
     await sincronizarQueryPadrao(categoryId);
   }
 }
@@ -1283,4 +1291,142 @@ export async function listarMemosPorCategoria(input: {
     linhas: rows as Record<string, unknown>[],
     totalLinhas: Number(countRows[0]?.total ?? 0),
   };
+}
+
+/**
+ * Copia uma categoria (com campos, tipos, subcategorias, atributos, consultas escritas à mão e
+ * instruções de IA) para outro grupo. Memos não são copiados. As consultas automáticas (Query padrão
+ * e Consulta de alterações) não são copiadas: são geradas de novo no destino.
+ * Quem copia precisa enxergar a categoria de origem e poder editar o grupo destino.
+ */
+export async function copiarCategoriaParaGrupo(
+  userId: number,
+  categoryId: number,
+  targetGroupId: number
+): Promise<{ id: number; name: string }> {
+  const isAdmin = await getUserAdminFlag(userId);
+  const [catRows] = await pool.query<RowDataPacket[]>(
+    `SELECT id, groupid AS "groupId", mediatype AS "mediaType", name, description,
+            meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
+            campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
+            confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData"
+     FROM categories WHERE id = ? AND isactive = 1 LIMIT 1`,
+    [categoryId]
+  );
+  const cat = catRows[0];
+  if (!cat) throw new Error("not_found");
+  const origem = cat.groupId != null ? Number(cat.groupId) : null;
+  await assertMemoContextReadScope(userId, origem, isAdmin);
+  await assertMemoContextWriteForGroupScope(userId, targetGroupId, isAdmin);
+  if (origem === targetGroupId) {
+    throw Object.assign(new Error("A categoria já é deste grupo."), { statusCode: 409 });
+  }
+  const [dup] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM categories WHERE groupid = ? AND isactive = 1 AND lower(name) = lower(?) LIMIT 1`,
+    [targetGroupId, String(cat.name)]
+  );
+  if (dup.length) {
+    throw Object.assign(new Error(`O grupo destino já tem uma categoria "${String(cat.name)}".`), { statusCode: 409 });
+  }
+
+  const conn = await pool.getConnection();
+  let novoId = 0;
+  try {
+    await conn.beginTransaction();
+    const [ins] = await conn.query<{ id: number }[]>(
+      `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
+         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [
+        targetGroupId,
+        cat.mediaType ?? null,
+        cat.name,
+        cat.description ?? null,
+        Number(cat.meusPorPadrao ?? 0),
+        cat.campoDono ?? null,
+        Number(cat.atualizavel ?? 0),
+        cat.campoSituacao ?? null,
+        Number(cat.revisaoSempre ?? 0),
+        cat.revisaoMinPct != null ? Number(cat.revisaoMinPct) : 80,
+        Number(cat.confirmarAlteracao ?? 0),
+        cat.campoEncerraData ?? null,
+      ]
+    );
+    novoId = Number(ins[0]?.id);
+    if (!Number.isFinite(novoId) || !novoId) throw new Error("Falha ao copiar a categoria.");
+
+    const [subs] = await conn.query<RowDataPacket[]>(
+      `SELECT name, description FROM subcategories WHERE categoryid = ? AND isactive = 1`,
+      [categoryId]
+    );
+    for (const s of subs) {
+      await conn.query(`INSERT INTO subcategories (categoryid, name, description, isactive) VALUES (?, ?, ?, 1)`, [
+        novoId,
+        s.name,
+        s.description ?? null,
+      ]);
+    }
+
+    const [campos] = await conn.query<RowDataPacket[]>(
+      `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", resolucaonomeabrev AS "resolucaoNomeAbrev"
+       FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+      [categoryId]
+    );
+    for (const c of campos) {
+      await conn.query(
+        `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive)
+         VALUES (?, ?, ?, ?, ?, ?, 1)`,
+        [novoId, c.name, c.description ?? null, c.tipo ?? "text", c.normalizedTerms ?? null, Number(c.resolucaoNomeAbrev ?? 0)]
+      );
+    }
+
+    // Só as consultas escritas à mão; as automáticas são geradas de novo no destino (abaixo)
+    const [queries] = await conn.query<RowDataPacket[]>(
+      `SELECT id, nome, descricao, sentencasql AS "sentencaSql", conexaoid AS "conexaoId"
+       FROM queries_categoria WHERE categoryid = ? AND isactive = 1 AND sqlgerado IS NULL`,
+      [categoryId]
+    );
+    for (const q of queries) {
+      const [nq] = await conn.query<{ id: number }[]>(
+        `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, conexaopendente, isactive)
+         VALUES (?, ?, ?, ?, NULL, NULL, ?, 1) RETURNING id`,
+        // Conexão externa não vai junto: o grupo destino escolhe a dele
+        [novoId, q.nome, q.descricao ?? null, q.sentencaSql, q.conexaoId != null ? 1 : 0]
+      );
+      const nqId = Number(nq[0]?.id);
+      const [params] = await conn.query<RowDataPacket[]>(
+        `SELECT campo, tipo, obrigatorio, operadorsql AS "operadorSql", normalizar, ordem
+         FROM queries_categoria_params WHERE queryid = ? AND isactive = 1 ORDER BY ordem ASC`,
+        [q.id]
+      );
+      for (const pr of params) {
+        await conn.query(
+          `INSERT INTO queries_categoria_params (queryid, campo, tipo, obrigatorio, operadorsql, normalizar, ordem, isactive)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+          [nqId, pr.campo, pr.tipo, pr.obrigatorio ?? 0, pr.operadorSql ?? null, pr.normalizar ?? 0, pr.ordem ?? 0]
+        );
+      }
+    }
+
+    const [ovs] = await conn.query<RowDataPacket[]>(
+      `SELECT prompt_chave AS "promptChave", texto FROM llm_prompt_category_overrides WHERE category_id = ?`,
+      [categoryId]
+    );
+    for (const ov of ovs) {
+      await conn.query(
+        `INSERT INTO llm_prompt_category_overrides (prompt_chave, category_id, texto, updatedat)
+         VALUES (?, ?, ?, NOW()) ON CONFLICT (prompt_chave, category_id) DO NOTHING`,
+        [ov.promptChave, novoId, ov.texto]
+      );
+    }
+    await conn.commit();
+  } catch (e) {
+    await conn.rollback();
+    throw e;
+  } finally {
+    conn.release();
+  }
+  // Query padrão e Consulta de alterações do destino, a partir dos campos copiados
+  await sincronizarQueryPadrao(novoId);
+  return { id: novoId, name: String(cat.name) };
 }
