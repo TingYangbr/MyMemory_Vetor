@@ -194,7 +194,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
       setErro(null);
       try {
         const catNome = categorias?.find((c) => c.id === categoryId)?.name ?? (categoryId == null ? null : dados.category ?? null);
-        await gravarMemoRevisado(entrada.tipo, dados, groupId, {
+        const memoSalvo = await gravarMemoRevisado(entrada.tipo, dados, groupId, {
           mediaText: resumo,
           keywords,
           dadosEspecificosJson: dadosParaJson(campos),
@@ -204,7 +204,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
           custoExtra,
           tituloCurto: opc.comAssunto ? assunto : null,
         });
-        navigate("/", { replace: true, state: { memoSavedAt: Date.now(), memoAviso: opc.aviso } });
+        navigate("/", { replace: true, state: { memoSavedAt: Date.now(), memoAviso: opc.aviso, memoCriadoId: memoSalvo?.id ?? null } });
       } catch (e) {
         setErro(mensagemDeErro(e, "Falha ao salvar."));
         setFase("revisao");

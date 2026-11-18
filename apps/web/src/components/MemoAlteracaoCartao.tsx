@@ -1,7 +1,57 @@
 import { useEffect, useRef, useState } from "react";
 import type { MemoAlteracaoResponse, MemoAlteravelCampo, MemoAlteravelResponse } from "@mymemory/shared";
 import { normalizarDataParaIso, situacaoEncerrada } from "@mymemory/shared";
-import { apiGet, apiPostJson } from "../api";
+import { apiDeleteJson, apiGet, apiPostJson } from "../api";
+import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "./RelacaoAposSalvar";
+
+interface RelacaoItem {
+  id: number;
+  tipo: string;
+  lado: "origem" | "destino";
+  outroId: number;
+  outroCategoria: string | null;
+  outroResumo: string;
+}
+
+/** Ligações do memo ("Resultado: ata #120"), com a opção de desfazer cada uma. */
+function LigacoesDoMemo({ memoId }: { memoId: number }) {
+  const [itens, setItens] = useState<RelacaoItem[]>([]);
+  useEffect(() => {
+    let vivo = true;
+    apiGet<{ relacoes: RelacaoItem[] }>(`/api/memos/${memoId}/relacoes`)
+      .then((r) => vivo && setItens(r.relacoes))
+      .catch(() => vivo && setItens([]));
+    return () => {
+      vivo = false;
+    };
+  }, [memoId]);
+  if (!itens.length) return null;
+  return (
+    <div style={{ marginTop: 10, fontSize: 13 }}>
+      <b>Ligações</b>
+      {itens.map((r) => (
+        <div key={r.id} style={{ display: "flex", gap: 6, alignItems: "baseline", marginTop: 4 }}>
+          <span style={{ flex: 1 }}>
+            {r.lado === "destino" ? `Resultado (${r.tipo}): ` : `É ${r.tipo} de: `}
+            <b>
+              {r.outroCategoria ?? "memo"} #{r.outroId}
+            </b>{" "}
+            — {r.outroResumo}
+          </span>
+          <button
+            type="button"
+            className="mm-btn mm-btn--ghost"
+            style={{ padding: "0 6px", fontSize: 12 }}
+            title="Desfazer esta ligação"
+            onClick={() => void apiDeleteJson(`/api/memos/relacoes/${r.id}`).then(() => setItens((xs) => xs.filter((x) => x.id !== r.id)))}
+          >
+            desligar
+          </button>
+        </div>
+      ))}
+    </div>
+  );
+}
 import { capturarFalaCurta, vozDisponivel, type CapturaVoz } from "../lib/vozCurta";
 import styles from "./MemoAlteracaoCartao.module.css";
 
@@ -317,6 +367,7 @@ export function MemoAlteracaoCartao({
             <button type="button" className={`mm-btn mm-btn--primary ${styles.salvar}`} onClick={() => void salvar()} disabled={salvando}>
               {salvando ? "Salvando…" : avisosData ? "Salvar mesmo assim" : "Salvar alterações"}
             </button>
+            <LigacoesDoMemo memoId={memoId} />
             <div className={styles.acoes}>
               {encerrado ? (
                 <button type="button" className={styles.acao} onClick={() => void mudarSituacao("Ativo")} disabled={salvando}>
@@ -326,6 +377,24 @@ export function MemoAlteracaoCartao({
                 <>
                   <button type="button" className={styles.acao} onClick={() => void mudarSituacao("Concluído")} disabled={salvando}>
                     ✓ Marcar como concluído
+                  </button>
+                  <button
+                    type="button"
+                    className={styles.acao}
+                    disabled={salvando}
+                    title="Abre o Catalogar para registrar o resultado (texto, voz, foto, documento); ao salvar, liga a este memo e o marca como concluído"
+                    onClick={() => {
+                      const pendente: RelacaoPendente = { destinoId: memoId, tipo: "resultado", concluir: true, quando: Date.now() };
+                      try {
+                        sessionStorage.setItem(CHAVE_RELACAO_PENDENTE, JSON.stringify(pendente));
+                      } catch {
+                        /* sem sessionStorage: o Catalogar abre sem a ligação */
+                      }
+                      window.dispatchEvent(new CustomEvent("mm:abrir-catalogar"));
+                      onFechar();
+                    }}
+                  >
+                    📝 Concluir e registrar resultado
                   </button>
                   <button
                     type="button"
