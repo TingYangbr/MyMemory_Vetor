@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import type { MemoAlteracaoResponse, MemoAlteravelCampo, MemoAlteravelResponse } from "@mymemory/shared";
-import { normalizarDataParaIso, resolverValorStatus, situacaoEncerrada } from "@mymemory/shared";
+import {
+  estadoDaSituacao,
+  estadoDoDito,
+  normalizarDataParaIso,
+  resolverValorStatus,
+  rotulosSituacao,
+  SIMBOLO_SITUACAO,
+  situacaoEncerrada,
+} from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPostJson } from "../api";
 import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "./RelacaoAposSalvar";
 
@@ -94,13 +102,12 @@ function avisoDataEstranha(c: MemoAlteravelCampo, novo: string): string | null {
 const normNome = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
 /** Valor de situação dito no comando ("cancelado", "concluida") → o valor fixo da categoria. */
-function situacaoCanonica(v: string): "Ativo" | "Concluído" | "Cancelado" | null {
-  const n = normNome(v);
-  if (n.startsWith("conclu")) return "Concluído";
-  if (n.startsWith("cancel")) return "Cancelado";
-  if (n.startsWith("ativ") || n.startsWith("reativ")) return "Ativo";
-  return null;
+function situacaoCanonica(v: string): Situacao | null {
+  const e = estadoDoDito(v);
+  return e === "concluido" ? "Concluído" : e === "cancelado" ? "Cancelado" : e === "aberto" ? "Pendente" : null;
 }
+
+type Situacao = "Pendente" | "Concluído" | "Cancelado";
 
 /** Lista: em vez de mostrar a lista anterior inteira, diz só o que entra e o que sai. */
 function diferencaLista(antes: string, depois: string): string {
@@ -143,7 +150,7 @@ export function MemoAlteracaoCartao({
   const [valores, setValores] = useState<Record<string, string>>({});
   /** Campos que vieram preenchidos pelo comando (destacados com o valor anterior). */
   const [propostosCampos, setPropostosCampos] = useState<Set<string>>(new Set());
-  const [situacaoProposta, setSituacaoProposta] = useState<"Ativo" | "Concluído" | "Cancelado" | null>(null);
+  const [situacaoProposta, setSituacaoProposta] = useState<Situacao | null>(null);
   const propostosKey = JSON.stringify(propostos ?? {});
   const [erro, setErro] = useState<string | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -162,7 +169,7 @@ export function MemoAlteracaoCartao({
         setDados(r);
         const base: Record<string, string> = Object.fromEntries(r.campos.map((c) => [c.nome, paraTela(c)]));
         const marcados = new Set<string>();
-        let sit: "Ativo" | "Concluído" | "Cancelado" | null = null;
+        let sit: Situacao | null = null;
         for (const [k, v] of Object.entries(JSON.parse(propostosKey) as Record<string, string>)) {
           const alvo = normNome(k);
           if (normNome(r.campoSituacao) === alvo) {
@@ -253,13 +260,17 @@ export function MemoAlteracaoCartao({
     }
   }
 
-  async function mudarSituacao(situacao: "Ativo" | "Concluído" | "Cancelado") {
+  async function mudarSituacao(situacao: Situacao) {
     setSalvando(true);
     setErro(null);
     try {
       const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/${memoId}/situacao`, { situacao });
       const texto =
-        situacao === "Cancelado" ? "Marcado como cancelado." : situacao === "Concluído" ? "Marcado como concluído." : "Reativado.";
+        situacao === "Cancelado"
+          ? "Marcado como cancelado."
+          : situacao === "Concluído"
+            ? `Marcado como ${rot.concluido.toLowerCase()}.`
+            : "Reaberto.";
       onAlterado(memoId, r, texto);
     } catch (e) {
       setErro(mensagemErro(e));
@@ -268,6 +279,9 @@ export function MemoAlteracaoCartao({
   }
 
   const encerrado = dados ? situacaoEncerrada(dados.situacao) : false;
+  // Nomes da situação nesta categoria (Pendente/Válido; Concluído pode ser Comprado, Pago…)
+  const rot = dados?.situacaoRotulos ?? rotulosSituacao("afazer");
+  const estadoAtual = estadoDaSituacao(dados?.situacao);
 
   return (
     <div className={styles.overlay} onClick={() => !salvando && onFechar()}>
@@ -275,7 +289,11 @@ export function MemoAlteracaoCartao({
         <div className={styles.topo}>
           <div>
             <strong>{dados?.categoria ?? "Memo"}</strong> <span className={styles.id}>#{memoId}</span>
-            {dados ? <span className={encerrado ? styles.situacaoEncerrada : styles.situacao}>{dados.situacao}</span> : null}
+            {dados ? (
+              <span className={encerrado ? styles.situacaoEncerrada : styles.situacao}>
+                {SIMBOLO_SITUACAO[estadoAtual]} {rot[estadoAtual]}
+              </span>
+            ) : null}
           </div>
           <button type="button" className={styles.fechar} onClick={onFechar} disabled={salvando} aria-label="Fechar sem alterar">
             ×
@@ -288,9 +306,9 @@ export function MemoAlteracaoCartao({
           <>
             {situacaoProposta ? (
               <div className={styles.avisoData} role="status">
-                <div>Proposta: marcar como {situacaoProposta}.</div>
+                <div>Proposta: marcar como {rot[estadoDaSituacao(situacaoProposta)]}.</div>
                 <button type="button" className={styles.acao} onClick={() => void mudarSituacao(situacaoProposta)} disabled={salvando}>
-                  Confirmar: {situacaoProposta}
+                  Confirmar: {rot[estadoDaSituacao(situacaoProposta)]}
                 </button>
               </div>
             ) : null}
@@ -384,13 +402,15 @@ export function MemoAlteracaoCartao({
             <LigacoesDoMemo memoId={memoId} />
             <div className={styles.acoes}>
               {encerrado ? (
-                <button type="button" className={styles.acao} onClick={() => void mudarSituacao("Ativo")} disabled={salvando}>
-                  ↺ Reativar
+                <button type="button" className={styles.acao} onClick={() => void mudarSituacao("Pendente")} disabled={salvando}>
+                  ↺ Reabrir ({rot.aberto})
                 </button>
               ) : (
                 <>
+                  {rot.opcoes.includes("concluido") ? (
+                  <>
                   <button type="button" className={styles.acao} onClick={() => void mudarSituacao("Concluído")} disabled={salvando}>
-                    ✓ Marcar como concluído
+                    ☑ Marcar como {rot.concluido.toLowerCase()}
                   </button>
                   <button
                     type="button"
@@ -410,13 +430,15 @@ export function MemoAlteracaoCartao({
                   >
                     📝 Concluir e registrar resultado
                   </button>
+                  </>
+                  ) : null}
                   <button
                     type="button"
                     className={`${styles.acao} ${styles.acaoCancelar}`}
                     onClick={() => void mudarSituacao("Cancelado")}
                     disabled={salvando}
                   >
-                    ✕ Marcar como cancelado
+                    ☒ Marcar como cancelado
                   </button>
                 </>
               )}

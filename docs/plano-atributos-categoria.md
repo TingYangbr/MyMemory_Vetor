@@ -24,6 +24,7 @@ O que já foi feito, a partir deste plano e dos testes com a Lista de compras. O
 | Relações entre memos: "Concluir e registrar resultado" e sugestão da IA após salvar | Cartão de alteração, Catalogar, Perguntar | Em produção (migration 173). Uso nas respostas do Pipe 1 ainda não |
 | Perguntas por situação ("canceladas", "concluídas", "encerradas") | Perguntar | Em produção. Estado atual usa a Query padrão; histórico usa a consulta de alterações |
 | Tipo de campo **Status** (valores fixos e verbos), no lugar da "lista de estados" | Campos de categoria | Local (migration 174). Seção 5.4 |
+| Situação com vocabulário único: Pendente ☐ · Concluído ☑ · Cancelado ☒; tipo da categoria (a fazer / registro: Válido · Cancelado); nome do Concluído por categoria (Comprado, Pago) | Categoria atualizável, Catalogar, Perguntar | Local (migration 175). Seção 3.3 |
 | Separar por, Controle de duplicidade | — | Não implementados |
 | Reativar por comando, marcador de situação na tabela (To-do) | — | Não implementados |
 
@@ -71,6 +72,15 @@ O registro oficial é o registro que vale quando dois lugares discordam. Toda ca
 | **Conciliação:** bate com a fonte para conciliação? | Pendente, Conciliado | Só onde há duas fontes |
 
 Eles são independentes: uma operação pode ser Ativa e Pendente ao mesmo tempo. Estados técnicos (com erro, aguardando revisão) ficam fora. Uma data passada ("atrasado", "vencido") é calculada, não gravada.
+
+### 3.3 Situação: um vocabulário só (decidido em 18/11)
+
+- **Mesmas palavras e símbolos no memo e no item da lista:** Pendente ☐ · Concluído ☑ · Cancelado ☒. "Ativo" (memos antigos) e vazio contam como Pendente; "Encerrada" não é estado, só sinônimo de Concluído ou Cancelado nas perguntas.
+- **Uma pergunta ao ligar Atualizável — "Cada memo é…":** *algo a fazer ou a acontecer* (Pendente · Concluído · Cancelado: Agenda, To-do, Lista, Contas a pagar) ou *um registro que vale* (Válido · Cancelado: Regras, Despesas, Operações). Em `categories.situacao_tipo`.
+- **Nome do Concluído por categoria**, só na tela (`categories.rotulo_concluido`): Comprado, Pago, Realizado, Recebido. O gravado continua "Concluído", e os verbos do dia a dia (comprei, paguei, fui, desisti, reabrir) levam ao estado certo.
+- **O tipo Status fica para etapas próprias** (Orçada → Entregue): Baixa vira o Concluído de uma cobrança.
+- **Conciliação não é estado do usuário:** é um selo que o sistema põe ao casar com a fonte (fatura, B3).
+- **Lista:** quando todos os itens estão ☑/☒, o sistema oferece concluir a lista.
 
 ### 3.2 Três mecanismos, que não são a mesma coisa
 

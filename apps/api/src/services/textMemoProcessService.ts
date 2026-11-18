@@ -1,6 +1,8 @@
 import type { TextMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
 import {
   descreverStatus,
+  estadoDoDito,
+  valorDaSituacao,
   lerValoresStatus,
   lerVerbosStatus,
   normalizeMemoKeywordKey,
@@ -72,7 +74,11 @@ type CatCtx = {
   name: string;
   subcategories: { name: string }[];
   campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string; verbos?: VerbosStatus }[];
+  /** Categoria atualizável: campo da situação e o tipo (afazer/registro). */
+  situacao?: { campo: string; tipo: string } | null;
 };
+
+const COLS_SITUACAO = `atualizavel, campo_situacao AS "campoSituacao", situacao_tipo AS "situacaoTipo"`;
 
 export async function loadCategoryContext(
   userId: number,
@@ -88,16 +94,16 @@ export async function loadCategoryContext(
      Categorias do grupo têm prioridade sobre globais de mesmo nome (ORDER BY groupId IS NULL). */
   const [catRows] = await pool.query<RowDataPacket[]>(
     somenteId != null
-      ? `SELECT id, name FROM categories
+      ? `SELECT id, name, ${COLS_SITUACAO} FROM categories
          WHERE id = ? AND isActive = 1
            AND (groupId IS NULL OR ${groupId != null ? "groupId = ?" : "groupId IN (SELECT groupId FROM group_members WHERE userId = ?)"})`
       : groupId != null
-      ? `SELECT id, name FROM categories
+      ? `SELECT id, name, ${COLS_SITUACAO} FROM categories
          WHERE (groupId IS NULL OR groupId = ?)
            AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
          ORDER BY CASE WHEN groupId IS NULL THEN 1 ELSE 0 END, id ASC`
-      : `SELECT id, name FROM categories
+      : `SELECT id, name, ${COLS_SITUACAO} FROM categories
          WHERE (groupId IS NULL OR groupId IN (SELECT groupId FROM group_members WHERE userId = ?))
            AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
@@ -164,6 +170,10 @@ export async function loadCategoryContext(
     name: String(r.name),
     subcategories: subs.get(r.id as number) ?? [],
     campos: camps.get(r.id as number) ?? [],
+    situacao:
+      Number(r.atualizavel ?? 0) === 1 && r.campoSituacao
+        ? { campo: String(r.campoSituacao), tipo: String(r.situacaoTipo ?? "afazer") }
+        : null,
   }));
 }
 
@@ -467,6 +477,13 @@ export function normalizeCamposForCategory(
     if (!key) continue;
     const originalVal = byLower.get(key.toLowerCase()) ?? "";
     originals[key] = originalVal;
+    // Situação: Pendente/Válido, Concluído ou Cancelado (o "Ativo" antigo e o vazio viram o aberto do tipo)
+    if (selectedCategory.situacao && key.toLowerCase() === selectedCategory.situacao.campo.toLowerCase()) {
+      const estado = estadoDoDito(originalVal) ?? "aberto";
+      const tipoSit = selectedCategory.situacao.tipo;
+      normalized[key] = valorDaSituacao(tipoSit === "registro" && estado === "concluido" ? "aberto" : estado, tipoSit);
+      continue;
+    }
     // Status: só valores da lista; o que não corresponder (ou vazio) fica com o inicial (o primeiro)
     if (c.tipo === "status" && c.normalizedTerms.length) {
       normalized[key] = resolverValorStatus(originalVal, c.normalizedTerms, c.verbos) ?? c.normalizedTerms[0];

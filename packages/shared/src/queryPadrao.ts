@@ -138,7 +138,8 @@ export function toParamName(name: string): string {
 }
 
 /** Situações fixas das categorias atualizáveis. Encerradas = Concluído e Cancelado. */
-export const SITUACOES_MEMO = ["Ativo", "Concluído", "Cancelado"] as const;
+/** Valores gravados da situação (Pendente/Válido = aberto; "Ativo" antigo também conta como aberto). Ver situacaoMemo.ts. */
+export const SITUACOES_MEMO = ["Pendente", "Concluído", "Cancelado"] as const;
 export type SituacaoMemo = (typeof SITUACOES_MEMO)[number];
 
 /** Situação encerrada (Concluído/Cancelado, com ou sem acento)? Vazio = Ativo. */

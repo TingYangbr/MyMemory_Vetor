@@ -18,7 +18,9 @@ import {
   gerarQueryPadraoMemos,
   queryAlteracoesDescricao,
   queryAlteracoesNome,
-  SITUACOES_MEMO,
+  descricaoCampoSituacao,
+  padroesSituacao,
+  tipoSituacao,
   queryPadraoDescricao,
   queryPadraoNome,
   type QueryPadraoCampo,
@@ -269,6 +271,7 @@ export async function loadMemoContextStructure(
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
             atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
             campo_encerra_data AS "campoEncerraData",
+            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -434,6 +437,8 @@ export async function loadMemoContextStructure(
     campoSituacao: (r.campoSituacao as string | null) ?? null,
     confirmarAlteracao: Number(r.atualizavel ?? 0) === 1 && Number(r.confirmarAlteracao ?? 0) === 1,
     campoEncerraData: Number(r.atualizavel ?? 0) === 1 ? ((r.campoEncerraData as string | null) ?? null) : null,
+    situacaoTipo: tipoSituacao(r.situacaoTipo as string | null),
+    rotuloConcluido: (r.rotuloConcluido as string | null) ?? null,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -636,6 +641,8 @@ export async function updateCategory(
     atualizavel?: boolean;
     confirmarAlteracao?: boolean;
     campoEncerraData?: string | null;
+    situacaoTipo?: "afazer" | "registro";
+    rotuloConcluido?: string | null;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -681,12 +688,20 @@ export async function updateCategory(
     vals.push(patch.atualizavel ? 1 : 0);
     if (patch.atualizavel) {
       sets.push("campo_situacao = ?");
-      vals.push(await garantirCampoSituacao(categoryId));
+      vals.push(await garantirCampoSituacao(categoryId, patch.situacaoTipo));
     }
   }
   if (patch.confirmarAlteracao !== undefined) {
     sets.push("confirmar_alteracao = ?");
     vals.push(patch.confirmarAlteracao ? 1 : 0);
+  }
+  if (patch.situacaoTipo !== undefined) {
+    sets.push("situacao_tipo = ?");
+    vals.push(tipoSituacao(patch.situacaoTipo));
+  }
+  if (patch.rotuloConcluido !== undefined) {
+    sets.push("rotulo_concluido = ?");
+    vals.push(patch.rotuloConcluido?.trim().slice(0, 40) || null);
   }
   if (patch.campoEncerraData !== undefined) {
     sets.push("campo_encerra_data = ?");
@@ -703,6 +718,11 @@ export async function updateCategory(
   if (sets.length === 0) return;
   vals.push(categoryId);
   await pool.query(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
+  // Tipo de situação mudou sem religar Atualizável: os padrões e a descrição do campo acompanham
+  if (patch.situacaoTipo !== undefined && !patch.atualizavel) {
+    const [c] = await pool.query<RowDataPacket[]>(`SELECT atualizavel FROM categories WHERE id = ? LIMIT 1`, [categoryId]);
+    if (Number(c[0]?.atualizavel ?? 0) === 1) await garantirCampoSituacao(categoryId, patch.situacaoTipo);
+  }
   // O nome da categoria entra no SQL (m.category = '...'); reativar também pede query em dia;
   // atualizável muda o filtro de situação da Query padrão
   if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined || patch.campoEncerraData !== undefined) {
@@ -714,25 +734,34 @@ export async function updateCategory(
  * Categoria atualizável: usa o campo de situação já existente (nome "Situação"/"Situacao", ou o já
  * configurado) ou cria um, com os padrões Ativo, Concluído, Cancelado. Devolve o nome do campo.
  */
-async function garantirCampoSituacao(categoryId: number): Promise<string> {
+async function garantirCampoSituacao(categoryId: number, tipoPedido?: string): Promise<string> {
   const [cRows] = await pool.query<RowDataPacket[]>(
-    `SELECT campo_situacao AS "campoSituacao" FROM categories WHERE id = ? LIMIT 1`,
+    `SELECT campo_situacao AS "campoSituacao", situacao_tipo AS "situacaoTipo" FROM categories WHERE id = ? LIMIT 1`,
     [categoryId]
   );
+  const tipo = tipoSituacao(tipoPedido ?? (cRows[0]?.situacaoTipo as string | null));
   const [fRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, isactive FROM categorycampos WHERE categoryid = ? ORDER BY id ASC`,
+    `SELECT id, name, isactive, normalizedterms AS "normalizedTerms" FROM categorycampos WHERE categoryid = ? ORDER BY id ASC`,
     [categoryId]
   );
   const configurado = (cRows[0]?.campoSituacao as string | null) ?? null;
   const achado =
     fRows.find((f) => configurado && String(f.name) === configurado) ??
     fRows.find((f) => normChave(String(f.name)) === "situacao");
-  const padroes = SITUACOES_MEMO.join(", ");
+  const padroes = padroesSituacao(tipo);
   if (achado) {
-    await pool.query(
-      `UPDATE categorycampos SET isactive = 1, normalizedterms = COALESCE(NULLIF(normalizedterms, ''), ?) WHERE id = ?`,
-      [padroes, achado.id]
-    );
+    // Padrões de fábrica (vazio, "Ativo, …", "Pendente, …", "Válido, …") seguem o tipo; os escritos à mão ficam
+    const atuais = normChave(String(achado.normalizedTerms ?? ""));
+    const deFabrica = ["", "ativo, concluido, cancelado", "pendente, concluido, cancelado", "valido, cancelado"].includes(atuais);
+    if (deFabrica) {
+      await pool.query(`UPDATE categorycampos SET isactive = 1, normalizedterms = ?, description = ? WHERE id = ?`, [
+        padroes,
+        descricaoCampoSituacao(tipo),
+        achado.id,
+      ]);
+    } else {
+      await pool.query(`UPDATE categorycampos SET isactive = 1 WHERE id = ?`, [achado.id]);
+    }
     return String(achado.name);
   }
   await pool.query(
@@ -740,7 +769,7 @@ async function garantirCampoSituacao(categoryId: number): Promise<string> {
      VALUES (?, 'Situação', ?, 'text', ?, 0, 1)`,
     [
       categoryId,
-      "Situação do registro: Ativo (vale, em andamento), Concluído (aconteceu, terminou) ou Cancelado (não vai acontecer). Registro novo: Ativo, salvo se o texto disser outra.",
+      descricaoCampoSituacao(tipo),
       padroes,
     ]
   );
@@ -1316,7 +1345,8 @@ export async function copiarCategoriaParaGrupo(
     `SELECT id, groupid AS "groupId", mediatype AS "mediaType", name, description,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
             campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
-            confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData"
+            confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
+            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido"
      FROM categories WHERE id = ? AND isactive = 1 LIMIT 1`,
     [categoryId]
   );
@@ -1342,8 +1372,8 @@ export async function copiarCategoriaParaGrupo(
     await conn.beginTransaction();
     const [ins] = await conn.query<{ id: number }[]>(
       `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
-         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data)
-       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [
         targetGroupId,
         cat.mediaType ?? null,
@@ -1357,6 +1387,8 @@ export async function copiarCategoriaParaGrupo(
         cat.revisaoMinPct != null ? Number(cat.revisaoMinPct) : 80,
         Number(cat.confirmarAlteracao ?? 0),
         cat.campoEncerraData ?? null,
+        tipoSituacao(cat.situacaoTipo as string | null),
+        cat.rotuloConcluido ?? null,
       ]
     );
     novoId = Number(ins[0]?.id);
