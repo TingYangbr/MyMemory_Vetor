@@ -650,7 +650,7 @@ const MAX_LISTAS_INICIAIS = 3;
 const MAX_LISTAS_SEM_PERGUNTAR = 10;
 
 const ROTULO_ESTADO: Record<EstadoItemLista, string> = { pendente: "Pendente", concluido: "Concluído", cancelado: "Cancelado" };
-const SIMBOLO_ESTADO: Record<EstadoItemLista, string> = { pendente: "○", concluido: "✓", cancelado: "✗" };
+const SIMBOLO_ESTADO: Record<EstadoItemLista, string> = { pendente: "☐", concluido: "☑", cancelado: "☒" };
 
 /**
  * Itens da lista com um marcador à direita de cada um. Tocar no marcador oferece os outros dois
@@ -665,6 +665,8 @@ function ItensMarcados({
   podeAlterar,
   mostrarFeitos = false,
   destacar = [],
+  mudados = [],
+  onMudou,
 }: {
   memoId: number | null;
   colLista: string;
@@ -674,18 +676,22 @@ function ItensMarcados({
   mostrarFeitos?: boolean;
   /** Termos da pergunta: o item que contém um deles aparece destacado ("sorvete está na lista?"). */
   destacar?: string[];
+  /** Itens que mudaram de estado nesta tela: continuam visíveis, com o novo símbolo, até o ↻ do cartão. */
+  mudados?: string[];
+  onMudou?: (texto: string) => void;
 }) {
   const { alterarCampo } = useContext(AlteracaoCtx);
   const [menu, setMenu] = useState<number | null>(null);
   const [verFeitos, setVerFeitos] = useState(mostrarFeitos);
   const [gravando, setGravando] = useState(false);
-  const feitos = itens.filter((it) => it.estado !== "pendente").length;
+  const feitos = itens.filter((it) => it.estado !== "pendente" && !mudados.includes(it.texto)).length;
 
   async function escolher(idx: number, estado: EstadoItemLista) {
     if (memoId == null) return;
     setMenu(null);
     setGravando(true);
     const novos = itens.map((it, k) => (k === idx ? { ...it, estado } : it));
+    onMudou?.(itens[idx]!.texto);
     await alterarCampo(memoId, colLista, escreverItensLista(novos), `${itens[idx]!.texto}: ${ROTULO_ESTADO[estado].toLowerCase()}.`);
     setGravando(false);
   }
@@ -694,7 +700,7 @@ function ItensMarcados({
     <>
       <ul className={styles.listaItensMarcados}>
         {itens.map((it, k) => {
-          if (it.estado !== "pendente" && !verFeitos) return null;
+          if (it.estado !== "pendente" && !verFeitos && !mudados.includes(it.texto)) return null;
           const outros = (["pendente", "concluido", "cancelado"] as EstadoItemLista[]).filter((e) => e !== it.estado);
           return (
             <li key={k} className={styles.itemLinha}>
@@ -727,7 +733,7 @@ function ItensMarcados({
                   </button>
                 )
               ) : (
-                <span className={styles.listaSub}>{it.estado === "pendente" ? "" : SIMBOLO_ESTADO[it.estado]}</span>
+                <span className={styles.listaSub}>{SIMBOLO_ESTADO[it.estado]}</span>
               )}
             </li>
           );
@@ -785,6 +791,8 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
   // Com muitas listas (ex.: anos de listas concluídas), mostra as mais recentes e pede para ver o resto
   const total = Math.max(dados.totalLinhas, dados.linhas.length);
   const [verTodas, setVerTodas] = useState(false);
+  // Itens que mudaram de estado, por lista: ficam à vista até o ↻ (que deixa só os que não mudaram)
+  const [mudados, setMudados] = useState<Record<number, string[]>>({});
   const visiveis = verTodas ? dados.linhas : dados.linhas.slice(0, MAX_LISTAS_INICIAIS);
   const escondidas = dados.linhas.length - visiveis.length;
   return (
@@ -818,6 +826,17 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
               </div>
               {podeAlterar ? (
                 <div className={styles.listaAcoes}>
+                  {mudados[id!]?.length ? (
+                    <button
+                      type="button"
+                      className={styles.refazerBtn}
+                      onClick={() => setMudados((m) => ({ ...m, [id!]: [] }))}
+                      title="Atualizar: tira da lista os itens que mudaram de situação"
+                      aria-label="Atualizar a lista"
+                    >
+                      ↻
+                    </button>
+                  ) : null}
                   <button type="button" className={styles.refazerBtn} onClick={() => abrir(id!)} title="Alterar a lista">
                     ✎ Alterar
                   </button>
@@ -845,7 +864,11 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
             </div>
             {itens.length ? (
               // Lista encerrada: mostra todos os itens (inclusive concluídos e cancelados), com o marcador
-              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)} destacar={termosDaPergunta(pergunta)} />
+              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)}
+                destacar={termosDaPergunta(pergunta)}
+                mudados={id != null ? mudados[id] ?? [] : []}
+                onMudou={(texto) => id != null && setMudados((m) => ({ ...m, [id]: [...(m[id] ?? []).filter((t) => t !== texto), texto] }))}
+              />
             ) : (
               <p className={styles.listaSub}>Sem itens.</p>
             )}
