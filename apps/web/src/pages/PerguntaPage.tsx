@@ -451,7 +451,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   const colLista = useMemo(() => colunaDeLista(props.dados), [props.dados]);
   const [verTabela, setVerTabela] = useState(false);
   if (!props.dados.totalLinhas) return null;
-  if (colLista && !verTabela) return <VisaoLista dados={props.dados} colLista={colLista} onVerTabela={() => setVerTabela(true)} />;
+  if (colLista && !verTabela) return <VisaoLista dados={props.dados} colLista={colLista} pergunta={props.pergunta ?? ""} onVerTabela={() => setVerTabela(true)} />;
   if (!grafico) return <TabelaEstruturada {...props} />;
   return (
     <div className={styles.chartTableRow}>
@@ -728,7 +728,13 @@ const COLUNAS_FORA_DO_TITULO = new Set(["id", "mediatext", "mediatype", "mediafi
  * Visão de lista: um cartão por registro, com o título (os outros campos), os itens um por linha e as
  * ações (✎ alterar, ✓ concluir). A tabela continua disponível em "ver como tabela".
  */
-function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultadoEstruturado; colLista: string; onVerTabela: () => void }) {
+/** A pergunta pede também os itens concluídos ou cancelados ("mostrar também os comprados")? */
+function perguntaPedeFeitos(pergunta: string): boolean {
+  const n = pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return /conclu|cancel|comprad|riscad|feit[oa]s|todos os itens|tambem/.test(n);
+}
+
+function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: PerguntaResultadoEstruturado; colLista: string; pergunta: string; onVerTabela: () => void }) {
   const { alteraveis, locais, abrir, mudarSituacao } = useContext(AlteracaoCtx);
   const colTitulo = dados.colunas.filter(
     (c) => c !== colLista && !COLUNAS_FORA_DO_TITULO.has(c.toLowerCase()) && !/situa/i.test(toParamName(c))
@@ -803,7 +809,7 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
             </div>
             {itens.length ? (
               // Lista encerrada: mostra todos os itens (inclusive concluídos e cancelados), com o marcador
-              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada} />
+              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)} />
             ) : (
               <p className={styles.listaSub}>Sem itens.</p>
             )}
