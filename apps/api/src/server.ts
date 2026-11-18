@@ -89,6 +89,7 @@ import { CampoStatusVerbos1700000000174 } from "./migrations/1700000000174-Campo
 import { CategoriaTipoSituacao1700000000175 } from "./migrations/1700000000175-CategoriaTipoSituacao.js";
 import { UserPdfAbrirAba1700000000176 } from "./migrations/1700000000176-UserPdfAbrirAba.js";
 import { GrupoPessoalECatalogo1700000000177 } from "./migrations/1700000000177-GrupoPessoalECatalogo.js";
+import { DescricaoSituacaoNova1700000000178 } from "./migrations/1700000000178-DescricaoSituacaoNova.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -224,6 +225,7 @@ assertMediaStorageEnv();
       CategoriaTipoSituacao1700000000175,
       UserPdfAbrirAba1700000000176,
       GrupoPessoalECatalogo1700000000177,
+      DescricaoSituacaoNova1700000000178,
     ],
   });
   const ds = await AppDataSource.initialize();

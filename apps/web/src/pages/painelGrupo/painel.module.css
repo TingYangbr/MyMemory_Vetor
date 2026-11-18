@@ -596,9 +596,15 @@
   border-color: var(--mm-primary);
 }
 
+/* Categoria aberta no painel ao lado: fundo, faixa à esquerda e anel na cor do tema */
 .catOn {
   border-color: var(--mm-primary);
-  box-shadow: 0 0 0 3px var(--mm-primary-soft);
+  background: var(--mm-primary-faint, var(--mm-primary-soft));
+  box-shadow: inset 5px 0 0 var(--mm-primary), 0 0 0 3px var(--mm-primary-soft);
+}
+
+.catOn .catTop b {
+  color: var(--mm-primary);
 }
 
 .catNone {
