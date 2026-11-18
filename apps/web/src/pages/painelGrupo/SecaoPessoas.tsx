@@ -39,6 +39,8 @@ export default function SecaoPessoas({ groupId, painel, matriz, erroMatriz, reca
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [reenviando, setReenviando] = useState<number | null>(null);
+  // Resultado do reenvio na própria linha do convite (o aviso do topo pode estar fora da vista)
+  const [resultadoReenvio, setResultadoReenvio] = useState<Record<number, { ok: boolean; texto: string }>>({});
 
   const base = `/api/groups/${groupId}/perfis`;
   const convitesAbertos = painel.invites.filter((c) => c.status !== "accepted" && c.status !== "rejected");
@@ -64,11 +66,22 @@ export default function SecaoPessoas({ groupId, painel, matriz, erroMatriz, reca
     setErro(null);
     setOk(null);
     try {
-      await apiPostJson<CreateGroupInviteResponse>(`/api/groups/${groupId}/invites/${id}/resend`, {});
-      setOk(`Convite reenviado para ${email} (vale por mais 14 dias).`);
+      const r = await apiPostJson<CreateGroupInviteResponse>(`/api/groups/${groupId}/invites/${id}/resend`, {});
+      if (r.emailSendFailed) {
+        // Convite renovado, mas o e-mail não saiu: diz o motivo em vez de "reenviado"
+        const texto = r.message ?? "Convite renovado, mas o e-mail não foi enviado.";
+        setErro(texto);
+        setResultadoReenvio((m) => ({ ...m, [id]: { ok: false, texto } }));
+      } else {
+        const texto = `E-mail enviado para ${email} (vale por mais 14 dias). Se não chegar, peça para olhar o spam.`;
+        setOk(texto);
+        setResultadoReenvio((m) => ({ ...m, [id]: { ok: true, texto } }));
+      }
       await recarregarPainel();
     } catch (e) {
-      setErro(msgErro(e, "Não foi possível reenviar o convite."));
+      const texto = msgErro(e, "Não foi possível reenviar o convite.");
+      setErro(texto);
+      setResultadoReenvio((m) => ({ ...m, [id]: { ok: false, texto } }));
     } finally {
       setReenviando(null);
     }
@@ -206,6 +219,11 @@ export default function SecaoPessoas({ groupId, painel, matriz, erroMatriz, reca
                       >
                         {reenviando === c.id ? "Reenviando…" : "Reenviar"}
                       </button>
+                      {resultadoReenvio[c.id] ? (
+                        <p className={resultadoReenvio[c.id]!.ok ? s.msgOk : s.msgErr} role="status" style={{ margin: "6px 0 0", fontSize: 12.5 }}>
+                          {resultadoReenvio[c.id]!.texto}
+                        </p>
+                      ) : null}
                     </td>
                   </tr>
                 );
