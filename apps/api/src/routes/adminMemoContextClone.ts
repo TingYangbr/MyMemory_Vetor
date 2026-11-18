@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import { requireAdmin } from "../lib/adminContext.js";
 import { pool } from "../db.js";
+import { sincronizarQueryPadrao } from "../services/memoContextService.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 
 const cloneBody = z.object({
@@ -41,7 +42,11 @@ const plugin: FastifyPluginAsync = async (app) => {
       for (const catId of categoryIds) {
         // Busca categoria — deve ser global (groupId IS NULL)
         const [catRows] = await conn.query<RowDataPacket[]>(
-          `SELECT id, groupid, mediatype, name, description FROM categories
+          `SELECT id, groupid, mediatype AS "mediaType", name, description,
+                  meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
+                  campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
+                  confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData"
+           FROM categories
            WHERE id = ? AND isactive = 1 AND groupid IS NULL
            LIMIT 1`,
           [catId]
@@ -51,9 +56,23 @@ const plugin: FastifyPluginAsync = async (app) => {
 
         // Clona categoria com o grupo destino
         const [newCatRows] = await conn.query<{ id: number }[]>(
-          `INSERT INTO categories (groupid, mediatype, name, description, isactive)
-           VALUES (?, ?, ?, ?, 1) RETURNING id`,
-          [targetGroupId, cat.mediaType ?? null, cat.name, cat.description ?? null]
+          `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
+             campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data)
+           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+          [
+            targetGroupId,
+            cat.mediaType ?? null,
+            cat.name,
+            cat.description ?? null,
+            Number(cat.meusPorPadrao ?? 0),
+            cat.campoDono ?? null,
+            Number(cat.atualizavel ?? 0),
+            cat.campoSituacao ?? null,
+            Number(cat.revisaoSempre ?? 0),
+            cat.revisaoMinPct != null ? Number(cat.revisaoMinPct) : 80,
+            Number(cat.confirmarAlteracao ?? 0),
+            cat.campoEncerraData ?? null,
+          ]
         );
         const newCatId = Number(newCatRows[0]?.id);
         if (!Number.isFinite(newCatId)) throw new Error("Falha ao inserir categoria clonada.");
@@ -72,20 +91,23 @@ const plugin: FastifyPluginAsync = async (app) => {
 
         // Clona campos
         const [campoRows] = await conn.query<RowDataPacket[]>(
-          `SELECT name, description, normalizedterms FROM categorycampos WHERE categoryid = ? AND isactive = 1`,
+          `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", resolucaonomeabrev AS "resolucaoNomeAbrev"
+           FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
           [catId]
         );
         for (const campo of campoRows) {
           await conn.query(
-            `INSERT INTO categorycampos (categoryid, name, description, normalizedterms, isactive) VALUES (?, ?, ?, ?, 1)`,
-            [newCatId, campo.name, campo.description ?? null, campo.normalizedTerms ?? null]
+            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive)
+             VALUES (?, ?, ?, ?, ?, ?, 1)`,
+            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, Number(campo.resolucaoNomeAbrev ?? 0)]
           );
         }
 
         // Clona queries com conexaoid=NULL: cada grupo configura sua própria conexão ERP.
         // Se a origem usava conexão externa, marca como pendente para obrigar a escolha no grupo destino.
         const [queryRows] = await conn.query<RowDataPacket[]>(
-          `SELECT id, nome, descricao, sentencasql, conexaoid, sqlgerado FROM queries_categoria WHERE categoryid = ? AND isactive = 1`,
+          // Automáticas (Query padrão, Consulta de alterações) não: são geradas de novo depois do commit
+          `SELECT id, nome, descricao, sentencasql, conexaoid, sqlgerado FROM queries_categoria WHERE categoryid = ? AND isactive = 1 AND sqlgerado IS NULL`,
           [catId]
         );
         for (const qRow of queryRows) {
@@ -131,6 +153,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       }
 
       await conn.commit();
+      for (const c of cloned) await sincronizarQueryPadrao(c.newId);
       return reply.code(201).send({ ok: true, cloned });
     } catch (e) {
       await conn.rollback();
