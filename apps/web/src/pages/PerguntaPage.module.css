@@ -2281,3 +2281,9 @@
   gap: 0.3rem;
   flex: none;
 }
+
+.listaResumo {
+  margin: 0;
+  color: var(--mm-text-secondary);
+  font-size: 0.9rem;
+}
