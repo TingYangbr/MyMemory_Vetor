@@ -7,6 +7,7 @@
  * Da voz, guarda-se só o texto (a transcrição já chega aqui como texto).
  */
 import type { ComandoCriacao, MemoContextCategory, PerguntaClassificacao } from "@mymemory/shared";
+import { lerValoresStatus } from "@mymemory/shared";
 import { getUserIaUseTexto, processTextMemoForReview } from "./textMemoProcessService.js";
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase().trim();
@@ -56,7 +57,12 @@ export async function prepararCriacao(input: {
   const campoSituacao = cat?.atualizavel && cat.campoSituacao ? cat.campoSituacao : null;
   const campos = (cat?.campos ?? [])
     .filter((f) => f.isActive === 1 && (!campoSituacao || norm(f.name) !== norm(campoSituacao)))
-    .map((f) => ({ nome: f.name, tipo: f.tipo, descricao: f.description ?? null }));
+    .map((f) => ({
+      nome: f.name,
+      tipo: f.tipo,
+      descricao: f.description ?? null,
+      ...(f.tipo === "status" ? { valores: lerValoresStatus(f.normalizedTerms) } : {}),
+    }));
 
   return {
     mensagem: cat

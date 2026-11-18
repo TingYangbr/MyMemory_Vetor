@@ -8,6 +8,7 @@ import type {
   PerguntaResposta,
   PlanoSalvo,
 } from "@mymemory/shared";
+import { descreverStatus, lerValoresStatus, lerVerbosStatus } from "@mymemory/shared";
 import { createHash } from "node:crypto";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { withSpan } from "../lib/requestTimings.js";
@@ -131,14 +132,23 @@ export function buildQueriesDisponiveis(
               const exemplos = campo?.normalizedTerms
                 ? campo.normalizedTerms.split(",").map((t) => t.trim()).filter(Boolean)
                 : [];
+              // Status: valores fixos e verbos — o planejador e o filtro usam o valor da lista
+              const valoresStatus = campo?.tipo === "status" ? lerValoresStatus(campo.normalizedTerms) : [];
+              const status = valoresStatus.length
+                ? { valores: valoresStatus, verbos: lerVerbosStatus(campo?.verbos, valoresStatus) }
+                : null;
+              const descricao = status
+                ? [campo?.description, descreverStatus(status.valores, status.verbos)].filter(Boolean).join(" — ")
+                : (campo?.description ?? null);
               return {
                 nome: toParamName(p.campo),
                 tipo: p.tipo,
                 obrigatorio: p.obrigatorio === 1,
                 operadorSql: p.operadorSql,
                 normalizar: p.normalizar === 1,
-                descricao_campo: campo?.description ?? null,
+                descricao_campo: descricao,
                 ...(exemplos.length ? { exemplos_valores: exemplos } : {}),
+                ...(status ? { status } : {}),
               };
             }),
         }));

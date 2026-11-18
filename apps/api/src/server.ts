@@ -85,6 +85,7 @@ import { ConsultaAlteracoes1700000000170 } from "./migrations/1700000000170-Cons
 import { CategoriaConfirmarAlteracao1700000000171 } from "./migrations/1700000000171-CategoriaConfirmarAlteracao.js";
 import { CategoriaEncerraPelaData1700000000172 } from "./migrations/1700000000172-CategoriaEncerraPelaData.js";
 import { MemoRelacoes1700000000173 } from "./migrations/1700000000173-MemoRelacoes.js";
+import { CampoStatusVerbos1700000000174 } from "./migrations/1700000000174-CampoStatusVerbos.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -215,6 +216,7 @@ assertMediaStorageEnv();
       CategoriaConfirmarAlteracao1700000000171,
       CategoriaEncerraPelaData1700000000172,
       MemoRelacoes1700000000173,
+      CampoStatusVerbos1700000000174,
     ],
   });
   const ds = await AppDataSource.initialize();

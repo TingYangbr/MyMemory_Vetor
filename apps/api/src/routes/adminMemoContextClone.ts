@@ -91,15 +91,15 @@ const plugin: FastifyPluginAsync = async (app) => {
 
         // Clona campos
         const [campoRows] = await conn.query<RowDataPacket[]>(
-          `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", resolucaonomeabrev AS "resolucaoNomeAbrev"
+          `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev"
            FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
           [catId]
         );
         for (const campo of campoRows) {
           await conn.query(
-            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive)
-             VALUES (?, ?, ?, ?, ?, ?, 1)`,
-            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, Number(campo.resolucaoNomeAbrev ?? 0)]
+            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive)
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, campo.verbos ?? null, Number(campo.resolucaoNomeAbrev ?? 0)]
           );
         }
 
