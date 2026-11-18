@@ -1,5 +1,6 @@
 import { useEffect, useState, type KeyboardEvent, type MutableRefObject, type RefObject } from "react";
 import type { MemoContextCategory } from "@mymemory/shared";
+import { estadoDaSituacao, rotulosSituacao, SIMBOLO_SITUACAO, valorDaSituacao } from "@mymemory/shared";
 
 const semAcentoMin = (v: string) => v.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase().trim();
 import { apiGetOptional } from "../../api";
@@ -45,7 +46,6 @@ export function useCategoriasCompletas(groupId: number | null | undefined): Cate
   return cats;
 }
 
-const SITUACOES = ["Ativo", "Concluído", "Cancelado"];
 
 export interface MemoFormularioProps {
   categorias: CategoriaComRegra[];
@@ -88,6 +88,8 @@ export default function MemoFormulario(p: MemoFormularioProps) {
   const [novaKw, setNovaKw] = useState("");
   const cat = p.categorias.find((c) => c.id === p.categoryId) ?? null;
   const campos = montarCamposFormulario(cat?.campos ?? [], p.dados);
+  // Situação da categoria atualizável: Pendente/Válido · Concluído (ou o nome dela: Comprado, Pago) · Cancelado
+  const rotSit = rotulosSituacao(cat?.situacaoTipo, cat?.rotuloConcluido);
   const lista = keywordsParaLista(p.keywords);
   const over = p.maxChars != null && p.resumo.length > p.maxChars;
 
@@ -252,14 +254,14 @@ export default function MemoFormulario(p: MemoFormularioProps) {
                     <div key={c.key} style={{ gridColumn: "1 / -1" }}>
                       <span className={s.cgNome}>{c.key}</span>
                       <div className={s.seg} role="group" aria-label={c.key}>
-                        {SITUACOES.map((o) => (
+                        {rotSit.opcoes.map((e) => (
                           <button
-                            key={o}
+                            key={e}
                             type="button"
-                            className={(c.value || "Ativo") === o ? s.segOn : ""}
-                            onClick={() => p.setDado(c.key, o)}
+                            className={estadoDaSituacao(c.value) === e ? s.segOn : ""}
+                            onClick={() => p.setDado(c.key, valorDaSituacao(e, cat?.situacaoTipo))}
                           >
-                            {o}
+                            {SIMBOLO_SITUACAO[e]} {rotSit[e]}
                           </button>
                         ))}
                       </div>

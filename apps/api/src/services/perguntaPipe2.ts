@@ -493,8 +493,12 @@ export function padraoSituacao(nomeParam: string, valorSemAcento: string): strin
   const v = valorSemAcento.trim().toLowerCase();
   // "Todos" / "incluindo concluídos": não filtra ("" casa com qualquer situação gravada)
   if (/^(tod[oa]s|qualquer|inclu)/.test(v)) return "";
+  // Pendente = aberto: tudo que não é Concluído nem Cancelado (Pendente, Válido, o "Ativo" antigo)
+  if (/^(pendent|ativ|abert|valid|vigent|a fazer|em aberto)/.test(v)) return "^(?!\\s*(conclu|cancel))";
   if (/^(encerrad|finalizad|fechad)/.test(v) || (/conclu/.test(v) && /cancel/.test(v))) return "\\m(conclu|cancel)";
-  if (/^(conclu|feit|terminad|comprad|realizad)/.test(v)) return "\\mconclu";
+  // Concluído, com qualquer nome que a categoria dê a ele (Comprado, Pago, Recebido, Realizado)
+  if (/^(conclu|feit|terminad|comprad|realizad|pag[oa]s?$|recebid|entregu)/.test(v)) return "\\mconclu";
+  if (/^(revogad|estornad|anulad)/.test(v)) return "\\mcancel";
   if (/^cancel/.test(v)) return "\\mcancel";
   return null;
 }

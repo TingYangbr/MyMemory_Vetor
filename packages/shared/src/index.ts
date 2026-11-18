@@ -608,7 +608,7 @@ export interface MemoContextCategory {
   pessoal?: boolean;
   /** Em categoria Pessoal: campo do memo com o e-mail ou nome do dono (usado na importação em lote). */
   campoDono?: string | null;
-  /** Categoria "Atualizável": os memos mudam de situação (Ativo, Concluído, Cancelado) e são alterados pela resposta. */
+  /** Categoria "Atualizável": os memos mudam de situação (Pendente/Válido, Concluído, Cancelado) e são alterados pela resposta. */
   atualizavel?: boolean;
   /** Em categoria Atualizável: campo do memo com a situação. */
   campoSituacao?: string | null;
@@ -616,6 +616,10 @@ export interface MemoContextCategory {
   confirmarAlteracao?: boolean;
   /** Em categoria Atualizável: campo de data que encerra o registro quando passa (sai das respostas, a não ser que a pergunta peça o período). */
   campoEncerraData?: string | null;
+  /** Em categoria Atualizável: "afazer" (Pendente · Concluído · Cancelado) ou "registro" (Válido · Cancelado). */
+  situacaoTipo?: "afazer" | "registro";
+  /** Nome do Concluído na tela desta categoria (Comprado, Pago, Realizado); null = "Concluído". */
+  rotuloConcluido?: string | null;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */
@@ -1147,8 +1151,10 @@ export interface ComandoCriacao {
   /** Campos da categoria, para o cartão montar o formulário (situação fora da lista). */
   /** valores: só no tipo status (o primeiro é o inicial). */
   campos: { nome: string; tipo: MemoContextCampoTipo; descricao: string | null; valores?: string[] }[];
-  /** Campo de situação da categoria atualizável (preenchido com Ativo ao gravar), ou null. */
+  /** Campo de situação da categoria atualizável (preenchido com o valor aberto ao gravar), ou null. */
   campoSituacao: string | null;
+  /** Valor da situação de um registro novo: Pendente (ou Válido, na categoria de registro). */
+  situacaoAberta?: string;
   processado: TextMemoProcessResponse;
 }
 
@@ -1600,6 +1606,8 @@ export interface MemoAlteravelResponse {
   /** Campo da situação (fora da lista `campos`, alterado pelos botões). */
   campoSituacao: string;
   situacao: string;
+  /** Nomes da situação nesta categoria e os estados oferecidos. */
+  situacaoRotulos?: import("./situacaoMemo.js").RotulosSituacao;
   campos: MemoAlteravelCampo[];
 }
 
@@ -1617,6 +1625,7 @@ export * from "./perguntaPlano.js";
 export * from "./dataCampo.js";
 export * from "./listaItens.js";
 export * from "./campoStatus.js";
+export * from "./situacaoMemo.js";
 /** Resposta imediata do Processar: o lote roda em segundo plano (evita timeout de 120 s do proxy). */
 export interface BatchProcessStartResponse {
   jobId: string;

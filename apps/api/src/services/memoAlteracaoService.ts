@@ -10,6 +10,10 @@
 import crypto from "node:crypto";
 import type { MemoAlteracaoResponse, MemoAlteravelResponse } from "@mymemory/shared";
 import {
+  estadoDoDito,
+  rotulosSituacao,
+  valorDaSituacao,
+  type RotulosSituacao,
   lerValoresStatus,
   lerVerbosStatus,
   normalizarDataParaIso,
@@ -46,6 +50,8 @@ interface CategoriaAtualizavel {
   id: number;
   nome: string;
   campoSituacao: string;
+  situacaoTipo: string;
+  rotulos: RotulosSituacao;
   campos: { nome: string; tipo: string; descricao: string | null; valores?: string[]; verbos?: VerbosStatus }[];
 }
 
@@ -83,7 +89,8 @@ async function carregarMemo(memoId: number): Promise<MemoBase | null> {
 async function categoriaAtualizavel(memo: MemoBase): Promise<CategoriaAtualizavel | null> {
   if (!memo.category) return null;
   const [cRows] = await pool.query<RowDataPacket[]>(
-    `SELECT id, name, atualizavel, campo_situacao AS "campoSituacao" FROM categories
+    `SELECT id, name, atualizavel, campo_situacao AS "campoSituacao", situacao_tipo AS "situacaoTipo",
+            rotulo_concluido AS "rotuloConcluido" FROM categories
      WHERE name = ? AND (groupid IS NOT DISTINCT FROM ? OR groupid IS NULL) AND isactive = 1
      ORDER BY groupid NULLS LAST LIMIT 1`,
     [memo.category, memo.groupId]
@@ -98,6 +105,8 @@ async function categoriaAtualizavel(memo: MemoBase): Promise<CategoriaAtualizave
     id: Number(c.id),
     nome: String(c.name),
     campoSituacao: String(c.campoSituacao),
+    situacaoTipo: String(c.situacaoTipo ?? "afazer"),
+    rotulos: rotulosSituacao(c.situacaoTipo as string | null, c.rotuloConcluido as string | null),
     campos: fRows.map((f) => {
       const tipo = String(f.tipo ?? "text");
       const valores = tipo === "status" ? lerValoresStatus(f.normalizedTerms as string | null) : [];
@@ -165,7 +174,8 @@ export async function obterMemoAlteravel(memoId: number, userId: number, isAdmin
     categoria: cat.nome,
     resumo: memo.mediaText,
     campoSituacao: cat.campoSituacao,
-    situacao: valorDoCampo(memo.dados, cat.campoSituacao) || "Ativo",
+    situacao: valorDoCampo(memo.dados, cat.campoSituacao) || valorDaSituacao("aberto", cat.situacaoTipo),
+    situacaoRotulos: cat.rotulos,
     campos: cat.campos
       .filter((c) => c.nome !== cat.campoSituacao)
       .map((c) => ({
@@ -316,6 +326,14 @@ export async function alterarMemo(input: {
       cat.campos.find((c) => toParamName(c.nome) === toParamName(nome));
     if (!def) continue;
     let bruto = String(valorBruto ?? "");
+    // Situação: Pendente/Válido, Concluído ou Cancelado, pelo que foi dito ("Comprado", "paguei", "Ativo", "reabrir")
+    if (norm(def.nome) === norm(cat.campoSituacao)) {
+      const estado = bruto.trim() ? estadoDoDito(bruto, cat.rotulos) : "aberto";
+      if (!estado || !cat.rotulos.opcoes.includes(estado)) {
+        throw new Error(`status_invalido|${def.nome}|${cat.rotulos.opcoes.map((e) => cat.rotulos[e]).join(", ")}`);
+      }
+      bruto = valorDaSituacao(estado, cat.situacaoTipo);
+    }
     // Status: só um dos valores da lista ("paguei" → Baixado pelos verbos); vazio volta ao inicial
     if (def.tipo === "status" && def.valores?.length) {
       const valor = bruto.trim() ? resolverValorStatus(bruto, def.valores, def.verbos) : def.valores[0];

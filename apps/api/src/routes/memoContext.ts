@@ -194,6 +194,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     atualizavel: z.boolean().optional(),
     confirmarAlteracao: z.boolean().optional(),
     campoEncerraData: z.string().max(255).nullable().optional(),
+    situacaoTipo: z.enum(["afazer", "registro"]).optional(),
+    rotuloConcluido: z.string().max(40).nullable().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -233,6 +235,8 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.atualizavel !== undefined ? { atualizavel: parsed.data.atualizavel } : {}),
         ...(parsed.data.confirmarAlteracao !== undefined ? { confirmarAlteracao: parsed.data.confirmarAlteracao } : {}),
         ...(parsed.data.campoEncerraData !== undefined ? { campoEncerraData: parsed.data.campoEncerraData } : {}),
+        ...(parsed.data.situacaoTipo !== undefined ? { situacaoTipo: parsed.data.situacaoTipo } : {}),
+        ...(parsed.data.rotuloConcluido !== undefined ? { rotuloConcluido: parsed.data.rotuloConcluido } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });
