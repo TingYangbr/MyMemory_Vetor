@@ -82,6 +82,12 @@ Cada etapa é publicada e testada antes da próxima. As etapas 1 e 2 não mudam 
 | 5 | **Esconder as globais** | Tipo B: tira o `groupId IS NULL` das consultas; globais viram só catálogo | Médio |
 | 6 | **Limpar** | Remove os caminhos de grupo vazio que sobraram; `memos.groupid` passa a NOT NULL | Baixo, se 3–5 estiverem certas |
 
+### Andamento
+
+- **Etapas 1 e 2 implementadas (local, migration 177):** `groups.tipo` (normal / pessoal / catalogo) e `groups.pessoal_userid`; grupo "Catálogo de modelos" (sem assinatura nem membros); grupo pessoal "Meu espaço" para cada usuário, ligado à assinatura individual, **sem membros e sem memos** (o cadastro também cria). Listas de grupos (espaço de trabalho, painel, admin, assinaturas) e o "é dono de algum grupo" ignoram os grupos pessoal e catálogo.
+- **Catálogo:** modelos são categorias do grupo catálogo, com `modelo_resumo`, `modelo_exemplos`, `modelo_versao`. O admin publica pela edição da categoria ("Publicar no catálogo de modelos…"; mesmo nome = nova versão). O dono habilita em Categorias → "Modelos prontos" (cópia com `origem_categoria_id` e `origem_versao`). Rotas em `routes/catalogoModelos.ts`.
+- Decisão tomada: os membros do grupo pessoal só entram na etapa 3 (assim nada muda agora).
+
 ## 5. Testes e volta atrás
 
 - **Antes/depois na cópia do banco:** as mesmas perguntas devem trazer os mesmos memos; contagens por usuário (memos, custos) iguais.

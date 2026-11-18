@@ -27,7 +27,8 @@ const patchWorkspaceBody = z.object({
 
 const SQL_ME_MEMO_CTX = `(
           u.role = 'admin'
-          OR EXISTS (SELECT 1 FROM group_members gm WHERE gm.userId = u.id AND gm.role = 'owner')
+          OR EXISTS (SELECT 1 FROM group_members gm JOIN groups gx ON gx.id = gm.groupId
+                     WHERE gm.userId = u.id AND gm.role = 'owner' AND gx.tipo = 'normal')
           OR EXISTS (
             SELECT 1 FROM subscriptions s
             WHERE s.ownerId = u.id AND s.type = 'group' AND s.status = 'active'
