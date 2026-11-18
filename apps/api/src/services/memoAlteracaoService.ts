@@ -9,7 +9,14 @@
  */
 import crypto from "node:crypto";
 import type { MemoAlteracaoResponse, MemoAlteravelResponse } from "@mymemory/shared";
-import { normalizarDataParaIso, toParamName } from "@mymemory/shared";
+import {
+  lerValoresStatus,
+  lerVerbosStatus,
+  normalizarDataParaIso,
+  resolverValorStatus,
+  toParamName,
+  type VerbosStatus,
+} from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { config } from "../config.js";
@@ -39,7 +46,7 @@ interface CategoriaAtualizavel {
   id: number;
   nome: string;
   campoSituacao: string;
-  campos: { nome: string; tipo: string; descricao: string | null }[];
+  campos: { nome: string; tipo: string; descricao: string | null; valores?: string[]; verbos?: VerbosStatus }[];
 }
 
 function lerDados(texto: unknown): Record<string, unknown> {
@@ -84,18 +91,23 @@ async function categoriaAtualizavel(memo: MemoBase): Promise<CategoriaAtualizave
   const c = cRows[0];
   if (!c || Number(c.atualizavel ?? 0) !== 1 || !c.campoSituacao) return null;
   const [fRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name, tipo, description FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
+    `SELECT name, tipo, description, normalizedterms, verbos FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
     [c.id]
   );
   return {
     id: Number(c.id),
     nome: String(c.name),
     campoSituacao: String(c.campoSituacao),
-    campos: fRows.map((f) => ({
-      nome: String(f.name),
-      tipo: String(f.tipo ?? "text"),
-      descricao: (f.description as string | null) ?? null,
-    })),
+    campos: fRows.map((f) => {
+      const tipo = String(f.tipo ?? "text");
+      const valores = tipo === "status" ? lerValoresStatus(f.normalizedTerms as string | null) : [];
+      return {
+        nome: String(f.name),
+        tipo,
+        descricao: (f.description as string | null) ?? null,
+        ...(valores.length ? { valores, verbos: lerVerbosStatus(f.verbos as string | null, valores) } : {}),
+      };
+    }),
   };
 }
 
@@ -156,7 +168,13 @@ export async function obterMemoAlteravel(memoId: number, userId: number, isAdmin
     situacao: valorDoCampo(memo.dados, cat.campoSituacao) || "Ativo",
     campos: cat.campos
       .filter((c) => c.nome !== cat.campoSituacao)
-      .map((c) => ({ nome: c.nome, tipo: c.tipo, descricao: c.descricao, valor: valorDoCampo(memo.dados, c.nome) })),
+      .map((c) => ({
+        nome: c.nome,
+        tipo: c.tipo,
+        descricao: c.descricao,
+        valor: valorDoCampo(memo.dados, c.nome),
+        ...(c.valores?.length ? { valores: c.valores } : {}),
+      })),
   };
 }
 
@@ -297,7 +315,14 @@ export async function alterarMemo(input: {
       cat.campos.find((c) => norm(c.nome) === norm(nome)) ??
       cat.campos.find((c) => toParamName(c.nome) === toParamName(nome));
     if (!def) continue;
-    const novo = valorParaGravar(String(valorBruto ?? ""), def.tipo);
+    let bruto = String(valorBruto ?? "");
+    // Status: só um dos valores da lista ("paguei" → Baixado pelos verbos); vazio volta ao inicial
+    if (def.tipo === "status" && def.valores?.length) {
+      const valor = bruto.trim() ? resolverValorStatus(bruto, def.valores, def.verbos) : def.valores[0];
+      if (!valor) throw new Error(`status_invalido|${def.nome}|${def.valores.join(", ")}`);
+      bruto = valor;
+    }
+    const novo = valorParaGravar(bruto, def.tipo);
     const chave = chaveDoCampo(dados, def.nome) ?? def.nome;
     const antes = dados[chave] == null ? "" : String(dados[chave]);
     if (antes.trim() === novo) continue;

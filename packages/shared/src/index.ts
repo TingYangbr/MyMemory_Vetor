@@ -638,7 +638,8 @@ export interface MemoContextSubcategory {
 }
 
 /** "lista": um item por linha (lista de compras, pauta); a quebra de linha é o separador, nunca a vírgula. */
-export type MemoContextCampoTipo = "text" | "date" | "number" | "lista";
+/** "status": valores fixos (os padrões; o primeiro é o inicial) e verbos que levam a cada valor. */
+export type MemoContextCampoTipo = "text" | "date" | "number" | "lista" | "status";
 
 export interface MemoContextCampo {
   id: number;
@@ -649,6 +650,8 @@ export interface MemoContextCampo {
   tipo: MemoContextCampoTipo;
   /** Termos padronizados para o valor deste campo (separados por vírgula no editor). */
   normalizedTerms: string | null;
+  /** Tipo status: uma linha por valor, "Baixado: pagar, paguei, quitar". */
+  verbos?: string | null;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
   resolucaoNomeAbrev: boolean;
   isActive: number;
@@ -1142,7 +1145,8 @@ export interface ComandoCriacao {
   /** Categoria escolhida (nome), quando houver. */
   categoria: string | null;
   /** Campos da categoria, para o cartão montar o formulário (situação fora da lista). */
-  campos: { nome: string; tipo: MemoContextCampoTipo; descricao: string | null }[];
+  /** valores: só no tipo status (o primeiro é o inicial). */
+  campos: { nome: string; tipo: MemoContextCampoTipo; descricao: string | null; valores?: string[] }[];
   /** Campo de situação da categoria atualizável (preenchido com Ativo ao gravar), ou null. */
   campoSituacao: string | null;
   processado: TextMemoProcessResponse;
@@ -1581,10 +1585,12 @@ export * from "./queryPadrao.js";
 /** Cartão de alteração de um memo de categoria atualizável (a partir da resposta do Perguntar). */
 export interface MemoAlteravelCampo {
   nome: string;
-  /** "text" | "date" | "number" | "lista" */
+  /** "text" | "date" | "number" | "lista" | "status" */
   tipo: string;
   descricao: string | null;
   valor: string;
+  /** Tipo status: os valores permitidos (o primeiro é o inicial). */
+  valores?: string[];
 }
 
 export interface MemoAlteravelResponse {
@@ -1610,6 +1616,7 @@ export * from "./lembretes.js";
 export * from "./perguntaPlano.js";
 export * from "./dataCampo.js";
 export * from "./listaItens.js";
+export * from "./campoStatus.js";
 /** Resposta imediata do Processar: o lote roda em segundo plano (evita timeout de 120 s do proxy). */
 export interface BatchProcessStartResponse {
   jobId: string;

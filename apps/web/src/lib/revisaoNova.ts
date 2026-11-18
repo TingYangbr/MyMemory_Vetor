@@ -1,4 +1,5 @@
 import type { MemoContextCategory, MemoContextCampo, MemoCreatedResponse, UserIaUseLevel } from "@mymemory/shared";
+import { lerValoresStatus } from "@mymemory/shared";
 import { apiPatchJson, apiPostJson } from "../api";
 
 export type RevisaoTipo = "texto" | "url" | "imagem" | "audio" | "video" | "documento";
@@ -68,13 +69,21 @@ const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 export function montarCamposFormulario(
   campos: MemoContextCampo[],
   entries: DadoCampo[]
-): Array<{ key: string; value: string; tipo: string; antigo: boolean; descricao: string | null }> {
+): Array<{ key: string; value: string; tipo: string; antigo: boolean; descricao: string | null; valores?: string[] }> {
   const usados = new Set<string>();
-  const out: Array<{ key: string; value: string; tipo: string; antigo: boolean; descricao: string | null }> = [];
+  const out: Array<{ key: string; value: string; tipo: string; antigo: boolean; descricao: string | null; valores?: string[] }> = [];
   for (const c of campos) {
     const e = entries.find((x) => semAcento(x.key) === semAcento(c.name));
     if (e) usados.add(e.key);
-    out.push({ key: e?.key ?? c.name, value: e?.value ?? "", tipo: c.tipo || "text", antigo: false, descricao: c.description });
+    const valores = c.tipo === "status" ? lerValoresStatus(c.normalizedTerms) : [];
+    out.push({
+      key: e?.key ?? c.name,
+      value: e?.value ?? "",
+      tipo: c.tipo || "text",
+      antigo: false,
+      descricao: c.description,
+      ...(valores.length ? { valores } : {}),
+    });
   }
   for (const e of entries) {
     if (usados.has(e.key)) continue;

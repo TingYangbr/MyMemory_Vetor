@@ -1,5 +1,13 @@
 import type { TextMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
-import { normalizeMemoKeywordKey, normalizarDataParaIso } from "@mymemory/shared";
+import {
+  descreverStatus,
+  lerValoresStatus,
+  lerVerbosStatus,
+  normalizeMemoKeywordKey,
+  normalizarDataParaIso,
+  resolverValorStatus,
+  type VerbosStatus,
+} from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { fetchAndExtractPlainTextFromUrl } from "../lib/urlFetchText.js";
@@ -53,15 +61,17 @@ function temCampoData(campos: { tipo?: string }[]): boolean {
 }
 
 /** Campo do tipo "lista": a IA devolve um item por linha (a vírgula pode ser decimal: "1,5 kg"). */
-function sufixoTipoCampo(f: { tipo?: string }): string {
-  return f.tipo === "lista" ? " [tipo lista: um item por linha, separados por quebra de linha, nunca por vírgula]" : "";
+function sufixoTipoCampo(f: { tipo?: string; normalizedTerms?: string[]; verbos?: VerbosStatus }): string {
+  if (f.tipo === "lista") return " [tipo lista: um item por linha, separados por quebra de linha, nunca por vírgula]";
+  if (f.tipo === "status" && f.normalizedTerms?.length) return ` [${descreverStatus(f.normalizedTerms, f.verbos ?? {})}]`;
+  return "";
 }
 
 type CatCtx = {
   id: number;
   name: string;
   subcategories: { name: string }[];
-  campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string }[];
+  campos: { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string; verbos?: VerbosStatus }[];
 };
 
 export async function loadCategoryContext(
@@ -112,7 +122,7 @@ export async function loadCategoryContext(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT categoryId, name, description, normalizedTerms, resolucaoNomeAbrev, tipo FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
+      `SELECT categoryId, name, description, normalizedTerms, resolucaoNomeAbrev, tipo, verbos FROM categorycampos WHERE categoryId IN (${ph}) AND isActive = 1 ORDER BY id ASC`,
       ids
     );
     campoRows = rows;
@@ -124,7 +134,7 @@ export async function loadCategoryContext(
     campoRows = rows;
   }
   const subs = new Map<number, { name: string }[]>();
-  const camps = new Map<number, { name: string; description?: string | null; normalizedTerms: string[]; resolucaoNomeAbrev: boolean; tipo?: string }[]>();
+  const camps = new Map<number, CatCtx["campos"]>();
   for (const id of ids) {
     subs.set(id, []);
     camps.set(id, []);
@@ -144,6 +154,9 @@ export async function loadCategoryContext(
         normalizedTerms: parseNormalizedTerms(r.normalizedTerms),
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         tipo: r.tipo ? String(r.tipo) : undefined,
+        ...(r.tipo === "status"
+          ? { verbos: lerVerbosStatus(r.verbos as string | null, lerValoresStatus(r.normalizedTerms as string | null)) }
+          : {}),
       });
   }
   return dedupedCatRows.map((r) => ({
@@ -454,6 +467,11 @@ export function normalizeCamposForCategory(
     if (!key) continue;
     const originalVal = byLower.get(key.toLowerCase()) ?? "";
     originals[key] = originalVal;
+    // Status: só valores da lista; o que não corresponder (ou vazio) fica com o inicial (o primeiro)
+    if (c.tipo === "status" && c.normalizedTerms.length) {
+      normalized[key] = resolverValorStatus(originalVal, c.normalizedTerms, c.verbos) ?? c.normalizedTerms[0];
+      continue;
+    }
     const padronizado = chooseBestNormalizedTerm(originalVal, c.normalizedTerms);
     // Campo de data: a IA devolve ora 27/11/2025, ora 2025-11-27 — grava sempre AAAA-MM-DD (o original fica em `originals`).
     normalized[key] = c.tipo === "date" ? (normalizarDataParaIso(padronizado) ?? padronizado) : padronizado;

@@ -294,7 +294,7 @@ export async function loadMemoContextStructure(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryId, name, description, tipo, normalizedTerms, resolucaoNomeAbrev, isActive, createdAt, updatedAt
+      `SELECT id, categoryId, name, description, tipo, normalizedTerms, verbos, resolucaoNomeAbrev, isActive, createdAt, updatedAt
        FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -366,6 +366,7 @@ export async function loadMemoContextStructure(
         description: (r.description as string) ?? null,
         tipo: ((r.tipo as string) || "text") as import("@mymemory/shared").MemoContextCampoTipo,
         normalizedTerms: (r.normalizedTerms as string) ?? null,
+        verbos: (r.verbos as string | null) ?? null,
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
@@ -807,16 +808,18 @@ export async function updateSubcategory(
   await pool.query(`UPDATE subcategories SET ${sets.join(", ")} WHERE id = ?`, vals);
 }
 
+const TIPOS_CAMPO = ["text", "date", "number", "lista", "status"];
+
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean }
+  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
-  const tipo = input.tipo && ["text", "date", "number", "lista"].includes(input.tipo) ? input.tipo : "text";
+  const tipo = input.tipo && TIPOS_CAMPO.includes(input.tipo) ? input.tipo : "text";
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.resolucaoNomeAbrev ? 1 : 0]
+    `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.verbos?.trim() || null, input.resolucaoNomeAbrev ? 1 : 0]
   );
   await sincronizarQueryPadrao(categoryId);
   return rows[0].id;
@@ -825,7 +828,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
+  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
 ): Promise<{ renomeado?: { de: string; para: string; memos: number; queries: number } }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -854,11 +857,15 @@ export async function updateCampo(
     sets.push("normalizedterms = ?");
     vals.push(patch.normalizedTerms?.trim() ?? null);
   }
+  if (patch.verbos !== undefined) {
+    sets.push("verbos = ?");
+    vals.push(patch.verbos?.trim() || null);
+  }
   if (patch.resolucaoNomeAbrev !== undefined) {
     sets.push("resolucaoNomeAbrev = ?");
     vals.push(patch.resolucaoNomeAbrev ? 1 : 0);
   }
-  if (patch.tipo !== undefined && ["text", "date", "number", "lista"].includes(patch.tipo)) {
+  if (patch.tipo !== undefined && TIPOS_CAMPO.includes(patch.tipo)) {
     sets.push("tipo = ?");
     vals.push(patch.tipo);
   }
@@ -1368,15 +1375,15 @@ export async function copiarCategoriaParaGrupo(
     }
 
     const [campos] = await conn.query<RowDataPacket[]>(
-      `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", resolucaonomeabrev AS "resolucaoNomeAbrev"
+      `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev"
        FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
       [categoryId]
     );
     for (const c of campos) {
       await conn.query(
-        `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, resolucaoNomeAbrev, isactive)
-         VALUES (?, ?, ?, ?, ?, ?, 1)`,
-        [novoId, c.name, c.description ?? null, c.tipo ?? "text", c.normalizedTerms ?? null, Number(c.resolucaoNomeAbrev ?? 0)]
+        `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+        [novoId, c.name, c.description ?? null, c.tipo ?? "text", c.normalizedTerms ?? null, c.verbos ?? null, Number(c.resolucaoNomeAbrev ?? 0)]
       );
     }
 

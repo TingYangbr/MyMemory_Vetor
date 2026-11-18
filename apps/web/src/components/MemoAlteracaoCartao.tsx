@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { MemoAlteracaoResponse, MemoAlteravelCampo, MemoAlteravelResponse } from "@mymemory/shared";
-import { normalizarDataParaIso, situacaoEncerrada } from "@mymemory/shared";
+import { normalizarDataParaIso, resolverValorStatus, situacaoEncerrada } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPostJson } from "../api";
 import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "./RelacaoAposSalvar";
 
@@ -304,7 +304,21 @@ export function MemoAlteracaoCartao({
                     {c.nome}
                   </label>
                   <div className={styles.linha}>
-                    {c.tipo === "lista" ? (
+                    {c.tipo === "status" && c.valores?.length ? (
+                      <select
+                        id={`alt-${c.nome}`}
+                        className={`mm-field ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
+                        value={resolverValorStatus(valores[c.nome] ?? "", c.valores) ?? c.valores[0]}
+                        onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}
+                        disabled={salvando}
+                      >
+                        {c.valores.map((o) => (
+                          <option key={o} value={o}>
+                            {o}
+                          </option>
+                        ))}
+                      </select>
+                    ) : c.tipo === "lista" ? (
                       <textarea
                         id={`alt-${c.nome}`}
                         className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}

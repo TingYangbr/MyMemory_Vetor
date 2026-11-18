@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type { ComandoCriacao, MemoCreatedResponse } from "@mymemory/shared";
-import { normalizarDataParaIso } from "@mymemory/shared";
+import { normalizarDataParaIso, resolverValorStatus } from "@mymemory/shared";
+
+/** Valor do status como opção do seletor (vazio ou fora da lista = o inicial). */
+const opcaoStatus = (valor: string, valores: string[]) => resolverValorStatus(valor, valores) ?? valores[0];
 import { apiPostJson } from "../api";
 import styles from "./MemoAlteracaoCartao.module.css";
 
@@ -139,7 +142,21 @@ export function MemoNovoCartao({
               <label htmlFor={`novo-${c.nome}`} title={c.descricao ?? undefined}>
                 {c.nome}
               </label>
-              {c.tipo === "lista" ? (
+              {c.tipo === "status" && c.valores?.length ? (
+                <select
+                  id={`novo-${c.nome}`}
+                  className="mm-field"
+                  value={opcaoStatus(valores[c.nome] ?? "", c.valores)}
+                  onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}
+                  disabled={salvando}
+                >
+                  {c.valores.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              ) : c.tipo === "lista" ? (
                 <textarea
                   id={`novo-${c.nome}`}
                   className="mm-field"
