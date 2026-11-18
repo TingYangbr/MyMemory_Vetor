@@ -343,7 +343,7 @@ export async function perguntarMemory(input: {
       }));
       return {
         resposta: respostaComando(
-          `${criacao.mensagem} Se era uma pergunta, use ↺ Refazer.`,
+          `${criacao.mensagem} Nada foi gravado ainda. Se era uma pergunta, use ↺ Refazer.`,
           "Registro novo ainda não gravado: confira no cartão e salve."
         ),
         classificacao,

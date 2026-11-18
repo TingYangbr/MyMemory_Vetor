@@ -66,8 +66,8 @@ export async function prepararCriacao(input: {
 
   return {
     mensagem: cat
-      ? `Confira o registro novo em ${cat.name} e salve.`
-      : "Confira o registro novo e salve.",
+      ? `Preparei um registro novo em ${cat.name}: confira no cartão e toque em Salvar registro.`
+      : "Preparei um registro novo: confira no cartão e toque em Salvar registro.",
     groupId: input.groupId,
     categoria: cat?.name ?? processado.category ?? null,
     campos,
