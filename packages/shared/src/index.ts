@@ -59,6 +59,8 @@ export interface UserMemoPreferences {
   imageOcrVisionMinConfidence: number | null;
   /** Velocidade de narração por voz (SpeechSynthesisUtterance.rate). `null` = padrão (1.0). Faixa: 0.5–2.0. */
   ttsRate: number | null;
+  /** Botão PDF: true = abre o PDF numa aba; false = baixa o arquivo (o navegador decide o resto). */
+  pdfAbrirAba?: boolean;
 }
 
 export interface PatchMePreferencesResponse {
@@ -436,6 +438,8 @@ export interface MeResponse {
   imageOcrVisionMinConfidence?: number | null;
   /** Ver `UserMemoPreferences.ttsRate`. */
   ttsRate?: number | null;
+  /** Ver `UserMemoPreferences.pdfAbrirAba`. */
+  pdfAbrirAba?: boolean;
 }
 
 /** Métrica usada / limite para barras de progresso (`GET /api/me/usage`). */
