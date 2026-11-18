@@ -62,7 +62,7 @@ Esses pontos são de três tipos, e cada tipo muda de um jeito:
 ## 3. Decisões a tomar antes de codificar
 
 1. **Assinatura do grupo pessoal.** `groups.subscriptionid` é obrigatório. Proposta: o grupo pessoal aponta para a assinatura **individual** do usuário. Cuidado: limites e custos hoje distinguem `individual` × `group` (`mediaLimitsService`, `userUsageService`, `adminCostReportService`) — o grupo pessoal tem de continuar contando como individual.
-2. **Marca do grupo pessoal.** Nova coluna `groups.pessoal` (1 = pessoal). Ele não aparece em "convidar pessoas" até o usuário decidir abrir o espaço para outros — ou nunca (abrir = criar grupo novo). *Proposta: nunca; para compartilhar, cria-se um grupo.*
+2. **Marca do grupo pessoal.** `groups.tipo = 'pessoal'` (feito). **Decidido em 18/11: o grupo pessoal é sempre privado** — só o dono, nunca recebe convidados (os memos privados nunca ficam expostos por um convite). Para compartilhar, a pessoa cria um **grupo compartilhado**; o **plano** diz se ela pode criar grupos e quantos membros eles aceitam (ninguém precisa "virar owner"). Junto vem o botão **"Mover para o grupo…"** no memo, para levar um memo do pessoal para um grupo de forma consciente, memo a memo.
 3. **Quem vira membro.** Só o dono. Admin do sistema continua vendo tudo pela regra de admin.
 4. **Categorias globais que os memos pessoais usam.** Na migração, cada usuário recebe **cópias** (com origem) só das globais em que já tem memos. As demais ficam no catálogo para ele habilitar.
 5. **"Contexto pessoal" dentro de grupos** (`groups.allowpersonalcontext`): verificar o que faz hoje antes de migrar (não li o uso).
