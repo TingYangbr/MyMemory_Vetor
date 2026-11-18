@@ -630,6 +630,11 @@ function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
   );
 }
 
+/** Listas mostradas de início numa resposta; o resto fica em "ver mais". */
+const MAX_LISTAS_INICIAIS = 3;
+/** Até quantas listas a mais o "ver mais" mostra sem perguntar. */
+const MAX_LISTAS_SEM_PERGUNTAR = 10;
+
 const ROTULO_ESTADO: Record<EstadoItemLista, string> = { pendente: "Pendente", concluido: "Concluído", cancelado: "Cancelado" };
 const SIMBOLO_ESTADO: Record<EstadoItemLista, string> = { pendente: "○", concluido: "✓", cancelado: "✗" };
 
@@ -639,10 +644,23 @@ const SIMBOLO_ESTADO: Record<EstadoItemLista, string> = { pendente: "○", concl
  * grava o campo da lista pela alteração de sempre (histórico e Desfazer). Os pendentes aparecem
  * primeiro; os concluídos e cancelados ficam atrás de "ver N concluídos/cancelados".
  */
-function ItensMarcados({ memoId, colLista, itens, podeAlterar }: { memoId: number | null; colLista: string; itens: ItemLista[]; podeAlterar: boolean }) {
+function ItensMarcados({
+  memoId,
+  colLista,
+  itens,
+  podeAlterar,
+  mostrarFeitos = false,
+}: {
+  memoId: number | null;
+  colLista: string;
+  itens: ItemLista[];
+  podeAlterar: boolean;
+  /** Já começa mostrando concluídos e cancelados (lista encerrada, pedido de itens concluídos). */
+  mostrarFeitos?: boolean;
+}) {
   const { alterarCampo } = useContext(AlteracaoCtx);
   const [menu, setMenu] = useState<number | null>(null);
-  const [verFeitos, setVerFeitos] = useState(false);
+  const [verFeitos, setVerFeitos] = useState(mostrarFeitos);
   const [gravando, setGravando] = useState(false);
   const feitos = itens.filter((it) => it.estado !== "pendente").length;
 
@@ -722,12 +740,18 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
     const texto = String(l !== undefined ? l : linha[colLista] ?? "");
     return n + lerItensLista(texto).filter((it) => it.estado === "pendente").length;
   }, 0);
+  // Com muitas listas (ex.: anos de listas concluídas), mostra as mais recentes e pede para ver o resto
+  const total = Math.max(dados.totalLinhas, dados.linhas.length);
+  const [verTodas, setVerTodas] = useState(false);
+  const visiveis = verTodas ? dados.linhas : dados.linhas.slice(0, MAX_LISTAS_INICIAIS);
+  const escondidas = dados.linhas.length - visiveis.length;
   return (
     <div className={styles.listaCards}>
       <p className={styles.listaResumo}>
-        {dados.linhas.length === 1 ? "1 lista" : `${dados.linhas.length} listas`} · {pendentes === 1 ? "1 item pendente" : `${pendentes} itens pendentes`}
+        {total === 1 ? "1 lista" : `${total} listas`} · {pendentes === 1 ? "1 item pendente" : `${pendentes} itens pendentes`}
+        {escondidas > 0 ? ` · mostrando as ${visiveis.length} mais recentes` : ""}
       </p>
-      {dados.linhas.map((linha, i) => {
+      {visiveis.map((linha, i) => {
         const id = linha["id"] != null ? Number(linha["id"]) : null;
         const local = id != null ? locais[id] : undefined;
         const valor = (col: string) => {
@@ -769,18 +793,41 @@ function VisaoLista({ dados, colLista, onVerTabela }: { dados: PerguntaResultado
                     >
                       Encerrar lista
                     </button>
-                  ) : null}
+                  ) : (
+                    <button type="button" className={styles.refazerBtn} onClick={() => mudarSituacao(id!, "Ativo")} title="Voltar a lista para ativa">
+                      ↺ Reativar lista
+                    </button>
+                  )}
                 </div>
               ) : null}
             </div>
             {itens.length ? (
-              <ItensMarcados memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar && !encerrada} />
+              // Lista encerrada: mostra todos os itens (inclusive concluídos e cancelados), com o marcador
+              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada} />
             ) : (
               <p className={styles.listaSub}>Sem itens.</p>
             )}
           </div>
         );
       })}
+      {escondidas > 0 ? (
+        <button
+          type="button"
+          className={styles.refazerBtn}
+          onClick={() => {
+            if (escondidas <= MAX_LISTAS_SEM_PERGUNTAR || window.confirm(`Mostrar mais ${escondidas} listas? Dica: peça "a última lista" ou "a lista de outubro" para ir direto.`)) {
+              setVerTodas(true);
+            }
+          }}
+        >
+          ver mais {escondidas} lista(s)
+        </button>
+      ) : null}
+      {total > dados.linhas.length ? (
+        <p className={styles.listaSub}>
+          Há {total} listas; a resposta trouxe as {dados.linhas.length} mais recentes. Peça uma lista específica (ex.: &quot;a lista de outubro&quot;).
+        </p>
+      ) : null}
       <button type="button" className={styles.listaVerTabela} onClick={onVerTabela}>
         ver como tabela ▸
       </button>
