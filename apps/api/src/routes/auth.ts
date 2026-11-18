@@ -243,11 +243,22 @@ const plugin: FastifyPluginAsync = async (app) => {
           ? new Date(Date.now() + dur * 86400 * 1000)
           : null;
 
-      await conn.query(
+      const [subIns] = await conn.query<RowDataPacket[]>(
         `INSERT INTO subscriptions (type, userId, ownerId, planId, status, endDate)
-         VALUES ('individual', ?, ?, ?, 'active', ?)`,
+         VALUES ('individual', ?, ?, ?, 'active', ?) RETURNING id`,
         [userId, userId, parsed.data.planId, endDate]
       );
+      // Grupo pessoal ("Meu espaço") ligado à assinatura individual — ainda sem uso (docs/plano-grupo-pessoal.md)
+      const subId = Number(subIns[0]?.id);
+      if (Number.isFinite(subId) && subId > 0) {
+        await conn.query(`UPDATE groups SET subscriptionid = ? WHERE pessoal_userid = ?`, [subId, userId]);
+        await conn.query(
+          `INSERT INTO groups (name, description, subscriptionid, tipo, pessoal_userid)
+           SELECT 'Meu espaço', NULL, ?, 'pessoal', ?
+           WHERE NOT EXISTS (SELECT 1 FROM groups WHERE pessoal_userid = ?)`,
+          [subId, userId, userId]
+        );
+      }
 
       await conn.commit();
 

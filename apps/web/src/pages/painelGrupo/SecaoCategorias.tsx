@@ -1,5 +1,5 @@
 import { createPortal } from "react-dom";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type {
   MemoContextCampo,
@@ -10,6 +10,10 @@ import type {
   PainelGrupoContagensResponse,
 } from "@mymemory/shared";
 import { lerValoresStatus } from "@mymemory/shared";
+import type { CatalogoModelo } from "@mymemory/shared";
+
+/** Admin do sistema: a edição da categoria mostra "Publicar no catálogo de modelos". */
+const AdminCtx = createContext(false);
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../../api";
 import LembretesModal from "../../components/LembretesModal";
 import { IconBell, IconCopy, IconEdit, IconPlus, IconSearch, IconTrash, IconX } from "../../components/icons";
@@ -52,7 +56,7 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   const [lembretesAtivos, setLembretesAtivos] = useState<Set<number>>(new Set());
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState<string | null>(null);
-  const [modal, setModal] = useState<"nova" | "copiar" | null>(null);
+  const [modal, setModal] = useState<"nova" | "copiar" | "modelos" | null>(null);
 
   const selParam = searchParams.get("categoria");
   const selId = selParam === "sem" ? "sem" : selParam ? Number(selParam) : null;
@@ -169,7 +173,7 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   }
 
   return (
-    <>
+    <AdminCtx.Provider value={isAdmin}>
       <div className={s.mh}>
         <h1>{groupId == null ? "Categorias globais" : "Categorias"}</h1>
         <span className={s.sp} />
@@ -180,6 +184,11 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
         {isAdmin && groupId != null ? (
           <button type="button" className="mm-btn" onClick={() => setModal("copiar")}>
             <IconCopy /> Copiar das globais
+          </button>
+        ) : null}
+        {podeEditarGrupo && groupId != null ? (
+          <button type="button" className="mm-btn" onClick={() => setModal("modelos")} title="Categorias prontas para habilitar neste grupo">
+            Modelos prontos
           </button>
         ) : null}
         {podeEditarGrupo ? (
@@ -400,7 +409,193 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
           }}
         />
       ) : null}
-    </>
+      {modal === "modelos" && groupId != null ? (
+        <ModelosProntosModal
+          groupId={groupId}
+          isAdmin={isAdmin}
+          onFechar={() => setModal(null)}
+          onHabilitado={async (id) => {
+            setModal(null);
+            await carregar();
+            selecionar(id);
+          }}
+        />
+      ) : null}
+    </AdminCtx.Provider>
+  );
+}
+
+const NOME_TIPO_CAMPO: Record<string, string> = { text: "texto", date: "data", number: "número", lista: "lista", status: "status" };
+
+/**
+ * Modelos prontos (catálogo): o que cada um faz, frases de exemplo e o que vem configurado.
+ * Habilitar copia o modelo para este grupo (depois dá para mudar à vontade).
+ */
+function ModelosProntosModal({
+  groupId,
+  isAdmin,
+  onFechar,
+  onHabilitado,
+}: {
+  groupId: number;
+  isAdmin: boolean;
+  onFechar: () => void;
+  onHabilitado: (categoryId: number) => Promise<void>;
+}) {
+  const [modelos, setModelos] = useState<CatalogoModelo[] | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [busy, setBusy] = useState<number | null>(null);
+
+  const carregar = useCallback(() => {
+    apiGet<{ modelos: CatalogoModelo[] }>(`/api/catalogo-modelos?groupId=${groupId}`)
+      .then((r) => setModelos(r.modelos))
+      .catch((e) => setErro(msgErro(e, "Não foi possível carregar os modelos.")));
+  }, [groupId]);
+  useEffect(carregar, [carregar]);
+
+  async function habilitar(m: CatalogoModelo) {
+    setBusy(m.id);
+    setErro(null);
+    try {
+      const r = await apiPostJson<{ ok: true; id: number }>(`/api/catalogo-modelos/${m.id}/habilitar`, { groupId });
+      await onHabilitado(r.id);
+    } catch (e) {
+      setErro(msgErro(e, "Não foi possível habilitar."));
+      setBusy(null);
+    }
+  }
+
+  async function retirar(m: CatalogoModelo) {
+    if (!window.confirm(`Tirar "${m.nome}" do catálogo? Quem já habilitou continua com a sua cópia.`)) return;
+    try {
+      await apiDeleteJson(`/api/catalogo-modelos/${m.id}`);
+      carregar();
+    } catch (e) {
+      setErro(msgErro(e, "Não foi possível retirar."));
+    }
+  }
+
+  return createPortal(
+    <div className="mm-modal-overlay" role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
+      <div className={`mm-modal ${s.modal}`} role="dialog" aria-modal="true" aria-labelledby="mp-tit" style={{ maxWidth: 720 }}>
+        <div className={s.modalHead}>
+          <h2 id="mp-tit">Modelos prontos</h2>
+          <span className={s.sp} />
+          <button type="button" className={s.iconBtn} onClick={onFechar} aria-label="Fechar">
+            <IconX />
+          </button>
+        </div>
+        <p className={s.help}>Categorias já configuradas. Habilitar copia o modelo para este grupo; depois você pode mudar o que quiser.</p>
+        {erro ? <p className={s.msgErr}>{erro}</p> : null}
+        {!modelos && !erro ? <p className="mm-muted">Carregando…</p> : null}
+        {modelos && modelos.length === 0 ? <p className="mm-muted">Ainda não há modelos no catálogo.</p> : null}
+        <div style={{ display: "grid", gap: 12, maxHeight: "65vh", overflowY: "auto" }}>
+          {modelos?.map((m) => (
+            <div key={m.id} className={s.card} style={{ cursor: "default" }}>
+              <div className={s.row} style={{ alignItems: "center", gap: 8 }}>
+                <b style={{ fontSize: 15 }}>{m.nome}</b>
+                <span className={s.sp} />
+                {m.habilitadaId != null ? (
+                  <span className={s.tag}>✓ já neste grupo</span>
+                ) : (
+                  <button type="button" className="mm-btn mm-btn--primary" disabled={busy != null} onClick={() => void habilitar(m)}>
+                    {busy === m.id ? "Habilitando…" : "Habilitar"}
+                  </button>
+                )}
+                {isAdmin ? (
+                  <button type="button" className="mm-btn mm-btn--ghost" onClick={() => void retirar(m)} title="Tirar do catálogo">
+                    Retirar
+                  </button>
+                ) : null}
+              </div>
+              {m.resumo ? <p style={{ margin: "6px 0", fontSize: 13.5 }}>{m.resumo}</p> : null}
+              {m.exemplos.length ? (
+                <div style={{ fontSize: 13, margin: "6px 0" }}>
+                  <span className="mm-muted">Experimente dizer:</span>
+                  <ul style={{ margin: "4px 0 0 18px", padding: 0 }}>
+                    {m.exemplos.map((x) => (
+                      <li key={x}>
+                        <i>{x}</i>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              <p className="mm-muted" style={{ fontSize: 12.5, margin: "6px 0 0" }}>
+                {m.campos.length ? `Guarda: ${m.campos.map((c) => `${c.nome} (${NOME_TIPO_CAMPO[c.tipo] ?? c.tipo})`).join(", ")}.` : "Sem campos."}
+                {m.situacao ? ` Situação: ${m.situacao.join(" · ")}.` : ""} Versão {m.versao}.
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+/** Admin: publica esta categoria como modelo do catálogo (substitui o modelo de mesmo nome, versão + 1). */
+function PublicarNoCatalogo({ cat }: { cat: MemoContextCategory }) {
+  const [aberto, setAberto] = useState(false);
+  const [resumo, setResumo] = useState(cat.description ?? "");
+  const [exemplos, setExemplos] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  async function publicar() {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await apiPostJson<{ ok: true; id: number; versao: number }>("/api/catalogo-modelos", {
+        categoryId: cat.id,
+        resumo: resumo.trim() || null,
+        exemplos: exemplos.trim() || null,
+      });
+      setMsg({ ok: true, texto: `"${cat.name}" publicada no catálogo (versão ${r.versao}).` });
+    } catch (e) {
+      setMsg({ ok: false, texto: msgErro(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 8, paddingTop: 10 }}>
+      {!aberto ? (
+        <button type="button" className="mm-btn mm-btn--ghost" onClick={() => setAberto(true)}>
+          Publicar no catálogo de modelos…
+        </button>
+      ) : (
+        <>
+          <b style={{ fontSize: 14 }}>Publicar no catálogo de modelos</b>
+          <p className={s.help}>
+            Vira um modelo pronto que os donos de grupo podem habilitar. Se já existe um modelo com este nome, ele é substituído (versão
+            + 1); quem já habilitou continua com a sua cópia.
+          </p>
+          <label className={s.fieldLabel} htmlFor="pc-resumo">
+            Para que serve (o usuário lê no catálogo)
+          </label>
+          <textarea id="pc-resumo" className="mm-field" rows={2} value={resumo} onChange={(e) => setResumo(e.target.value)} />
+          <label className={s.fieldLabel} htmlFor="pc-exemplos">
+            Frases de exemplo (uma por linha)
+          </label>
+          <textarea
+            id="pc-exemplos"
+            className="mm-field"
+            rows={3}
+            value={exemplos}
+            onChange={(e) => setExemplos(e.target.value)}
+            placeholder={"Maria precisa mandar o orçamento para o Joaquim até sexta\nO que tenho pendente?\nTerminei o orçamento do Joaquim"}
+          />
+          <div className={s.row} style={{ marginTop: 8 }}>
+            <button type="button" className="mm-btn mm-btn--primary" disabled={busy} onClick={() => void publicar()}>
+              {busy ? "Publicando…" : "Publicar"}
+            </button>
+          </div>
+        </>
+      )}
+      {msg ? <p className={msg.ok ? s.msgOk : s.msgErr}>{msg.texto}</p> : null}
+    </div>
   );
 }
 
@@ -715,6 +910,7 @@ function EditarCategoriaModal({
   recarregar: () => Promise<void>;
   aoExcluir: () => void;
 }) {
+  const adminSistema = useContext(AdminCtx);
   const [name, setName] = useState(cat.name);
   const [desc, setDesc] = useState(cat.description ?? "");
   const [midia, setMidia] = useState<MemoContextMediaType | "">(cat.mediaType ?? "");
@@ -926,6 +1122,7 @@ function EditarCategoriaModal({
           ) : null}
         </div>
         <CopiarParaGrupo categoryId={cat.id} groupIdAtual={cat.groupId ?? null} />
+        {adminSistema ? <PublicarNoCatalogo cat={cat} /> : null}
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions} style={{ justifyContent: "space-between" }}>
           <button type="button" className="mm-btn mm-btn--ghost" style={{ color: "var(--mm-danger)" }} onClick={() => void excluir()}>
