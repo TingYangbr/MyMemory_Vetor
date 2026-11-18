@@ -125,8 +125,10 @@ export interface CategoriaComRegra {
   campos: MemoContextCampo[];
   revisaoSempre: boolean;
   revisaoMinPct: number;
-  /** Categoria atualizável: campo com a situação (Ativo, Concluído, Cancelado). */
+  /** Categoria atualizável: campo com a situação (Pendente/Válido, Concluído, Cancelado). */
   campoSituacao: string | null;
+  situacaoTipo?: "afazer" | "registro";
+  rotuloConcluido?: string | null;
 }
 
 export function categoriaComRegra(c: MemoContextCategory): CategoriaComRegra {
@@ -138,6 +140,8 @@ export function categoriaComRegra(c: MemoContextCategory): CategoriaComRegra {
     revisaoSempre: c.revisaoSempre === true,
     revisaoMinPct: typeof c.revisaoMinPct === "number" ? c.revisaoMinPct : 80,
     campoSituacao: c.atualizavel ? c.campoSituacao ?? null : null,
+    situacaoTipo: c.situacaoTipo,
+    rotuloConcluido: c.rotuloConcluido ?? null,
   };
 }
 

@@ -89,7 +89,7 @@ export function MemoNovoCartao({
     }
     if (criacao.campoSituacao) {
       const k = Object.keys(dados).find((x) => normNome(x) === normNome(criacao.campoSituacao!)) ?? criacao.campoSituacao;
-      if (!(dados[k] ?? "").trim()) dados[k] = "Ativo";
+      if (!(dados[k] ?? "").trim()) dados[k] = criacao.situacaoAberta ?? "Pendente";
     }
     try {
       const memo = await apiPostJson<MemoCreatedResponse>("/api/memos/text/confirm", {

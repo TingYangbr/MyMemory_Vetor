@@ -4,6 +4,7 @@
  * categoria (categories.campo_dono) — e-mail ou nome de um membro do grupo. Não identificada, a pessoa
  * fica pendente (mediaMetadata.donoPendente) e o memo continua com quem importou até alguém atribuir.
  */
+import { valorDaSituacao } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 
@@ -109,21 +110,23 @@ async function preencherCampo(memoId: number, campo: string, valor: string): Pro
 }
 
 /**
- * Categoria atualizável: situação vazia vira "Ativo" (filtros "situacao = Ativo" não acham vazio).
+ * Categoria atualizável: situação vazia vira Pendente (ou Válido, na categoria de registro) —
+ * filtros "situacao = Pendente" não acham vazio.
  */
 export async function preencherSituacaoPadrao(memoId: number): Promise<void> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.campo_situacao AS "campoSituacao" FROM memos m
+    `SELECT c.campo_situacao AS "campoSituacao", c.situacao_tipo AS "situacaoTipo" FROM memos m
      JOIN categories c ON c.name = m.category AND (c.groupid = m.groupid OR c.groupid IS NULL)
      WHERE m.id = ? AND c.isactive = 1 AND c.atualizavel = 1 AND c.campo_situacao IS NOT NULL
      ORDER BY c.groupid NULLS LAST LIMIT 1`,
     [memoId]
   );
   const campo = (rows as Record<string, unknown>[])[0]?.campoSituacao as string | undefined;
+  const tipo = (rows as Record<string, unknown>[])[0]?.situacaoTipo as string | undefined;
   if (!campo) return;
   const [mRows] = await pool.query<RowDataPacket[]>(`SELECT dadosespecificosjson FROM memos WHERE id = ? LIMIT 1`, [memoId]);
   if (valorDoCampo(lerJson((mRows as Record<string, unknown>[])[0]?.dadosEspecificosJson), campo)?.trim()) return;
-  await preencherCampo(memoId, campo, "Ativo");
+  await preencherCampo(memoId, campo, valorDaSituacao("aberto", tipo));
 }
 
 /**

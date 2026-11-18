@@ -628,7 +628,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
               <option value="date">data</option>
               <option value="number">número</option>
               <option value="lista">lista (um item por linha)</option>
-              <option value="status">status (valores fixos)</option>
+              <option value="status">status (avançado: etapas fixas)</option>
             </select>
           </div>
           <div>
@@ -647,8 +647,9 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
         {tipo === "status" ? (
           <>
             <p className={s.help}>
-              Só esses valores são gravados. Registro novo começa com o primeiro. Use para Baixa, Conciliação, Etapa; a Situação
-              (Ativo, Concluído, Cancelado) continua à parte.
+              Só esses valores são gravados. Registro novo começa com o primeiro. Para Pendente/Concluído/Cancelado não precisa:
+              use Atualizável na categoria (e dê nome ao Concluído: Pago, Comprado). Status é para etapas próprias (Orçada, Fechada,
+              Entregue).
             </p>
             <label className={s.fieldLabel} htmlFor="cp-verbos">
               Verbos (opcional): uma linha por valor
@@ -722,6 +723,8 @@ function EditarCategoriaModal({
   const [atualizavel, setAtualizavel] = useState(!!cat.atualizavel);
   const [confirmarAlteracao, setConfirmarAlteracao] = useState(!!cat.confirmarAlteracao);
   const [campoEncerraData, setCampoEncerraData] = useState(cat.campoEncerraData ?? "");
+  const [situacaoTipo, setSituacaoTipo] = useState<"afazer" | "registro">(cat.situacaoTipo === "registro" ? "registro" : "afazer");
+  const [rotuloConcluido, setRotuloConcluido] = useState(cat.rotuloConcluido ?? "");
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -742,6 +745,7 @@ function EditarCategoriaModal({
         atualizavel,
         confirmarAlteracao: atualizavel && confirmarAlteracao,
         campoEncerraData: atualizavel ? campoEncerraData || null : null,
+        ...(atualizavel ? { situacaoTipo, rotuloConcluido: situacaoTipo === "afazer" ? rotuloConcluido.trim() || null : null } : {}),
         revisaoSempre,
         revisaoMinPct,
       });
@@ -823,10 +827,40 @@ function EditarCategoriaModal({
         <div className={s.switchRow} style={{ padding: "10px 0" }}>
           <label htmlFor="ec-atual" style={{ cursor: "pointer" }}>
             <b>Atualizável: o memo muda de situação</b>
-            <p>Ativo, Concluído ou Cancelado. Concluído e Cancelado não geram lembrete e só aparecem quando pedidos.</p>
+            <p>Pendente, Concluído ou Cancelado (☐ ☑ ☒). Concluído e Cancelado não geram lembrete e só aparecem quando pedidos.</p>
           </label>
           <input id="ec-atual" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={atualizavel} onChange={(e) => setAtualizavel(e.target.checked)} />
         </div>
+        {atualizavel ? (
+          <div style={{ padding: "0 0 10px 16px" }}>
+            <b style={{ fontSize: 13.5 }}>Cada memo desta categoria é…</b>
+            <div role="radiogroup" aria-label="Tipo de situação" style={{ display: "grid", gap: 6, marginTop: 6 }}>
+              <label style={{ cursor: "pointer", fontSize: 13.5 }}>
+                <input type="radio" name="ec-sittipo" checked={situacaoTipo === "afazer"} onChange={() => setSituacaoTipo("afazer")} />{" "}
+                <b>Algo a fazer ou a acontecer</b> — Pendente · Concluído · Cancelado (Agenda, To-do, Lista de compras, Contas a pagar)
+              </label>
+              <label style={{ cursor: "pointer", fontSize: 13.5 }}>
+                <input type="radio" name="ec-sittipo" checked={situacaoTipo === "registro"} onChange={() => setSituacaoTipo("registro")} />{" "}
+                <b>Um registro que vale</b> — Válido · Cancelado (Regras, Despesas, Operações)
+              </label>
+            </div>
+            {situacaoTipo === "afazer" ? (
+              <div className={s.row} style={{ marginTop: 8 }}>
+                <label htmlFor="ec-rotconc" className="mm-muted" style={{ fontSize: 12.5 }}>
+                  Nome do Concluído nesta categoria:
+                </label>
+                <input
+                  id="ec-rotconc"
+                  className={`mm-field ${s.selectSm}`}
+                  value={rotuloConcluido}
+                  maxLength={40}
+                  onChange={(e) => setRotuloConcluido(e.target.value)}
+                  placeholder="Concluído (ex.: Comprado, Pago, Realizado)"
+                />
+              </div>
+            ) : null}
+          </div>
+        ) : null}
         {atualizavel ? (
           <div className={s.switchRow} style={{ padding: "0 0 10px 16px" }}>
             <label htmlFor="ec-confalt" style={{ cursor: "pointer" }}>

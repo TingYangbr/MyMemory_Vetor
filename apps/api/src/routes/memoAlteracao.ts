@@ -1,6 +1,5 @@
 import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { z } from "zod";
-import { SITUACOES_MEMO } from "@mymemory/shared";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
 import {
   alterarMemo,
@@ -73,7 +72,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     const userId = await resolveUserId(req);
     if (!userId) return reply.code(401).send({ error: "unauthorized" });
     const mid = idParam.safeParse((req.params as { memoId: string }).memoId);
-    const body = z.object({ situacao: z.enum(SITUACOES_MEMO) }).safeParse(req.body);
+    // Pendente/Válido, Concluído (ou o nome da categoria: Comprado, Pago), Cancelado; "Ativo" antigo também
+    const body = z.object({ situacao: z.string().trim().min(1).max(40) }).safeParse(req.body);
     if (!mid.success || !body.success) return reply.code(400).send({ error: "invalid_body" });
     try {
       const isAdmin = await getUserIsAdmin(userId);

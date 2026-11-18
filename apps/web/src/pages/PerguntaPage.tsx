@@ -477,7 +477,7 @@ interface AlteracaoCtxValor {
   /** Reabre o cartão de memo novo de um pedido de criação. */
   abrirCriacao: (c: ComandoCriacao) => void;
   /** Muda a situação do memo direto da resposta (ex.: "Concluir lista"), com aviso e Desfazer. */
-  mudarSituacao: (memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void;
+  mudarSituacao: (memoId: number, situacao: "Pendente" | "Concluído" | "Cancelado") => void;
   /** Valores gravados por uma alteração: as tabelas e listas da tela mostram o valor novo. */
   aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
   /** Grava um campo do memo (ex.: a lista com o estado de um item mudado), com aviso e Desfazer. */
@@ -667,6 +667,7 @@ function ItensMarcados({
   destacar = [],
   mudados = [],
   onMudou,
+  encerrada = false,
 }: {
   memoId: number | null;
   colLista: string;
@@ -679,8 +680,10 @@ function ItensMarcados({
   /** Itens que mudaram de estado nesta tela: continuam visíveis, com o novo símbolo, até o ↻ do cartão. */
   mudados?: string[];
   onMudou?: (texto: string) => void;
+  /** Lista já concluída/cancelada: não oferece concluir de novo. */
+  encerrada?: boolean;
 }) {
-  const { alterarCampo } = useContext(AlteracaoCtx);
+  const { alterarCampo, mudarSituacao } = useContext(AlteracaoCtx);
   const [menu, setMenu] = useState<number | null>(null);
   const [verFeitos, setVerFeitos] = useState(mostrarFeitos);
   const [gravando, setGravando] = useState(false);
@@ -694,6 +697,10 @@ function ItensMarcados({
     onMudou?.(itens[idx]!.texto);
     await alterarCampo(memoId, colLista, escreverItensLista(novos), `${itens[idx]!.texto}: ${ROTULO_ESTADO[estado].toLowerCase()}.`);
     setGravando(false);
+    // Tudo marcado: oferece concluir a lista, para ninguém precisar lembrar de encerrar
+    if (!encerrada && estado !== "pendente" && novos.every((it) => it.estado !== "pendente")) {
+      if (window.confirm("Todos os itens estão marcados. Concluir a lista?")) mudarSituacao(memoId, "Concluído");
+    }
   }
 
   return (
@@ -822,7 +829,7 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
               <div>
                 <span className={styles.listaTitulo}>{partes[0] ?? "Lista"}</span>
                 {partes.length > 1 ? <span className={styles.listaSub}>{partes.slice(1).join(" · ")}</span> : null}
-                {encerrada ? <span className={styles.listaSub}>· encerrada</span> : null}
+                {encerrada ? <span className={styles.listaSub}>· concluída</span> : null}
               </div>
               {podeAlterar ? (
                 <div className={styles.listaAcoes}>
@@ -846,17 +853,17 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
                       className={styles.refazerBtn}
                       onClick={() => {
                         // A lista inteira sai das respostas: pede confirmação para não confundir com o ✓ de um item
-                        if (window.confirm("Encerrar a lista inteira? Ela sai das respostas (dá para desfazer em seguida).")) {
+                        if (window.confirm("Concluir a lista inteira? Ela sai das respostas (dá para reabrir depois).")) {
                           mudarSituacao(id!, "Concluído");
                         }
                       }}
-                      title="Encerrar a lista inteira (concluída)"
+                      title="Concluir a lista inteira"
                     >
-                      Encerrar lista
+                      ☑ Concluir lista
                     </button>
                   ) : (
-                    <button type="button" className={styles.refazerBtn} onClick={() => mudarSituacao(id!, "Ativo")} title="Voltar a lista para ativa">
-                      ↺ Reativar lista
+                    <button type="button" className={styles.refazerBtn} onClick={() => mudarSituacao(id!, "Pendente")} title="Voltar a lista para pendente">
+                      ↺ Reabrir lista
                     </button>
                   )}
                 </div>
@@ -867,6 +874,7 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
               <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)}
                 destacar={termosDaPergunta(pergunta)}
                 mudados={id != null ? mudados[id] ?? [] : []}
+                encerrada={encerrada}
                 onMudou={(texto) => id != null && setMudados((m) => ({ ...m, [id]: [...(m[id] ?? []).filter((t) => t !== texto), texto] }))}
               />
             ) : (
@@ -1852,7 +1860,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
   /** Situação mudada direto da resposta (ex.: "✓ Concluir" na visão de lista), com aviso e Desfazer. */
-  async function mudarSituacaoDireto(memoId: number, situacao: "Ativo" | "Concluído" | "Cancelado") {
+  async function mudarSituacaoDireto(memoId: number, situacao: "Pendente" | "Concluído" | "Cancelado") {
     try {
       const r = await apiPostJson<MemoAlteracaoResponse>(`/api/memos/${memoId}/situacao`, { situacao });
       aplicarAlteracaoLocal(memoId, r);
@@ -1907,7 +1915,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       locais: alteracoesLocais,
       abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); },
       abrirCriacao: (c: ComandoCriacao) => setCriando(c),
-      mudarSituacao: (id: number, situacao: "Ativo" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
+      mudarSituacao: (id: number, situacao: "Pendente" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
       alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
     }),

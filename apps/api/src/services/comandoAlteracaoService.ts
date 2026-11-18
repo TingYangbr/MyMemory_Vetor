@@ -21,7 +21,11 @@ import type {
 } from "@mymemory/shared";
 import {
   escreverItensLista,
+  estadoDaSituacao,
+  estadoDoDito,
   lerItensLista,
+  rotulosSituacao,
+  valorDaSituacao,
   lerValoresStatus,
   lerVerbosStatus,
   normalizarDataParaIso,
@@ -218,7 +222,7 @@ const SYSTEM = [
   "- Inclua só os campos que mudam. Não altere o que o comando não menciona.",
   "- Datas: formato AAAA-MM-DD. Datas relativas (amanhã, quinta, semana que vem) contam a partir da data de hoje. Horas: HH:MM.",
   "- Adiar ou remarcar muda a data e/ou a hora; mantenha o resto.",
-  "- Cancelar, concluir ou reativar: use o campo de situação da categoria com o valor Cancelado, Concluído ou Ativo.",
+  '- Cancelar, concluir ou reabrir: use o campo de situação da categoria com o valor Cancelado, Concluído ou Pendente. Em categoria com situacao.tipo "registro" os valores são Válido ou Cancelado (não há Concluído). "situacao.concluido" é o nome que a categoria dá ao Concluído (ex.: Comprado, Pago): comprei/paguei/fui = Concluído.',
   '- Campos do tipo status: use exatamente um dos "valores" do campo; os "verbos" dizem qual (ex.: "paguei", "recebi" → Baixado). Pagar ou receber não conclui o registro: mude o status, não a situação, a menos que o comando peça.',
   '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Para marcar itens: "concluir" (comprado, feito), "cancelar" (não vai mais) ou "reabrir" (volta a pendente), cada um com a lista de nomes, ex.: {"concluir":["arroz"]}. "Comprei o arroz" marca o item; "comprei tudo" ou "terminei a lista" é a situação da lista inteira (Concluído). Inclua só as chaves necessárias.',
   "- motivo: uma frase curta explicando a escolha.",
@@ -270,6 +274,7 @@ export async function executarComandoAlteracao(input: {
       categorias: alvoCats.map((c) => ({
         nome: c.name,
         campo_situacao: c.campoSituacao,
+        situacao: { tipo: c.situacaoTipo ?? "afazer", concluido: rotulosSituacao(c.situacaoTipo, c.rotuloConcluido).concluido },
         campos: c.campos
           .filter((f) => f.isActive === 1)
           .map((f) => ({
@@ -324,6 +329,13 @@ export async function executarComandoAlteracao(input: {
         def.tipo === "lista" && typeof valorBruto === "object" && !Array.isArray(valorBruto)
           ? aplicarOperacoesLista(antes, valorBruto as Record<string, unknown>)
           : comoGravado(String(valorBruto), def.tipo);
+      // Situação: Pendente/Válido, Concluído ou Cancelado (mesmo estado de antes = não muda)
+      if (cat.campoSituacao && norm(def.name) === norm(cat.campoSituacao)) {
+        const rot = rotulosSituacao(cat.situacaoTipo, cat.rotuloConcluido);
+        const estado = estadoDoDito(novo, rot) ?? estadoDoDito(input.texto, rot);
+        if (!estado || !rot.opcoes.includes(estado) || estado === estadoDaSituacao(antes)) continue;
+        novo = valorDaSituacao(estado, cat.situacaoTipo);
+      }
       // Status: só um dos valores; pelo que a IA devolveu ou, se não servir, pelos verbos do comando
       if (def.tipo === "status") {
         const valores = lerValoresStatus(def.normalizedTerms);
