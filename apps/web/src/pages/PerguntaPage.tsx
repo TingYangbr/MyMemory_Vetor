@@ -28,6 +28,7 @@ import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
 import { MemoAlteracaoCartao } from "../components/MemoAlteracaoCartao";
 import { MemoNovoCartao } from "../components/MemoNovoCartao";
+import { RelacaoAposSalvar } from "../components/RelacaoAposSalvar";
 import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
@@ -549,6 +550,19 @@ function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
   const varios = comando.candidatos.length > 1;
 
   async function confirmar(memoId: number, propostos: Record<string, string>) {
+    // Data estranha (já passou há mais de 30 dias ou fica a mais de 2 anos): confirma antes de gravar,
+    // como o cartão de edição faz (ex.: "adiar para dia 3" entendido no ano errado)
+    const estranhas = Object.entries(propostos)
+      .filter(([, v]) => /^\d{4}-\d{2}-\d{2}$/.test(v.trim()))
+      .map(([campo, v]) => {
+        const hoje = new Date();
+        hoje.setHours(12, 0, 0, 0);
+        const dias = Math.round((new Date(`${v.trim()}T12:00:00`).getTime() - hoje.getTime()) / 86_400_000);
+        const [a, m, d] = v.trim().split("-");
+        return dias < -30 || dias > 730 ? `${campo}: ${d}/${m}/${a}` : null;
+      })
+      .filter((x): x is string => x != null);
+    if (estranhas.length && !window.confirm(`Confira a data antes de gravar:\n${estranhas.join("\n")}\n\nGravar mesmo assim?`)) return;
     setOcupado(memoId);
     setErro(null);
     try {
@@ -1331,6 +1345,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number; criadoId?: number } | null>(null);
   /** Pedido de criação aberto no cartão de memo novo. */
   const [criando, setCriando] = useState<ComandoCriacao | null>(null);
+  /** Memo criado pelo Perguntar: sugestão de ligação a um compromisso. */
+  const [memoParaLigar, setMemoParaLigar] = useState<number | null>(null);
+  const fimLigacao = useCallback(() => setMemoParaLigar(null), []);
   const idsVerificadosRef = useRef<Set<number>>(new Set());
   const [loadingFileId, setLoadingFileId] = useState<number | null>(null);
   const [memoEditMode, setMemoEditMode] = useState(false);
@@ -2416,9 +2433,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
           onCriado={(memo, texto) => {
             setCriando(null);
             setAvisoAlteracao({ texto, lote: null, memoId: memo.id, criadoId: memo.id });
+            setMemoParaLigar(memo.id);
           }}
         />
       ) : null}
+      {memoParaLigar != null ? <RelacaoAposSalvar memoId={memoParaLigar} onFim={fimLigacao} /> : null}
       {avisoAlteracao ? (
         <div className={styles.avisoAlteracao} role="status">
           <span>{avisoAlteracao.texto}</span>

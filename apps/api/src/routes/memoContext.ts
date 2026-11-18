@@ -13,6 +13,7 @@ import {
   getMemoContextEditorMeta,
   listarMemosPorCategoria,
   listGroupsForMemoContext,
+  copiarCategoriaParaGrupo,
   loadMemoContextStructure,
   loadStructureForGroup,
   softDeleteCampo,
@@ -192,8 +193,23 @@ const plugin: FastifyPluginAsync = async (app) => {
     campoDono: z.string().max(255).nullable().optional(),
     atualizavel: z.boolean().optional(),
     confirmarAlteracao: z.boolean().optional(),
+    campoEncerraData: z.string().max(255).nullable().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
+  });
+
+  // Copia a categoria (campos, tipos, atributos, consultas à mão) para outro grupo
+  app.post("/api/memo-context/categories/:categoryId/copiar", async (req, reply) => {
+    const userId = (req as ReqWithUser).mymUid;
+    const categoryId = z.coerce.number().int().positive().safeParse((req.params as { categoryId: string }).categoryId);
+    const body = z.object({ targetGroupId: z.number().int().positive() }).safeParse(req.body);
+    if (!categoryId.success || !body.success) return reply.code(400).send({ error: "invalid_body" });
+    try {
+      const nova = await copiarCategoriaParaGrupo(userId, categoryId.data, body.data.targetGroupId);
+      return reply.code(201).send({ ok: true, ...nova });
+    } catch (e) {
+      return mapErr(reply, e);
+    }
   });
 
   app.patch("/api/memo-context/categories/:categoryId", async (req, reply) => {
@@ -216,6 +232,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.campoDono !== undefined ? { campoDono: parsed.data.campoDono } : {}),
         ...(parsed.data.atualizavel !== undefined ? { atualizavel: parsed.data.atualizavel } : {}),
         ...(parsed.data.confirmarAlteracao !== undefined ? { confirmarAlteracao: parsed.data.confirmarAlteracao } : {}),
+        ...(parsed.data.campoEncerraData !== undefined ? { campoEncerraData: parsed.data.campoEncerraData } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });

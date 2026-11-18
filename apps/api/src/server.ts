@@ -83,6 +83,8 @@ import { TituloCurtoResetSemIa1700000000168 } from "./migrations/1700000000168-T
 import { CategoriaRegraRevisao1700000000169 } from "./migrations/1700000000169-CategoriaRegraRevisao.js";
 import { ConsultaAlteracoes1700000000170 } from "./migrations/1700000000170-ConsultaAlteracoes.js";
 import { CategoriaConfirmarAlteracao1700000000171 } from "./migrations/1700000000171-CategoriaConfirmarAlteracao.js";
+import { CategoriaEncerraPelaData1700000000172 } from "./migrations/1700000000172-CategoriaEncerraPelaData.js";
+import { MemoRelacoes1700000000173 } from "./migrations/1700000000173-MemoRelacoes.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -101,6 +103,7 @@ import adminGroupApiKeysRoutes from "./routes/adminGroupApiKeys.js";
 import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
 import donoMemoRoutes from "./routes/donoMemo.js";
 import memoAlteracaoRoutes from "./routes/memoAlteracao.js";
+import memoRelacoesRoutes from "./routes/memoRelacoes.js";
 import adminLlmChamadasRoutes from "./routes/adminLlmChamadas.js";
 import mediaRevisaoRoutes from "./routes/mediaRevisao.js";
 import automacaoImportacaoRoutes from "./routes/automacaoImportacao.js";
@@ -210,6 +213,8 @@ assertMediaStorageEnv();
       CategoriaRegraRevisao1700000000169,
       ConsultaAlteracoes1700000000170,
       CategoriaConfirmarAlteracao1700000000171,
+      CategoriaEncerraPelaData1700000000172,
+      MemoRelacoes1700000000173,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -284,6 +289,7 @@ await app.register(adminGroupApiKeysRoutes);
 await app.register(adminConhecimentoRoutes);
 await app.register(donoMemoRoutes);
 await app.register(memoAlteracaoRoutes);
+await app.register(memoRelacoesRoutes);
 await app.register(adminLlmChamadasRoutes);
 await app.register(mediaRevisaoRoutes);
 await app.register(automacaoImportacaoRoutes);

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { RelacaoAposSalvar } from "../components/RelacaoAposSalvar";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import type {
   MeResponse,
@@ -69,6 +70,18 @@ export default function HomePage() {
     localStorage.setItem(TAB_KEY, t);
   }
 
+  // "Concluir e registrar resultado" (cartão do Perguntar) pede para abrir o Catalogar
+  useEffect(() => {
+    const abrir = () => handleTabChange("registrar");
+    window.addEventListener("mm:abrir-catalogar", abrir);
+    return () => window.removeEventListener("mm:abrir-catalogar", abrir);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Memo recém-salvo: liga ao compromisso pedido, ou mostra a sugestão da IA. */
+  const [memoParaLigar, setMemoParaLigar] = useState<number | null>(null);
+  const fimLigacao = useCallback(() => setMemoParaLigar(null), []);
+
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
 
   useEffect(() => {
@@ -133,15 +146,17 @@ export default function HomePage() {
   }, [searchParams, setSearchParams]);
 
   const onRegistered = useCallback((_memo: MemoCreatedResponse) => {
+    if (_memo?.id) setMemoParaLigar(_memo.id);
     setRefreshKey((k) => k + 1);
   }, []);
 
   /** Aviso rápido depois de gravar pela nova revisão ("Memo salvo em Agenda (100%)"); some sozinho. */
   const [avisoSalvo, setAvisoSalvo] = useState<string | null>(null);
   useEffect(() => {
-    const st = location.state as { memoSavedAt?: number; memoAviso?: string } | undefined;
+    const st = location.state as { memoSavedAt?: number; memoAviso?: string; memoCriadoId?: number | null } | undefined;
     if (st?.memoSavedAt) {
       setRefreshKey((k) => k + 1);
+      if (st.memoCriadoId) setMemoParaLigar(st.memoCriadoId);
       if (st.memoAviso) setAvisoSalvo(st.memoAviso);
       navigate(".", { replace: true, state: {} });
     }
@@ -437,6 +452,7 @@ export default function HomePage() {
           </div>
         </main>
       )}
+      {memoParaLigar != null ? <RelacaoAposSalvar memoId={memoParaLigar} onFim={fimLigacao} /> : null}
       {avisoSalvo ? (
         <div
           role="status"

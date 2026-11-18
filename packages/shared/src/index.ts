@@ -614,6 +614,8 @@ export interface MemoContextCategory {
   campoSituacao?: string | null;
   /** Em categoria Atualizável: alteração pedida em linguagem natural mostra antes → depois e só grava após confirmação. */
   confirmarAlteracao?: boolean;
+  /** Em categoria Atualizável: campo de data que encerra o registro quando passa (sai das respostas, a não ser que a pergunta peça o período). */
+  campoEncerraData?: string | null;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */

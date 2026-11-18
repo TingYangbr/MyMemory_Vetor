@@ -681,6 +681,7 @@ function EditarCategoriaModal({
   const [campoDono, setCampoDono] = useState(cat.campoDono ?? "");
   const [atualizavel, setAtualizavel] = useState(!!cat.atualizavel);
   const [confirmarAlteracao, setConfirmarAlteracao] = useState(!!cat.confirmarAlteracao);
+  const [campoEncerraData, setCampoEncerraData] = useState(cat.campoEncerraData ?? "");
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -700,6 +701,7 @@ function EditarCategoriaModal({
         campoDono: pessoal ? campoDono || null : null,
         atualizavel,
         confirmarAlteracao: atualizavel && confirmarAlteracao,
+        campoEncerraData: atualizavel ? campoEncerraData || null : null,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -794,6 +796,24 @@ function EditarCategoriaModal({
             <input id="ec-confalt" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={confirmarAlteracao} onChange={(e) => setConfirmarAlteracao(e.target.checked)} />
           </div>
         ) : null}
+        {atualizavel ? (
+          <div style={{ padding: "0 0 10px 16px" }}>
+            <label htmlFor="ec-encerra" style={{ fontWeight: 700, fontSize: 13.5 }}>
+              Encerra pela data
+            </label>
+            <p className={s.help} style={{ margin: "2px 0 6px" }}>
+              Registro com esta data já passada sai das respostas, a não ser que a pergunta peça o período (ex.: Agenda). Não use em tarefas: prazo passado é atrasado.
+            </p>
+            <select id="ec-encerra" className="mm-field" value={campoEncerraData} onChange={(e) => setCampoEncerraData(e.target.value)}>
+              <option value="">Não encerra pela data</option>
+              {campos.filter((c) => c.tipo === "date").map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
         <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 4, paddingTop: 10 }}>
           <b style={{ fontSize: 14 }}>Revisão antes de salvar</b>
           <div className={s.switchRow} style={{ padding: "8px 0" }}>
@@ -831,6 +851,7 @@ function EditarCategoriaModal({
             </div>
           ) : null}
         </div>
+        <CopiarParaGrupo categoryId={cat.id} groupIdAtual={cat.groupId ?? null} />
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions} style={{ justifyContent: "space-between" }}>
           <button type="button" className="mm-btn mm-btn--ghost" style={{ color: "var(--mm-danger)" }} onClick={() => void excluir()}>
@@ -848,6 +869,76 @@ function EditarCategoriaModal({
       </div>
     </div>,
     document.body
+  );
+}
+
+/**
+ * Copia a categoria para outro grupo que a pessoa pode editar: campos com os tipos, atributos,
+ * subcategorias e consultas escritas à mão. Memos não vão junto; as consultas automáticas são
+ * geradas de novo no grupo destino.
+ */
+function CopiarParaGrupo({ categoryId, groupIdAtual }: { categoryId: number; groupIdAtual: number | null }) {
+  const [aberto, setAberto] = useState(false);
+  const [grupos, setGrupos] = useState<{ id: number; name: string }[] | null>(null);
+  const [destino, setDestino] = useState<number | "">("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+
+  useEffect(() => {
+    if (!aberto || grupos) return;
+    apiGet<{ groups: { id: number; name: string }[] }>("/api/memo-context/groups")
+      .then((r) => setGrupos(r.groups.filter((g) => g.id !== groupIdAtual)))
+      .catch((e) => setMsg({ ok: false, texto: msgErro(e) }));
+  }, [aberto, grupos, groupIdAtual]);
+
+  async function copiar() {
+    if (destino === "") return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const r = await apiPostJson<{ ok: true; id: number; name: string }>(`/api/memo-context/categories/${categoryId}/copiar`, {
+        targetGroupId: destino,
+      });
+      const g = grupos?.find((x) => x.id === destino)?.name ?? "o grupo";
+      setMsg({ ok: true, texto: `"${r.name}" copiada para ${g}.` });
+    } catch (e) {
+      setMsg({ ok: false, texto: msgErro(e) });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 8, paddingTop: 10 }}>
+      {!aberto ? (
+        <button type="button" className="mm-btn mm-btn--ghost" onClick={() => setAberto(true)}>
+          Copiar para outro grupo…
+        </button>
+      ) : (
+        <>
+          <b style={{ fontSize: 14 }}>Copiar para outro grupo</b>
+          <p className={s.help}>Vão juntos os campos (com os tipos), os atributos e as consultas escritas à mão. Os memos não são copiados.</p>
+          {grupos == null && !msg ? <p className="mm-muted">Carregando grupos…</p> : null}
+          {grupos && grupos.length === 0 ? <p className="mm-muted">Nenhum outro grupo que você possa editar.</p> : null}
+          {grupos && grupos.length > 0 ? (
+            <div className={s.row} style={{ alignItems: "center", gap: 8 }}>
+              <select className="mm-field" value={destino} onChange={(e) => setDestino(e.target.value ? Number(e.target.value) : "")}>
+                <option value="">Escolha o grupo…</option>
+                {grupos.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
+              </select>
+              <button type="button" className="mm-btn mm-btn--primary" disabled={busy || destino === ""} onClick={() => void copiar()}>
+                {busy ? "Copiando…" : "Copiar"}
+              </button>
+            </div>
+          ) : null}
+          {msg ? <p className={msg.ok ? s.help : s.msgErr}>{msg.texto}</p> : null}
+        </>
+      )}
+    </div>
   );
 }
 
