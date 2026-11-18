@@ -76,7 +76,11 @@ function limparTextos<T>(v: T): T {
   return v; // Date, números etc.
 }
 
-export async function gerarPdfResposta(dadosOriginais: PdfResposta): Promise<void> {
+/**
+ * Gera o PDF da resposta. `abrirEm` = aba já aberta no clique (preferência "abrir numa aba"): o PDF
+ * aparece nela; sem aba, o navegador baixa o arquivo (e faz o que estiver configurado para downloads).
+ */
+export async function gerarPdfResposta(dadosOriginais: PdfResposta, abrirEm?: Window | null): Promise<void> {
   const dados = limparTextos(dadosOriginais);
   const [{ jsPDF }, autoTableMod] = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
   const autoTable = autoTableMod.default;
@@ -268,5 +272,11 @@ export async function gerarPdfResposta(dadosOriginais: PdfResposta): Promise<voi
     doc.text(`Página ${p} de ${total}`, larguraPagina - MARGEM, alturaPagina - 8, { align: "right" });
   }
 
-  doc.save(nomeArquivo(dados.pergunta, dados.geradoEm));
+  const nome = nomeArquivo(dados.pergunta, dados.geradoEm);
+  if (abrirEm && !abrirEm.closed) {
+    doc.setProperties({ title: nome.replace(/\.pdf$/i, "") });
+    abrirEm.location.href = String(doc.output("bloburl"));
+    return;
+  }
+  doc.save(nome);
 }
