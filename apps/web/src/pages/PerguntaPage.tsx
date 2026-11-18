@@ -650,6 +650,7 @@ function ItensMarcados({
   itens,
   podeAlterar,
   mostrarFeitos = false,
+  destacar = [],
 }: {
   memoId: number | null;
   colLista: string;
@@ -657,6 +658,8 @@ function ItensMarcados({
   podeAlterar: boolean;
   /** Já começa mostrando concluídos e cancelados (lista encerrada, pedido de itens concluídos). */
   mostrarFeitos?: boolean;
+  /** Termos da pergunta: o item que contém um deles aparece destacado ("sorvete está na lista?"). */
+  destacar?: string[];
 }) {
   const { alterarCampo } = useContext(AlteracaoCtx);
   const [menu, setMenu] = useState<number | null>(null);
@@ -681,7 +684,11 @@ function ItensMarcados({
           const outros = (["pendente", "concluido", "cancelado"] as EstadoItemLista[]).filter((e) => e !== it.estado);
           return (
             <li key={k} className={styles.itemLinha}>
-              <span className={it.estado === "concluido" ? styles.itemConcluido : it.estado === "cancelado" ? styles.itemCancelado : undefined}>
+              <span
+                className={`${it.estado === "concluido" ? styles.itemConcluido : it.estado === "cancelado" ? styles.itemCancelado : ""} ${
+                  destacar.some((d) => it.texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().includes(d.replace(/s$/, ""))) ? styles.itemDestacado : ""
+                }`}
+              >
                 {it.texto}
               </span>
               {podeAlterar ? (
@@ -728,6 +735,21 @@ const COLUNAS_FORA_DO_TITULO = new Set(["id", "mediatext", "mediatype", "mediafi
  * Visão de lista: um cartão por registro, com o título (os outros campos), os itens um por linha e as
  * ações (✎ alterar, ✓ concluir). A tabela continua disponível em "ver como tabela".
  */
+/** Em resposta com lista, o texto da IA aparece só se couber nisto (uma frase, ex.: "Sim, sorvete está na lista"). */
+const MAX_TEXTO_COM_LISTA = 160;
+
+/** Palavras que não identificam um item ("arroz está na lista de compras?" → só "arroz"). */
+const PALAVRAS_GENERICAS = new Set(
+  "a o as os um uma de da do das dos na no nas nos em e ou que se ja tem ter esta estao sao e eh lista listas compra compras item itens mostrar mostra minha meu quais qual quantos quantas ainda tambem todos todas concluidos concluidas cancelados canceladas comprados mercado feira farmacia padaria"
+    .split(" ")
+);
+
+/** Termos da pergunta que podem ser um item, para destacar a linha correspondente. */
+function termosDaPergunta(pergunta: string): string[] {
+  const n = pergunta.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return n.split(/[^a-z0-9]+/).filter((w) => w.length >= 3 && !PALAVRAS_GENERICAS.has(w));
+}
+
 /** A pergunta pede também os itens concluídos ou cancelados ("mostrar também os comprados")? */
 function perguntaPedeFeitos(pergunta: string): boolean {
   const n = pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -809,7 +831,7 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
             </div>
             {itens.length ? (
               // Lista encerrada: mostra todos os itens (inclusive concluídos e cancelados), com o marcador
-              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)} />
+              <ItensMarcados key={encerrada ? "e" : "a"} memoId={id} colLista={colLista} itens={itens} podeAlterar={podeAlterar} mostrarFeitos={encerrada || perguntaPedeFeitos(pergunta)} destacar={termosDaPergunta(pergunta)} />
             ) : (
               <p className={styles.listaSub}>Sem itens.</p>
             )}
@@ -2919,7 +2941,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  {r.comando || respostaComLista(r.resposta) ? null : (() => {
+                  {r.comando || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
                     const recolhido = textoLongo(texto) && !expandidos.has(r);
                     return (

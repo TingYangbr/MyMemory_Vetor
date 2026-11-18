@@ -1385,7 +1385,7 @@ async function gerarRespostaEstruturada(input: {
     (r) => "linhas" in r && r.linhas.some((l) => Object.values(l).some((v) => typeof v === "string" && v.includes("\n")))
   );
   const regraLista = temLista
-    ? "\n\nHá campo com vários itens, um por linha (lista). A tela mostra a lista inteira logo abaixo da resposta: NÃO repita os itens no texto. Diga só quantas listas há, o nome de cada uma e quantos itens tem, em uma ou duas frases. Itens que começam com ✓ estão concluídos e com ✗ cancelados: conte só os pendentes (sem marca) e, se houver, diga quantos já foram concluídos."
+    ? "\n\nHá campo com vários itens, um por linha (lista). A tela mostra a lista inteira logo abaixo da resposta: NÃO repita os itens no texto. Diga só quantas listas há, o nome de cada uma e quantos itens tem, em uma ou duas frases. Itens que começam com ✓ estão concluídos e com ✗ cancelados: conte só os pendentes (sem marca) e, se houver, diga quantos já foram concluídos. Se a pergunta é se um item está na lista, responda só isso em uma frase curta (ex.: \"Sim, sorvete está na lista Mercado.\" ou \"Não, arroz não está na lista Mercado.\"), sem listar os outros itens."
     : "";
   const user = `Elabore a resposta final.\n\nEntrada:\n${entradaJson}\n\n${regraApresentacao}${regraLista}\n\nRetorne somente JSON:\n{"resposta":"","colunas_exibir":[],"tipo_resposta":"estruturada","dados_usados":[{"query_id":"","linhas_usadas":0}],"limitacoes":[],"confianca_estimada":0.0}`;
 

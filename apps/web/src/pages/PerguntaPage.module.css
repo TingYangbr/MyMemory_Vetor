@@ -2287,3 +2287,11 @@
   color: var(--mm-text-secondary);
   font-size: 0.9rem;
 }
+
+.itemDestacado {
+  background: var(--mm-primary-faint);
+  color: var(--mm-primary);
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 0 0.3rem;
+}
