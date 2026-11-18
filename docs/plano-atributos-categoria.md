@@ -4,6 +4,27 @@
 
 *Tudo aqui é desenho. Só o marcador "Confirmar antes de alterar" está implementado (migration 171, sem commit). O que li no código e o que não li está marcado ao longo do texto e na seção 11.*
 
+## Situação da implementação (17/11/2026)
+
+O que já foi feito, a partir deste plano e dos testes com a Lista de compras. Os itens em produção foram publicados pela branch `production`; os marcados "local" ainda não.
+
+| Recurso | Onde | Situação |
+| --- | --- | --- |
+| Confirmar antes de alterar (atributo) | Categoria atualizável | Em produção (migration 171). Por enquanto todo comando pede confirmação, com o marcador ligado ou não |
+| Tipo de campo "lista" (um item por linha) | Campos de categoria | Em produção |
+| Comando de alteração no Perguntar | Qualquer categoria atualizável | Em produção. A lista é alterada por operações aplicadas por regra (acrescentar, remover, trocar, concluir, cancelar, reabrir), não reescrita pela IA |
+| Criar pelo Perguntar | Qualquer categoria | Em produção, pelo processamento do Catalogar e com cartão de memo novo |
+| Cartão de comando (mudança no formato do usuário, Confirmar, Ajustar, Cancelar, Desfazer) | Perguntar | Em produção. O Confirmar avisa data estranha (local) |
+| Visão de lista (cartão, uma linha de resumo, item perguntado destacado) | Respostas com campo do tipo lista | Em produção |
+| Estado por item (✓ concluído, ✗ cancelado) com marcador | Campo do tipo lista | Em produção |
+| Muitas listas: 3 mais recentes e "ver mais" com confirmação | Visão de lista | Em produção |
+| Encerrar lista com confirmação e Reativar lista | Visão de lista | Em produção |
+| Encerra pela data (atributo) | Categoria atualizável | Local (migration 172) |
+| Copiar categoria para outro grupo; cópia das globais com tipos e atributos | Edição da categoria | Local |
+| Relações entre memos: "Concluir e registrar resultado" e sugestão da IA após salvar | Cartão de alteração, Catalogar, Perguntar | Local (migration 173). Uso nas respostas do Pipe 1 ainda não |
+| Separar por, Controle de duplicidade, Lista de estados | — | Não implementados |
+| Reativar por comando, marcador de situação na tabela (To-do) | — | Não implementados |
+
 ## 1. Resumo em 1 minuto
 
 - **Uso simples sem configurar.** Todo atributo novo nasce desligado. Sem configuração há uma agenda, uma lista de compras, um cartão.
