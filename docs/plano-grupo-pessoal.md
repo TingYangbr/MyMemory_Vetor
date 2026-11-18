@@ -32,6 +32,33 @@ Esses pontos são de três tipos, e cada tipo muda de um jeito:
 | **B. Globais junto com as do grupo** | `groupId IS NULL OR groupId = ?` nas categorias | Tira o `IS NULL` (o catálogo não entra mais nas consultas) |
 | **C. Regras só de grupo** | lembrete, chaves de API, armazenamento, perfis exigem grupo | Passam a valer no pessoal sem mudança (ele agora é grupo) |
 
+## 2.1 Assinaturas, créditos e limites hoje (lido no código em 18/11)
+
+| Regra | Como funciona hoje | Onde |
+| --- | --- | --- |
+| Assinatura do usuário | Todo cadastro cria uma assinatura **individual** (plano escolhido no cadastro) | `routes/auth.ts` |
+| Assinatura do grupo | **Outra assinatura, adicional**, do tipo `group`, paga pelo dono do grupo; o grupo aponta para ela (`groups.subscriptionid`) | `groupService` |
+| Membro de grupo | Entra com a **própria** assinatura individual | `groupInviteService.hasActiveIndividualSubscription` |
+| **Créditos de IA do mês** | Contados **por pessoa**, somando tudo o que ela fez (pessoal e todos os grupos). Limite = o do **plano individual** dela; o plano do grupo só vale para quem não tem individual. **Não somam** dono + membros. Hoje o limite só avisa, não bloqueia | `userUsageService` |
+| Nº de memos e armazenamento | Por pessoa, somando tudo; limite do plano individual | `userUsageService` |
+| Tamanho de arquivo (áudio, vídeo…) | **Pelo espaço em uso:** no pessoal vale o plano individual; dentro do grupo vale o plano do grupo | `mediaLimitsService.resolvePlanIdForUserWorkspace` |
+| Custo no relatório de assinaturas (admin) | Assinatura individual = gasto do dono **nos memos sem grupo**; assinatura de grupo = gasto **só do dono** dentro daquele grupo. O gasto dos membros dentro do grupo não aparece em nenhuma linha | `routes/adminSubscriptions.ts` |
+
+**O que é pouco intuitivo hoje:** o plano do grupo define o tamanho de arquivo, mas não os créditos; e no relatório o gasto dos membros dentro do grupo não é atribuído a nenhuma assinatura.
+
+**Impacto do grupo pessoal (se ele apontar para a assinatura individual):**
+
+- **Tamanho de arquivo:** passa a sair do mesmo lugar para todos (`grupo → assinatura → plano`); o pessoal continua com o plano individual. Simplifica.
+- **Créditos, memos, armazenamento:** contados por pessoa — **não mudam**.
+- **Relatório de assinaturas:** a regra "individual = memos sem grupo" quebra e tem de virar "individual = memos do grupo pessoal" (mesma junção usada para grupo). Simplifica.
+- **Quem edita categorias** (`memoContextAccess`): todo usuário passa a ser owner do próprio grupo pessoal, então pode criar categorias no espaço dele. Desejado.
+- **Listas do admin** (grupos, assinaturas de grupo, contagens): têm de **filtrar os grupos pessoais**, senão cada usuário aparece como um grupo.
+
+**Decisões de negócio que continuam abertas (independentes desta migração):**
+
+- Créditos do grupo: o plano do grupo deve dar créditos que **os membros usam** dentro do grupo (um "pote" do grupo), ou cada um continua gastando do próprio plano?
+- O gasto dos membros dentro do grupo deve aparecer na conta do grupo no relatório?
+
 ## 3. Decisões a tomar antes de codificar
 
 1. **Assinatura do grupo pessoal.** `groups.subscriptionid` é obrigatório. Proposta: o grupo pessoal aponta para a assinatura **individual** do usuário. Cuidado: limites e custos hoje distinguem `individual` × `group` (`mediaLimitsService`, `userUsageService`, `adminCostReportService`) — o grupo pessoal tem de continuar contando como individual.
