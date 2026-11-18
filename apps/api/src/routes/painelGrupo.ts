@@ -38,7 +38,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     const q = parsed.data.q ?? "";
     const limite = parsed.data.limite ?? 20;
 
-    const where: string[] = [];
+    // Grupo pessoal e catálogo de modelos não entram na lista de grupos
+    const where: string[] = ["g.tipo = 'normal'"];
     const vals: unknown[] = [];
     if (!isAdmin) {
       where.push(DONO_SQL);

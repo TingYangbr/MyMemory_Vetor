@@ -1630,6 +1630,22 @@ export * from "./dataCampo.js";
 export * from "./listaItens.js";
 export * from "./campoStatus.js";
 export * from "./situacaoMemo.js";
+
+/** Modelo pronto do catálogo (plug-in de categoria). */
+export interface CatalogoModelo {
+  id: number;
+  nome: string;
+  /** Para que serve, em linguagem do usuário. */
+  resumo: string;
+  /** Frases de exemplo (registrar, perguntar, alterar). */
+  exemplos: string[];
+  versao: number;
+  /** Situações oferecidas (Pendente, Feito, Cancelado), ou null se a categoria não é atualizável. */
+  situacao: string[] | null;
+  campos: { nome: string; tipo: string; valores?: string[] }[];
+  /** Categoria do grupo que já corresponde a este modelo (mesmo nome), ou null. */
+  habilitadaId: number | null;
+}
 /** Resposta imediata do Processar: o lote roda em segundo plano (evita timeout de 120 s do proxy). */
 export interface BatchProcessStartResponse {
   jobId: string;

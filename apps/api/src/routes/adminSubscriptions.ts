@@ -65,7 +65,7 @@ const plugin: FastifyPluginAsync = async (app) => {
        FROM subscriptions s
        INNER JOIN subscription_plans p ON p.id = s.planid
        INNER JOIN users u ON u.id = s.ownerid
-       LEFT JOIN groups g ON g.subscriptionid = s.id
+       LEFT JOIN groups g ON g.subscriptionid = s.id AND g.tipo = 'normal'
        LEFT JOIN (
          SELECT groupid, COUNT(*) AS cnt FROM group_members GROUP BY groupid
        ) mc ON mc.groupid = g.id

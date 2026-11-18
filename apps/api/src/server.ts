@@ -88,6 +88,7 @@ import { MemoRelacoes1700000000173 } from "./migrations/1700000000173-MemoRelaco
 import { CampoStatusVerbos1700000000174 } from "./migrations/1700000000174-CampoStatusVerbos.js";
 import { CategoriaTipoSituacao1700000000175 } from "./migrations/1700000000175-CategoriaTipoSituacao.js";
 import { UserPdfAbrirAba1700000000176 } from "./migrations/1700000000176-UserPdfAbrirAba.js";
+import { GrupoPessoalECatalogo1700000000177 } from "./migrations/1700000000177-GrupoPessoalECatalogo.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -107,6 +108,7 @@ import adminConhecimentoRoutes from "./routes/adminConhecimento.js";
 import donoMemoRoutes from "./routes/donoMemo.js";
 import memoAlteracaoRoutes from "./routes/memoAlteracao.js";
 import memoRelacoesRoutes from "./routes/memoRelacoes.js";
+import catalogoModelosRoutes from "./routes/catalogoModelos.js";
 import adminLlmChamadasRoutes from "./routes/adminLlmChamadas.js";
 import mediaRevisaoRoutes from "./routes/mediaRevisao.js";
 import automacaoImportacaoRoutes from "./routes/automacaoImportacao.js";
@@ -221,6 +223,7 @@ assertMediaStorageEnv();
       CampoStatusVerbos1700000000174,
       CategoriaTipoSituacao1700000000175,
       UserPdfAbrirAba1700000000176,
+      GrupoPessoalECatalogo1700000000177,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -296,6 +299,7 @@ await app.register(adminConhecimentoRoutes);
 await app.register(donoMemoRoutes);
 await app.register(memoAlteracaoRoutes);
 await app.register(memoRelacoesRoutes);
+await app.register(catalogoModelosRoutes);
 await app.register(adminLlmChamadasRoutes);
 await app.register(mediaRevisaoRoutes);
 await app.register(automacaoImportacaoRoutes);

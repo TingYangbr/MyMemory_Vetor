@@ -44,7 +44,8 @@ export async function userHasMemoContextAccess(userId: number): Promise<boolean>
     `SELECT (
         u.role = 'admin'
         OR EXISTS (
-          SELECT 1 FROM group_members gm WHERE gm.userId = u.id AND gm.role = 'owner'
+          SELECT 1 FROM group_members gm JOIN groups gx ON gx.id = gm.groupId
+          WHERE gm.userId = u.id AND gm.role = 'owner' AND gx.tipo = 'normal'
         )
         OR EXISTS (
           SELECT 1 FROM subscriptions s
@@ -61,7 +62,7 @@ export async function userHasMemoContextAccess(userId: number): Promise<boolean>
 export async function listGroupsForMemoContext(userId: number, isAdmin: boolean): Promise<MemoContextGroupOption[]> {
   if (isAdmin) {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, name FROM groups ORDER BY name ASC`
+      `SELECT id, name FROM groups WHERE tipo = 'normal' ORDER BY name ASC`
     );
     return rows.map((r) => ({ id: r.id as number, name: r.name as string }));
   }
@@ -132,6 +133,7 @@ export async function listWorkspaceGroupsForUser(userId: number, isAdmin: boolea
        FROM groups g
        INNER JOIN subscriptions s ON s.id = g.subscriptionId
        LEFT JOIN users u ON u.id = s.ownerId
+       WHERE g.tipo = 'normal'
        ORDER BY g.name ASC`
     );
     return rows.map(mapWorkspaceGroupRow);
@@ -152,11 +154,12 @@ export async function listWorkspaceGroupsForUser(userId: number, isAdmin: boolea
      FROM groups g
      INNER JOIN subscriptions s ON s.id = g.subscriptionId
      LEFT JOIN users ou ON ou.id = s.ownerId
-     WHERE EXISTS (SELECT 1 FROM group_members gm2 WHERE gm2.groupId = g.id AND gm2.userId = ?)
+     WHERE g.tipo = 'normal'
+       AND (EXISTS (SELECT 1 FROM group_members gm2 WHERE gm2.groupId = g.id AND gm2.userId = ?)
         OR EXISTS (
           SELECT 1 FROM subscriptions s2
           WHERE s2.id = g.subscriptionId AND s2.ownerId = ? AND s2.type = 'group' AND s2.status = 'active'
-        )
+        ))
      ORDER BY g.name ASC`,
     [userId, userId, userId, userId]
   );
@@ -1338,7 +1341,9 @@ export async function listarMemosPorCategoria(input: {
 export async function copiarCategoriaParaGrupo(
   userId: number,
   categoryId: number,
-  targetGroupId: number
+  targetGroupId: number,
+  /** Habilitar um modelo do catálogo: a origem é o catálogo (ninguém é membro dele) e a cópia guarda de onde veio. */
+  opts: { doCatalogo?: { versao: number } } = {}
 ): Promise<{ id: number; name: string }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [catRows] = await pool.query<RowDataPacket[]>(
@@ -1353,7 +1358,7 @@ export async function copiarCategoriaParaGrupo(
   const cat = catRows[0];
   if (!cat) throw new Error("not_found");
   const origem = cat.groupId != null ? Number(cat.groupId) : null;
-  await assertMemoContextReadScope(userId, origem, isAdmin);
+  if (!opts.doCatalogo) await assertMemoContextReadScope(userId, origem, isAdmin);
   await assertMemoContextWriteForGroupScope(userId, targetGroupId, isAdmin);
   if (origem === targetGroupId) {
     throw Object.assign(new Error("A categoria já é deste grupo."), { statusCode: 409 });
@@ -1464,6 +1469,13 @@ export async function copiarCategoriaParaGrupo(
     throw e;
   } finally {
     conn.release();
+  }
+  if (opts.doCatalogo) {
+    await pool.query(`UPDATE categories SET origem_categoria_id = ?, origem_versao = ? WHERE id = ?`, [
+      categoryId,
+      opts.doCatalogo.versao,
+      novoId,
+    ]);
   }
   // Query padrão e Consulta de alterações do destino, a partir dos campos copiados
   await sincronizarQueryPadrao(novoId);
