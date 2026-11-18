@@ -19,6 +19,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (msg === "nao_atualizavel") {
       return reply.code(400).send({ error: msg, message: "A categoria deste memo não é atualizável." });
     }
+    if (msg.startsWith("status_invalido|")) {
+      const [, campo, valores] = msg.split("|");
+      return reply.code(400).send({ error: "status_invalido", message: `${campo} aceita só: ${valores}.` });
+    }
     if (msg === "forbidden") {
       return reply.code(403).send({ error: msg, message: "Só o dono, quem catalogou ou owner/editor do grupo podem alterar." });
     }

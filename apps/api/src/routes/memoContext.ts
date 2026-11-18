@@ -271,13 +271,14 @@ const plugin: FastifyPluginAsync = async (app) => {
     isActive: z.number().int().min(0).max(1).optional(),
   });
 
-  const campoTipoEnum = z.enum(["text", "date", "number", "lista"]);
+  const campoTipoEnum = z.enum(["text", "date", "number", "lista", "status"]);
 
   const createCampoBody = z.object({
     name: z.string().min(1).max(255),
     description: z.string().max(16_000).nullable().optional(),
     tipo: campoTipoEnum.optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
+    verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
   });
 
@@ -286,6 +287,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     description: z.string().max(16_000).nullable().optional(),
     tipo: campoTipoEnum.optional(),
     normalizedTerms: z.string().max(4_000).nullable().optional(),
+    verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
   });

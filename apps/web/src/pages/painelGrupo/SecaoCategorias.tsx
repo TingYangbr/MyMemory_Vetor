@@ -9,6 +9,7 @@ import type {
   MemoContextStructureResponse,
   PainelGrupoContagensResponse,
 } from "@mymemory/shared";
+import { lerValoresStatus } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../../api";
 import LembretesModal from "../../components/LembretesModal";
 import { IconBell, IconCopy, IconEdit, IconPlus, IconSearch, IconTrash, IconX } from "../../components/icons";
@@ -27,7 +28,7 @@ const MIDIAS: { v: MemoContextMediaType | ""; nome: string }[] = [
   { v: "url", nome: "URL" },
 ];
 
-const TIPO_CAMPO: Record<MemoContextCampoTipo, string> = { text: "texto", date: "data", number: "número", lista: "lista" };
+const TIPO_CAMPO: Record<MemoContextCampoTipo, string> = { text: "texto", date: "data", number: "número", lista: "lista", status: "status" };
 
 type Aba = "campos" | "lembrete" | "memos" | "consultas";
 
@@ -560,16 +561,25 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [desc, setDesc] = useState(campo?.description ?? "");
   const [tipo, setTipo] = useState<MemoContextCampoTipo>(campo?.tipo ?? "text");
   const [termos, setTermos] = useState(campo?.normalizedTerms ?? "");
+  const [verbos, setVerbos] = useState(campo?.verbos ?? "");
   const [nomeErp, setNomeErp] = useState(campo?.resolucaoNomeAbrev ?? false);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   async function salvar() {
     if (!name.trim()) return setErro("Informe o nome do campo.");
+    if (tipo === "status" && lerValoresStatus(termos).length < 2) return setErro("Status precisa de pelo menos dois valores, separados por vírgula.");
     setBusy(true);
     setErro(null);
     try {
-      const corpo = { name: name.trim(), description: desc.trim() || null, tipo, normalizedTerms: termos.trim() || null, resolucaoNomeAbrev: nomeErp };
+      const corpo = {
+        name: name.trim(),
+        description: desc.trim() || null,
+        tipo,
+        normalizedTerms: termos.trim() || null,
+        verbos: tipo === "status" ? verbos.trim() || null : null,
+        resolucaoNomeAbrev: nomeErp,
+      };
       if (campo) {
         const r = await apiPatchJson<{ renomeado?: { de: string; para: string; memos: number; queries: number } }>(`/api/memo-context/campos/${campo.id}`, corpo);
         if (r?.renomeado) {
@@ -618,15 +628,45 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
               <option value="date">data</option>
               <option value="number">número</option>
               <option value="lista">lista (um item por linha)</option>
+              <option value="status">status (valores fixos)</option>
             </select>
           </div>
           <div>
             <label className={s.fieldLabel} htmlFor="cp-termos">
-              Valores padronizados (opcional)
+              {tipo === "status" ? "Valores (o primeiro é o inicial)" : "Valores padronizados (opcional)"}
             </label>
-            <input id="cp-termos" className="mm-field" value={termos} onChange={(e) => setTermos(e.target.value)} placeholder="ex.: pago, pendente, cancelado" />
+            <input
+              id="cp-termos"
+              className="mm-field"
+              value={termos}
+              onChange={(e) => setTermos(e.target.value)}
+              placeholder={tipo === "status" ? "ex.: Aberto, Baixado" : "ex.: pago, pendente, cancelado"}
+            />
           </div>
         </div>
+        {tipo === "status" ? (
+          <>
+            <p className={s.help}>
+              Só esses valores são gravados. Registro novo começa com o primeiro. Use para Baixa, Conciliação, Etapa; a Situação
+              (Ativo, Concluído, Cancelado) continua à parte.
+            </p>
+            <label className={s.fieldLabel} htmlFor="cp-verbos">
+              Verbos (opcional): uma linha por valor
+            </label>
+            <textarea
+              id="cp-verbos"
+              className="mm-field"
+              rows={3}
+              value={verbos}
+              onChange={(e) => setVerbos(e.target.value)}
+              placeholder={"Baixado: pagar, paguei, quitar, recebi, dar baixa\nAberto: estornar, reabrir"}
+            />
+            <p className={s.help}>
+              No Perguntar, &quot;recebi do Joaquim&quot; muda para o valor do verbo. Verbo depois de &quot;a&quot;, &quot;falta&quot; ou
+              &quot;não&quot; (&quot;a receber&quot;) não conta.
+            </p>
+          </>
+        ) : null}
         <label className={s.row} style={{ marginTop: 12, fontSize: 13.5 }}>
           <input type="checkbox" checked={nomeErp} onChange={(e) => setNomeErp(e.target.checked)} />
           Procurar o nome oficial no ERP (cliente ou produto pela abreviação)

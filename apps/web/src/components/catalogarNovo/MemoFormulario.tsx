@@ -1,5 +1,7 @@
 import { useEffect, useState, type KeyboardEvent, type MutableRefObject, type RefObject } from "react";
 import type { MemoContextCategory } from "@mymemory/shared";
+
+const semAcentoMin = (v: string) => v.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase().trim();
 import { apiGetOptional } from "../../api";
 import {
   categoriaComRegra,
@@ -257,6 +259,24 @@ export default function MemoFormulario(p: MemoFormularioProps) {
                             className={(c.value || "Ativo") === o ? s.segOn : ""}
                             onClick={() => p.setDado(c.key, o)}
                           >
+                            {o}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                }
+                if (c.tipo === "status" && c.valores?.length) {
+                  // Status: só um dos valores; vazio = o inicial (o primeiro)
+                  const atual = c.valores.find((v) => semAcentoMin(v) === semAcentoMin(c.value)) ?? c.valores[0];
+                  return (
+                    <div key={c.key} style={{ gridColumn: "1 / -1" }}>
+                      <span className={s.cgNome} title={c.descricao ?? undefined}>
+                        {c.key}
+                      </span>
+                      <div className={s.seg} role="group" aria-label={c.key}>
+                        {c.valores.map((o) => (
+                          <button key={o} type="button" className={atual === o ? s.segOn : ""} onClick={() => p.setDado(c.key, o)}>
                             {o}
                           </button>
                         ))}

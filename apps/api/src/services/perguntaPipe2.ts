@@ -8,6 +8,7 @@ import type {
   PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
+import { resolverValorStatus, type VerbosStatus } from "@mymemory/shared";
 import { pool, queryIsoladaPorGrupo } from "../db.js";
 import { executeQueryMssql } from "./adminDbConnectionsService.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
@@ -44,6 +45,8 @@ export interface QueryDisponivel {
     descricao_campo?: string | null;
     /** Exemplos de valores aceitos pelo campo (extraídos de normalizedTerms). */
     exemplos_valores?: string[];
+    /** Campo do tipo status: valores fixos e verbos ("pagas" → Pago, "em aberto" → Aberto). */
+    status?: { valores: string[]; verbos: VerbosStatus };
   }[];
 }
 
@@ -655,7 +658,12 @@ export function bindTemplateParams(
         result += sentencaSql.slice(pos, token.colStart);
         const wantLike = llmOpMap.get(key) === "LIKE";
         const situacao = padraoSituacao(key, stripped);
-        if (situacao) {
+        const valorStatus = def?.status ? resolverValorStatus(stripped, def.status.valores, def.status.verbos) : null;
+        if (valorStatus) {
+          // Status: o valor da lista, inteiro ("abertas" → Aberto)
+          result += `unaccent(${token.colExpr}) ILIKE ?::text`;
+          values.push(valorStatus.normalize("NFD").replace(/\p{Mn}/gu, ""));
+        } else if (situacao) {
           // "canceladas", "concluídas", "encerradas" x valor gravado "Cancelado"/"Concluído"
           result += `unaccent(${token.colExpr}) ~* ?::text`;
           values.push(situacao);

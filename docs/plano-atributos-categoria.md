@@ -4,7 +4,7 @@
 
 *Tudo aqui é desenho. Só o marcador "Confirmar antes de alterar" está implementado (migration 171, sem commit). O que li no código e o que não li está marcado ao longo do texto e na seção 11.*
 
-## Situação da implementação (17/11/2026)
+## Situação da implementação (18/11/2026)
 
 O que já foi feito, a partir deste plano e dos testes com a Lista de compras. Os itens em produção foram publicados pela branch `production`; os marcados "local" ainda não.
 
@@ -19,10 +19,12 @@ O que já foi feito, a partir deste plano e dos testes com a Lista de compras. O
 | Estado por item (✓ concluído, ✗ cancelado) com marcador | Campo do tipo lista | Em produção |
 | Muitas listas: 3 mais recentes e "ver mais" com confirmação | Visão de lista | Em produção |
 | Encerrar lista com confirmação e Reativar lista | Visão de lista | Em produção |
-| Encerra pela data (atributo) | Categoria atualizável | Local (migration 172) |
-| Copiar categoria para outro grupo; cópia das globais com tipos e atributos | Edição da categoria | Local |
-| Relações entre memos: "Concluir e registrar resultado" e sugestão da IA após salvar | Cartão de alteração, Catalogar, Perguntar | Local (migration 173). Uso nas respostas do Pipe 1 ainda não |
-| Separar por, Controle de duplicidade, Lista de estados | — | Não implementados |
+| Encerra pela data (atributo) | Categoria atualizável | Em produção (migration 172). Calculado na consulta, nada é gravado no memo |
+| Copiar categoria para outro grupo; cópia das globais com tipos e atributos | Edição da categoria | Em produção |
+| Relações entre memos: "Concluir e registrar resultado" e sugestão da IA após salvar | Cartão de alteração, Catalogar, Perguntar | Em produção (migration 173). Uso nas respostas do Pipe 1 ainda não |
+| Perguntas por situação ("canceladas", "concluídas", "encerradas") | Perguntar | Em produção. Estado atual usa a Query padrão; histórico usa a consulta de alterações |
+| Tipo de campo **Status** (valores fixos e verbos), no lugar da "lista de estados" | Campos de categoria | Local (migration 174). Seção 5.4 |
+| Separar por, Controle de duplicidade | — | Não implementados |
 | Reativar por comando, marcador de situação na tabela (To-do) | — | Não implementados |
 
 ## 1. Resumo em 1 minuto
@@ -185,9 +187,21 @@ Desligado por padrão. Ligado, tem três partes:
 | Agenda, To-do | Desligado | Não se aplica |
 | Operação de investimento | Desligado (tratada pela conciliação) | Não se aplica |
 
-### 5.4 Lista de estados
+### 5.4 Lista de estados → tipo de campo Status
 
-Cada estado é um campo comum da categoria, marcado como estado, com nome, valores permitidos e verbos. Exemplo: Baixa = Aberto e Baixado; "baixar", "pagar" e "quitar" levam a Baixado. O verbo escolhe o valor por regra, não pela IA. A situação continua como está.
+*Decidido em 18/11:* em vez de uma coluna JSON na categoria, cada estado é um **campo do tipo Status** (ao lado de texto, data, número e lista), configurado na mesma tela de campos. O nome do conceito fica no nome do campo (Baixa, Conciliação, Etapa); "Status" diz só como ele se comporta.
+
+- **Valores:** os padrões do campo, na ordem; o primeiro é o inicial (todo pagamento nasce Aberto).
+- **Verbos:** uma linha por valor, "Baixado: pagar, paguei, quitar, recebi, dar baixa". Ficam em `categorycampos.verbos` (migration 174).
+- **Só valores da lista são gravados:** no Catalogar o que não corresponder fica com o inicial; na alteração (tela ou comando) um valor fora da lista é recusado com "Baixa aceita só: Aberto, Baixado".
+- **A regra que traduz o que foi dito** (`resolverValorStatus`, em `packages/shared/src/campoStatus.ts`): o próprio valor, outra flexão dele ("abertas", "em aberto" → Aberto; "pagas" → Pago) ou um verbo ("recebi 5 mil do Joaquim" → Baixado). Na ordem do texto, a primeira palavra decide ("estornar o pagamento" → Aberto). Verbo depois de "a", "falta", "não", "vou" não conta ("a receber", "falta pagar").
+- **Perguntas:** o filtro do Perguntar usa o valor da lista, inteiro ("o que está em aberto?").
+- **Telas:** seletor no Catalogar (botões, como a Situação), no cartão de alteração e no cartão de memo novo.
+- A situação (Ativo, Concluído, Cancelado) continua como está, ligada a "Atualizável".
+
+**Ainda não:** memos gravados antes de o campo virar Status ficam vazios até serem alterados (o vazio não aparece em "em aberto"); o POST de confirmação do Catalogar não revalida o valor (a tela só oferece os da lista); a **sequência** (Orçada → Fechada → Em execução → Entregue) não é imposta.
+
+O texto original desta seção, para referência: cada estado é um campo comum da categoria, marcado como estado, com nome, valores permitidos e verbos. Exemplo: Baixa = Aberto e Baixado; "baixar", "pagar" e "quitar" levam a Baixado. O verbo escolhe o valor por regra, não pela IA. A situação continua como está.
 
 **Confirmado na leitura do código:** a situação já é um campo comum com os valores em `normalizedterms`; a Query padrão só trata a situação de forma especial; `lembreteService` e `donoMemoService` só olham o `campo_situacao`. Estados adicionais não colidem com nada disso.
 
