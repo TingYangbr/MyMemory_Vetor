@@ -2258,16 +2258,17 @@
   opacity: 0.7;
 }
 
+/* Caixa de marcar: ☐ pendente, ☑ concluído, ☒ cancelado (área de toque de 2rem) */
 .marcador {
   flex: none;
-  width: 1.9rem;
-  height: 1.9rem;
-  border-radius: 50%;
-  border: 1.5px solid var(--mm-border);
-  background: var(--mm-card);
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  background: transparent;
   color: var(--mm-primary);
-  font: inherit;
-  font-weight: 700;
+  font-size: 1.35rem;
+  line-height: 1;
   cursor: pointer;
 }
 
