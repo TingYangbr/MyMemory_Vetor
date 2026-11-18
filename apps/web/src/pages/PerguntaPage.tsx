@@ -476,6 +476,8 @@ interface AlteracaoCtxValor {
   abrir: (memoId: number, propostos?: Record<string, string>) => void;
   /** Reabre o cartão de memo novo de um pedido de criação. */
   abrirCriacao: (c: ComandoCriacao) => void;
+  /** Pedidos de criação já salvos nesta tela → id do memo criado. */
+  criados: Map<ComandoCriacao, number>;
   /** Muda a situação do memo direto da resposta (ex.: "Concluir lista"), com aviso e Desfazer. */
   mudarSituacao: (memoId: number, situacao: "Pendente" | "Concluído" | "Cancelado") => void;
   /** Valores gravados por uma alteração: as tabelas e listas da tela mostram o valor novo. */
@@ -488,6 +490,7 @@ const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   locais: {},
   abrir: () => {},
   abrirCriacao: () => {},
+  criados: new Map(),
   mudarSituacao: () => {},
   aplicarLocal: () => {},
   alterarCampo: async () => {},
@@ -993,8 +996,16 @@ function BotoesAlterarResposta({ resposta }: { resposta: PerguntaResponse["respo
 
 /** Pedido de criação: botão para (re)abrir o cartão do registro novo. */
 function CriacaoBotao({ criacao }: { criacao: ComandoCriacao | undefined }) {
-  const { abrirCriacao } = useContext(AlteracaoCtx);
+  const { abrirCriacao, criados } = useContext(AlteracaoCtx);
   if (!criacao) return null;
+  const salvo = criados.get(criacao);
+  if (salvo != null) {
+    return (
+      <p className={styles.comandoFeito} role="status">
+        ✓ Registro salvo{criacao.categoria ? ` em ${criacao.categoria}` : ""} (#{salvo}).
+      </p>
+    );
+  }
   return (
     <button type="button" className={styles.refazerBtn} onClick={() => abrirCriacao(criacao)}>
       Revisar e salvar o registro novo
@@ -1376,6 +1387,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [avisoAlteracao, setAvisoAlteracao] = useState<{ texto: string; lote: string | null; memoId: number; criadoId?: number } | null>(null);
   /** Pedido de criação aberto no cartão de memo novo. */
   const [criando, setCriando] = useState<ComandoCriacao | null>(null);
+  // Pedidos de criação já salvos: a resposta troca "Revisar e salvar" por "✓ Registro salvo"
+  const [criados, setCriados] = useState<Map<ComandoCriacao, number>>(new Map());
   /** Memo criado pelo Perguntar: sugestão de ligação a um compromisso. */
   const [memoParaLigar, setMemoParaLigar] = useState<number | null>(null);
   const fimLigacao = useCallback(() => setMemoParaLigar(null), []);
@@ -1892,6 +1905,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       setAvisoAlteracao(null);
       try {
         await apiDeleteJson(`/api/memos/${id}`);
+        // Desfeito: a resposta volta a oferecer "Revisar e salvar"
+        setCriados((m) => new Map([...m].filter(([, v]) => v !== id)));
         setAvisoAlteracao({ texto: "Registro desfeito.", lote: null, memoId: id });
       } catch (e) {
         setAvisoAlteracao({ texto: `Não foi possível desfazer: ${e instanceof Error ? e.message : String(e)}`, lote: null, memoId: id });
@@ -1915,11 +1930,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       locais: alteracoesLocais,
       abrir: (id: number, propostos?: Record<string, string>) => { setPropostosAbertos(propostos); setAlterandoMemoId(id); },
       abrirCriacao: (c: ComandoCriacao) => setCriando(c),
+      criados,
       mudarSituacao: (id: number, situacao: "Pendente" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
       alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
     }),
-    [alteraveis, alteracoesLocais]
+    [alteraveis, alteracoesLocais, criados]
   );
 
   async function openMemoCard(id: number) {
@@ -2462,6 +2478,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
           criacao={criando}
           onFechar={() => setCriando(null)}
           onCriado={(memo, texto) => {
+            const pedido = criando;
+            setCriados((m) => new Map(m).set(pedido, memo.id));
             setCriando(null);
             setAvisoAlteracao({ texto, lote: null, memoId: memo.id, criadoId: memo.id });
             setMemoParaLigar(memo.id);
