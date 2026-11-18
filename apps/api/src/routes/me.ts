@@ -37,10 +37,10 @@ const SQL_ME_MEMO_CTX = `(
 const SQL_ME_PREFS_CORE = `u.soundEnabled, u.confirmEnabled,
         u.allowFreeSpecificFieldsWithoutCategoryMatch,
         u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl,
-        u.ttsRate`;
+        u.ttsRate, u.pdf_abrir_aba AS "pdfAbrirAba"`;
 const SQL_ME_PREFS_CORE_NO024 = `u.soundEnabled, u.confirmEnabled,
         u.iaUseTexto, u.iaUseImagem, u.iaUseVideo, u.iaUseAudio, u.iaUseDocumento, u.iaUseUrl,
-        u.ttsRate`;
+        u.ttsRate, u.pdf_abrir_aba AS "pdfAbrirAba"`;
 const SQL_ME_PREFS = `${SQL_ME_PREFS_CORE},
         u.imageOcrVisionMinConfidence`;
 const SQL_ME_PREFS_NO024 = `${SQL_ME_PREFS_CORE_NO024},
@@ -68,6 +68,7 @@ const patchMePreferencesBody = z
     iaUseUrl: iaUseEnum.optional(),
     imageOcrVisionMinConfidence: z.union([z.null(), z.number().int().min(1).max(100)]).optional(),
     ttsRate: z.union([z.null(), z.number().min(0.5).max(2.0)]).optional(),
+    pdfAbrirAba: z.boolean().optional(),
   })
   .refine((o) => Object.keys(o).length > 0, { message: "Informe ao menos um campo." });
 
@@ -106,12 +107,14 @@ function rowToUserMemoPreferences(u: RowDataPacket): UserMemoPreferences {
     iaUseUrl: normalizeIaUse(u.iaUseUrl),
     imageOcrVisionMinConfidence: normalizeImageOcrVisionMinConfidence(u.imageOcrVisionMinConfidence),
     ttsRate: normalizeTtsRate(u.ttsRate),
+    pdfAbrirAba: Number(u.pdfAbrirAba ?? 0) === 1,
   };
 }
 
 function attachMemoPrefsToMe(body: MeResponse, u: RowDataPacket, includeExtendedPrefs: boolean): void {
   body.soundEnabled = u.soundEnabled === 1 || u.soundEnabled === true;
   body.ttsRate = normalizeTtsRate(u.ttsRate);
+  body.pdfAbrirAba = Number(u.pdfAbrirAba ?? 0) === 1;
   if (!includeExtendedPrefs) return;
   body.confirmEnabled = u.confirmEnabled === 1 || u.confirmEnabled === true;
   body.allowFreeSpecificFieldsWithoutCategoryMatch =
@@ -563,6 +566,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       sets.push('ttsrate = ?');
       vals.push(d.ttsRate);
     }
+    if (d.pdfAbrirAba !== undefined) {
+      sets.push("pdf_abrir_aba = ?");
+      vals.push(d.pdfAbrirAba ? 1 : 0);
+    }
     vals.push(userId);
     try {
       await pool.query(`UPDATE users SET ${sets.join(", ")} WHERE id = ?`, vals);
@@ -595,7 +602,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       const [prows] = await pool.query<RowDataPacket[]>(
         `SELECT soundEnabled, confirmEnabled, allowFreeSpecificFieldsWithoutCategoryMatch,
                 iaUseTexto, iaUseImagem, iaUseVideo, iaUseAudio, iaUseDocumento, iaUseUrl,
-                imageOcrVisionMinConfidence, ttsrate
+                imageOcrVisionMinConfidence, ttsrate, pdf_abrir_aba AS "pdfAbrirAba"
          FROM users WHERE id = ? LIMIT 1`,
         [userId]
       );

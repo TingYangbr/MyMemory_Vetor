@@ -2145,6 +2145,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   /** PDF da resposta: texto, gráficos capturados da tela e tabelas com todos os registros. */
   async function baixarPdf(r: (typeof respostas)[number], i: number) {
     setPdfGerandoIdx(i);
+    // Preferência "abrir o PDF numa aba": a aba abre já no clique (depois o bloqueador de pop-up impediria)
+    const aba = me?.pdfAbrirAba ? window.open("", "_blank") : null;
+    if (aba) aba.document.title = "Gerando PDF…";
     try {
       const { gerarPdfResposta } = await import("../lib/respostaPdf");
       type PdfTabela = import("../lib/respostaPdf").PdfTabela;
@@ -2199,8 +2202,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         geradoEm: new Date(),
         tabelas,
         limitacoes: r.resposta.limitacoes,
-      });
+      }, aba);
     } catch (e) {
+      aba?.close();
       const msg = e instanceof Error ? e.message : String(e);
       // Página aberta antes de uma atualização pede o arquivo da versão anterior, que não existe mais
       const versaoAntiga = /dynamically imported module|Importing a module script failed|Loading chunk/i.test(msg);

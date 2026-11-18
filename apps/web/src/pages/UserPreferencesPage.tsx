@@ -28,6 +28,7 @@ function prefsFromMe(me: MeResponse): UserMemoPreferences {
     iaUseUrl: me.iaUseUrl ?? "basico",
     imageOcrVisionMinConfidence: me.imageOcrVisionMinConfidence ?? null,
     ttsRate: me.ttsRate ?? null,
+    pdfAbrirAba: me.pdfAbrirAba === true,
   };
 }
 
@@ -198,7 +199,7 @@ export default function UserPreferencesPage() {
     try {
       const body: Partial<UserMemoPreferences> = hasPrefsColumns
         ? prefs
-        : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate };
+        : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate, pdfAbrirAba: prefs.pdfAbrirAba };
       const res = await apiPatchJson<PatchMePreferencesResponse>("/api/me/preferences", body);
       setPrefs(res.preferences);
       setOkMsg("Preferências guardadas.");
@@ -318,6 +319,21 @@ export default function UserPreferencesPage() {
                   Áudio habilitado (voz e narração)
                   <span className={styles.toggleHint}>
                     Ativa narração automática das respostas em "Pergunte ao myMemory" e permite usar o microfone para inserir palavras-chave ao registrar memos.
+                  </span>
+                </span>
+              </label>
+              <label className={styles.toggleRow}>
+                <input
+                  type="checkbox"
+                  checked={prefs.pdfAbrirAba === true}
+                  disabled={saving}
+                  onChange={(e) => updatePref("pdfAbrirAba", e.target.checked)}
+                />
+                <span className={styles.toggleLabel}>
+                  Abrir o PDF numa aba nova
+                  <span className={styles.toggleHint}>
+                    No botão PDF das respostas. Ligado, o PDF abre direto numa aba (dali dá para salvar ou imprimir).
+                    Desligado, o arquivo é baixado e o navegador faz o que estiver configurado para downloads.
                   </span>
                 </span>
               </label>
