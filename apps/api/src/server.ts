@@ -83,6 +83,7 @@ import { TituloCurtoResetSemIa1700000000168 } from "./migrations/1700000000168-T
 import { CategoriaRegraRevisao1700000000169 } from "./migrations/1700000000169-CategoriaRegraRevisao.js";
 import { ConsultaAlteracoes1700000000170 } from "./migrations/1700000000170-ConsultaAlteracoes.js";
 import { CategoriaConfirmarAlteracao1700000000171 } from "./migrations/1700000000171-CategoriaConfirmarAlteracao.js";
+import { CategoriaEncerraPelaData1700000000172 } from "./migrations/1700000000172-CategoriaEncerraPelaData.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -210,6 +211,7 @@ assertMediaStorageEnv();
       CategoriaRegraRevisao1700000000169,
       ConsultaAlteracoes1700000000170,
       CategoriaConfirmarAlteracao1700000000171,
+      CategoriaEncerraPelaData1700000000172,
     ],
   });
   const ds = await AppDataSource.initialize();

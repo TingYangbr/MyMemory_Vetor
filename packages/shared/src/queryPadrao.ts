@@ -151,7 +151,7 @@ export function gerarQueryPadraoMemos(
   categoriaNome: string,
   campos: QueryPadraoCampo[],
   /** Categoria atualizável: sem filtro de situação na pergunta, esconde Concluído e Cancelado. */
-  opts: { campoSituacao?: string | null } = {}
+  opts: { campoSituacao?: string | null; campoEncerraData?: string | null } = {}
 ): { sql: string; params: QueryPadraoParam[] } {
   const activeCampos = campos.filter((c) => c.isActive === 1);
   const catNameSafe = categoriaNome.replace(/'/g, "''");
@@ -173,6 +173,12 @@ export function gerarQueryPadraoMemos(
     if (opts.campoSituacao && campo.name === opts.campoSituacao) {
       whereParts.push(
         `  AND (:${p} IS NOT NULL OR NOT (lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'conclu%' OR lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'cancel%'))`
+      );
+    }
+    // "Encerra pela data": sem filtro de data na pergunta, esconde o que já passou (ex.: reunião de ontem)
+    if (campo.tipo === "date" && opts.campoEncerraData && campo.name === opts.campoEncerraData) {
+      whereParts.push(
+        `  AND (:${p} IS NOT NULL OR :${p}_ini IS NOT NULL OR :${p}_fin IS NOT NULL OR mymemory_parse_date(${jsonExpr}) IS NULL OR mymemory_parse_date(${jsonExpr}) >= CURRENT_DATE)`
       );
     }
     if (campo.tipo === "date") {

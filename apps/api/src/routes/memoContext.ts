@@ -192,6 +192,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     campoDono: z.string().max(255).nullable().optional(),
     atualizavel: z.boolean().optional(),
     confirmarAlteracao: z.boolean().optional(),
+    campoEncerraData: z.string().max(255).nullable().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -216,6 +217,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.campoDono !== undefined ? { campoDono: parsed.data.campoDono } : {}),
         ...(parsed.data.atualizavel !== undefined ? { atualizavel: parsed.data.atualizavel } : {}),
         ...(parsed.data.confirmarAlteracao !== undefined ? { confirmarAlteracao: parsed.data.confirmarAlteracao } : {}),
+        ...(parsed.data.campoEncerraData !== undefined ? { campoEncerraData: parsed.data.campoEncerraData } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });

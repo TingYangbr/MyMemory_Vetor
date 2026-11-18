@@ -268,6 +268,7 @@ export async function loadMemoContextStructure(
   let sql = `SELECT id, groupId, mediaType, name, description, isActive, createdAt, updatedAt,
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono",
             atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
+            campo_encerra_data AS "campoEncerraData",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -431,6 +432,7 @@ export async function loadMemoContextStructure(
     atualizavel: Number(r.atualizavel ?? 0) === 1,
     campoSituacao: (r.campoSituacao as string | null) ?? null,
     confirmarAlteracao: Number(r.atualizavel ?? 0) === 1 && Number(r.confirmarAlteracao ?? 0) === 1,
+    campoEncerraData: Number(r.atualizavel ?? 0) === 1 ? ((r.campoEncerraData as string | null) ?? null) : null,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -455,19 +457,20 @@ export async function loadStructureForGroup(
 /** Gera a Query padrão com o nome e os campos ativos atuais da categoria (null se inativa/inexistente). */
 async function gerarQueryPadraoDaCategoria(categoryId: number) {
   const [catRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao" FROM categories WHERE id = ? LIMIT 1`,
+    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao", campo_encerra_data AS "campoEncerraData" FROM categories WHERE id = ? LIMIT 1`,
     [categoryId]
   );
   const cat = catRows[0];
   if (!cat || Number(cat.isActive) !== 1) return null;
   const campoSituacao = Number(cat.atualizavel ?? 0) === 1 ? ((cat.campoSituacao as string | null) ?? null) : null;
+  const campoEncerraData = Number(cat.atualizavel ?? 0) === 1 ? ((cat.campoEncerraData as string | null) ?? null) : null;
   const [campoRows] = await pool.query<RowDataPacket[]>(
     `SELECT id, name, tipo, normalizedterms, isactive FROM categorycampos
      WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
     [categoryId]
   );
   const nome = String(cat.name);
-  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao }) };
+  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao, campoEncerraData }) };
 }
 
 /** Grava o SQL gerado como atual + "último gerado" e troca os parâmetros pelos gerados. */
@@ -631,6 +634,7 @@ export async function updateCategory(
     campoDono?: string | null;
     atualizavel?: boolean;
     confirmarAlteracao?: boolean;
+    campoEncerraData?: string | null;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -683,6 +687,10 @@ export async function updateCategory(
     sets.push("confirmar_alteracao = ?");
     vals.push(patch.confirmarAlteracao ? 1 : 0);
   }
+  if (patch.campoEncerraData !== undefined) {
+    sets.push("campo_encerra_data = ?");
+    vals.push(patch.campoEncerraData?.trim() || null);
+  }
   if (patch.revisaoSempre !== undefined) {
     sets.push("revisao_sempre = ?");
     vals.push(patch.revisaoSempre ? 1 : 0);
@@ -696,7 +704,7 @@ export async function updateCategory(
   await pool.query(`UPDATE categories SET ${sets.join(", ")} WHERE id = ?`, vals);
   // O nome da categoria entra no SQL (m.category = '...'); reativar também pede query em dia;
   // atualizável muda o filtro de situação da Query padrão
-  if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined) {
+  if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined || patch.campoEncerraData !== undefined) {
     await sincronizarQueryPadrao(categoryId);
   }
 }

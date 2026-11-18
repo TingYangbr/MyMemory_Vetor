@@ -681,6 +681,7 @@ function EditarCategoriaModal({
   const [campoDono, setCampoDono] = useState(cat.campoDono ?? "");
   const [atualizavel, setAtualizavel] = useState(!!cat.atualizavel);
   const [confirmarAlteracao, setConfirmarAlteracao] = useState(!!cat.confirmarAlteracao);
+  const [campoEncerraData, setCampoEncerraData] = useState(cat.campoEncerraData ?? "");
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -700,6 +701,7 @@ function EditarCategoriaModal({
         campoDono: pessoal ? campoDono || null : null,
         atualizavel,
         confirmarAlteracao: atualizavel && confirmarAlteracao,
+        campoEncerraData: atualizavel ? campoEncerraData || null : null,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -792,6 +794,24 @@ function EditarCategoriaModal({
               <p>Quando a alteração for pedida por texto, mostra o que vai mudar e só grava depois do sim. Desligado, grava direto e você pode desfazer.</p>
             </label>
             <input id="ec-confalt" type="checkbox" role="switch" className={`${s.switch} ${s.switchRight}`} checked={confirmarAlteracao} onChange={(e) => setConfirmarAlteracao(e.target.checked)} />
+          </div>
+        ) : null}
+        {atualizavel ? (
+          <div style={{ padding: "0 0 10px 16px" }}>
+            <label htmlFor="ec-encerra" style={{ fontWeight: 700, fontSize: 13.5 }}>
+              Encerra pela data
+            </label>
+            <p className={s.help} style={{ margin: "2px 0 6px" }}>
+              Registro com esta data já passada sai das respostas, a não ser que a pergunta peça o período (ex.: Agenda). Não use em tarefas: prazo passado é atrasado.
+            </p>
+            <select id="ec-encerra" className="mm-field" value={campoEncerraData} onChange={(e) => setCampoEncerraData(e.target.value)}>
+              <option value="">Não encerra pela data</option>
+              {campos.filter((c) => c.tipo === "date").map((c) => (
+                <option key={c.id} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
           </div>
         ) : null}
         <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 4, paddingTop: 10 }}>
