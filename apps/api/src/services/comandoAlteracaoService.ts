@@ -86,12 +86,32 @@ function comoGravado(valor: string, tipo: string): string {
   return v;
 }
 
-/** O item da linha corresponde ao nome dito? (sem acento, sem maiúsculas, plural simples) */
+/** Palavras de quantidade e embalagem que não identificam o item ("2 pacotes de macarrão" → "macarrao"). */
+const PALAVRAS_QUANTIDADE = new Set(
+  "de do da dos das um uma uns umas meio meia kg g gr grama gramas quilo quilos kilo kilos l lt litro litros ml un und unid unidade unidades pacote pacotes pct pcts caixa caixas cx lata latas garrafa garrafas duzia duzias bandeja bandejas saco sacos vidro vidros pote potes maco macos rolo rolos fardo fardos".split(" ")
+);
+
+/** Núcleo do item: sem números, unidades e embalagens, cada palavra no singular simples. */
+export function nucleoItem(s: string): string {
+  return norm(s)
+    .replace(/[\d.,/]+/g, " ")
+    .split(/\s+/)
+    .filter((w) => w && !PALAVRAS_QUANTIDADE.has(w))
+    // Singular simples: feijões/pães → feijao/pao, limões → limao, ovos → ovo
+    .map((w) => (/[oa]es$/.test(w) ? `${w.slice(0, -3)}ao` : w.length > 3 && w.endsWith("s") ? w.slice(0, -1) : w))
+    .join(" ")
+    .trim();
+}
+
+/** O item da linha corresponde ao nome dito? (sem acento, sem maiúsculas, plural simples, sem quantidade) */
 function linhaCasa(linha: string, termo: string): boolean {
   const t = norm(termo);
   if (!t) return false;
   const l = norm(linha);
-  return l.includes(t) || (t.endsWith("s") && t.length > 3 && l.includes(t.slice(0, -1)));
+  if (l.includes(t) || (t.endsWith("s") && t.length > 3 && l.includes(t.slice(0, -1)))) return true;
+  // "1 pacote de macarrão" casa com "2 pacotes de macarrão": compara só o que é o item
+  const nt = nucleoItem(termo);
+  return nt.length >= 3 && nucleoItem(linha).includes(nt);
 }
 
 /**
@@ -224,7 +244,7 @@ const SYSTEM = [
   "- Adiar ou remarcar muda a data e/ou a hora; mantenha o resto.",
   '- Cancelar, concluir ou reabrir: use o campo de situação da categoria com o valor Cancelado, Concluído ou Pendente. Em categoria com situacao.tipo "registro" os valores são Válido ou Cancelado (não há Concluído). "situacao.concluido" é o nome que a categoria dá ao Concluído (ex.: Comprado, Pago): comprei/paguei/fui = Concluído.',
   '- Campos do tipo status: use exatamente um dos "valores" do campo; os "verbos" dizem qual (ex.: "paguei", "recebi" → Baixado). Pagar ou receber não conclui o registro: mude o status, não a situação, a menos que o comando peça.',
-  '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Para marcar itens: "concluir" (comprado, feito), "cancelar" (não vai mais) ou "reabrir" (volta a pendente), cada um com a lista de nomes, ex.: {"concluir":["arroz"]}. "Comprei o arroz" marca o item; "comprei tudo" ou "terminei a lista" é a situação da lista inteira (Concluído). Inclua só as chaves necessárias.',
+  '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Para marcar itens: "concluir" (comprado, feito), "cancelar" (não vai mais) ou "reabrir" (volta a pendente), cada um com a lista de nomes, ex.: {"concluir":["arroz"]}. "Comprei o arroz" marca o item; "comprei tudo" ou "terminei a lista" é a situação da lista inteira (Concluído). Em "concluir", "cancelar" e "reabrir" use só o nome do item, sem quantidade: "comprei 1 pacote de macarrão" com "2 pacotes de macarrão" na lista → {"concluir":["macarrão"]} (o item é concluído mesmo com quantidade diferente). Inclua só as chaves necessárias.',
   "- motivo: uma frase curta explicando a escolha.",
 ].join("\n");
 
