@@ -262,9 +262,49 @@ Uma categoria (Controle de gastos) com várias tabelas, como o Faturamento do ER
 2. **Orçamento, metas e recorrência.**
 3. **Conta corrente, baixa e conciliação; fluxo de caixa.**
 
+### 12.6 Uma categoria ou várias
+
+*Análise de 19/11/2026.*
+
+**Várias tabelas numa categoria: sim.** A categoria não é dona de tabela, é dona de consultas; cada consulta pode juntar quantas tabelas quiser, como o Faturamento do ERP. Falta só, para as tabelas `fin_`, dar leitura ao `mm_query_reader` e aplicar a proteção por grupo e dono (RLS), como foi feito para `memo_alteracoes`.
+
+**A mesma tabela em várias categorias: sim.** Duas categorias podem ter consultas sobre a mesma tabela (no ERP, Faturamento e Contas a Receber leem as mesmas). Cuidado: cada consulta precisa filtrar o seu pedaço, senão uma categoria permitida enxerga dados da outra.
+
+**Como a IA escolhe o que responde (leitura):**
+1. Classificação: lê nome e descrição de todas as categorias do espaço e escolhe uma ou mais.
+2. Planejamento: lê as consultas dessas categorias (nome, descrição, parâmetros) e escolhe qual rodar e com quais filtros.
+3. O sistema executa; a IA só redige a resposta.
+
+| Separar em mais categorias | Efeito |
+| --- | --- |
+| A favor | Descrições mais específicas; menos consultas por categoria no planejamento (prompt menor) |
+| Contra | Perguntas que cruzam categorias ("quanto sobrou no mês?" = receitas − despesas) dependem de a classificação escolher as duas; a lista que a classificação lê cresce |
+
+**Como gravar (escrita): nunca SQL escrito pela IA.**
+- A classificação já reconhece comandos (criar, alterar) e os desvia das consultas, que são só leitura de propósito.
+- Cada categoria de DB interno declara uma **rotina de gravação** (código nosso, a "rotina após gravar" da seção 7).
+- A IA só extrai os dados no formato definido pela categoria (lista de lançamentos: valor, data, grupo, forma de pagamento, parcelas); o código confere e grava.
+- Uma frase que mistura despesa e receita ("paguei 50 de mercado e recebi 800 do freela") é simples com uma categoria e uma rotina; com duas categorias, o comando teria de ser dividido entre elas.
+
+**Outros impactos:**
+
+| Ponto | Impacto |
+| --- | --- |
+| Perfis de acesso | Permissão é por categoria. Separar só vale se alguém deve ver despesas e não receitas. Com tabela compartilhada, cada consulta filtra o seu pedaço |
+| Pessoal e dono | As tabelas `fin_` guardam o dono; as consultas respeitam "minha" e "de todos" |
+| Query padrão | Não se aplica (é para memos). As consultas de `fin_` são escritas por nós e vêm prontas com a categoria |
+| Categorias Modelos | "Controle de gastos" vira modelo pronto: consultas, rotina, grupos de gasto iniciais |
+| Lembretes e avisos | Hoje leem memos. "Conta vence amanhã" precisa da origem títulos (como a etapa 2 dos lembretes, origem ERP) |
+| Buscar e Recentes | Não mostram lançamentos (não são memos). Talvez "Lançamentos recentes" no próprio controle |
+| Desfazer e histórico | Histórico próprio das tabelas `fin_` |
+| Custo de IA | Uma extração por comando; perguntas custam o mesmo de hoje |
+
+**Recomendação:** uma categoria só, **Controle de gastos** (despesas e receitas), com várias consultas (lançamentos por período e grupo, títulos em aberto, orçamento × realizado, saldo do mês) e uma rotina de gravação. Separar só por motivo de permissão, ou quando a área já é naturalmente outra (Investimentos continua categoria própria).
+
 ### 12.5 Perguntas em aberto
 
 - [ ] Investimentos também deixa de criar memo na porta 1 (12.1)?
 - [ ] Cartão de crédito: a fatura entra na etapa 1 ou na 3?
 - [ ] Grupos de gasto: lista inicial padrão (Alimentação, Transporte, Moradia…) ou vazia?
 - [ ] Apagar em lote: que confirmação (digitar o mês, como o ELIMINAR do Painel Admin)?
+- [ ] Uma categoria só (Controle de gastos) ou separar despesas e receitas (12.6)? Recomendação: uma só.
