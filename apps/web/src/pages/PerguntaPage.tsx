@@ -1745,8 +1745,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
-    // "Sim" logo depois de uma resposta vazia (que oferece procurar nos memos): faz essa busca
-    // com a pergunta anterior, em vez de mandar "sim" como pergunta nova.
+    // "Sim" vale UMA vez: logo depois de "não achei nas consultas" (resposta não semântica vazia),
+    // faz a busca nos memos com a pergunta anterior. Depois disso, ampliar só pelo botão.
     const ultima = respostas[0];
     if (!opts && ultima && RESPOSTA_SIM.test(q) && isSemResposta(ultima) && ultima.classificacao.pipe !== "semantica") {
       setPergunta("");

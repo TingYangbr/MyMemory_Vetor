@@ -287,6 +287,27 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     topK: 10,
   });
 
+  // Nenhum memo acima do limiar: resposta curta e fixa (sem gastar IA), orientando a ampliar a busca.
+  if (memos.length === 0) {
+    const noMinimo = input.thresholdMin != null && input.thresholdInitial <= input.thresholdMin + 0.001;
+    return {
+      resposta: {
+        resposta: noMinimo
+          ? "Não achei memos sobre isso, nem na busca mais ampla."
+          : "Não achei memos sobre isso. Toque em ↓ Ampliar busca para procurar de forma mais ampla.",
+        tipo_resposta: "semantica",
+        dados_usados: [],
+        limitacoes: [],
+        confianca_estimada: 0,
+      },
+      apiCost: 0,
+      limiarInicial: input.thresholdInitial,
+      limiarUsado: input.thresholdInitial,
+      limiarMinimo: input.thresholdMin,
+      memosEncontrados: 0,
+    };
+  }
+
   const { resposta, costUsd } = await withSpan("Síntese da resposta (semântica)", () => gerarRespostaSemantica({
     pergunta: input.pergunta,
     memos,

@@ -381,8 +381,8 @@ export async function perguntarMemory(input: {
     classificacao.categorias.length === 0
   ) {
     const resposta: import("@mymemory/shared").PerguntaResposta = {
-      // Curta e sem termos técnicos; "sim" na caixa de pergunta (ou o botão) faz a busca nos memos.
-      resposta: "Não achei isso nas consultas do grupo. Quer que eu procure nos textos dos memos? Responda sim.",
+      // Curta e sem termos técnicos. "Sim" (uma vez) ou o botão fazem a busca nos memos.
+      resposta: "Não achei isso nas consultas do grupo. Quer que eu procure nos textos dos memos? Responda sim ou toque em 🔎 Buscar nos memos.",
       tipo_resposta: "estruturada",
       dados_usados: [],
       limitacoes: [],
