@@ -36,7 +36,7 @@ export const GRUPOS_ADMIN: Grupo[] = [
   {
     nome: "Conteúdo",
     itens: [
-      { rotulo: "Categorias globais", to: "/grupo/globais/admin?secao=categorias" },
+      { rotulo: "Categorias Modelos", to: "/grupo/globais/admin?secao=categorias" },
       { rotulo: "Importar conhecimento", to: "/admin/conhecimento" },
       { rotulo: "Consulta de memos", to: "/admin/consulta" },
       { rotulo: "Eliminação definitiva", to: "/admin/eliminacao" },
@@ -174,7 +174,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             onDoubleClick={larguraPadrao}
           />
           <div className={styles.menuTopo}>
-            <div className={styles.selo}>Admin do sistema</div>
+            <div className={styles.selo}>Painel Admin</div>
             <button type="button" className={styles.botaoMenu} onClick={alternarMenu} aria-label="Recolher o menu da administração" title="Recolher o menu">
               «
             </button>

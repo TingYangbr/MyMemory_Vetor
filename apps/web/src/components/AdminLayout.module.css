@@ -109,12 +109,10 @@
 .grupoNome {
   list-style: none;
   cursor: pointer;
-  padding: 0.4rem 0.75rem;
-  font-size: 0.72rem;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.92rem;
   font-weight: 800;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--mm-muted);
+  color: var(--mm-text);
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -136,6 +134,20 @@
 }
 .grupoAberto {
   color: var(--mm-primary);
+}
+
+/* 2º nível: itens do grupo recuados, com uma linha-guia à esquerda */
+.grupo > .item {
+  margin-left: 1.1rem;
+  padding-left: 0.85rem;
+  border-left: 2px solid var(--mm-border);
+  border-radius: 0 10px 10px 0;
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+.grupo > .item.ativo {
+  border-left-color: var(--mm-primary);
+  font-weight: 700;
 }
 
 .item {

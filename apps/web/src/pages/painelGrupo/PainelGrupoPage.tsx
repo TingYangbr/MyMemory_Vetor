@@ -90,7 +90,7 @@ export default function PainelGrupoPage() {
   };
 
   const invalido = !global && Number.isNaN(groupId);
-  const nomeGrupo = global ? "Categorias globais" : painel?.group.name ?? (erro ? `Grupo #${param}` : "Carregando…");
+  const nomeGrupo = global ? "Categorias Modelos" : painel?.group.name ?? (erro ? `Grupo #${param}` : "Carregando…");
   const pessoas = matriz?.membros.length ?? null;
   const sub = global
     ? "valem para todos os grupos"

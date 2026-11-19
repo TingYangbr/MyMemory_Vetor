@@ -175,7 +175,7 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   return (
     <AdminCtx.Provider value={isAdmin}>
       <div className={s.mh}>
-        <h1>{groupId == null ? "Categorias globais" : "Categorias"}</h1>
+        <h1>{groupId == null ? "Categorias Modelos" : "Categorias"}</h1>
         <span className={s.sp} />
         <label className={s.search}>
           <IconSearch />
