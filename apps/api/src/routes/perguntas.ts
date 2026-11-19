@@ -39,6 +39,8 @@ const perguntaBodySchema = z.object({
     .optional(),
   forcePipe: z.enum(["semantica", "estruturada", "hibrida"]).optional(),
   thresholdOverride: z.number().min(0).max(1).optional(),
+  /** Busca nos memos: desce o limiar sozinha até achar o primeiro memo. */
+  ampliarAteAchar: z.boolean().optional(),
   forceCategories: z.array(z.string()).optional(),
   /** Tela/filtros/seleção de onde a pergunta partiu — usado por integrações externas (Softing-erp). */
   contextoTela: z.string().max(4000).optional(),
@@ -164,6 +166,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             ? Math.max(parsed.data.thresholdOverride, thresholds.min)
             : thresholds.initial,
           thresholdMin: thresholds.min,
+          ampliarAteAchar: parsed.data.ampliarAteAchar === true,
           contextoTela: parsed.data.contextoTela,
           perfil,
           // Comandos de alteração só pela tela do usuário, nunca por chave de integração (ERP)

@@ -30,6 +30,11 @@ export interface Pipe1Input {
   contextoTela?: string;
   /** Perfil de acesso / escopo "Pessoal" (só quando o grupo ligou os perfis). */
   restricao?: RestricaoMemos;
+  /**
+   * Sem memo no limiar inicial, desce o corte de 10 em 10 pontos até achar o primeiro memo
+   * (parando no mínimo). Usa os mesmos resultados da busca: não busca de novo nem chama a IA.
+   */
+  ampliarAteAchar?: boolean;
 }
 
 export interface Pipe1Result {
@@ -281,15 +286,22 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     restricao: input.restricao,
   }));
 
-  const memos = rankAndFilter(rawHits, {
-    minSimilarity: input.thresholdInitial,
+  let limiarUsado = input.thresholdInitial;
+  let memos = rankAndFilter(rawHits, {
+    minSimilarity: limiarUsado,
     categoriaNames: input.categoriaNames,
     topK: 10,
   });
+  if (input.ampliarAteAchar) {
+    while (memos.length === 0 && limiarUsado > input.thresholdMin + 0.001) {
+      limiarUsado = Math.max(Math.round((limiarUsado - 0.1) * 100) / 100, input.thresholdMin);
+      memos = rankAndFilter(rawHits, { minSimilarity: limiarUsado, categoriaNames: input.categoriaNames, topK: 10 });
+    }
+  }
 
   // Nenhum memo acima do limiar: resposta curta e fixa (sem gastar IA), orientando a ampliar a busca.
   if (memos.length === 0) {
-    const noMinimo = input.thresholdMin != null && input.thresholdInitial <= input.thresholdMin + 0.001;
+    const noMinimo = limiarUsado <= input.thresholdMin + 0.001;
     return {
       resposta: {
         resposta: noMinimo
@@ -302,7 +314,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
       },
       apiCost: 0,
       limiarInicial: input.thresholdInitial,
-      limiarUsado: input.thresholdInitial,
+      limiarUsado,
       limiarMinimo: input.thresholdMin,
       memosEncontrados: 0,
     };
@@ -319,7 +331,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     resposta,
     apiCost: costUsd,
     limiarInicial: input.thresholdInitial,
-    limiarUsado: input.thresholdInitial,
+    limiarUsado,
     limiarMinimo: input.thresholdMin,
     memosEncontrados: memos.length,
   };

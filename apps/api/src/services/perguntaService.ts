@@ -259,6 +259,8 @@ export async function perguntarMemory(input: {
   forceCategories?: string[];
   thresholdInitial?: number;
   thresholdMin?: number;
+  /** Busca nos memos desce o limiar sozinha até achar o primeiro memo (botão "Buscar nos memos"). */
+  ampliarAteAchar?: boolean;
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
@@ -489,6 +491,7 @@ export async function perguntarMemory(input: {
         categoryId: firstCategoryId,
         contextoTela: input.contextoTela,
         restricao,
+        ampliarAteAchar: input.ampliarAteAchar,
       });
       // "Por que o faturamento aumentou?" cai aqui pelo "por que", mas a explicação precisa dos números do ERP:
       // sem nenhum memo e com queries cadastradas na categoria, promove para híbrida (Pipe 2 + Pipe 1).

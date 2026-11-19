@@ -1741,7 +1741,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1750,7 +1750,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     const ultima = respostas[0];
     if (!opts && ultima && RESPOSTA_SIM.test(q) && isSemResposta(ultima) && ultima.classificacao.pipe !== "semantica") {
       setPergunta("");
-      return enviar({ forcePipe: "semantica", perguntaOverride: ultima.perguntaTexto, forceCategories: ultima.classificacao.categorias });
+      return enviar({ forcePipe: "semantica", perguntaOverride: ultima.perguntaTexto, forceCategories: ultima.classificacao.categorias, ampliarAteAchar: true });
     }
     setError(null);
     setErrorTrace(null);
@@ -1775,6 +1775,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
       if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
+      if (opts?.ampliarAteAchar) body.ampliarAteAchar = true;
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
         method: "POST",
@@ -2981,7 +2982,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                               className={styles.ampliarBtn}
                               disabled={busy || noMinimo}
                               title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
-                              onClick={() => void enviar({ forcePipe: pipe, perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
+                              onClick={() => void enviar({ forcePipe: pipe, perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias, ampliarAteAchar: true })}
                             >
                               ↓ Ampliar busca
                             </button>
@@ -3017,7 +3018,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           type="button"
                           className={styles.refazerBtn}
                           disabled={busy}
-                          onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias })}
+                          onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias, ampliarAteAchar: true })}
                           title="Procurar a mesma pergunta nos textos dos memos (também dá para responder sim)"
                         >
                           🔎 Buscar nos memos
