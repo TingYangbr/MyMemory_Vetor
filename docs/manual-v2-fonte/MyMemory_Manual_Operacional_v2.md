@@ -361,6 +361,15 @@ Permite ao usuário fazer perguntas em linguagem natural sobre os memos do espa�
 | Estruturada | Listagens, contagens, somas, médias, agrupamentos e filtros por critério. Usa as queries cadastradas nas categorias. |
 | Híbrida | A pergunta pede números e interpretação textual ao mesmo tempo. Roda as duas partes e combina o resultado. |
 NOTA: O tipo é escolhido pela IA. No card da resposta há botões para refazer a pergunta forçando outro tipo (ex.: "tentar semântica").
+## Perguntas sobre os assuntos (categorias)
+"Assunto", "tema" e "tipo de registro" valem como sinônimos de categoria. Duas perguntas são respondidas direto pelo sistema, sem buscar nos memos e sem passar pela classificação:
+| Pergunta | Resposta |
+|---|---|
+| "Quais assuntos posso usar?", "Que categorias existem?", "O que posso registrar aqui?" | Lista das categorias do grupo, com a primeira frase da descrição de cada uma |
+| "Como uso o assunto Agenda?", "Para que serve a Lista de Compras?", "Como funciona a Agenda?" | Para que serve (descrição), o que guardar (campos), a situação (se atualizável) e exemplos de uso |
+- Com perfil de acesso ligado, só aparecem as categorias que o perfil libera.
+- Os exemplos vêm do modelo do catálogo de onde a categoria foi habilitada. Sem modelo, a IA gera os exemplos a partir dos campos (uma vez por versão da categoria; custo pequeno).
+- Para a pergunta ser reconhecida, ela deve ser só isso: "Quais categorias de despesa tive em março?" continua sendo uma consulta normal.
 ## Etapas da resposta estruturada
 1. Classificação: identifica o tipo e as categorias envolvidas.
 2. Planejamento: escolhe as queries da categoria e preenche os parâmetros (cliente, período, produto…).
