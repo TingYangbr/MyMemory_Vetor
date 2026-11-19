@@ -1,5 +1,5 @@
 # SEÇÃO 1 — Perfis de acesso: conceitos
-Rota: Painel administrativo → aba Perfis (admin do sistema) · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso · Administrar grupo → Perfis de acesso
 
 ## Propósito
 O perfil de acesso controla o que cada pessoa pode perguntar no Perguntar (dentro do myMemory ou no gadget embutido de um ERP). Um perfil é uma lista de categorias com um nome, definida por grupo, por exemplo Financeiro, Fiscal ou Geral. A pessoa só obtém respostas sobre as categorias do perfil dela. Pergunta sobre uma categoria que não está no perfil recebe "Resposta bloqueada com dados restritos", seguida do nome da categoria.
@@ -24,7 +24,7 @@ O administrador do sistema (escolhendo o grupo) e o dono do grupo (só o grupo d
 | Configurei o perfil, mas a pessoa continua vendo tudo | A chave "Aplicar os perfis nas perguntas deste grupo" está desligada. Ligue-a (Seção 8). Enquanto estiver desligada, todos perguntam com o acesso de antes. |
 
 # SEÇÃO 2 — Aba Perfis: matriz de categorias por perfil
-Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso · Administrar grupo → Perfis de acesso
 
 ## Propósito
 A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são as categorias do grupo e as colunas são os perfis. Uma marca na célula significa que o perfil inclui a categoria. É a tela central para configurar e conferir os acessos.
@@ -32,7 +32,7 @@ A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são a
 ## Campos e elementos
 | Campo / Elemento | Descrição |
 |---|---|
-| Grupo | Só no painel administrativo: escolhe qual grupo configurar. Em Administrar grupo, o seletor mostra só os grupos em que a pessoa é dona. |
+| Grupo | Só no Admin do sistema: escolhe qual grupo configurar. Em Administrar grupo, o seletor mostra só os grupos em que a pessoa é dona. |
 | Aplicação dos perfis | Duas caixas de seleção do grupo: "Aplicar os perfis nas perguntas deste grupo" e "Exigir cadastro no de-para para perguntar pelo ERP" (Seção 8). |
 | Avisos | Alertas de configuração: categoria que nenhum perfil inclui, perfil sem ninguém e categoria marcada "Pessoal" com queries escritas à mão. |
 | Coluna de perfil | Uma por perfil, com o nome, o selo "padrão" no perfil padrão e o número de pessoas que o usam. Abaixo ficam três ícones, cada um com uma dica ao passar o mouse: duplicar (copia o perfil), ✓ tornar padrão e lixeira (excluir). O perfil padrão só tem o ícone de duplicar. |
@@ -51,13 +51,13 @@ A aba Perfis mostra, numa tabela só, o que cada perfil acessa. As linhas são a
 | A categoria que criei hoje não aparece na matriz | A matriz mostra as categorias do próprio grupo e, se o grupo não tiver nenhuma, as globais. Confira se a categoria está ativa e pertence ao grupo escolhido. |
 
 # SEÇÃO 3 — Criar, editar e excluir perfis
-Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Cada perfil é criado uma vez por grupo e reutilizado por quantas pessoas precisarem. Quando alguém precisa de um acesso diferente, cria-se um perfil novo em vez de abrir uma exceção para a pessoa.
 
 ## Passo a passo
-1. Abra a aba Perfis e, no painel administrativo, escolha o grupo.
+1. Abra a aba Perfis e, no Admin do sistema, escolha o grupo.
 2. Clique em "+ Novo perfil", informe um nome (por exemplo Financeiro) e confirme. O perfil nasce sem nenhuma categoria.
 3. Na coluna do novo perfil, marque as categorias que ele pode acessar. Marque "(Sem categoria)" se ele deve alcançar memos sem categoria.
 4. Clique em "Salvar alterações". A tela pede confirmação quando a mudança atinge o perfil padrão com pessoas usando.
@@ -77,7 +77,7 @@ O ícone da lixeira, no alto da coluna, remove o perfil. As pessoas que o usavam
 | Salvei e voltou ao que estava antes | Se a tela mostrou erro vermelho, a gravação falhou: leia a mensagem. Sem mensagem, clique em Salvar alterações de novo e confira se a contagem ao lado do botão zerou. |
 
 # SEÇÃO 4 — Perfil padrão do grupo
-Rota: Painel administrativo → Perfis · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Cada grupo tem um e só um perfil padrão. Todo membro, novo ou antigo, que não recebeu um perfil explícito usa o padrão. Mudar o padrão muda de uma vez o acesso de todos que o usam.
@@ -95,7 +95,7 @@ Cada grupo tem um e só um perfil padrão. Todo membro, novo ou antigo, que não
 | Um membro novo não consegue perguntar sobre nada | Ele usa o perfil padrão, e o padrão do grupo está sem categorias. Marque as categorias necessárias no padrão. |
 
 # SEÇÃO 5 — Marca "Pessoal"
-Rota: Painel administrativo → Perfis → coluna "Pessoal" · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso → coluna "Pessoal" · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "quais são minhas reuniões em março?" não deve trazer as de todo o grupo. A marca "Pessoal" faz a categoria responder, por padrão, só com os memos da própria pessoa que perguntou.
@@ -117,7 +117,7 @@ Algumas categorias guardam coisas de cada pessoa, como a Agenda. A pergunta "qua
 | A pessoa pediu as próprias agendas e veio vazio | A Agenda não está no perfil dela, ou ela não tem memos nessa categoria. Confira o perfil na seção Pessoas. |
 
 # SEÇÃO 6 — Pessoas, perfis e limite de membros
-Rota: Painel administrativo → Perfis → Pessoas · Administrar grupo → Pessoas
+Rota: Admin do sistema → Integrações → Perfis de acesso → Pessoas · Administrar grupo → Pessoas
 
 ## Propósito
 A seção Pessoas lista os membros do grupo, o perfil que cada um usa e a ligação dele com o ERP. Aqui se troca o perfil de alguém e se confere quantos membros o grupo tem em relação ao limite do plano.
@@ -143,7 +143,7 @@ O usuário do ERP que vai usar o Perguntar é um usuário comum do myMemory. O d
 | Entre com a conta do mesmo e-mail que recebeu o convite. | O convite só vale para o e-mail para o qual foi enviado. Entre com essa conta. |
 
 # SEÇÃO 7 — Ligar usuários do ERP (de-para)
-Rota: Painel administrativo → Perfis → Pessoas → Ligação com o ERP · Administrar grupo → Pessoas (coluna Usuário no ERP)
+Rota: Admin do sistema → Integrações → Perfis de acesso → Pessoas → Ligação com o ERP · Administrar grupo → Pessoas (coluna Usuário no ERP)
 
 ## Propósito
 O de-para liga uma pessoa do myMemory ao id dela no ERP. O ERP só informa "é o usuário 57"; o myMemory decide quem é essa pessoa e aplica o perfil dela. Sem a ligação, o myMemory não sabe quem está perguntando dentro do ERP.
@@ -177,7 +177,7 @@ O de-para liga uma pessoa do myMemory ao id dela no ERP. O ERP só informa "é o
 | Liguei, mas o botão não apareceu no ERP | Espere cerca de 1 minuto e recarregue a tela. Se continuar sem aparecer, confira se o id digitado é o do usuário que está logado no ERP, se o sistema e o banco são os da chave do grupo e se o módulo está habilitado na tela Integração myMemory do Softing-erp. |
 
 # SEÇÃO 8 — Chaves do grupo: aplicar perfis e exigir cadastro
-Rota: Painel administrativo → Perfis → Aplicação dos perfis · Administrar grupo → Perfis de acesso
+Rota: Admin do sistema → Integrações → Perfis de acesso → Aplicação dos perfis · Administrar grupo → Perfis de acesso
 
 ## Propósito
 Duas chaves por grupo ligam o modelo de acesso. As duas nascem desligadas: o modelo entra por adesão, nunca por bloqueio. Com ambas desligadas, tudo funciona como antes de os perfis existirem.

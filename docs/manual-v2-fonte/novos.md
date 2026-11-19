@@ -68,6 +68,8 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Criar conta com o plano escolhido e a barra de senha; "Confira seu e-mail" depois de criar e de pedir nova senha | Seções 2 e 3 |
 | Minha conta com menu lateral: Perfil e senha (trocar nome e senha), Preferências salvas sozinhas, Uso do plano com barras e créditos por área | Seção 11 |
 | Entrar em grupo mostra o seu e-mail para copiar e os convites esperando você | Seções 13 e 15 |
+| Admin do sistema numa tela só, com menu lateral em 6 grupos e endereço próprio por seção; Início com verificação automática | Seção 19 |
+| Admin: Chamadas de IA por etapa; assinantes por plano; totais no relatório de custos; último teste das conexões; Eliminar pede para digitar ELIMINAR | Seção 19 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
 
@@ -505,7 +507,7 @@ Tela de diagnóstico: mostra fielmente o último payload enviado à API de IA (m
 | Atualizar | Recarrega o último registro. |
 ## Relatório de chamadas de IA
 Toda chamada de IA fica registrada (etapa, modelo, tamanho do prompt e da resposta em caracteres, tempo, falha e custo). O admin consulta o resumo por etapa em /api/admin/llm-chamadas?dias=7 (JSON; dias de 1 a 90). Serve para ver quais prompts pesam mais e onde enxugar.
-NOTA: A edição dos prompts (com override por categoria) fica no Painel Admin → aba Prompts LLM. Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
+NOTA: A edição dos prompts (com override por categoria) fica em Admin do sistema → Inteligência artificial → Prompts (Seção 19). Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
 @@FIM
 
 @@ADM_STORAGE_ADD
@@ -520,7 +522,7 @@ NOTA: A janela "Armazenamento do arquivo" da edição do memo mostra a localiza�
 
 @@SEC_IMPORTAR
 # SEÇÃO — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
 ## Propósito
 Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks-mymemory-operacional.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
 Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
@@ -1026,4 +1028,67 @@ Rota: /convite/grupo
 - Convite vencido: a tela avisa; o dono deve reenviar.
 - Convite já aceito: a tela avisa e oferece Entrar.
 - Logado com outro e-mail: a tela pede para sair e entrar com a conta do e-mail convidado.
+@@FIM
+
+@@SEC_ADMIN_NOVA
+# SEÇÃO 19 — Admin do sistema
+Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
+## Acesso
+Só para administradores do sistema: menu do avatar → Administração → "Admin do sistema". Sem login, vai para Entrar; sem perfil de admin, aparece "Acesso negado".
+## Menu lateral
+Todas as telas de admin têm o mesmo menu à esquerda (no celular, ele fica no topo). Os itens estão em 6 grupos; o grupo da tela aberta fica aberto e os outros podem ser abertos com um toque.
+| Grupo | Itens (endereço) |
+|---|---|
+| Clientes e planos | Planos de assinatura (/admin/planos) · Assinaturas e grupos (/admin/assinaturas) · Convites de usuários (/admin/convites) · Storage por grupo (/admin/storage) · Mídia por plano (/admin/midia) |
+| Inteligência artificial | Provedores de IA (/admin/ia) · Prompts (/admin/prompts) · Último prompt (/admin/llm-prompt) · Roteamento de documentos (/admin/documento-ia) · CAD/BIM (/admin/cad-pipeline) |
+| Conteúdo | Categorias globais · Importar conhecimento (/admin/conhecimento) · Consulta de memos (/admin/consulta) · Eliminação definitiva (/admin/eliminacao) |
+| Integrações | Conexões de banco (/admin/conexoes) · Perfis de acesso (/admin/perfis) |
+| Custos e saúde | Relatório de custos (/admin/custos) · Chamadas de IA (/admin/chamadas-ia) · Verificação do sistema (/admin/verificacao) |
+| Sistema | Configurações (/admin/system-config) |
+
+## Início (/admin)
+- Faixa "Verificação do sistema": roda sozinha ao abrir e mostra uma bolinha por item (verde = ok, vermelha = falha) com o tempo de resposta. "Ver detalhes" abre a Verificação do sistema.
+- Um cartão por grupo, com os itens dele; tocar no cartão abre o primeiro item.
+## Planos de assinatura (/admin/planos)
+Criar, editar e excluir planos (individuais e de grupo).
+| Campo / Elemento | Descrição |
+|---|---|
+| Nome | Nome do plano (ex.: Gratuito, Pro). |
+| Preço | Valor em R$. 0 = gratuito. |
+| Máx. memos · Armaz. (GB) · Máx. membros | Limites do plano. |
+| Cred. / mês · Download / mês (GB) | Limites mensais de créditos de IA e de download. |
+| Duração (dias) | Vazio = sem prazo. |
+| Assinantes | Assinaturas ativas no plano. Passando o mouse: o total, contando as encerradas. |
+| Ativo | Planos inativos não aparecem para novos cadastros. |
+
+NOTA: Plano com assinaturas (ativas ou encerradas) não pode ser excluído; o botão de excluir explica o motivo.
+## Provedores de IA (/admin/ia) e Prompts (/admin/prompts)
+- Provedores de IA: para cada tipo de trabalho (texto, imagem, transcrição de áudio), o provedor, o modelo, a temperatura, o máximo de tokens e se está ativo. A chave de cada provedor fica no servidor e não aparece na tela.
+- Prompts: o texto de instrução de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com ajuste por categoria. O que a IA recebeu de fato aparece em "Último prompt" (Seção 24).
+## Consulta de memos (/admin/consulta)
+Igual à Consulta de memos de Administrar grupo, mas com acesso a todos os grupos. Filtros por grupo de categorias, categoria, grupo de memos e data.
+## Eliminação definitiva (/admin/eliminacao)
+Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do mês e os arquivos deles (os registros de custo ficam).
+- Para confirmar, é preciso digitar ELIMINAR na janela que aparece.
+- O mês atual não pode ser eliminado: dá tempo de o usuário se arrepender.
+NOTA: A eliminação não pode ser desfeita. Combine com o responsável técnico antes.
+## Conexões de banco (/admin/conexoes) e Perfis de acesso (/admin/perfis)
+- Conexões de banco: todas as conexões SQL Server dos grupos. Cada conexão mostra o resultado do último teste ("✓ Conectou · N ms" ou "✗ Não conectou" com o motivo) e a data; "Ainda não testada" quando nunca foi testada. "Testar" atualiza.
+- Perfis de acesso: escolher o grupo e editar os perfis dele (o mesmo painel de Administrar grupo → Perfis de acesso).
+## Relatório de custos (/admin/custos)
+Custos de IA e de download por plano, grupo e pessoa, no período e tipo de mídia escolhidos. No topo, três totais: IA no período (US$), Créditos cobrados e Download (US$). Abaixo, a tabela por plano, que abre por grupo e por pessoa, e o detalhe das últimas chamadas.
+## Chamadas de IA (/admin/chamadas-ia)
+Para o último dia, 7, 30 ou 90 dias: por etapa (classificação, planejamento, síntese, extração…), quantas chamadas, quantas falharam, o tempo médio, o tempo em que 9 de cada 10 terminam, o custo em US$ e os modelos usados. Serve para achar o que está caro ou lento.
+## Verificação do sistema (/admin/verificacao)
+"Executar diagnóstico" testa as dependências do Perguntar (banco, embeddings, provedor de IA) e mostra o status, o tempo e o detalhe de cada uma.
+## Convites de usuários (/admin/convites)
+Convidar uma pessoa por e-mail e acompanhar os convites (enviado, aceito, expirado).
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Acesso negado | O usuário não é administrador do sistema. Conferir no banco (tabela users). |
+| Seção não encontrada | O endereço /admin/<seção> não existe. Usar o menu lateral. |
+| Botão Eliminar desabilitado | O mês é o atual, ou não há memos nele. |
+| Falha ao carregar custos | Nenhum registro no período: resultado vazio é normal. |
+| Não é possível excluir o plano | Existem assinaturas ligadas a ele. Passar os usuários para outro plano antes. |
 @@FIM
