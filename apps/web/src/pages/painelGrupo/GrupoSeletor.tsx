@@ -158,7 +158,7 @@ export default function GrupoSeletor({ grupoId, grupoNome, sub, onEscolher }: Pr
             <button type="button" className={`${s.gItem} ${grupoId == null ? s.gItemOn : ""}`} onClick={() => escolher(null)}>
               <span className={`${s.gAv} ${s.gAvGlobal}`}>G</span>
               <span className={s.gTexts}>
-                <span className={s.gName}>Categorias globais</span>
+                <span className={s.gName}>Categorias Modelos</span>
                 <span className={s.gSub}>sem grupo · valem para todos os grupos</span>
               </span>
             </button>

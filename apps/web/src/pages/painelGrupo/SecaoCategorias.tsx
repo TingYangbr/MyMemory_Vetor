@@ -175,7 +175,7 @@ export default function SecaoCategorias({ groupId, isAdmin, onTotal }: Props) {
   return (
     <AdminCtx.Provider value={isAdmin}>
       <div className={s.mh}>
-        <h1>{groupId == null ? "Categorias globais" : "Categorias"}</h1>
+        <h1>{groupId == null ? "Categorias Modelos" : "Categorias"}</h1>
         <span className={s.sp} />
         <label className={s.search}>
           <IconSearch />
@@ -858,7 +858,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
               placeholder={"Baixado: pagar, paguei, quitar, recebi, dar baixa\nAberto: estornar, reabrir"}
             />
             <p className={s.help}>
-              No Perguntar, &quot;recebi do Joaquim&quot; muda para o valor do verbo. Verbo depois de &quot;a&quot;, &quot;falta&quot; ou
+              No Fale comigo, &quot;recebi do Joaquim&quot; muda para o valor do verbo. Verbo depois de &quot;a&quot;, &quot;falta&quot; ou
               &quot;não&quot; (&quot;a receber&quot;) não conta.
             </p>
           </>

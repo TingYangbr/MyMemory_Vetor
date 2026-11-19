@@ -166,7 +166,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
     <div>
       <div className={s.row} style={{ marginBottom: 10 }}>
         <span className="mm-muted" style={{ fontSize: 12.5 }}>
-          Como o Perguntar busca os dados desta categoria.
+          Como o Fale comigo busca os dados desta categoria.
         </span>
         <span className={s.sp} />
         {podeEditar && editando == null ? (

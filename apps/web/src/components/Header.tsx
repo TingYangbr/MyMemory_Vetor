@@ -343,19 +343,19 @@ function HeaderInterno({
                 {hasAdminSection ? (
                   <div className={styles.menuGroup}>
                     <div className={styles.menuLabel}>Administração</div>
+                    {isAdmin ? (
+                      <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
+                        <IconSettings /> Painel Admin
+                      </Link>
+                    ) : null}
                     {ownerPanelGroupId != null ? (
                       <Link to={`/grupo/${ownerPanelGroupId}/admin`} role="menuitem" className={styles.item} onClick={close}>
-                        <IconUsers /> Administrar grupo
+                        <IconUsers /> Painel Owners
                       </Link>
                     ) : null}
                     {isAdmin ? (
                       <Link to="/grupo/globais/admin?secao=categorias" role="menuitem" className={styles.item} onClick={close}>
-                        <IconLayers /> Categorias globais
-                      </Link>
-                    ) : null}
-                    {isAdmin ? (
-                      <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
-                        <IconSettings /> Admin do sistema
+                        <IconLayers /> Categorias Modelos
                       </Link>
                     ) : null}
                   </div>

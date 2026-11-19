@@ -448,7 +448,7 @@ export default function UserPreferencesPage() {
                         {(
                           [
                             ["Catalogar", usage.creditosPorArea.catalogar],
-                            ["Perguntar", usage.creditosPorArea.perguntar],
+                            ["Fale comigo", usage.creditosPorArea.perguntar],
                             ["Importar em lote", usage.creditosPorArea.lote],
                             ["Avisos", usage.creditosPorArea.avisos],
                           ] as const
