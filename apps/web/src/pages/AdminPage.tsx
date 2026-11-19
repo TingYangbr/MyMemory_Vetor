@@ -682,6 +682,28 @@ export default function AdminPage() {
     }
   }, []);
 
+  // (Os efeitos ficam antes das saídas antecipadas da tela: o número de hooks não pode mudar entre renderizações.)
+  // Início: verificação do sistema roda sozinha ao abrir
+  const diagAutoRef = useRef(false);
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "inicio" || diagAutoRef.current) return;
+    diagAutoRef.current = true;
+    void runDiagnostics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, tab]);
+
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "chamadas") return;
+    let vivo = true;
+    setChamadasErr(null);
+    apiGet<{ dias: number; etapas: ChamadaEtapa[] }>(`/api/admin/llm-chamadas?dias=${chamadasDias}`)
+      .then((r) => vivo && setChamadas(r))
+      .catch((e) => vivo && setChamadasErr(e instanceof Error ? e.message : "Falha ao carregar."));
+    return () => {
+      vivo = false;
+    };
+  }, [me, tab, chamadasDias]);
+
   const loadPurgeSummary = useCallback(() => {
     if (me?.role !== "admin") return Promise.resolve();
     setPurgeErr(null);
@@ -1214,26 +1236,6 @@ export default function AdminPage() {
     );
   }
 
-  // Início: verificação do sistema roda sozinha ao abrir
-  const diagAutoRef = useRef(false);
-  useEffect(() => {
-    if (me?.role !== "admin" || tab !== "inicio" || diagAutoRef.current) return;
-    diagAutoRef.current = true;
-    void runDiagnostics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me, tab]);
-
-  useEffect(() => {
-    if (me?.role !== "admin" || tab !== "chamadas") return;
-    let vivo = true;
-    setChamadasErr(null);
-    apiGet<{ dias: number; etapas: ChamadaEtapa[] }>(`/api/admin/llm-chamadas?dias=${chamadasDias}`)
-      .then((r) => vivo && setChamadas(r))
-      .catch((e) => vivo && setChamadasErr(e instanceof Error ? e.message : "Falha ao carregar."));
-    return () => {
-      vivo = false;
-    };
-  }, [me, tab, chamadasDias]);
 
   return (
     <div className={styles.shell}>
