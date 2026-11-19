@@ -90,6 +90,7 @@ import { CategoriaTipoSituacao1700000000175 } from "./migrations/1700000000175-C
 import { UserPdfAbrirAba1700000000176 } from "./migrations/1700000000176-UserPdfAbrirAba.js";
 import { GrupoPessoalECatalogo1700000000177 } from "./migrations/1700000000177-GrupoPessoalECatalogo.js";
 import { DescricaoSituacaoNova1700000000178 } from "./migrations/1700000000178-DescricaoSituacaoNova.js";
+import { ConexaoUltimoTeste1700000000179 } from "./migrations/1700000000179-ConexaoUltimoTeste.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -226,6 +227,7 @@ assertMediaStorageEnv();
       UserPdfAbrirAba1700000000176,
       GrupoPessoalECatalogo1700000000177,
       DescricaoSituacaoNova1700000000178,
+      ConexaoUltimoTeste1700000000179,
     ],
   });
   const ds = await AppDataSource.initialize();

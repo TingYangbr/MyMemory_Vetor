@@ -8,9 +8,7 @@ import {
   IconArrowLeft,
   IconBell,
   IconChevronDown,
-  IconCode,
   IconDoc,
-  IconFolder,
   IconHelp,
   IconLayers,
   IconLogout,
@@ -25,6 +23,7 @@ import {
 } from "./icons";
 import { SinoNotificacoes } from "./SinoNotificacoes";
 import styles from "./Header.module.css";
+import { useEmbutidoNoAdmin } from "./adminContexto";
 
 /** Iniciais para o avatar: duas letras do nome, ou do e-mail. */
 function initialsOf(me: MeResponse | null): string {
@@ -52,7 +51,14 @@ type Props = {
   center?: ReactNode;
 };
 
-export default function Header({
+/** Dentro da moldura do Admin do sistema o cabeçalho já aparece uma vez (AdminLayout): as telas não o repetem. */
+export default function Header(props: Props) {
+  const embutido = useEmbutidoNoAdmin();
+  if (embutido) return null;
+  return <HeaderInterno {...props} />;
+}
+
+function HeaderInterno({
   onMenuAction,
   meRefreshKey = 0,
   onOpenWorkspacePicker,
@@ -348,20 +354,9 @@ export default function Header({
                       </Link>
                     ) : null}
                     {isAdmin ? (
-                      <>
-                        <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
-                          <IconSettings /> Painel admin
-                        </Link>
-                        <Link to="/admin/midia" role="menuitem" className={styles.item} onClick={close}>
-                          <IconFolder /> Mídia por plano
-                        </Link>
-                        <Link to="/admin/documento-ia" role="menuitem" className={styles.item} onClick={close}>
-                          <IconDoc /> Documento IA (roteamento)
-                        </Link>
-                        <Link to="/admin/llm-prompt" role="menuitem" className={styles.item} onClick={close}>
-                          <IconCode /> Último prompt LLM
-                        </Link>
-                      </>
+                      <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
+                        <IconSettings /> Admin do sistema
+                      </Link>
                     ) : null}
                   </div>
                 ) : null}

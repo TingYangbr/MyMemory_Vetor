@@ -1,0 +1,112 @@
+/* Admin do sistema — lote 5 do redesenho: menu lateral com 6 grupos + conteúdo. */
+.shell {
+  min-height: 100vh;
+  background: var(--mm-bg);
+  color: var(--mm-text);
+}
+
+.corpo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.menu {
+  flex: 0 0 250px;
+  box-sizing: border-box;
+  align-self: stretch;
+  min-height: calc(100vh - 64px);
+  padding: 1.1rem 0.75rem 2rem;
+  background: var(--mm-card);
+  border-right: 1px solid var(--mm-border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.selo {
+  align-self: flex-start;
+  margin: 0 0.5rem 0.75rem;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  background: var(--mm-text);
+  color: var(--mm-card);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.grupo {
+  margin-top: 0.4rem;
+}
+
+.grupoNome {
+  list-style: none;
+  cursor: pointer;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mm-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-radius: 8px;
+}
+.grupoNome::-webkit-details-marker {
+  display: none;
+}
+.grupoNome::after {
+  content: "▸";
+  font-size: 0.75rem;
+}
+.grupo[open] > .grupoNome::after {
+  content: "▾";
+}
+.grupoNome:hover {
+  color: var(--mm-text);
+  background: var(--mm-primary-faint);
+}
+.grupoAberto {
+  color: var(--mm-primary);
+}
+
+.item {
+  display: block;
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
+  color: var(--mm-text-secondary);
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-decoration: none;
+}
+.item:hover {
+  background: var(--mm-primary-faint);
+  color: var(--mm-text);
+}
+.ativo,
+.ativo:hover {
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary-hover);
+  font-weight: 700;
+}
+
+.conteudo {
+  flex: 999 1 560px;
+  min-width: 0;
+}
+
+/* As telas de admin trazem a própria largura máxima; aqui só garantimos o respiro */
+.conteudo > * {
+  box-sizing: border-box;
+}
+
+@media (max-width: 860px) {
+  .menu {
+    flex-basis: 100%;
+    min-height: 0;
+    border-right: 0;
+    border-bottom: 1px solid var(--mm-border);
+    padding-bottom: 0.75rem;
+  }
+}

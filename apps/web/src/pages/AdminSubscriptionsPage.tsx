@@ -121,7 +121,6 @@ export default function AdminSubscriptionsPage() {
       <Header meRefreshKey={0} />
       <main style={{ maxWidth: 1100, margin: "0 auto", padding: "2rem 1rem" }}>
         <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginBottom: "1.5rem", flexWrap: "wrap" }}>
-          <Link to="/admin" className="mm-btn">← Admin</Link>
           <h1 style={{ margin: 0, fontSize: "1.25rem", fontWeight: 700 }}>Assinaturas</h1>
         </div>
 

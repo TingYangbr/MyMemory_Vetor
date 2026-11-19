@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 import type { MemoContextEditorMetaResponse, MemoContextGroupOption } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../api";
 import Header from "../components/Header";
@@ -160,7 +159,6 @@ export default function AdminStoragePage() {
     <div className={adminStyles.shell}>
       <Header />
       <main className={`${adminStyles.main} ${adminStyles.mainWide}`}>
-        <Link to="/admin" className={adminStyles.back}>← Admin</Link>
         <h1 className={adminStyles.title}>Storage por Grupo</h1>
         <p className={adminStyles.lead}>Configure servidores WebDAV por grupo. Sem configuração, o storage padrão (S3) é usado.</p>
 
