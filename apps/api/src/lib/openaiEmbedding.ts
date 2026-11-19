@@ -111,7 +111,12 @@ export interface RestricaoMemos {
   categoriasConhecidas?: string[];
   /** Marca "Pessoal": nestas categorias só entram memos do próprio autor. */
   escopoAutor?: { categorias: string[]; userId: number };
+  /** Só memos de conhecimento importado (manuais), para dúvidas de uso do sistema. */
+  soConhecimento?: boolean;
 }
+
+/** Marca gravada em mediaMetadata dos trechos de conhecimento (REVIEW_FLOW_CONHECIMENTO em memoService). */
+export const MARCA_CONHECIMENTO_LIKE = '%"reviewFlow":"conhecimento_v1"%';
 
 export function condicoesRestricao(r: RestricaoMemos | undefined): { where: string; vals: unknown[] } {
   if (!r) return { where: "", vals: [] };
@@ -131,6 +136,10 @@ export function condicoesRestricao(r: RestricaoMemos | undefined): { where: stri
   if (r.escopoAutor && r.escopoAutor.categorias.length) {
     conds.push("NOT (COALESCE(LOWER(m.category) = ANY(?::text[]), false) AND m.userid <> ?)");
     vals.push(lower(r.escopoAutor.categorias), r.escopoAutor.userId);
+  }
+  if (r.soConhecimento) {
+    conds.push("m.mediametadata LIKE ?");
+    vals.push(MARCA_CONHECIMENTO_LIKE);
   }
   return { where: conds.length ? " AND " + conds.join(" AND ") : "", vals };
 }

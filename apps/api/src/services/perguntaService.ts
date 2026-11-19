@@ -29,7 +29,13 @@ import {
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
-import { detectarPerguntaSobreAssuntos, respostaComoUsar, respostaListaAssuntos } from "./assuntosAjudaService.js";
+import {
+  descricaoConfiguracao,
+  detectarPerguntaSobreAssuntos,
+  grupoTemConhecimento,
+  respostaComoUsar,
+  respostaListaAssuntos,
+} from "./assuntosAjudaService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -212,7 +218,7 @@ export async function classificarPergunta(input: {
     2
   );
 
-  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":"","acao":"consultar | criar | alterar"}\n\nCampo "acao": "alterar" quando o texto pede para mudar um registro que já existe (adiar, remarcar, mudar, cancelar, concluir, reativar, acrescentar ou tirar itens de uma lista); "criar" quando pede para registrar algo novo (criar, agendar, marcar uma reunião, anotar); "consultar" quando é uma pergunta ou um pedido de informação. Na dúvida, "consultar".`;
+  const user = `Classifique a pergunta abaixo.\n\nEntrada:\n${userMsg}\n\nRetorne somente JSON neste formato:\n{"pipe":"semantica | estruturada | hibrida","categorias":[],"multi_categoria":true,"intencao":"contagem | percentual | listagem | resumo | explicacao | comparacao | agrupamento | soma | media | tendencia | outro","contexto":"nova | continuidade | refinamento","escopo_sugerido":"global | contexto_sessao | indefinido","categoria_principal":null,"justificativa":"","acao":"consultar | criar | alterar","alvo":"dados | uso_do_sistema"}\n\nCampo "alvo": "uso_do_sistema" quando a pessoa quer saber COMO USAR o sistema ou uma categoria — como fazer algo, onde configurar, para que serve, se é possível, o que significa uma tela, botão, campo, lembrete ou situação (ex.: "como faço para remarcar um compromisso na agenda?", "a agenda manda lembrete?", "onde configuro o lembrete?"); nesses casos "acao" é "consultar". "dados" quando quer os próprios registros e memos ou o que está neles (ex.: "o que tenho na agenda amanhã?", "como está minha agenda essa semana?", "quanto gastei em março?"). Citar o nome de uma categoria não decide: decide se a resposta está nos registros (dados) ou no modo de usar (uso_do_sistema). Na dúvida, "dados".\n\nCampo "acao": "alterar" quando o texto pede para mudar um registro que já existe (adiar, remarcar, mudar, cancelar, concluir, reativar, acrescentar ou tirar itens de uma lista); "criar" quando pede para registrar algo novo (criar, agendar, marcar uma reunião, anotar); "consultar" quando é uma pergunta ou um pedido de informação. Na dúvida, "consultar".`;
 
   const systemClassificacao = await getActiveSystemPrompt("perguntas_pipe1_classificacao_system");
   const { text, costUsd } = await invokeLLM({ system: systemClassificacao, user, jsonObject: true, source: "classificacao" });
@@ -241,6 +247,7 @@ export async function classificarPergunta(input: {
     categoria_principal: categoriaPrincipal,
     justificativa: String(parsed.justificativa ?? ""),
     acao: (["consultar", "criar", "alterar"].includes(String(parsed.acao ?? "")) ? parsed.acao : "consultar") as PerguntaClassificacao["acao"],
+    alvo: parsed.alvo === "uso_do_sistema" ? "uso_do_sistema" : "dados",
   };
 
   return { classificacao, costUsd };
@@ -268,6 +275,8 @@ export async function perguntarMemory(input: {
   perfil?: PerfilNaPergunta | null;
   /** Aceita comandos de alteração (só a tela do usuário; nunca chave de integração). */
   permitirComandos?: boolean;
+  /** Força o alvo (botões "Buscar nos meus registros" / "No manual"). */
+  forceAlvo?: import("@mymemory/shared").PerguntaAlvo;
 }): Promise<{
   resposta: PerguntaResposta;
   classificacao: PerguntaClassificacao;
@@ -285,12 +294,15 @@ export async function perguntarMemory(input: {
 }> {
   let totalCost = 0;
 
+  // Categorias que a pessoa pode ver (perfil de acesso ligado = só as liberadas)
+  const efetivoPerfil = input.perfil?.efetivo;
+  const liberadasPerfil = efetivoPerfil && !efetivoPerfil.todas ? new Set(efetivoPerfil.categoriasPermitidas) : null;
+  const categoriasVisiveis = liberadasPerfil ? input.categories.filter((c) => liberadasPerfil.has(c.name)) : input.categories;
+
   // Perguntas sobre os próprios assuntos ("quais assuntos posso usar?", "como uso a Agenda?"):
-  // respondidas por regra, sem classificar nem buscar nos memos. Respeita o perfil de acesso.
-  if (!input.forcePipe) {
-    const efetivoPerfil = input.perfil?.efetivo;
-    const liberadas = efetivoPerfil && !efetivoPerfil.todas ? new Set(efetivoPerfil.categoriasPermitidas) : null;
-    const visiveis = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
+  // respondidas por regra, sem classificar nem buscar nos memos.
+  if (!input.forcePipe && !input.forceAlvo) {
+    const visiveis = categoriasVisiveis;
     const sobre = detectarPerguntaSobreAssuntos(input.pergunta, visiveis);
     if (sobre) {
       const r =
@@ -304,6 +316,7 @@ export async function perguntarMemory(input: {
           dados_usados: [],
           limitacoes: [],
           confianca_estimada: 1,
+          ...(sobre.tipo === "como_usar" ? { alvo: "uso_do_sistema" as const } : {}),
         },
         classificacao: {
           pipe: "semantica",
@@ -351,6 +364,74 @@ export async function perguntarMemory(input: {
   ) {
     const match = encontrarCategoriaProxima(classificacao.categoria_principal, input.categories);
     if (match) classificacao.categorias = [match];
+  }
+
+  // Dúvida de uso do sistema ("como faço para remarcar na agenda?"): responde pelo conhecimento
+  // importado (manuais), com a configuração da categoria citada; sem nada no manual, pela configuração.
+  const querUso = input.forceAlvo === "uso_do_sistema" || (input.forceAlvo !== "dados" && classificacao.alvo === "uso_do_sistema");
+  if (querUso) {
+    if (input.forceAlvo === "uso_do_sistema") classificacao.alvo = "uso_do_sistema";
+    const cat = classificacao.categorias
+      .map((n) => categoriasVisiveis.find((c) => c.isActive === 1 && c.name === n))
+      .find((c): c is MemoContextCategory => Boolean(c)) ?? null;
+    const comoUso = (texto: string, dados: import("@mymemory/shared").PerguntaMemoUsado[] = [], confianca = 1) => ({
+      resposta: texto,
+      tipo_resposta: "semantica" as const,
+      dados_usados: dados,
+      limitacoes: [],
+      confianca_estimada: confianca,
+      alvo: "uso_do_sistema" as const,
+    });
+    if (await grupoTemConhecimento(input.groupId)) {
+      const r = await executarPipe1({
+        pergunta: input.pergunta,
+        userId: input.userId,
+        groupId: input.groupId,
+        filtros: {},
+        categoriaNames: classificacao.categorias,
+        thresholdInitial: input.thresholdInitial ?? 0.7,
+        thresholdMin: input.thresholdMin ?? 0.3,
+        contextoTela: input.contextoTela,
+        restricao: {
+          soConhecimento: true,
+          ...(liberadasPerfil && efetivoPerfil
+            ? {
+                categoriasPermitidas: efetivoPerfil.categoriasPermitidas,
+                incluiSemCategoria: efetivoPerfil.incluiSemCategoria,
+                categoriasConhecidas: input.categories.filter((c) => c.isActive === 1).map((c) => c.name),
+              }
+            : {}),
+        },
+        ampliarAteAchar: true,
+        configuracaoCategoria: cat ? descricaoConfiguracao(cat) : undefined,
+      });
+      totalCost += r.apiCost;
+      if (r.memosEncontrados > 0) {
+        classificacao.pipe = "semantica";
+        return {
+          resposta: { ...r.resposta, alvo: "uso_do_sistema" },
+          classificacao,
+          apiCost: totalCost,
+          memosEncontrados: r.memosEncontrados,
+        };
+      }
+    }
+    if (cat) {
+      const r = await respostaComoUsar(cat);
+      totalCost += r.costUsd;
+      classificacao.pipe = "semantica";
+      return { resposta: comoUso(r.texto), classificacao, apiCost: totalCost };
+    }
+    if (input.forceAlvo === "uso_do_sistema") {
+      classificacao.pipe = "semantica";
+      return {
+        resposta: comoUso("Não achei isso no manual deste grupo. Tente perguntar de outro jeito ou citar o assunto (ex.: \"Como uso o assunto Agenda?\").", [], 0),
+        classificacao,
+        apiCost: totalCost,
+      };
+    }
+    // Sem manual e sem categoria citada: segue como pergunta normal
+    classificacao.alvo = "dados";
   }
 
   // Comando ("adiar a reunião para 14h", "acrescentar arroz na lista"): não é pergunta e nunca vai
