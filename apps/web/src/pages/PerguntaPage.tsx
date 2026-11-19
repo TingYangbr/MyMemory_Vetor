@@ -33,6 +33,9 @@ import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
+/** Resposta curta de concordância ("sim", "pode", "ok", "quero"…), dita ou digitada. */
+const RESPOSTA_SIM = /^\s*(sim|s|pode|pode sim|pode ser|ok|okay|claro|quero|isso|faça|faz|procure|procura|busque|busca|yes)\s*[.!]*\s*$/i;
+
 const COLUNA_LABELS: Record<string, string> = {
   id: "ID", resumo: "Resumo", keywords: "Keywords",
   mediaType: "Tipo", mediaText: "Conteúdo", mediatext: "Conteúdo",
@@ -1461,6 +1464,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const capturedRef        = useRef("");
   const transcribeQueueRef = useRef<Promise<void>>(Promise.resolve());   // serializa chunks
   const textareaRef        = useRef<HTMLTextAreaElement | null>(null);
+  /** Início do toque no botão Enviar (celular): envia no fim do toque se o dedo não arrastou. */
+  const toqueEnviarRef     = useRef<{ x: number; y: number } | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
@@ -1736,10 +1741,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[] }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
+    // "Sim" vale UMA vez: logo depois de "não achei nas consultas" (resposta não semântica vazia),
+    // faz a busca nos memos com a pergunta anterior. Depois disso, ampliar só pelo botão.
+    const ultima = respostas[0];
+    if (!opts && ultima && RESPOSTA_SIM.test(q) && isSemResposta(ultima) && ultima.classificacao.pipe !== "semantica") {
+      setPergunta("");
+      return enviar({ forcePipe: "semantica", perguntaOverride: ultima.perguntaTexto, forceCategories: ultima.classificacao.categorias, ampliarAteAchar: true });
+    }
     setError(null);
     setErrorTrace(null);
     setStatusMsg(null);
@@ -1763,6 +1775,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.forcePipe) body.forcePipe = opts.forcePipe;
       if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
+      if (opts?.ampliarAteAchar) body.ampliarAteAchar = true;
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
         method: "POST",
@@ -2693,6 +2706,23 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 type="button"
                 className={styles.perguntarBtn}
                 disabled={!pergunta.trim() && !modeloAtivo}
+                // Celular: tocar no botão tirava o foco da caixa, o teclado fechava e a caixa descia antes
+                // do clique — o primeiro toque se perdia. Segura o foco e envia já no toque.
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => {
+                  const t = e.touches[0];
+                  toqueEnviarRef.current = t ? { x: t.clientX, y: t.clientY } : null;
+                }}
+                onTouchEnd={(e) => {
+                  const ini = toqueEnviarRef.current;
+                  toqueEnviarRef.current = null;
+                  const t = e.changedTouches[0];
+                  if (!ini || !t || Math.abs(t.clientX - ini.x) > 12 || Math.abs(t.clientY - ini.y) > 12) return;
+                  e.preventDefault();
+                  if (!pergunta.trim() && !modeloAtivo) return;
+                  void (modeloAtivo ? executarModelo() : enviar());
+                  textareaRef.current?.blur();
+                }}
                 onClick={() => void (modeloAtivo ? executarModelo() : enviar())}
                 title="Enviar (Enter)"
               >
@@ -2952,7 +2982,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                               className={styles.ampliarBtn}
                               disabled={busy || noMinimo}
                               title={noMinimo ? `Limiar mínimo (${Math.round((r.limiarMinimo ?? 0) * 100)}%) já atingido` : `Buscar novamente com limiar ${Math.round(proxLimiar * 100)}%`}
-                              onClick={() => void enviar({ forcePipe: pipe, perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias })}
+                              onClick={() => void enviar({ forcePipe: pipe, perguntaOverride: r.perguntaTexto, thresholdOverride: proxLimiar, forceCategories: r.classificacao.categorias, ampliarAteAchar: true })}
                             >
                               ↓ Ampliar busca
                             </button>
@@ -2988,10 +3018,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           type="button"
                           className={styles.refazerBtn}
                           disabled={busy}
-                          onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias })}
-                          title="Refazer com busca semântica"
+                          onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias, ampliarAteAchar: true })}
+                          title="Procurar a mesma pergunta nos textos dos memos (também dá para responder sim)"
                         >
-                          → Semântico
+                          🔎 Buscar nos memos
                         </button>
                       </div>
                     ) : (
@@ -3515,7 +3545,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         const rHelp = respostas[helpHintOpenIdx]!;
         const botaoSemantico = rHelp.classificacao.pipe === "semantica"
           ? <strong>Ampliar busca</strong>
-          : <strong>→ Semântico</strong>;
+          : <strong>🔎 Buscar nos memos</strong>;
         const categoriaDetectada = rHelp.classificacao.categorias.length > 0;
         let mensagem: React.ReactNode;
         if (categoriaDetectada) {

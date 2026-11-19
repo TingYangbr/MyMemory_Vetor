@@ -29,6 +29,7 @@ import {
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
+import { detectarPerguntaSobreAssuntos, respostaComoUsar, respostaListaAssuntos } from "./assuntosAjudaService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -259,6 +260,8 @@ export async function perguntarMemory(input: {
   forceCategories?: string[];
   thresholdInitial?: number;
   thresholdMin?: number;
+  /** Busca nos memos desce o limiar sozinha até achar o primeiro memo (botão "Buscar nos memos"). */
+  ampliarAteAchar?: boolean;
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
@@ -281,6 +284,40 @@ export async function perguntarMemory(input: {
   planoSalvavel?: PerguntaPlanoSalvo;
 }> {
   let totalCost = 0;
+
+  // Perguntas sobre os próprios assuntos ("quais assuntos posso usar?", "como uso a Agenda?"):
+  // respondidas por regra, sem classificar nem buscar nos memos. Respeita o perfil de acesso.
+  if (!input.forcePipe) {
+    const efetivoPerfil = input.perfil?.efetivo;
+    const liberadas = efetivoPerfil && !efetivoPerfil.todas ? new Set(efetivoPerfil.categoriasPermitidas) : null;
+    const visiveis = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
+    const sobre = detectarPerguntaSobreAssuntos(input.pergunta, visiveis);
+    if (sobre) {
+      const r =
+        sobre.tipo === "lista"
+          ? { texto: respostaListaAssuntos(visiveis), costUsd: 0 }
+          : await respostaComoUsar(sobre.categoria);
+      return {
+        resposta: {
+          resposta: r.texto,
+          tipo_resposta: "semantica",
+          dados_usados: [],
+          limitacoes: [],
+          confianca_estimada: 1,
+        },
+        classificacao: {
+          pipe: "semantica",
+          categorias: sobre.tipo === "como_usar" ? [sobre.categoria.name] : [],
+          multi_categoria: false,
+          intencao: "explicacao",
+          contexto: "nova",
+          escopo_sugerido: "global",
+          justificativa: "pergunta sobre os assuntos (categorias), respondida por regra",
+        },
+        apiCost: r.costUsd,
+      };
+    }
+  }
 
   // Classificação (ou pipe forçado)
   let classificacao: PerguntaClassificacao;
@@ -381,11 +418,11 @@ export async function perguntarMemory(input: {
     classificacao.categorias.length === 0
   ) {
     const resposta: import("@mymemory/shared").PerguntaResposta = {
-      resposta:
-        "Não encontrei dados estruturados para essa pergunta. O módulo ou categoria relacionada pode não estar disponível no sistema. Deseja tentar uma busca nos registros de texto?",
+      // Curta e sem termos técnicos. "Sim" (uma vez) ou o botão fazem a busca nos memos.
+      resposta: "Não achei isso nas consultas do grupo. Quer que eu procure nos textos dos memos? Responda sim ou toque em 🔎 Buscar nos memos.",
       tipo_resposta: "estruturada",
       dados_usados: [],
-      limitacoes: ["Nenhuma categoria identificada para consulta estruturada."],
+      limitacoes: [],
       confianca_estimada: 0,
     };
     return {
@@ -489,6 +526,7 @@ export async function perguntarMemory(input: {
         categoryId: firstCategoryId,
         contextoTela: input.contextoTela,
         restricao,
+        ampliarAteAchar: input.ampliarAteAchar,
       });
       // "Por que o faturamento aumentou?" cai aqui pelo "por que", mas a explicação precisa dos números do ERP:
       // sem nenhum memo e com queries cadastradas na categoria, promove para híbrida (Pipe 2 + Pipe 1).
