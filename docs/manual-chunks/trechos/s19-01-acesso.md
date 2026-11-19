@@ -1,10 +1,10 @@
-Manual MyMemory › Painel Admin Principal › Acesso
-Seção: Seção 19 — Painel Admin Principal
-Rota: /admin
+Manual MyMemory › Admin do sistema › Acesso
+Seção: Seção 19 — Admin do sistema
+Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 Perfil: admin · Tipo: conceito · Versão do manual: 2
 
-Visível no menu apenas para usuários com perfil admin. Redireciona para login se não autenticado.
+Só para administradores do sistema: menu do avatar → Administração → "Admin do sistema". Sem login, vai para Entrar; sem perfil de admin, aparece "Acesso negado".
 
 Perguntas que este trecho responde:
-- Como acesso Painel Admin Principal?
-- Quem pode usar Painel Admin Principal?
+- Como acesso Admin do sistema?
+- Quem pode usar Admin do sistema?

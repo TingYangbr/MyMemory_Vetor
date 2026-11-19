@@ -101,7 +101,6 @@ export default function AdminCadPipelinePage() {
     <div className={adminStyles.shell}>
       <Header />
       <main className={adminStyles.main}>
-        <Link to="/admin" className={adminStyles.back}>← Painel admin</Link>
         <h1 className={adminStyles.title}>CAD/BIM — Pipeline IA</h1>
         <p className={adminStyles.lead}>
           Habilita o processamento de arquivos <strong>.ifc</strong> (IFC/BIM). Quando desabilitado,

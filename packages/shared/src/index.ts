@@ -741,6 +741,11 @@ export interface DbConnection {
   groupId?: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Resultado do último "Testar" (lista do Admin do sistema). */
+  ultimoTesteEm?: string | null;
+  ultimoTesteOk?: number | null;
+  ultimoTesteMs?: number | null;
+  ultimoTesteMsg?: string | null;
 }
 
 export interface DbConnectionListResponse {

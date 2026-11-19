@@ -19,7 +19,9 @@ export async function listDbConnections(options?: { groupId?: number | null }): 
   }
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT id, nome, descricao, host, port, database, username,
-            encrypt, trustServerCertificate, isActive, groupId, createdAt, updatedAt
+            encrypt, trustServerCertificate, isActive, groupId, createdAt, updatedAt,
+            ultimo_teste_em AS "ultimoTesteEm", ultimo_teste_ok AS "ultimoTesteOk",
+            ultimo_teste_ms AS "ultimoTesteMs", ultimo_teste_msg AS "ultimoTesteMsg"
      FROM db_connections ORDER BY nome ASC`
   );
   return rows as DbConnection[];
@@ -123,7 +125,21 @@ export async function assertConnectionBelongsToGroup(connectionId: number, group
 
 // ── Test connection (mssql) ───────────────────────────────────────────────────
 
+/** Testa a conexão e guarda o resultado (data, ok, tempo, mensagem) para a lista do Admin. */
 export async function testDbConnection(id: number): Promise<{ ok: boolean; message: string; latencyMs?: number }> {
+  const r = await testarConexaoSemRegistro(id);
+  try {
+    await pool.query(
+      `UPDATE db_connections SET ultimo_teste_em = NOW(), ultimo_teste_ok = ?, ultimo_teste_ms = ?, ultimo_teste_msg = ? WHERE id = ?`,
+      [r.ok ? 1 : 0, r.latencyMs ?? null, r.message.slice(0, 500), id]
+    );
+  } catch (err) {
+    console.warn("[dbConnections] não gravou o último teste:", err instanceof Error ? err.message : err);
+  }
+  return r;
+}
+
+async function testarConexaoSemRegistro(id: number): Promise<{ ok: boolean; message: string; latencyMs?: number }> {
   const conn = await getDbConnectionWithPassword(id);
   if (!conn) return { ok: false, message: "Conexão não encontrada." };
 

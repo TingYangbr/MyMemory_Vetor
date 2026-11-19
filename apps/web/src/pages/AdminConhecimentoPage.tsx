@@ -165,7 +165,6 @@ export default function AdminConhecimentoPage() {
     <div className={adminStyles.shell}>
       <Header />
       <main className={adminStyles.main}>
-        <Link to="/admin" className={adminStyles.back}>← Painel admin</Link>
         <h1 className={adminStyles.title}>Importar conhecimento em trechos</h1>
         <p className={adminStyles.lead}>
           Cada trecho do arquivo vira um memo de texto no grupo escolhido, já com a categoria, os campos

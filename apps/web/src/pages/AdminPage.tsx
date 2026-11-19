@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type {
   AdminCostReportMediaFilter,
   AdminCostReportResponse,
@@ -31,9 +31,27 @@ import { AI_PROVIDER_OPTIONS } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 import Header from "../components/Header";
 import { PerfisAcessoPanel } from "../components/PerfisAcessoPanel";
+import { GRUPOS_ADMIN, itemDoCaminho } from "../components/AdminLayout";
 import styles from "./AdminPage.module.css";
 
-type AdminTab = "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "perfis" | "convites_usuarios";
+type AdminTab = "inicio" | "invalida" | "chamadas" | "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "perfis" | "convites_usuarios";
+
+/** Lote 5: cada seção tem endereço próprio (/admin/<secao>); /admin = Início. */
+const SECOES_ADMIN: Record<string, AdminTab> = {
+  planos: "planos",
+  convites: "convites_usuarios",
+  ia: "ia",
+  prompts: "prompts",
+  consulta: "consulta",
+  eliminacao: "eliminacao",
+  conexoes: "conexoes_bd",
+  perfis: "perfis",
+  custos: "custos",
+  verificacao: "outros",
+  "chamadas-ia": "chamadas",
+};
+
+type ChamadaEtapa = { etapa: string; chamadas: number; falhas: number; msMedio: number; msP90: number; custoTotalUsd: number; modelos: string };
 
 const COST_MEDIA_OPTIONS: { value: AdminCostReportMediaFilter; label: string }[] = [
   { value: "all", label: "Todas" },
@@ -472,7 +490,13 @@ export default function AdminPage() {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [needLogin, setNeedLogin] = useState(false);
   const [forbidden, setForbidden] = useState(false);
-  const [tab, setTab] = useState<AdminTab>("planos");
+  const { secao } = useParams<{ secao?: string }>();
+  const { pathname } = useLocation();
+  const tab: AdminTab = secao ? SECOES_ADMIN[secao] ?? "invalida" : "inicio";
+  const tituloSecao = itemDoCaminho(pathname);
+  const [chamadas, setChamadas] = useState<{ dias: number; etapas: ChamadaEtapa[] } | null>(null);
+  const [chamadasDias, setChamadasDias] = useState(7);
+  const [chamadasErr, setChamadasErr] = useState<string | null>(null);
   const [plans, setPlans] = useState<SubscriptionPlanAdmin[]>([]);
   const [loadErr, setLoadErr] = useState<string | null>(null);
   const [diag, setDiag] = useState<AdminDiagnosticsResponse | null>(null);
@@ -969,11 +993,10 @@ export default function AdminPage() {
   async function handleHardDeleteMonth(month: string) {
     const row = purgeRows.find((r) => r.month === month);
     const n = row?.memosCount ?? 0;
-    if (
-      !window.confirm(
-        `Eliminação definitiva do período ${month}: serão removidos ${n} memo(s) do banco e os arquivos associados no S3 ou disco, quando aplicável. Os registros em api_usage_logs permanecem (memoId fica NULL). Confirma?`
-      )
-    ) {
+    const digitado = window.prompt(
+      `Eliminação definitiva de ${month}: ${n} memo(s) e os arquivos deles serão apagados de vez (não dá para desfazer). Os registros de custo ficam.\n\nPara confirmar, digite ELIMINAR:`
+    );
+    if ((digitado ?? "").trim().toUpperCase() !== "ELIMINAR") {
       return;
     }
     setHardDeletingMonth(month);
@@ -1191,107 +1214,125 @@ export default function AdminPage() {
     );
   }
 
+  // Início: verificação do sistema roda sozinha ao abrir
+  const diagAutoRef = useRef(false);
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "inicio" || diagAutoRef.current) return;
+    diagAutoRef.current = true;
+    void runDiagnostics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [me, tab]);
+
+  useEffect(() => {
+    if (me?.role !== "admin" || tab !== "chamadas") return;
+    let vivo = true;
+    setChamadasErr(null);
+    apiGet<{ dias: number; etapas: ChamadaEtapa[] }>(`/api/admin/llm-chamadas?dias=${chamadasDias}`)
+      .then((r) => vivo && setChamadas(r))
+      .catch((e) => vivo && setChamadasErr(e instanceof Error ? e.message : "Falha ao carregar."));
+    return () => {
+      vivo = false;
+    };
+  }, [me, tab, chamadasDias]);
+
   return (
     <div className={styles.shell}>
       <Header />
       <main
         className={`${styles.main} ${tab === "planos" || tab === "eliminacao" || tab === "custos" || tab === "consulta" ? styles.mainWide : ""}`}
       >
-        <h1 className={styles.title}>Painel administrativo</h1>
-        <p className={styles.lead}>Gestão de conteúdos e configurações da plataforma.</p>
+        {tituloSecao ? (
+          <div className={styles.secaoTopo}>
+            <span className={styles.secaoGrupo}>{tituloSecao.grupo}</span>
+            <h1 className={styles.title}>{tituloSecao.rotulo}</h1>
+          </div>
+        ) : null}
 
-        <div className={styles.tabs} role="tablist">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "planos"}
-            className={`${styles.tab} ${tab === "planos" ? styles.tabActive : ""}`}
-            onClick={() => setTab("planos")}
-          >
-            Planos de assinatura
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "outros"}
-            className={`${styles.tab} ${tab === "outros" ? styles.tabActive : ""}`}
-            onClick={() => setTab("outros")}
-          >
-            Configurações
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "custos"}
-            className={`${styles.tab} ${tab === "custos" ? styles.tabActive : ""}`}
-            onClick={() => setTab("custos")}
-          >
-            Custos
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "eliminacao"}
-            className={`${styles.tab} ${tab === "eliminacao" ? styles.tabActive : ""}`}
-            onClick={() => setTab("eliminacao")}
-          >
-            Eliminação definitiva
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "consulta"}
-            className={`${styles.tab} ${tab === "consulta" ? styles.tabActive : ""}`}
-            onClick={() => setTab("consulta")}
-          >
-            Consulta de memos
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "prompts"}
-            className={`${styles.tab} ${tab === "prompts" ? styles.tabActive : ""}`}
-            onClick={() => setTab("prompts")}
-          >
-            Prompts LLM
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "ia"}
-            className={`${styles.tab} ${tab === "ia" ? styles.tabActive : ""}`}
-            onClick={() => setTab("ia")}
-          >
-            Provedores IA
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "conexoes_bd"}
-            className={`${styles.tab} ${tab === "conexoes_bd" ? styles.tabActive : ""}`}
-            onClick={() => setTab("conexoes_bd")}
-          >
-            Conexões BD
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "perfis"}
-            className={`${styles.tab} ${tab === "perfis" ? styles.tabActive : ""}`}
-            onClick={() => setTab("perfis")}
-          >
-            Perfis
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "convites_usuarios"}
-            className={`${styles.tab} ${tab === "convites_usuarios" ? styles.tabActive : ""}`}
-            onClick={() => setTab("convites_usuarios")}
-          >
-            Convites de usuários
-          </button>
-        </div>
+        {tab === "invalida" ? (
+          <p className="mm-muted">
+            Seção não encontrada. <Link to="/admin">Voltar ao início da administração</Link>.
+          </p>
+        ) : null}
+
+        {tab === "inicio" ? (
+          <div className={styles.inicio}>
+            <div>
+              <h1 className={styles.title}>Administração do sistema</h1>
+              <p className={styles.lead}>Tudo o que vale para todos os grupos. O que é de um grupo só fica em Administrar grupo.</p>
+            </div>
+            <section className={styles.verificacaoFaixa} aria-label="Verificação do sistema">
+              <strong>Verificação do sistema</strong>
+              {diagLoading && !diag ? <span className="mm-muted">Verificando…</span> : null}
+              {diagErr ? <span className={styles.verificacaoFalha}>{diagErr}</span> : null}
+              {diag?.checks.map((c) => (
+                <span key={c.id} className={styles.verificacaoItem} title={c.detail ?? undefined}>
+                  <span className={c.ok ? styles.bolaOk : styles.bolaFalha} aria-hidden />
+                  {c.label} <span className="mm-muted">· {c.durationMs} ms</span>
+                </span>
+              ))}
+              <Link to="/admin/verificacao" className={styles.verificacaoLink}>
+                Ver detalhes
+              </Link>
+            </section>
+            <div className={styles.cartoesGrupos}>
+              {GRUPOS_ADMIN.map((g) => (
+                <Link key={g.nome} to={g.itens[0]!.to} className={styles.cartaoGrupo}>
+                  <strong>{g.nome}</strong>
+                  <span>{g.itens.map((i) => i.rotulo).join(" · ")}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {tab === "chamadas" ? (
+          <div className={styles.panel}>
+            <p className="mm-muted" style={{ margin: "0 0 0.75rem" }}>
+              Quantas vezes cada etapa chamou a IA, quanto demorou e quanto custou. Ajuda a achar o que está caro ou lento.
+            </p>
+            <label style={{ display: "inline-flex", gap: "0.5rem", alignItems: "center", marginBottom: "0.9rem" }}>
+              Período
+              <select className="mm-field" value={chamadasDias} onChange={(e) => setChamadasDias(Number(e.target.value))}>
+                <option value={1}>último dia</option>
+                <option value={7}>últimos 7 dias</option>
+                <option value={30}>últimos 30 dias</option>
+                <option value={90}>últimos 90 dias</option>
+              </select>
+            </label>
+            {chamadasErr ? <p className="mm-error">{chamadasErr}</p> : null}
+            {chamadas && chamadas.etapas.length === 0 ? <p className="mm-muted">Nenhuma chamada no período.</p> : null}
+            {chamadas && chamadas.etapas.length > 0 ? (
+              <div style={{ overflowX: "auto" }}>
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th style={{ textAlign: "left" }}>Etapa</th>
+                      <th style={{ textAlign: "right" }}>Chamadas</th>
+                      <th style={{ textAlign: "right" }}>Falhas</th>
+                      <th style={{ textAlign: "right" }}>Tempo médio</th>
+                      <th style={{ textAlign: "right" }}>9 em 10 até</th>
+                      <th style={{ textAlign: "right" }}>Custo (US$)</th>
+                      <th style={{ textAlign: "left" }}>Modelos</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {chamadas.etapas.map((e) => (
+                      <tr key={e.etapa}>
+                        <td>{e.etapa}</td>
+                        <td style={{ textAlign: "right" }}>{e.chamadas}</td>
+                        <td style={{ textAlign: "right", color: e.falhas ? "var(--mm-danger)" : undefined }}>{e.falhas}</td>
+                        <td style={{ textAlign: "right" }}>{(e.msMedio / 1000).toFixed(1)} s</td>
+                        <td style={{ textAlign: "right" }}>{(e.msP90 / 1000).toFixed(1)} s</td>
+                        <td style={{ textAlign: "right" }}>{e.custoTotalUsd.toFixed(4)}</td>
+                        <td>{e.modelos}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </div>
+        ) : null}
 
         {tab === "eliminacao" ? (
           <div className={styles.panel}>
@@ -1348,11 +1389,12 @@ export default function AdminPage() {
                           <button
                             type="button"
                             className={styles.hardDeleteBtn}
-                            disabled={hardDeletingMonth !== null || r.totalCount === 0}
+                            disabled={hardDeletingMonth !== null || r.totalCount === 0 || r.month === new Date().toISOString().slice(0, 7)}
+                            title={r.month === new Date().toISOString().slice(0, 7) ? "O mês atual não pode ser eliminado: dá tempo de o usuário se arrepender." : undefined}
                             onClick={() => void handleHardDeleteMonth(r.month)}
                           >
                             <IconTrash />
-                            {hardDeletingMonth === r.month ? " A remover…" : " Hard Delete"}
+                            {hardDeletingMonth === r.month ? " Eliminando…" : " Eliminar"}
                           </button>
                         </td>
                       </tr>
@@ -1366,22 +1408,6 @@ export default function AdminPage() {
 
         {tab === "outros" ? (
           <div className={styles.panel}>
-            <p className="mm-muted" style={{ margin: "0 0 0.75rem" }}>
-              Atalhos para áreas que não são a tabela de planos.
-            </p>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "0.5rem" }}>
-              <Link to="/admin/midia" className="mm-btn mm-btn--primary">Mídia por plano (media_settings)</Link>
-              <Link to="/admin/documento-ia" className="mm-btn mm-btn--primary">Documento IA (ai_config)</Link>
-              <Link to="/admin/llm-prompt" className="mm-btn mm-btn--primary">Último prompt LLM</Link>
-              <Link to="/admin/cad-pipeline" className="mm-btn mm-btn--primary">CAD/BIM pipeline</Link>
-              <Link to="/admin/conhecimento" className="mm-btn mm-btn--primary">Importar conhecimento</Link>
-              <Link to="/admin/system-config" className="mm-btn mm-btn--primary">Configurações do sistema</Link>
-              <Link to="/admin/assinaturas" className="mm-btn mm-btn--primary">Assinaturas &amp; Grupos</Link>
-              <Link to="/admin/storage" className="mm-btn mm-btn--primary">Storage por Grupo</Link>
-            </div>
-
-            <hr style={{ margin: "1.25rem 0", border: "none", borderTop: "1px solid var(--mm-border, #e2e2e2)" }} />
-
             <h2 className={styles.tableToolbarLabel} style={{ marginBottom: "0.5rem" }}>
               Diagnóstico de saúde
             </h2>
@@ -1506,6 +1532,11 @@ export default function AdminPage() {
             {costErr ? <p className="mm-error">{costErr}</p> : null}
             {costReport ? (
               <>
+                <div className={styles.cartoesGrupos} style={{ marginBottom: "1rem" }}>
+                  <div className={styles.cartaoGrupo}><span>IA no período</span><strong>{formatUsd(costReport.totals.apiCostUsd)}</strong></div>
+                  <div className={styles.cartaoGrupo}><span>Créditos cobrados</span><strong>{formatCredIa(costReport.totals.credIa)}</strong></div>
+                  <div className={styles.cartaoGrupo}><span>Download</span><strong>{formatUsd(costReport.totals.downloadCostUsd)}</strong></div>
+                </div>
                 <p className={styles.costMeta}>
                   Período: <strong>{costReport.dateFrom}</strong> — <strong>{costReport.dateTo}</strong>. Mídia:{" "}
                   <strong>{COST_MEDIA_OPTIONS.find((o) => o.value === costReport.mediaType)?.label ?? costReport.mediaType}</strong>
@@ -1955,6 +1986,7 @@ export default function AdminPage() {
                     <th>Áudio grande</th>
                     <th>Vídeo grande</th>
                     <th>Duração (dias)</th>
+                    <th>Assinantes</th>
                     <th>Ativo</th>
                     <th className={styles.thIcon} scope="col" aria-label="Editar">
                       <IconPencil />
@@ -1985,6 +2017,7 @@ export default function AdminPage() {
                         <td>{fmtYesNo(p.supportLargeAudio)}</td>
                         <td>{fmtYesNo(p.supportLargeVideo)}</td>
                         <td>{p.durationDays ?? "—"}</td>
+                        <td title={`${p.totalSubscriptionCount ?? 0} no total, contando as encerradas`}>{p.activeSubscriptionCount ?? 0}</td>
                         <td>
                           <span className={`${styles.badge} ${p.isActive !== 1 ? styles.badgeOff : ""}`}>
                             {p.isActive === 1 ? "Sim" : "Não"}
@@ -2554,7 +2587,16 @@ export default function AdminPage() {
                             <div className={styles.dbConnTestResult} style={{ color: testResult.ok ? "var(--color-success, green)" : "var(--color-danger, #c00)" }}>
                               {testResult.ok ? `✓ ${testResult.message}${testResult.latencyMs != null ? ` (${testResult.latencyMs}ms)` : ""}` : `✗ ${testResult.message}`}
                             </div>
-                          ) : null}
+                          ) : c.ultimoTesteEm ? (
+                            <div className={styles.dbConnTestResult} style={{ color: c.ultimoTesteOk === 1 ? "var(--mm-success)" : "var(--mm-danger)" }}>
+                              {c.ultimoTesteOk === 1 ? "✓ Conectou" : "✗ Não conectou"}
+                              {c.ultimoTesteOk === 1 && c.ultimoTesteMs != null ? ` · ${c.ultimoTesteMs} ms` : ""}
+                              {c.ultimoTesteOk !== 1 && c.ultimoTesteMsg ? ` · ${c.ultimoTesteMsg}` : ""}
+                              <span className="mm-muted"> — último teste em {new Date(c.ultimoTesteEm).toLocaleString("pt-BR")}</span>
+                            </div>
+                          ) : (
+                            <div className={`${styles.dbConnTestResult} mm-muted`}>Ainda não testada.</div>
+                          )}
                         </div>
                       );
                     })

@@ -178,6 +178,10 @@ for num, titulo, ls in secoes:
         saida_secoes.append(("Lembretes por e-mail", bloco("SEC18NOVA")[1:]))
         continue
     if num == 17:
+        # Lote 5: Admin do sistema com menu lateral (bloco SEC_ADMIN_NOVA substitui o Painel Admin Principal)
+        saida_secoes.append(("Admin do sistema", bloco("SEC_ADMIN_NOVA")[1:]))
+        continue
+    if False:
         ls = trocar(ls, "Visualização e edição dos templates de prompt enviados à IA para cada tipo de processamento. Ver Seção 24.",
                     "Edição dos prompts de sistema de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com override por categoria. O último prompt efetivamente enviado pode ser conferido em /admin/llm-prompt (Seção 24).")
         ls = trocar(ls, "| Configurações de Mídia | → /admin/midia |", "| Mídia por plano | → /admin/midia |")

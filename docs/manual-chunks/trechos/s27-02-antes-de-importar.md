@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Antes de importar
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: passo a passo · Versão do manual: 2
 
 1. Em Administrar grupo → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.

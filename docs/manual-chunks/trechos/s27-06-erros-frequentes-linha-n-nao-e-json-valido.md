@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Erros frequentes: Linha N não é JSON válido
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: erro · Versão do manual: 2
 
 Sintoma: Linha N não é JSON válido
