@@ -33,6 +33,9 @@ import styles from "./PerguntaPage.module.css";
 
 const apiBase = (import.meta.env.VITE_API_BASE as string | undefined)?.replace(/\/$/, "") ?? "";
 
+/** Resposta curta de concordância ("sim", "pode", "ok", "quero"…), dita ou digitada. */
+const RESPOSTA_SIM = /^\s*(sim|s|pode|pode sim|pode ser|ok|okay|claro|quero|isso|faça|faz|procure|procura|busque|busca|yes)\s*[.!]*\s*$/i;
+
 const COLUNA_LABELS: Record<string, string> = {
   id: "ID", resumo: "Resumo", keywords: "Keywords",
   mediaType: "Tipo", mediaText: "Conteúdo", mediatext: "Conteúdo",
@@ -1461,6 +1464,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const capturedRef        = useRef("");
   const transcribeQueueRef = useRef<Promise<void>>(Promise.resolve());   // serializa chunks
   const textareaRef        = useRef<HTMLTextAreaElement | null>(null);
+  /** Início do toque no botão Enviar (celular): envia no fim do toque se o dedo não arrastou. */
+  const toqueEnviarRef     = useRef<{ x: number; y: number } | null>(null);
 
   const workspaceGroupId = me?.lastWorkspaceGroupId ?? null;
   const isGroup = workspaceGroupId != null;
@@ -1740,6 +1745,13 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
+    // "Sim" logo depois de uma resposta vazia (que oferece procurar nos memos): faz essa busca
+    // com a pergunta anterior, em vez de mandar "sim" como pergunta nova.
+    const ultima = respostas[0];
+    if (!opts && ultima && RESPOSTA_SIM.test(q) && isSemResposta(ultima) && ultima.classificacao.pipe !== "semantica") {
+      setPergunta("");
+      return enviar({ forcePipe: "semantica", perguntaOverride: ultima.perguntaTexto, forceCategories: ultima.classificacao.categorias });
+    }
     setError(null);
     setErrorTrace(null);
     setStatusMsg(null);
@@ -2693,6 +2705,23 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 type="button"
                 className={styles.perguntarBtn}
                 disabled={!pergunta.trim() && !modeloAtivo}
+                // Celular: tocar no botão tirava o foco da caixa, o teclado fechava e a caixa descia antes
+                // do clique — o primeiro toque se perdia. Segura o foco e envia já no toque.
+                onMouseDown={(e) => e.preventDefault()}
+                onTouchStart={(e) => {
+                  const t = e.touches[0];
+                  toqueEnviarRef.current = t ? { x: t.clientX, y: t.clientY } : null;
+                }}
+                onTouchEnd={(e) => {
+                  const ini = toqueEnviarRef.current;
+                  toqueEnviarRef.current = null;
+                  const t = e.changedTouches[0];
+                  if (!ini || !t || Math.abs(t.clientX - ini.x) > 12 || Math.abs(t.clientY - ini.y) > 12) return;
+                  e.preventDefault();
+                  if (!pergunta.trim() && !modeloAtivo) return;
+                  void (modeloAtivo ? executarModelo() : enviar());
+                  textareaRef.current?.blur();
+                }}
                 onClick={() => void (modeloAtivo ? executarModelo() : enviar())}
                 title="Enviar (Enter)"
               >
@@ -2989,9 +3018,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           className={styles.refazerBtn}
                           disabled={busy}
                           onClick={() => void enviar({ forcePipe: "semantica", perguntaOverride: r.perguntaTexto, forceCategories: r.classificacao.categorias })}
-                          title="Refazer com busca semântica"
+                          title="Procurar a mesma pergunta nos textos dos memos (também dá para responder sim)"
                         >
-                          → Semântico
+                          🔎 Buscar nos memos
                         </button>
                       </div>
                     ) : (
@@ -3515,7 +3544,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         const rHelp = respostas[helpHintOpenIdx]!;
         const botaoSemantico = rHelp.classificacao.pipe === "semantica"
           ? <strong>Ampliar busca</strong>
-          : <strong>→ Semântico</strong>;
+          : <strong>🔎 Buscar nos memos</strong>;
         const categoriaDetectada = rHelp.classificacao.categorias.length > 0;
         let mensagem: React.ReactNode;
         if (categoriaDetectada) {

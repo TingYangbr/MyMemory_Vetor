@@ -381,11 +381,11 @@ export async function perguntarMemory(input: {
     classificacao.categorias.length === 0
   ) {
     const resposta: import("@mymemory/shared").PerguntaResposta = {
-      resposta:
-        "Não encontrei dados estruturados para essa pergunta. O módulo ou categoria relacionada pode não estar disponível no sistema. Deseja tentar uma busca nos registros de texto?",
+      // Curta e sem termos técnicos; "sim" na caixa de pergunta (ou o botão) faz a busca nos memos.
+      resposta: "Não achei isso nas consultas do grupo. Quer que eu procure nos textos dos memos? Responda sim.",
       tipo_resposta: "estruturada",
       dados_usados: [],
-      limitacoes: ["Nenhuma categoria identificada para consulta estruturada."],
+      limitacoes: [],
       confianca_estimada: 0,
     };
     return {
