@@ -1,25 +1,27 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import type {
   MeResponse,
   PatchMePreferencesResponse,
-  PerguntaModelo,
   UserIaUseLevel,
   UserMemoPreferences,
   UserUsageDashboardResponse,
   UserUsageMetric,
 } from "@mymemory/shared";
-import { USER_IA_USE_LABELS, USER_IA_USE_LEVELS } from "@mymemory/shared";
-import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPutJson } from "../api";
+import { USER_IA_USE_LEVELS } from "@mymemory/shared";
+import { apiGet, apiGetOptional, apiPatchJson, apiPostJson, mensagemDeErro } from "../api";
 import Header from "../components/Header";
-import styles from "./UserPreferencesPage.module.css";
+import styles from "./ContaPage.module.css";
+
+/** Minha conta — lote 4 do redesenho: Perfil e senha, Preferências (salvas sozinhas) e Uso do plano. */
+
+type Secao = "perfil" | "prefs" | "uso";
 
 function prefsFromMe(me: MeResponse): UserMemoPreferences {
   return {
     confirmEnabled: me.confirmEnabled !== false,
     soundEnabled: me.soundEnabled !== false,
-    allowFreeSpecificFieldsWithoutCategoryMatch:
-      me.allowFreeSpecificFieldsWithoutCategoryMatch === true,
+    allowFreeSpecificFieldsWithoutCategoryMatch: me.allowFreeSpecificFieldsWithoutCategoryMatch === true,
     iaUseTexto: me.iaUseTexto ?? "basico",
     iaUseImagem: me.iaUseImagem ?? "basico",
     iaUseVideo: me.iaUseVideo ?? "basico",
@@ -32,52 +34,56 @@ function prefsFromMe(me: MeResponse): UserMemoPreferences {
   };
 }
 
-function pctUsed(used: number, limit: number | null): number {
-  if (limit == null || limit <= 0) return used > 0 ? 100 : 0;
-  return Math.min(100, (used / limit) * 100);
+/** Nomes curtos dos níveis de IA nesta tela. */
+const NIVEL_IA: Record<UserIaUseLevel, string> = { semIA: "Sem IA", basico: "Básico", completo: "Completo" };
+
+const TIPOS_IA = [
+  ["iaUseTexto", "Texto"],
+  ["iaUseImagem", "Imagem"],
+  ["iaUseAudio", "Áudio"],
+  ["iaUseVideo", "Vídeo"],
+  ["iaUseDocumento", "Documento"],
+  ["iaUseUrl", "Página da web"],
+] as const;
+
+function iniciais(nome: string | null | undefined, email: string | null | undefined): string {
+  const base = (nome ?? "").trim() || (email ?? "").trim();
+  const partes = base.split(/[\s@._-]+/).filter(Boolean);
+  return ((partes[0]?.[0] ?? "?") + (partes[1]?.[0] ?? "")).toUpperCase();
 }
 
-function fmtLimit(n: number | null, decimals: number): string {
-  if (n == null) return "—";
-  return decimals === 0 ? String(Math.round(n)) : n.toFixed(decimals);
+function fmt(n: number, dec: number): string {
+  return n.toLocaleString("pt-BR", { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-function UsageMetricRow(input: {
-  icon: string;
-  label: string;
-  metric: UserUsageMetric;
-  valueDecimals: number;
-  limitDecimals: number;
-  unitSuffix?: string;
-}) {
-  const { icon, label, metric, valueDecimals, limitDecimals, unitSuffix = "" } = input;
-  const pct = pctUsed(metric.used, metric.limit);
-  const pctLabel =
-    metric.limit != null && metric.limit > 0 ? `${Math.round(pct)}%` : metric.used > 0 ? "—" : "0%";
-  const usedStr = fmtLimit(metric.used, valueDecimals);
-  const limStr = fmtLimit(metric.limit, limitDecimals);
+function BarraUso(props: { titulo: string; metric: UserUsageMetric; dec?: number; unidade?: string; nota: string }) {
+  const { titulo, metric, dec = 0, unidade = "", nota } = props;
+  const pct = metric.limit != null && metric.limit > 0 ? Math.min(100, (metric.used / metric.limit) * 100) : 0;
+  const perto = metric.limit != null && metric.limit > 0 && metric.used / metric.limit >= 0.8;
   const excedido = metric.limit != null && metric.limit > 0 && metric.used > metric.limit;
   return (
-    <div className={`${styles.usageRow} ${excedido ? styles.usageRowExcedido : ""}`}>
-      <div className={styles.usageRowTop}>
-        <span className={styles.usageRowLeft}>
-          <span className={styles.usageIcon} aria-hidden>
-            {icon}
-          </span>
-          <span className={styles.usageLabel}>{label}</span>
-        </span>
-        <span className={styles.usageMeta}>
-          {usedStr} / {limStr}
-          {unitSuffix} ({pctLabel})
+    <section className={`${styles.cartao} ${styles.uso} ${perto ? styles.usoPerto : ""}`}>
+      <div className={styles.usoTopo}>
+        <h2 className={styles.usoTitulo}>{titulo}</h2>
+        <span className={styles.usoValor}>
+          <b>
+            {fmt(metric.used, dec)}
+            {unidade}
+          </b>{" "}
+          {metric.limit != null ? `de ${fmt(metric.limit, dec)}${unidade}` : "· sem limite"}
         </span>
       </div>
-      <div className={styles.usageBar} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100}>
-        <div className={styles.usageBarFill} style={{ width: `${Math.min(pct, 100)}%` }} />
+      <div className={styles.barra} role="progressbar" aria-valuenow={Math.round(pct)} aria-valuemin={0} aria-valuemax={100} aria-label={titulo}>
+        <div className={styles.barraCheia} style={{ width: `${pct}%` }} />
       </div>
-      {excedido ? (
-        <p className={styles.usageExcedidoMsg}>Limite do plano excedido. Por enquanto o uso continua liberado.</p>
-      ) : null}
-    </div>
+      <span className={perto ? styles.usoAviso : styles.usoNota}>
+        {excedido
+          ? "Passou do limite do plano. Por enquanto o uso continua liberado."
+          : perto
+            ? "Perto do limite. Passando dele, o uso continua liberado por enquanto."
+            : nota}
+      </span>
+    </section>
   );
 }
 
@@ -85,32 +91,29 @@ export default function UserPreferencesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const rawTab = searchParams.get("tab");
-  const tab = rawTab === "uso" ? "uso" : rawTab === "perguntas" ? "perguntas" : "prefs";
-
-  const setTab = useCallback(
-    (t: "prefs" | "uso" | "perguntas") => {
-      if (t === "prefs") setSearchParams({}, { replace: true });
-      else setSearchParams({ tab: t }, { replace: true });
-    },
+  const secao: Secao = rawTab === "uso" ? "uso" : rawTab === "perfil" ? "perfil" : "prefs";
+  const irPara = useCallback(
+    (s: Secao) => setSearchParams(s === "prefs" ? {} : { tab: s }, { replace: true }),
     [setSearchParams]
   );
 
   const [ready, setReady] = useState(false);
-  const [meProfile, setMeProfile] = useState<MeResponse | null>(null);
+  const [me, setMe] = useState<MeResponse | null>(null);
   const [prefs, setPrefs] = useState<UserMemoPreferences | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [err, setErr] = useState<string | null>(null);
-  const [okMsg, setOkMsg] = useState<string | null>(null);
   const [hasPrefsColumns, setHasPrefsColumns] = useState<boolean | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [estadoSalvar, setEstadoSalvar] = useState<"" | "salvando" | "salvo" | "erro">("");
+  const editadoRef = useRef(false);
 
   const [usage, setUsage] = useState<UserUsageDashboardResponse | null>(null);
-  const [usageLoading, setUsageLoading] = useState(false);
   const [usageErr, setUsageErr] = useState<string | null>(null);
 
-  const [modelos, setModelos] = useState<PerguntaModelo[]>([]);
-  const [modelosLoading, setModelosLoading] = useState(false);
-  const [modelosErr, setModelosErr] = useState<string | null>(null);
-  const [editingModelo, setEditingModelo] = useState<{ id: number; pergunta: string; anotacoes: string; estrelas: number | null } | null>(null);
+  const [nome, setNome] = useState("");
+  const [perfilMsg, setPerfilMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [senhaAtual, setSenhaAtual] = useState("");
+  const [senhaNova, setSenhaNova] = useState("");
+  const [senhaMsg, setSenhaMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [ocupado, setOcupado] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,14 +125,14 @@ export default function UserPreferencesPage() {
           navigate("/login", { replace: true });
           return;
         }
-        setErr(`Não foi possível carregar o perfil (HTTP ${r.status}).`);
+        setErr(`Não foi possível carregar a conta (HTTP ${r.status}).`);
         setReady(true);
         return;
       }
-      setMeProfile(r.data);
+      setMe(r.data);
+      setNome(r.data.name ?? "");
       setPrefs(prefsFromMe(r.data));
       setHasPrefsColumns(r.data.iaUseTexto !== undefined);
-      setErr(null);
       setReady(true);
     })();
     return () => {
@@ -138,460 +141,335 @@ export default function UserPreferencesPage() {
   }, [navigate]);
 
   useEffect(() => {
-    if (tab !== "uso" || !ready) return;
+    if (secao !== "uso" || !ready) return;
     let cancelled = false;
-    setUsageLoading(true);
     setUsageErr(null);
     void apiGet<UserUsageDashboardResponse>("/api/me/usage")
-      .then((data) => {
-        if (!cancelled) setUsage(data);
-      })
-      .catch((e) => {
-        if (!cancelled) setUsageErr(e instanceof Error ? e.message : "Falha ao carregar utilização.");
-      })
-      .finally(() => {
-        if (!cancelled) setUsageLoading(false);
-      });
+      .then((d) => !cancelled && setUsage(d))
+      .catch((e) => !cancelled && setUsageErr(mensagemDeErro(e, "Falha ao carregar o uso do plano.")));
     return () => {
       cancelled = true;
     };
-  }, [tab, ready]);
+  }, [secao, ready]);
 
+  // Preferências salvas sozinhas, 0,6 s depois da última mudança
   useEffect(() => {
-    if (tab !== "perguntas" || !ready) return;
-    let cancelled = false;
-    setModelosLoading(true);
-    setModelosErr(null);
-    const gid = meProfile?.lastWorkspaceGroupId;
-    const qs = gid ? `?workspaceGroupId=${gid}` : "";
-    void apiGet<{ modelos: PerguntaModelo[] }>(`/api/pergunta-modelos${qs}`)
-      .then((data) => { if (!cancelled) setModelos(data.modelos); })
-      .catch((e) => { if (!cancelled) setModelosErr(e instanceof Error ? e.message : "Falha ao carregar."); })
-      .finally(() => { if (!cancelled) setModelosLoading(false); });
-    return () => { cancelled = true; };
-  }, [tab, ready, meProfile?.lastWorkspaceGroupId]);
+    if (!prefs || !editadoRef.current) return;
+    setEstadoSalvar("salvando");
+    const t = window.setTimeout(async () => {
+      try {
+        const body: Partial<UserMemoPreferences> = hasPrefsColumns
+          ? prefs
+          : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate, pdfAbrirAba: prefs.pdfAbrirAba };
+        await apiPatchJson<PatchMePreferencesResponse>("/api/me/preferences", body);
+        setEstadoSalvar("salvo");
+      } catch (e) {
+        setErr(mensagemDeErro(e, "Não foi possível salvar."));
+        setEstadoSalvar("erro");
+      }
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [prefs, hasPrefsColumns]);
 
-  async function deleteModelo(id: number) {
-    await apiDeleteJson(`/api/pergunta-modelos/${id}`);
-    setModelos((m) => m.filter((x) => x.id !== id));
-  }
-
-  async function saveEditModelo() {
-    if (!editingModelo) return;
-    const updated = await apiPutJson<{ modelo: PerguntaModelo }>(
-      `/api/pergunta-modelos/${editingModelo.id}`,
-      { pergunta: editingModelo.pergunta, anotacoes: editingModelo.anotacoes.trim() || null, estrelas: editingModelo.estrelas }
-    );
-    setModelos((m) => m.map((x) => (x.id === updated.modelo.id ? updated.modelo : x)));
-    setEditingModelo(null);
-  }
-
-  const updatePref = useCallback(<K extends keyof UserMemoPreferences>(key: K, value: UserMemoPreferences[K]) => {
+  const mudar = useCallback(<K extends keyof UserMemoPreferences>(key: K, value: UserMemoPreferences[K]) => {
+    editadoRef.current = true;
+    setErr(null);
     setPrefs((p) => (p ? { ...p, [key]: value } : p));
-    setOkMsg(null);
   }, []);
 
-  const save = useCallback(async () => {
-    if (!prefs) return;
-    setSaving(true);
-    setErr(null);
-    setOkMsg(null);
+  async function salvarNome() {
+    setOcupado(true);
+    setPerfilMsg(null);
     try {
-      const body: Partial<UserMemoPreferences> = hasPrefsColumns
-        ? prefs
-        : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate, pdfAbrirAba: prefs.pdfAbrirAba };
-      const res = await apiPatchJson<PatchMePreferencesResponse>("/api/me/preferences", body);
-      setPrefs(res.preferences);
-      setOkMsg("Preferências guardadas.");
+      const r = await apiPatchJson<{ ok: boolean; name: string }>("/api/me/perfil", { name: nome });
+      setMe((m) => (m ? { ...m, name: r.name } : m));
+      setPerfilMsg({ ok: true, texto: "Nome salvo." });
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Falha ao salvar.";
-      setErr(msg);
+      setPerfilMsg({ ok: false, texto: mensagemDeErro(e, "Não foi possível salvar o nome.") });
     } finally {
-      setSaving(false);
+      setOcupado(false);
     }
-  }, [prefs, hasPrefsColumns]);
+  }
+
+  async function trocarSenha() {
+    setOcupado(true);
+    setSenhaMsg(null);
+    try {
+      await apiPostJson("/api/me/senha", { senhaAtual, senhaNova });
+      setSenhaAtual("");
+      setSenhaNova("");
+      setSenhaMsg({ ok: true, texto: "Senha trocada." });
+    } catch (e) {
+      setSenhaMsg({ ok: false, texto: mensagemDeErro(e, "Não foi possível trocar a senha.") });
+    } finally {
+      setOcupado(false);
+    }
+  }
+
+  // Aba antiga "Perguntas salvas": agora tem página própria
+  if (rawTab === "perguntas") return <Navigate to="/perguntas-salvas" replace />;
 
   if (!ready || !prefs) {
     return (
       <>
         <Header />
-        <main className={styles.wrap}>
+        <main className={styles.pagina}>
           <p className="mm-muted">{err ?? "Carregando…"}</p>
         </main>
       </>
     );
   }
 
+  const bloqueado = hasPrefsColumns === false;
+
   return (
     <>
       <Header meRefreshKey={0} />
-      <main className={`${styles.wrap} ${tab === "uso" ? styles.wrapWide : ""}`}>
-        <h1 className={styles.title}>Minha conta</h1>
-
-        <div className={styles.tabs} role="tablist" aria-label="Secções da conta">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "prefs"}
-            className={`${styles.tab} ${tab === "prefs" ? styles.tabActive : ""}`}
-            onClick={() => setTab("prefs")}
-          >
-            Preferências de memo
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "uso"}
-            className={`${styles.tab} ${tab === "uso" ? styles.tabActive : ""}`}
-            onClick={() => setTab("uso")}
-          >
-            Sua utilização
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "perguntas"}
-            className={`${styles.tab} ${tab === "perguntas" ? styles.tabActive : ""}`}
-            onClick={() => setTab("perguntas")}
-          >
-            Perguntas salvas
-          </button>
-          <Link to="/avisos" className={styles.tabLink}>
-            🔔 Meus Avisos
+      <div className={styles.pagina}>
+        <nav className={styles.menu} aria-label="Minha conta">
+          <div className={styles.quem}>
+            <span className={styles.avatar} aria-hidden>
+              {iniciais(me?.name, me?.email)}
+            </span>
+            <span className={styles.quemTexto}>
+              <b>{me?.name || "Sem nome"}</b>
+              <span>{me?.email}</span>
+            </span>
+          </div>
+          {(
+            [
+              ["perfil", "Perfil e senha"],
+              ["prefs", "Preferências"],
+              ["uso", "Uso do plano"],
+            ] as const
+          ).map(([s, rotulo]) => (
+            <button
+              key={s}
+              type="button"
+              className={`${styles.item} ${secao === s ? styles.itemAtivo : ""}`}
+              aria-current={secao === s ? "page" : undefined}
+              onClick={() => irPara(s)}
+            >
+              {rotulo}
+            </button>
+          ))}
+          <div className={styles.separador} />
+          <Link to="/perguntas-salvas" className={styles.item}>
+            Perguntas salvas ↗
           </Link>
-        </div>
+          <Link to="/avisos" className={styles.item}>
+            Avisos e lembretes ↗
+          </Link>
+        </nav>
 
-        {tab === "prefs" ? (
-          <>
-            <p className={styles.lead}>
-              Defina o comportamento ao registrar memos: confirmação antes do envio à IA, áudio por voz e o nível de IA
-              por tipo de conteúdo (valores padrão para novos registros).
-            </p>
-
-            {hasPrefsColumns === false ? (
-              <p className={styles.schemaWarn}>
-                O banco de dados ainda não inclui as colunas de preferências. Execute{" "}
-                <code>docs/migrations/008_user_memo_preferences.sql</code> para ativar confirmação e níveis de IA. Até lá
-                só o som abaixo pode ser salvo, se suportado.
-              </p>
-            ) : null}
-
-            <fieldset className={styles.fieldset}>
-              <legend className={styles.legend}>Fluxo e áudio</legend>
-              <label className={`${styles.toggleRow} ${hasPrefsColumns === false ? styles.disabledBlock : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={prefs.confirmEnabled}
-                  disabled={hasPrefsColumns === false || saving}
-                  onChange={(e) => updatePref("confirmEnabled", e.target.checked)}
-                />
-                <span className={styles.toggleLabel}>
-                  Confirmar antes do envio à IA
-                  <span className={styles.toggleHint}>
-                    Após capturar o arquivo, você confirma o registro antes de enviar ao processamento por IA. Desligado
-                    = envio direto (sem confusão com revisão depois do processamento).
-                  </span>
-                </span>
-              </label>
-              <label className={`${styles.toggleRow} ${hasPrefsColumns === false ? styles.disabledBlock : ""}`}>
-                <input
-                  type="checkbox"
-                  checked={prefs.allowFreeSpecificFieldsWithoutCategoryMatch}
-                  disabled={hasPrefsColumns === false || saving}
-                  onChange={(e) => updatePref("allowFreeSpecificFieldsWithoutCategoryMatch", e.target.checked)}
-                />
-                <span className={styles.toggleLabel}>
-                  Permitir dados específicos livres sem correspondência de categoria
-                  <span className={styles.toggleHint}>
-                    Vale para memos pessoais. Quando ligado, a IA pode preencher <code>dados específicos</code> mesmo sem
-                    match de categoria/campos no catálogo.
-                  </span>
-                </span>
-              </label>
-              <label className={styles.toggleRow}>
-                <input
-                  type="checkbox"
-                  checked={prefs.soundEnabled}
-                  disabled={saving}
-                  onChange={(e) => updatePref("soundEnabled", e.target.checked)}
-                />
-                <span className={styles.toggleLabel}>
-                  Áudio habilitado (voz e narração)
-                  <span className={styles.toggleHint}>
-                    Ativa narração automática das respostas em "Pergunte ao myMemory" e permite usar o microfone para inserir palavras-chave ao registrar memos.
-                  </span>
-                </span>
-              </label>
-              <label className={styles.toggleRow}>
-                <input
-                  type="checkbox"
-                  checked={prefs.pdfAbrirAba === true}
-                  disabled={saving}
-                  onChange={(e) => updatePref("pdfAbrirAba", e.target.checked)}
-                />
-                <span className={styles.toggleLabel}>
-                  Abrir o PDF numa aba nova
-                  <span className={styles.toggleHint}>
-                    No botão PDF das respostas. Ligado, o PDF abre direto numa aba (dali dá para salvar ou imprimir).
-                    Desligado, o arquivo é baixado e o navegador faz o que estiver configurado para downloads.
-                  </span>
-                </span>
-              </label>
-              {prefs.soundEnabled ? (
-                <div className={styles.ttsRateRow}>
-                  <label className={styles.ttsRateLabel} htmlFor="pref-ttsRate">
-                    Velocidade de narração:{" "}
-                    <strong>{(prefs.ttsRate ?? 1.0).toFixed(1)}×</strong>
+        <main className={styles.conteudo}>
+          {secao === "perfil" ? (
+            <>
+              <h1 className={styles.titulo}>Perfil e senha</h1>
+              <section className={styles.cartao}>
+                <h2 className={styles.cartaoTitulo}>Seu nome</h2>
+                <div className={styles.linhaForm}>
+                  <label htmlFor="conta-nome" className={styles.rotulo}>
+                    Nome
                   </label>
-                  <input
-                    id="pref-ttsRate"
-                    type="range"
-                    min={0.5}
-                    max={2.0}
-                    step={0.1}
-                    className={styles.ttsRateSlider}
-                    disabled={saving}
-                    value={prefs.ttsRate ?? 1.0}
-                    onChange={(e) => updatePref("ttsRate", Number(e.target.value))}
-                  />
-                  <div className={styles.ttsRateMarks}>
-                    <span>0.5× (lento)</span>
-                    <span>1.0× (normal)</span>
-                    <span>2.0× (rápido)</span>
+                  <input id="conta-nome" className={styles.campo} value={nome} maxLength={120} onChange={(e) => setNome(e.target.value)} />
+                  <button type="button" className="mm-btn mm-btn--primary" disabled={ocupado || nome.trim().length < 2 || nome.trim() === (me?.name ?? "")} onClick={() => void salvarNome()}>
+                    Salvar
+                  </button>
+                </div>
+                <p className={styles.nota}>
+                  E-mail: <b>{me?.email}</b> (é o seu login; não dá para trocar aqui).
+                </p>
+                {perfilMsg ? <p className={perfilMsg.ok ? styles.ok : styles.erro}>{perfilMsg.texto}</p> : null}
+              </section>
+              <section className={styles.cartao}>
+                <h2 className={styles.cartaoTitulo}>Trocar a senha</h2>
+                <div className={styles.grade2}>
+                  <div className={styles.coluna}>
+                    <label htmlFor="conta-senha-atual" className={styles.rotulo}>
+                      Senha atual
+                    </label>
+                    <input id="conta-senha-atual" type="password" autoComplete="current-password" className={styles.campo} value={senhaAtual} onChange={(e) => setSenhaAtual(e.target.value)} />
+                  </div>
+                  <div className={styles.coluna}>
+                    <label htmlFor="conta-senha-nova" className={styles.rotulo}>
+                      Senha nova <span className={styles.nota}>(mínimo 8 caracteres)</span>
+                    </label>
+                    <input id="conta-senha-nova" type="password" autoComplete="new-password" className={styles.campo} value={senhaNova} onChange={(e) => setSenhaNova(e.target.value)} />
                   </div>
                 </div>
-              ) : null}
-              <div
-                className={`${styles.selectRow} ${hasPrefsColumns === false ? styles.disabledBlock : ""}`}
-                aria-disabled={hasPrefsColumns === false}
-              >
-                <label className={styles.selectLabel} htmlFor="pref-imageOcrVisionMinConfidence">
-                  Confiança mínima do OCR (imagem)
-                </label>
-                <p className={styles.selectHint}>
-                  Valor de 1 a 100 (confiança global do Tesseract). Se a leitura automática ficar abaixo deste valor, o
-                  sistema faz uma extração de texto por visão (IA) antes do resumo — custo extra só nesses casos. Deixe
-                  em branco para desligar.
-                </p>
-                <input
-                  id="pref-imageOcrVisionMinConfidence"
-                  type="number"
-                  min={1}
-                  max={100}
-                  step={1}
-                  className={styles.select}
-                  disabled={hasPrefsColumns === false || saving}
-                  placeholder="Desligado"
-                  value={prefs.imageOcrVisionMinConfidence ?? ""}
-                  onChange={(e) => {
-                    const raw = e.target.value.trim();
-                    if (raw === "") {
-                      updatePref("imageOcrVisionMinConfidence", null);
-                      return;
-                    }
-                    const n = Number.parseInt(raw, 10);
-                    if (!Number.isFinite(n) || n < 1 || n > 100) return;
-                    updatePref("imageOcrVisionMinConfidence", n);
-                  }}
-                />
-              </div>
-            </fieldset>
-
-            <fieldset className={`${styles.fieldset} ${hasPrefsColumns === false ? styles.disabledBlock : ""}`}>
-              <legend className={styles.legend}>Uso de IA por tipo de mídia (padrão)</legend>
-
-              {(
-                [
-                  ["iaUseTexto", "Texto", "Memos criados como texto digitado."],
-                  ["iaUseImagem", "Imagem", "Fotos e arquivos de imagem."],
-                  ["iaUseVideo", "Vídeo", "Gravações e arquivos de vídeo."],
-                  ["iaUseAudio", "Áudio", "Gravações e arquivos de áudio."],
-                  ["iaUseDocumento", "Documento", "PDF, Office e documentos semelhantes."],
-                  ["iaUseUrl", "Página URL", "Memos a partir de endereço web."],
-                ] as const
-              ).map(([key, label, hint]) => (
-                <div key={key} className={styles.selectRow}>
-                  <label className={styles.selectLabel} htmlFor={`pref-${key}`}>
-                    {label}
-                  </label>
-                  <p className={styles.selectHint}>{hint}</p>
-                  <select
-                    id={`pref-${key}`}
-                    className={styles.select}
-                    disabled={hasPrefsColumns === false || saving}
-                    value={prefs[key]}
-                    onChange={(e) => updatePref(key, e.target.value as UserIaUseLevel)}
-                  >
-                    {USER_IA_USE_LEVELS.map((v) => (
-                      <option key={v} value={v}>
-                        {USER_IA_USE_LABELS[v]}
-                      </option>
-                    ))}
-                  </select>
+                <div>
+                  <button type="button" className="mm-btn mm-btn--primary" disabled={ocupado || !senhaAtual || senhaNova.length < 8} onClick={() => void trocarSenha()}>
+                    Trocar a senha
+                  </button>
                 </div>
-              ))}
-            </fieldset>
+                {senhaMsg ? <p className={senhaMsg.ok ? styles.ok : styles.erro}>{senhaMsg.texto}</p> : null}
+                <p className={styles.nota}>
+                  Esqueceu a senha atual? <Link to="/esqueci-senha">Receber um link por e-mail</Link>.
+                </p>
+              </section>
+            </>
+          ) : null}
 
-            <div className={styles.actions}>
-              <button type="button" className="mm-btn mm-btn--primary" disabled={saving} onClick={() => void save()}>
-                {saving ? "Salvando…" : "Salvar preferências"}
-              </button>
-            </div>
-            {err ? <p className={styles.error}>{err}</p> : null}
-            {okMsg ? <p className={styles.ok}>{okMsg}</p> : null}
-          </>
-        ) : null}
-
-        {tab === "uso" ? (
-          <div className={styles.usageCard}>
-            <div className={styles.usageCardHead}>
-              <h2 className={styles.usageCardTitle}>
-                <span className={styles.usageCardTitleIcon} aria-hidden>
-                  🗄
+          {secao === "prefs" ? (
+            <>
+              <div className={styles.tituloLinha}>
+                <h1 className={styles.titulo}>Preferências</h1>
+                <span className={estadoSalvar === "erro" ? styles.erro : styles.salvo} aria-live="polite">
+                  {estadoSalvar === "salvando" ? "Salvando…" : estadoSalvar === "salvo" ? "✓ Salvo automaticamente" : estadoSalvar === "erro" ? "Não foi possível salvar" : "Salva sozinha a cada mudança"}
                 </span>
-                Utilização
-              </h2>
-              <p className={styles.usageEmail}>{meProfile?.email ?? meProfile?.name ?? "—"}</p>
-              <p className={styles.usagePlan}>Plano {usage?.planName ?? "…"}</p>
-            </div>
-
-            {usageLoading ? <p className="mm-muted">Carregando…</p> : null}
-            {usageErr ? <p className={styles.error}>{usageErr}</p> : null}
-
-            {usage && !usageLoading ? (
-              <div className={styles.usageMetrics}>
-                <UsageMetricRow
-                  icon="📄"
-                  label="Memos"
-                  metric={usage.memos}
-                  valueDecimals={0}
-                  limitDecimals={0}
-                />
-                <UsageMetricRow
-                  icon="🗃"
-                  label="Armazenamento"
-                  metric={usage.storageGB}
-                  valueDecimals={2}
-                  limitDecimals={2}
-                  unitSuffix=" GB"
-                />
-                <UsageMetricRow
-                  icon="🧠"
-                  label="Créditos IA (mês)"
-                  metric={usage.apiCreditsMonth}
-                  valueDecimals={1}
-                  limitDecimals={1}
-                />
-                <UsageMetricRow
-                  icon="⬇"
-                  label="Downloads (mês)"
-                  metric={usage.downloadsMonthGB}
-                  valueDecimals={2}
-                  limitDecimals={2}
-                  unitSuffix=" GB"
-                />
               </div>
-            ) : null}
+              {err ? <p className={styles.erro}>{err}</p> : null}
 
-            <p className={styles.usageFootnote}>
-              Créditos e downloads são contados no mês civil atual (servidor). Limites vêm do plano associado à sua
-              assinatura individual ou à assinatura de grupo da qual é dono.
-            </p>
-          </div>
-        ) : null}
+              <section className={`${styles.cartao} ${bloqueado ? styles.bloqueado : ""}`}>
+                <h2 className={styles.cartaoTitulo}>Ao catalogar</h2>
+                <label className={styles.opcao}>
+                  <span>
+                    Conferir antes de mandar para a IA
+                    <small>Depois de escolher o arquivo, você confirma antes do processamento.</small>
+                  </span>
+                  <input type="checkbox" role="switch" disabled={bloqueado} checked={prefs.confirmEnabled} onChange={(e) => mudar("confirmEnabled", e.target.checked)} />
+                </label>
+                <label className={styles.opcao}>
+                  <span>
+                    Guardar campos que não são da categoria
+                    <small>Se a IA achar dados que a categoria não prevê, eles ficam no memo mesmo assim.</small>
+                  </span>
+                  <input type="checkbox" role="switch" disabled={bloqueado} checked={prefs.allowFreeSpecificFieldsWithoutCategoryMatch} onChange={(e) => mudar("allowFreeSpecificFieldsWithoutCategoryMatch", e.target.checked)} />
+                </label>
+                <div className={styles.opcao}>
+                  <label htmlFor="conta-ocr">
+                    Fotos pouco nítidas: ler com IA de imagem
+                    <small>Abaixo desta nitidez (1 a 100), a IA olha a imagem — custo extra só nesses casos. Vazio = desligado.</small>
+                  </label>
+                  <input
+                    id="conta-ocr"
+                    type="number"
+                    min={1}
+                    max={100}
+                    step={1}
+                    className={styles.campoCurto}
+                    disabled={bloqueado}
+                    placeholder="Desligado"
+                    value={prefs.imageOcrVisionMinConfidence ?? ""}
+                    onChange={(e) => {
+                      const raw = e.target.value.trim();
+                      if (raw === "") return mudar("imageOcrVisionMinConfidence", null);
+                      const n = Number.parseInt(raw, 10);
+                      if (Number.isFinite(n) && n >= 1 && n <= 100) mudar("imageOcrVisionMinConfidence", n);
+                    }}
+                  />
+                </div>
+              </section>
 
-        {tab === "perguntas" ? (
-          <div className={styles.modelosWrap}>
-            <p className={styles.lead}>Perguntas que você salvou no Pergunte ao MyMemory. Clique para editar o texto.</p>
-            {modelosErr ? <p className="mm-error">{modelosErr}</p> : null}
-            {modelosLoading ? <p className="mm-muted">Carregando…</p> : null}
-            {!modelosLoading && modelos.length === 0 && !modelosErr ? (
-              <p className="mm-muted">Nenhuma pergunta salva ainda. Use o ícone de salvar no card de resposta.</p>
-            ) : null}
-            {modelos.length > 0 ? (
-              <ul className={styles.modelosList}>
-                {modelos.map((m) => (
-                  <li key={m.id} className={styles.modelosItem}>
-                    <div className={styles.modelosItemTop}>
-                      {m.category ? <span className={styles.modelosCat}>{m.category}</span> : null}
-                      {m.groupId ? <span className={styles.modelosGroup}>Grupo</span> : <span className={styles.modelosPessoal}>Pessoal</span>}
-                      {m.estrelas && !editingModelo ? <span className={styles.modelosStars}>{"★".repeat(m.estrelas)}</span> : null}
-                    </div>
-                    {editingModelo?.id === m.id ? (
-                      <div className={styles.modelosEdit}>
-                        <textarea
-                          className={styles.modelosTextarea}
-                          value={editingModelo.pergunta}
-                          rows={3}
-                          onChange={(e) => setEditingModelo({ ...editingModelo, pergunta: e.target.value })}
-                        />
-                        <textarea
-                          className={styles.modelosTextarea}
-                          value={editingModelo.anotacoes}
-                          rows={2}
-                          placeholder="Anotações (opcional)…"
-                          onChange={(e) => setEditingModelo({ ...editingModelo, anotacoes: e.target.value })}
-                          style={{ marginTop: "0.35rem", fontStyle: "italic", fontSize: "0.82rem" }}
-                        />
-                        <div className={styles.modelosStarRow}>
-                          <span className={styles.modelosStarLabel}>Classificação:</span>
-                          {[1, 2, 3, 4, 5].map((n) => (
-                            <button
-                              key={n}
-                              type="button"
-                              className={`${styles.modelosStarBtn}${editingModelo.estrelas !== null && n <= editingModelo.estrelas ? ` ${styles.modelosStarBtnOn}` : ""}`}
-                              onClick={() => setEditingModelo({ ...editingModelo, estrelas: editingModelo.estrelas === n ? null : n })}
-                              title={`${n} estrela${n > 1 ? "s" : ""}`}
-                            >★</button>
-                          ))}
-                        </div>
-                        <div className={styles.modelosEditActions}>
-                          <button type="button" className={styles.modelosSaveBtn} onClick={() => void saveEditModelo()}>Salvar</button>
-                          <button type="button" className={styles.modelosCancelBtn} onClick={() => setEditingModelo(null)}>Cancelar</button>
+              <section className={`${styles.cartao} ${bloqueado ? styles.bloqueado : ""}`}>
+                <h2 className={styles.cartaoTitulo}>Quanto de IA usar em cada tipo</h2>
+                <p className={styles.nota}>
+                  Vale para os memos novos. <b>Sem IA</b>: só guarda. <b>Básico</b>: palavras-chave e categoria. <b>Completo</b>: também os campos da categoria.
+                </p>
+                <div className={styles.gradeIa}>
+                  {TIPOS_IA.map(([key, rotulo]) => (
+                    <div key={key} className={styles.linhaIa}>
+                      <span className={styles.rotuloIa}>{rotulo}</span>
+                      <span className={styles.segmentos} role="radiogroup" aria-label={rotulo}>
+                        {USER_IA_USE_LEVELS.map((v) => (
                           <button
+                            key={v}
                             type="button"
-                            className={styles.modelosDeleteEditBtn}
-                            onClick={() => { void deleteModelo(m.id); setEditingModelo(null); }}
-                            title="Apagar pergunta"
+                            role="radio"
+                            aria-checked={prefs[key] === v}
+                            disabled={bloqueado}
+                            className={`${styles.segmento} ${prefs[key] === v ? styles.segmentoAtivo : ""}`}
+                            onClick={() => mudar(key, v)}
                           >
-                            🗑
+                            {NIVEL_IA[v]}
                           </button>
-                        </div>
+                        ))}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className={styles.cartao}>
+                <h2 className={styles.cartaoTitulo}>Voz e respostas</h2>
+                <label className={styles.opcao}>
+                  <span>
+                    Voz ligada
+                    <small>Lê as respostas em voz alta e deixa usar o microfone.</small>
+                  </span>
+                  <input type="checkbox" role="switch" checked={prefs.soundEnabled} onChange={(e) => mudar("soundEnabled", e.target.checked)} />
+                </label>
+                {prefs.soundEnabled ? (
+                  <div className={styles.opcao}>
+                    <label htmlFor="conta-voz">Velocidade da voz</label>
+                    <span className={styles.velocidade}>
+                      Lenta
+                      <input id="conta-voz" type="range" min={0.5} max={2} step={0.1} value={prefs.ttsRate ?? 1} onChange={(e) => mudar("ttsRate", Number(e.target.value))} />
+                      Rápida <b>{fmt(prefs.ttsRate ?? 1, 1)}×</b>
+                    </span>
+                  </div>
+                ) : null}
+                <label className={styles.opcao}>
+                  <span>
+                    Abrir o PDF numa aba nova
+                    <small>Em vez de baixar o arquivo.</small>
+                  </span>
+                  <input type="checkbox" role="switch" checked={prefs.pdfAbrirAba} onChange={(e) => mudar("pdfAbrirAba", e.target.checked)} />
+                </label>
+              </section>
+            </>
+          ) : null}
+
+          {secao === "uso" ? (
+            <>
+              <h1 className={styles.titulo}>Uso do plano</h1>
+              {usageErr ? <p className={styles.erro}>{usageErr}</p> : null}
+              {!usage && !usageErr ? <p className="mm-muted">Carregando…</p> : null}
+              {usage ? (
+                <>
+                  <section className={`${styles.cartao} ${styles.plano}`}>
+                    <div>
+                      <span className={styles.sobretitulo}>Seu plano</span>
+                      <span className={styles.planoNome}>{usage.planName}</span>
+                      <span className={styles.nota}>Os créditos de IA voltam a zero todo mês.</span>
+                    </div>
+                  </section>
+                  <div className={styles.grade2}>
+                    <BarraUso titulo="Memos" metric={usage.memos} nota="Os memos dos grupos contam no plano de cada grupo." />
+                    <BarraUso titulo="Armazenamento" metric={usage.storageGB} dec={2} unidade=" GB" nota="Fotos, áudios, vídeos e documentos guardados." />
+                    <BarraUso titulo="Créditos de IA (este mês)" metric={usage.apiCreditsMonth} dec={2} nota="O que a IA gastou para você neste mês." />
+                    <BarraUso titulo="Downloads (este mês)" metric={usage.downloadsMonthGB} dec={2} unidade=" GB" nota="Arquivos originais abertos ou baixados." />
+                  </div>
+                  {usage.creditosPorArea ? (
+                    <section className={styles.cartao}>
+                      <h2 className={styles.cartaoTitulo}>Onde a IA foi usada este mês</h2>
+                      <div className={styles.grade4}>
+                        {(
+                          [
+                            ["Catalogar", usage.creditosPorArea.catalogar],
+                            ["Perguntar", usage.creditosPorArea.perguntar],
+                            ["Importar em lote", usage.creditosPorArea.lote],
+                            ["Avisos", usage.creditosPorArea.avisos],
+                          ] as const
+                        ).map(([rotulo, valor]) => (
+                          <div key={rotulo} className={styles.area}>
+                            <span>{rotulo}</span>
+                            <b>{fmt(valor, 2)} créditos</b>
+                          </div>
+                        ))}
                       </div>
-                    ) : (
-                      <>
-                        <p
-                          className={styles.modelosText}
-                          onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null })}
-                          title="Clique para editar"
-                        >
-                          {m.pergunta}
-                        </p>
-                        {m.anotacoes ? (
-                          <p
-                            className={styles.modelosText}
-                            style={{ fontSize: "0.78rem", color: "var(--mm-text-muted, #94a3b8)", fontStyle: "italic", marginTop: "0.15rem", cursor: "pointer" }}
-                            onClick={() => setEditingModelo({ id: m.id, pergunta: m.pergunta, anotacoes: m.anotacoes ?? "", estrelas: m.estrelas ?? null })}
-                            title="Clique para editar"
-                          >{m.anotacoes}</p>
-                        ) : null}
-                        <button
-                          type="button"
-                          className={styles.modelosDeleteBtn}
-                          onClick={() => void deleteModelo(m.id)}
-                          title="Remover"
-                        >
-                          ✕
-                        </button>
-                      </>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            ) : null}
-          </div>
-        ) : null}
-      </main>
+                      {usage.creditosPorArea.outros > 0 ? (
+                        <p className={styles.nota}>Outros usos: {fmt(usage.creditosPorArea.outros, 2)} créditos.</p>
+                      ) : null}
+                    </section>
+                  ) : null}
+                </>
+              ) : null}
+            </>
+          ) : null}
+        </main>
+      </div>
     </>
   );
 }

@@ -4,6 +4,7 @@ import type { CreateGroupResponse, GroupPlanOption, GroupPlansResponse, MeRespon
 import { apiGet, apiGetOptional, apiPostJson } from "../api";
 import flowStyles from "./GroupFlowPlaceholder.module.css";
 import planStyles from "./SelectPlanPage.module.css";
+import authStyles from "./AuthPage.module.css";
 
 function formatBrl(n: number): string {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(n);
@@ -163,9 +164,9 @@ export default function GroupCreatePage() {
     return (
       <div className={planStyles.shell}>
         <header className={planStyles.topBar}>
-          <Link to="/" className={planStyles.brand} aria-label="myMemory — início">
+          <Link to="/" className={planStyles.brand} aria-label="proMemory — início">
             <img src="/mymemory-logo.png" alt="" width={36} height={36} />
-            <span>myMemory</span>
+            <span>proMemory</span>
           </Link>
           <nav className={planStyles.topLinks}>
             <Link to="/">Início</Link>
@@ -174,10 +175,9 @@ export default function GroupCreatePage() {
 
         <main className={planStyles.main}>
           <div className={planStyles.head}>
-            <h1 className={planStyles.title}>Plano para o novo grupo</h1>
+            <h1 className={planStyles.title}>Novo grupo</h1>
             <p className={planStyles.subtitle}>
-              Escolha o tipo de plano de grupo. O pagamento (Stripe) será integrado depois; por enquanto a assinatura fica
-              ativa sem cobrança automática, conforme configurado no admin.
+              Um espaço para dividir memos e perguntas com a família, sócios ou equipe. Primeiro, escolha o plano do grupo.
             </p>
           </div>
 
@@ -213,7 +213,7 @@ export default function GroupCreatePage() {
                       ))}
                     </ul>
                     <button type="button" className={planStyles.ctaPrimary} onClick={() => selectPlan(p.id)}>
-                      Continuar com este plano
+                      Escolher
                     </button>
                   </article>
                 );
@@ -222,7 +222,7 @@ export default function GroupCreatePage() {
           ) : null}
 
           <footer className={planStyles.footerNote}>
-            <p>Depois de escolher o plano, você informa nome e descrição do grupo e vira dono (owner) automaticamente.</p>
+            <p>Depois de escolher o plano, você dá um nome ao grupo e passa a ser o dono dele.</p>
           </footer>
         </main>
       </div>
@@ -232,9 +232,9 @@ export default function GroupCreatePage() {
   return (
     <div className={planStyles.shell}>
       <header className={planStyles.topBar}>
-        <Link to="/" className={planStyles.brand} aria-label="myMemory — início">
+        <Link to="/" className={planStyles.brand} aria-label="proMemory — início">
           <img src="/mymemory-logo.png" alt="" width={36} height={36} />
-          <span>myMemory</span>
+          <span>proMemory</span>
         </Link>
         <nav className={planStyles.topLinks} aria-label="Navegação">
           <Link
@@ -251,49 +251,51 @@ export default function GroupCreatePage() {
       </header>
 
       <main className={planStyles.main} style={{ maxWidth: 560 }}>
-        <h1 className={planStyles.title} style={{ textAlign: "left" }}>
-          Dados do grupo
-        </h1>
-        <p className={planStyles.subtitle} style={{ textAlign: "left", maxWidth: "none" }}>
-          Plano #{planId}. Defina nome e descrição. Você será registrado como <strong>owner</strong>.
-        </p>
-
-        <form onSubmit={(e) => void submitCreate(e)} className="mm-panel" style={{ marginTop: "1.5rem" }}>
-          <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }} htmlFor="g-name">
-            Nome do grupo
-          </label>
-          <input
-            id="g-name"
-            required
-            maxLength={255}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            style={{ width: "100%", padding: "0.55rem 0.65rem", marginBottom: "1rem" }}
-          />
-
-          <label style={{ display: "block", fontWeight: 600, marginBottom: "0.35rem" }} htmlFor="g-desc">
-            Descrição <span style={{ fontWeight: 400, color: "#5a6578" }}>(opcional)</span>
-          </label>
-          <textarea
-            id="g-desc"
-            rows={5}
-            maxLength={8000}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            style={{ width: "100%", padding: "0.55rem 0.65rem" }}
-          />
-
-          {submitErr ? (
-            <p className="mm-error" style={{ marginTop: "0.75rem" }}>
-              {submitErr}
-            </p>
-          ) : null}
-
-          <div style={{ display: "flex", gap: "0.65rem", marginTop: "1.25rem", flexWrap: "wrap" }}>
-            <button type="button" className="mm-btn mm-btn--ghost" onClick={clearPlan} disabled={submitting}>
-              Voltar
+        <form onSubmit={(e) => void submitCreate(e)} className={authStyles.card} style={{ maxWidth: "none" }}>
+          <h1 className={authStyles.title}>Novo grupo</h1>
+          <p className={authStyles.sub}>Um espaço para dividir memos e perguntas com a família, sócios ou equipe. Você será o dono.</p>
+          <div className={authStyles.planoBox}>
+            <div>
+              <span className={authStyles.planoRotulo}>Plano do grupo</span>
+              <span className={authStyles.planoNome}>{sorted.find((p) => p.id === planId)?.name ?? `Plano #${planId}`}</span>
+            </div>
+            <button type="button" className={authStyles.linkInline} onClick={clearPlan} disabled={submitting} style={{ background: "none", border: 0, cursor: "pointer", font: "inherit", fontSize: "0.85rem" }}>
+              Trocar
             </button>
-            <button type="submit" className="mm-btn" disabled={submitting || !name.trim()}>
+          </div>
+          <div className={authStyles.field}>
+            <label className={authStyles.label} htmlFor="g-name">
+              Nome do grupo
+            </label>
+            <input
+              id="g-name"
+              className={authStyles.input}
+              required
+              maxLength={255}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ex.: Família Yang"
+            />
+          </div>
+          <div className={authStyles.field}>
+            <label className={authStyles.label} htmlFor="g-desc">
+              Para que serve <span style={{ fontWeight: 500, color: "var(--mm-muted)" }}>(opcional)</span>
+            </label>
+            <textarea
+              id="g-desc"
+              className={authStyles.input}
+              rows={4}
+              maxLength={8000}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="ex.: Agenda, contas e documentos da casa"
+            />
+          </div>
+
+          {submitErr ? <p className={authStyles.error}>{submitErr}</p> : null}
+
+          <div className={authStyles.actions}>
+            <button type="submit" className={`mm-btn mm-btn--primary ${authStyles.wide}`} disabled={submitting || !name.trim()}>
               {submitting ? "Criando…" : "Criar grupo"}
             </button>
           </div>

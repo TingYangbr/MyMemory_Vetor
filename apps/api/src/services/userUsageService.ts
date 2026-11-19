@@ -133,8 +133,36 @@ export async function getUserUsageDashboard(userId: number): Promise<UserUsageDa
   }
   const downloadGb = downloadMb / 1024;
 
+  // Créditos do mês por área, pela operação registrada em api_usage_logs
+  const creditosPorArea = { catalogar: 0, perguntar: 0, lote: 0, avisos: 0, outros: 0 };
+  try {
+    const [opRows] = await pool.query<RowDataPacket[]>(
+      `SELECT operation, COALESCE(SUM(costusd), 0) AS s FROM api_usage_logs
+       WHERE userid = ? AND createdat >= ? AND createdat < ? GROUP BY operation`,
+      [userId, toMysqlLocalStartOfDay(monthStart), toMysqlLocalStartOfDay(nextMonthStart)]
+    );
+    const mult = await getUsdToCreditsMultiplier();
+    for (const r of opRows) {
+      const op = String(r.operation ?? "");
+      const cred = Number(r.s ?? 0) * mult;
+      const area: keyof typeof creditosPorArea =
+        op === "memo_batch_ia" ? "lote"
+        : op === "Response to Question" ? "perguntar"
+        : op === "Monitoring Alert" ? "avisos"
+        : op.startsWith("memo_") || op === "voice_transcription" ? "catalogar"
+        : "outros";
+      creditosPorArea[area] += cred;
+    }
+    for (const k of Object.keys(creditosPorArea) as (keyof typeof creditosPorArea)[]) {
+      creditosPorArea[k] = round(creditosPorArea[k], 2);
+    }
+  } catch (err) {
+    console.warn("[userUsage] falha ao somar créditos por área:", err instanceof Error ? err.message : err);
+  }
+
   return {
     planName,
+    creditosPorArea,
     memos: { used: memoCount, limit: maxMemos },
     storageGB: { used: round(usedStorageGB, 2), limit: maxStorageGB != null ? round(maxStorageGB, 2) : null },
     apiCreditsMonth: { used: round(creditsUsed, 2), limit: monthlyApiCredits != null ? round(monthlyApiCredits, 2) : null },

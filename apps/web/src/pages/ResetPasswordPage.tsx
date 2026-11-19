@@ -2,6 +2,7 @@ import { FormEvent, useMemo, useState } from "react";
 import { Link, useSearchParams, useNavigate } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 
 export default function ResetPasswordPage() {
   const [search] = useSearchParams();
@@ -49,9 +50,10 @@ export default function ResetPasswordPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
         <h1 className={styles.title}>Nova senha</h1>
-        <p className={styles.sub}>Defina uma nova senha (mínimo 8 caracteres).</p>
+        <p className={styles.sub}>Crie uma senha nova, com no mínimo 8 caracteres.</p>
 
         {error ? (
           <p className={styles.error} role="alert">
@@ -83,7 +85,7 @@ export default function ResetPasswordPage() {
             </div>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="np2">
-                Repetir senha
+                Repita a senha
               </label>
               <input
                 id="np2"
@@ -95,6 +97,11 @@ export default function ResetPasswordPage() {
                 required
                 minLength={8}
               />
+              {password2 ? (
+                <span style={{ fontSize: "0.8rem", fontWeight: 600, color: password2 === password ? "var(--mm-success)" : "var(--mm-danger)" }}>
+                  {password2 === password ? "✓ As duas senhas são iguais" : "As senhas ainda não são iguais"}
+                </span>
+              ) : null}
             </div>
             <div className={styles.actions}>
               <button type="submit" className={`mm-btn mm-btn--primary ${styles.wide}`} disabled={busy}>
@@ -104,9 +111,10 @@ export default function ResetPasswordPage() {
           </form>
         ) : null}
 
-        <div className={styles.links}>
-          <Link to="/login">Ir ao login</Link>
-        </div>
+        <div className={styles.divisor} />
+        <p className={styles.rodape}>
+          <Link to="/login">Voltar para Entrar</Link>
+        </p>
       </div>
     </div>
   );
