@@ -4,9 +4,9 @@ Indexado por telas · Versão 2 — outubro de 2026
 Este documento descreve todas as telas do sistema MyMemory, seus campos, comportamentos e procedimentos de suporte ao usuário. Destinado a atendentes, administradores e equipe técnica.
 # ÍNDICE
 - Novidades da versão 2
-- Seção 1 — Login
-- Seção 2 — Criar Conta / Selecionar Plano
-- Seção 3 — Verificação de E-mail / Recuperação de Senha
+- Seção 1 — Entrar
+- Seção 2 — Criar Conta / Escolher Plano
+- Seção 3 — Confirmar E-mail / Esqueci a Senha
 - Seção 4 — Tela Principal (Home)
 - Seção 5 — Catalogar Memo (todos os tipos de mídia)
 - Seção 6 — Revisar antes de salvar
@@ -14,7 +14,7 @@ Este documento descreve todas as telas do sistema MyMemory, seus campos, comport
 - Seção 8 — Perguntar ao MyMemory
 - Seção 9 — Perguntas salvas
 - Seção 10 — Editar Memo
-- Seção 11 — Minha Conta / Preferências
+- Seção 11 — Minha Conta
 - Seção 12 — Meus avisos e lembretes
 - Seção 13 — Grupos: Criar / Entrar
 - Seção 14 — Administrar grupo
@@ -99,24 +99,28 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Meus avisos e lembretes: abas Avisos e Lembretes, histórico, editar, Verificar agora e "Mais" para os próximos 7 dias | Seção 12 |
 | Tela Perguntas salvas própria: busca, categorias, fixar, Perguntar, Me avise | Seção 9 |
 | Importar em lote em 3 passos; Disco local e Rede local pelo navegador (o original é descartado); aba Extrair dono do memo | Seção 16 |
+| Telas de acesso novas: painel da marca, olho de mostrar a senha e "Manter conectado neste aparelho" (30 dias) | Seções 1 a 3 |
+| Criar conta com o plano escolhido e a barra de senha; "Confira seu e-mail" depois de criar e de pedir nova senha | Seções 2 e 3 |
+| Minha conta com menu lateral: Perfil e senha (trocar nome e senha), Preferências salvas sozinhas, Uso do plano com barras e créditos por área | Seção 11 |
+| Entrar em grupo mostra o seu e-mail para copiar e os convites esperando você | Seções 13 e 15 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
-# SEÇÃO 1 — Login
+# SEÇÃO 1 — Entrar
 Rota: /login
 ## Objetivo
-Permite que um usuário cadastrado acesse o sistema inserindo e-mail e senha.
+Entrar no proMemory com o e-mail e a senha da conta. No computador, à esquerda fica o painel verde "O assistente profissional para a sua memória", que explica o que o proMemory faz; no celular aparece só o cartão de entrar.
 ## Campos
 | Campo / Elemento | Descrição |
 |---|---|
-| E-mail | Campo de texto do tipo e-mail. Obrigatório. |
-| Senha | Campo de senha (ocultado). Obrigatório. |
-| Botão Entrar | Envia as credenciais. Fica desabilitado enquanto autentica. |
-| Link Criar conta | Redireciona para /select-plan para novo cadastro. |
-| Link Esqueci a senha | Redireciona para /esqueci-senha. |
+| E-mail | E-mail da conta. Obrigatório. Aberto por um convite de grupo, já vem preenchido com o e-mail convidado. |
+| Senha | Senha da conta. O olho ao lado mostra ou esconde o que foi digitado. |
+| Esqueci a senha | Link ao lado do rótulo Senha. Abre /esqueci-senha (Seção 3). |
+| Manter conectado neste aparelho | Marcado (padrão): a sessão dura 30 dias neste navegador. Desmarcado: a sessão termina ao fechar o navegador (use em computador de outra pessoa). |
+| Botão Entrar | Envia o e-mail e a senha. Fica desabilitado enquanto entra. |
+| Ainda não tem conta? Criar conta | Abre a escolha do plano (Seção 2). |
 
 ## Comportamentos
-- Após login bem-sucedido, redireciona para a página de origem (parâmetro ?next=) ou para / (home).
-- Se o e-mail não estiver verificado, exibe erro com código email_not_verified e botão 'Reenviar e-mail de confirmação'.
-- O reenvio chama o endpoint /api/auth/resend-verification e exibe mensagem de sucesso ou falha inline.
+- Depois de entrar, volta para a página de onde veio (parâmetro ?next=) ou para o início.
+- E-mail ainda não confirmado: aparece o erro com o botão "Reenviar e-mail de confirmação".
 ## Limite de tentativas
 Para dificultar adivinhação de senha, o sistema limita as tentativas por endereço de rede e por e-mail:
 - Login: até 60 tentativas a cada 15 minutos por rede e 10 por e-mail.
@@ -126,57 +130,55 @@ Para dificultar adivinhação de senha, o sistema limita as tentativas por ender
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Senha ou e-mail incorretos | Credenciais erradas. Usuário deve tentar novamente ou usar 'Esqueci a senha'. |
-| Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado; se esqueceu a senha, usar 'Esqueci a senha' depois da espera. |
-| Confirme seu e-mail antes de entrar | Conta criada mas e-mail não verificado. Usar botão 'Reenviar' exibido na mesma tela. |
-| Não foi possível conectar à API | Servidor da API inacessível. Verificar se o container da API está em execução (docker compose ps). |
-
-# SEÇÃO 2 — Criar Conta / Selecionar Plano
+| E-mail ou senha incorretos | Conferir o e-mail e a senha (o olho mostra o que foi digitado). Se esqueceu, usar "Esqueci a senha". |
+| Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado; se esqueceu a senha, usar "Esqueci a senha" depois da espera. |
+| Confirme seu e-mail antes de entrar | A conta foi criada, mas o e-mail não foi confirmado. Usar o botão "Reenviar e-mail de confirmação" da própria tela. |
+| Sai da conta toda vez que fecha o navegador | "Manter conectado neste aparelho" estava desmarcado ao entrar. Entrar de novo com a opção marcada. |
+# SEÇÃO 2 — Criar Conta / Escolher Plano
 Rotas: /select-plan → /cadastro
 ## Fluxo de cadastro
-- 1. Usuário acessa /select-plan e escolhe um plano (individual, pode ser gratuito).
-- 2. Sistema redireciona para /cadastro?planId=X, onde X é o ID do plano escolhido.
-- 3. Usuário preenche nome, e-mail e senha (mínimo 8 caracteres).
-- 4. Sistema cria a conta e envia e-mail de confirmação via Resend.
-- 5. Tela exibe mensagem de sucesso pedindo que o usuário verifique o e-mail.
+- 1. Em "Escolha seu plano" (/select-plan), cada plano mostra o preço (ou Grátis), os memos, o armazenamento e "Participar de grupos sem limite". O plano mais escolhido aparece em destaque. Clicar em "Escolher".
+- 2. Em "Criar conta" (/cadastro), o quadro "Plano escolhido" mostra o plano; "Trocar" volta à escolha.
+- 3. Preencher nome, e-mail e senha. Abaixo da senha, a barra mostra se já tem o mínimo de 8 caracteres.
+- 4. "Criar conta" cria a conta e manda o e-mail de confirmação.
+- 5. A tela vira "Confira seu e-mail": o link do e-mail entra direto, sem digitar a senha de novo.
 ## Campos do formulário de cadastro
 | Campo / Elemento | Descrição |
 |---|---|
-| Nome | Texto. Obrigatório. Mínimo 2 caracteres. |
-| E-mail | E-mail único no sistema. Obrigatório. |
-| Senha | Mínimo 8 caracteres. Obrigatório. |
-| Botão Cadastrar | Desabilitado enquanto processa. |
+| Nome | Obrigatório, mínimo 2 caracteres. |
+| E-mail | Único no sistema. Obrigatório. Vindo de um convite de grupo, fica preso ao e-mail convidado. |
+| Senha | Mínimo 8 caracteres. A barra abaixo mostra quantos faltam. |
+| Botão Criar conta | Desabilitado enquanto processa. |
+| Já tem conta? Entrar | Volta para /login. |
 
 ## Casos especiais
-- Se o e-mail já estiver cadastrado, exibe erro email_taken com links para Login e Esqueci a senha.
-- Se o envio do e-mail falhar (Resend), o registro continua e a tela exibe instruções detalhadas de diagnóstico (verificar logs Resend, aba spam, etc.).
-- Se o usuário vier de um convite de grupo (?inviteToken=), o cadastro já vincula ao grupo automaticamente.
+- E-mail já cadastrado: aparece o erro com os links Entrar e Esqueci a senha.
+- Falha no envio do e-mail (Resend): a conta é criada e a tela mostra o aviso de diagnóstico.
+- Vindo de um convite de grupo: depois de confirmar o e-mail, o usuário já entra no grupo.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| E-mail já cadastrado | Usuário já tem conta. Usar link 'Entrar' ou 'Esqueci a senha'. |
-| E-mail de confirmação não chegou | Verificar spam / Promoções. Se ainda não chegou, usar botão 'Reenviar' na tela de login. |
-| Senha muito curta | Senha precisa ter ao menos 8 caracteres. |
-
-# SEÇÃO 3 — Verificação de E-mail / Recuperação de Senha
+| E-mail já cadastrado | Usar "Entrar" ou "Esqueci a senha". |
+| E-mail de confirmação não chegou | Ver o spam e a aba Promoções. Se não chegou, usar "Reenviar e-mail de confirmação" na tela Entrar. |
+| Senha muito curta | A senha precisa de pelo menos 8 caracteres; a barra abaixo do campo mostra quantos faltam. |
+# SEÇÃO 3 — Confirmar E-mail / Esqueci a Senha
 Rotas: /verificar-email · /esqueci-senha · /redefinir-senha
-## Verificação de E-mail (/verificar-email)
-O usuário chega a esta tela pelo link enviado por e-mail. O token da URL é consumido automaticamente. Se válido, a conta é ativada e o usuário pode fazer login. Se expirado ou inválido, exibe erro e botão para reenviar.
+## Confirmar e-mail (/verificar-email)
+Aberta pelo link do e-mail de confirmação. O link é conferido sozinho: válido, a conta é ativada, aparece "E-mail confirmado!" e o usuário já entra (ou vai para Entrar). Inválido ou vencido, aparece o erro.
 ## Esqueci a senha (/esqueci-senha)
-- Usuário informa o e-mail cadastrado.
-- Sistema envia e-mail com link para redefinição (válido por tempo limitado).
-- Mensagem de sucesso é exibida mesmo que o e-mail não exista (segurança).
-## Redefinir senha (/redefinir-senha)
-- Usuário chega pelo link recebido no e-mail.
-- Preenche nova senha (mínimo 8 caracteres) e confirmação.
-- Após sucesso, redireciona para login.
+- 1. Digitar o e-mail da conta e clicar "Enviar o link".
+- 2. A tela vira "Confira seu e-mail". A mensagem é a mesma exista ou não a conta (segurança). O botão "Reenviar" manda de novo.
+## Nova senha (/redefinir-senha)
+- 1. Aberta pelo link do e-mail.
+- 2. Digitar a senha nova (mínimo 8 caracteres) e repetir. Abaixo aparece "✓ As duas senhas são iguais" quando conferem.
+- 3. "Salvar senha" grava e leva para Entrar.
+NOTA: Logado, a senha também pode ser trocada em Minha conta → Perfil e senha (Seção 11), informando a senha atual.
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Link de verificação inválido ou expirado | Reenviar e-mail via tela de Login → botão 'Reenviar'. |
-| Link de redefinição expirado | Refazer o processo em /esqueci-senha para gerar novo link. |
-| E-mail não chegou para redefinição | Verificar spam. Se persistir, conferir config Resend no servidor. |
-
+| Link de confirmação inválido ou vencido | Na tela Entrar, usar "Reenviar e-mail de confirmação". |
+| Link de nova senha vencido | Pedir de novo em "Esqueci a senha". |
+| E-mail não chegou | Ver o spam e a aba Promoções. Se persistir, conferir a configuração do Resend no servidor. |
 # SEÇÃO 4 — Tela Principal (Home)
 Rota: /
 ## Visão geral
@@ -361,24 +363,6 @@ Permite ao usuário fazer perguntas em linguagem natural sobre os memos do espa�
 | Estruturada | Listagens, contagens, somas, médias, agrupamentos e filtros por critério. Usa as queries cadastradas nas categorias. |
 | Híbrida | A pergunta pede números e interpretação textual ao mesmo tempo. Roda as duas partes e combina o resultado. |
 NOTA: O tipo é escolhido pela IA. No card da resposta há botões para refazer a pergunta forçando outro tipo (ex.: "tentar semântica").
-## Perguntas sobre os assuntos (categorias)
-"Assunto", "tema" e "tipo de registro" valem como sinônimos de categoria. Duas perguntas são respondidas direto pelo sistema, sem buscar nos memos e sem passar pela classificação:
-| Pergunta | Resposta |
-|---|---|
-| "Quais assuntos posso usar?", "Que categorias existem?", "O que posso registrar aqui?" | Lista das categorias do grupo, com a primeira frase da descrição de cada uma |
-| "Como uso o assunto Agenda?", "Para que serve a Lista de Compras?", "Como funciona a Agenda?" | Para que serve (descrição), o que guardar (campos), a situação (se atualizável) e exemplos de uso |
-- Com perfil de acesso ligado, só aparecem as categorias que o perfil libera.
-- Os exemplos vêm do modelo do catálogo de onde a categoria foi habilitada. Sem modelo, a IA gera os exemplos a partir dos campos (uma vez por versão da categoria; custo pequeno).
-- Para a pergunta ser reconhecida, ela deve ser só isso: "Quais categorias de despesa tive em março?" continua sendo uma consulta normal.
-## Dúvida de uso × busca nos registros
-A classificação decide se a pergunta é sobre os **registros** (dados) ou sobre **como usar** o sistema. Citar uma categoria não decide: "O que tenho na agenda amanhã?" busca nos registros; "Como faço para remarcar um compromisso na agenda?" é dúvida de uso.
-| Dúvida de uso | Como é respondida |
-|---|---|
-| O grupo tem conhecimento importado (Admin → Conhecimento) | Busca só nos trechos do manual, junto com a configuração da categoria citada (campos, situações), para a resposta usar os nomes do grupo |
-| Sem manual, ou nada achado nele, e a pergunta cita uma categoria | Responde pela configuração da categoria (igual a "Como uso o assunto X?") |
-| Sem manual e sem categoria citada | Segue como pergunta normal |
-- A resposta de uso mostra "Respondi como dúvida de uso." e o botão **🗓 Buscar nos meus registros**, que refaz a pergunta nos registros.
-- No **↺ Refazer**, o botão **📘 No manual** refaz uma resposta de registros como dúvida de uso (e, numa resposta de uso, **🗓 Meus registros** faz o contrário).
 ## Etapas da resposta estruturada
 1. Classificação: identifica o tipo e as categorias envolvidas.
 2. Planejamento: escolhe as queries da categoria e preenche os parâmetros (cliente, período, produto…).
@@ -586,43 +570,46 @@ Ao trocar a categoria aparece o aviso "Você alterou a categoria para X" com o b
 | Você não tem permissão para editar este memo de Fulano | O memo é de outra pessoa e você não o catalogou nem é dono ou editor do grupo. Pedir ao dono do memo ou ao dono do grupo. |
 | Memo não encontrado | ID inexistente ou memo excluído. |
 | Escreva o resumo do memo | Resumo vazio — obrigatório para salvar. |
-# SEÇÃO 11 — Minha Conta / Preferências
-Rota: /conta/preferencias
-## Abas disponíveis
+# SEÇÃO 11 — Minha Conta
+Rota: /conta/preferencias (seções por ?tab=perfil · padrão = Preferências · ?tab=uso)
+## Menu lateral
 | Campo / Elemento | Descrição |
 |---|---|
-| Preferências de memo | Configurações de comportamento ao catalogar. |
-| Sua utilização | Dashboard de uso do plano. |
-| Perguntas salvas (link) | Abre a tela Perguntas salvas (/perguntas-salvas, Seção 9). |
-| Meus avisos e lembretes (link) | Abre /avisos (Seção 12). |
+| Nome e e-mail | No alto do menu, com as iniciais do usuário. |
+| Perfil e senha | Trocar o nome e a senha. |
+| Preferências | Como o proMemory se comporta ao catalogar e responder. Salva sozinha. |
+| Uso do plano | O plano, o consumo do mês e onde a IA foi usada. |
+| Perguntas salvas ↗ | Abre a tela própria /perguntas-salvas (Seção 9). |
+| Avisos e lembretes ↗ | Abre /avisos (Seção 12). |
 
-## Aba: Preferências de memo
+No celular, o menu vira uma faixa de botões no topo.
+## Perfil e senha
+- Nome: trocar e clicar "Salvar". O e-mail é o login e não muda aqui.
+- Trocar a senha: informar a senha atual e a nova (mínimo 8 caracteres) e clicar "Trocar a senha". Esqueceu a atual? O link leva a "Esqueci a senha" (Seção 3).
+## Preferências
+Cada mudança é salva sozinha em menos de um segundo; o canto da tela mostra "Salvando…" e depois "✓ Salvo automaticamente". Não há botão de salvar.
 | Campo / Elemento | Descrição |
 |---|---|
-| Confirmar antes do envio à IA | Se ativo, pede confirmação (com o nível de IA) antes de mandar o arquivo à IA. A revisão depois do processamento segue a regra da categoria (Seção 5). |
-| Dados específicos livres | Se ativo, IA pode preencher campos estruturados mesmo sem match de categoria. |
-| Áudio habilitado | Ativa narração de respostas e microfone para busca/perguntas. |
-| Velocidade de narração | Slider de 0.5× (lento) a 2.0× (rápido). Aparece somente se áudio ativado. |
-| Confiança mínima do OCR | Valor 1–100. Abaixo deste valor, aciona visão IA para imagens. Deixar em branco = desligado. |
-| Uso de IA por tipo de mídia | Para cada tipo (Texto, Imagem, Vídeo, Áudio, Documento, URL): semIA / basico / completo. |
+| Conferir antes de mandar para a IA | Se ligado, pede confirmação (com o nível de IA) antes de mandar o arquivo à IA. A revisão depois do processamento segue a regra da categoria (Seção 6). |
+| Guardar campos que não são da categoria | Se ligado, dados que a IA achar e a categoria não prevê ficam no memo mesmo assim. |
+| Fotos pouco nítidas: ler com IA de imagem | Valor de 1 a 100. Abaixo dessa nitidez, a IA olha a própria imagem (custo extra só nesses casos). Vazio = desligado. |
+| Quanto de IA usar em cada tipo | Para Texto, Imagem, Áudio, Vídeo, Documento e Página da web, três botões: Sem IA (só guarda), Básico (palavras-chave e categoria) e Completo (também os campos da categoria). Vale para os memos novos. |
+| Voz ligada | Lê as respostas em voz alta e deixa usar o microfone. |
+| Velocidade da voz | De 0,5× (lenta) a 2,0× (rápida). Aparece só com a voz ligada. |
+| Abrir o PDF numa aba nova | O PDF da resposta abre numa aba em vez de ser baixado. |
 
-## Aba: Sua utilização
-| Campo / Elemento | Descrição |
-|---|---|
-| Memos | Total de memos criados vs. limite do plano. |
-| Armazenamento | GB usados vs. limite do plano. |
-| Créditos IA (mês) | Créditos consumidos no mês atual vs. limite mensal. |
-| Downloads (mês) | GB de downloads no mês atual vs. limite mensal. |
-
-NOTA: Créditos e downloads são contados no mês civil atual. Limites vêm do plano individual ou do plano de grupo (se o usuário for owner de um grupo assinante).
-## Perguntas salvas
-As perguntas salvas ficam na tela própria Perguntas salvas (rota /perguntas-salvas), aberta pelo botão "Perguntas salvas" do Perguntar. Ver Seção 9.
+## Uso do plano
+- Cartão do plano: o nome do plano. Os créditos de IA voltam a zero todo mês.
+- Quatro barras: Memos, Armazenamento, Créditos de IA (este mês) e Downloads (este mês), cada uma com o usado e o limite.
+- A partir de 80% do limite, a barra fica laranja com "Perto do limite". Passando do limite, o uso continua liberado por enquanto.
+- "Onde a IA foi usada este mês": créditos gastos em Catalogar, Perguntar, Importar em lote e Avisos.
+NOTA: Créditos e downloads contam no mês do calendário. Os limites vêm do plano individual ou do plano de grupo (quando o usuário é dono de um grupo assinante).
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| O banco de dados ainda não inclui colunas de preferências | Migração pendente. Admin deve executar: npm run migration:run no container da API. |
-| Preferências não salvas | Verificar erro exibido abaixo do botão. Pode ser falha de API. |
-
+| Não foi possível salvar (Preferências) | Falha de rede ou da API. A mensagem aparece no topo; mudar a opção de novo tenta salvar outra vez. |
+| A senha atual não confere | A senha atual digitada está errada. Conferir, ou usar "Esqueci a senha". |
+| Seção Preferências apagada (cinza) | O banco ainda não tem as colunas de preferências. O administrador deve rodar as migrations da API. |
 # SEÇÃO 12 — Meus avisos e lembretes
 Rota: /avisos (menu da conta → Meus avisos e lembretes, ou o link do 🔔 sino)
 ## Propósito
@@ -659,16 +646,17 @@ NOTA: A lista é só de leitura. Quem decide quais categorias mandam lembrete, e
 # SEÇÃO 13 — Grupos: Criar / Entrar
 Rotas: /grupo/novo · /grupo/entrar
 ## Criar novo grupo (/grupo/novo)
-| Campo / Elemento | Descrição |
-|---|---|
-| Nome do grupo | Texto. Obrigatório. |
-| Descrição | Texto opcional. |
-| Botão Criar | Cria o grupo. O criador torna-se owner automaticamente. |
-
-Após criar, o sistema redireciona para o Seletor de Espaço ou para Administrar grupo (Seção 14).
+- 1. "Novo grupo": escolher o plano do grupo e clicar "Escolher".
+- 2. No cartão "Novo grupo", o quadro "Plano do grupo" mostra o plano ("Trocar" volta à escolha).
+- 3. Preencher o nome do grupo e, se quiser, "Para que serve".
+- 4. "Criar grupo": quem cria vira o dono do grupo.
+Após criar, o sistema leva ao Seletor de Espaço ou a Administrar grupo (Seção 14).
 ## Entrar em grupo (/grupo/entrar)
-Tela de instrução: para entrar em um grupo, o usuário precisa de um convite enviado pelo owner. O link de convite chegará por e-mail.
-DICA: O owner envia convites em Administrar grupo → Pessoas → Convidar pessoa.
+Só se entra num grupo por convite.
+- A tela mostra o seu e-mail com o botão "Copiar", para passar ao dono do grupo.
+- "Convites esperando você" lista os convites pendentes para esse e-mail; "Ver convite" abre o aceite (Seção 15).
+- Sem convites: "Nenhum convite pendente para este e-mail".
+DICA: O dono envia convites em Administrar grupo → Pessoas → Convidar pessoa.
 # SEÇÃO 14 — Administrar grupo
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 ## Acesso
@@ -728,16 +716,15 @@ Gerenciamento das conexões SQL Server usadas pelas queries do grupo. Servidor, 
 # SEÇÃO 15 — Aceitar Convite de Grupo
 Rota: /convite/grupo
 ## Fluxo
-- 1. Convidado recebe e-mail com link contendo token.
-- 2. Ao clicar, chega a /convite/grupo?token=XXX.
-- 3. Se não estiver logado, sistema redireciona para /login (preservando ?next= para retornar).
-- 4. Após login, processa o convite automaticamente.
-- 5. Usuário é adicionado ao grupo com o perfil definido (editor ou viewer).
-- 6. Sistema redireciona para a home já com o novo grupo disponível.
+- 1. O convidado recebe o e-mail com o link do convite (ou vê o convite em Entrar em grupo, Seção 13).
+- 2. O link abre /convite/grupo?token=… com "Fulano convidou você" e o nome do grupo.
+- 3. Já tem conta: "Entrar e aceitar o convite" (a tela Entrar já vem com o e-mail convidado).
+- 4. Não tem conta: "Criar minha conta e aceitar o convite"; depois de confirmar o e-mail, já entra no grupo.
+- 5. Logado com o e-mail certo, o convite é aceito sozinho e o grupo passa a ser o espaço ativo.
 ## Casos especiais
-- Se o convidado não tiver conta, ao criar conta (com link do convite na URL), é vinculado ao grupo automaticamente no cadastro.
-- Convite expirado: exibe mensagem de erro. Owner deve reenviar.
-- Convite já utilizado: exibe mensagem informativa.
+- Convite vencido: a tela avisa; o dono deve reenviar.
+- Convite já aceito: a tela avisa e oferece Entrar.
+- Logado com outro e-mail: a tela pede para sair e entrar com a conta do e-mail convidado.
 # SEÇÃO 16 — Importação em Lote
 Rota: /importar-lote
 ## Propósito

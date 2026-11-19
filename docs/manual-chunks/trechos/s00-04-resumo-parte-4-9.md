@@ -1,4 +1,4 @@
-Manual MyMemory › Novidades da versão 2 › Resumo (parte 4/8)
+Manual MyMemory › Novidades da versão 2 › Resumo (parte 4/9)
 Seção: Novidades — Novidades da versão 2
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 

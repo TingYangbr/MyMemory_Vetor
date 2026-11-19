@@ -57,10 +57,19 @@ for num, titulo, ls in secoes:
         ls = trocar(ls, "- Card do grupo com isOwner=true exibe link extra 'Painel do owner'.",
                     "- Card do grupo em que o usuário é dono exibe o link 'Administrar grupo' (Seção 14).")
         ls = inserir_antes(ls, "## Comportamentos importantes", bloco("SEC4ADD"))
+    # Lote 4 (Conta): Entrar, Criar conta, senha, Minha conta, Grupos e Convite reescritos
     if num == 1:
-        ls = inserir_antes(ls, "## Erros frequentes", bloco("SEC1ADD"))
-        i = ls.index("| Senha ou e-mail incorretos | Credenciais erradas. Usuário deve tentar novamente ou usar 'Esqueci a senha'. |")
-        ls[i + 1:i + 1] = bloco("SEC1ERRO")
+        saida_secoes.append(("Entrar", bloco("SEC1NOVA")[1:]))
+        continue
+    if num == 2:
+        saida_secoes.append(("Criar Conta / Escolher Plano", bloco("SEC2NOVA")[1:]))
+        continue
+    if num == 3:
+        saida_secoes.append(("Confirmar E-mail / Esqueci a Senha", bloco("SEC3NOVA")[1:]))
+        continue
+    if num == 14:
+        saida_secoes.append(("Aceitar Convite de Grupo", bloco("SEC_CONVITE_NOVA")[1:]))
+        continue
     if num == 6:
         # Lote 2: revisão só quando a categoria pede (bloco SEC6NOVA substitui a seção antiga)
         saida_secoes.append(("Revisar antes de salvar", bloco("SEC6NOVA")[1:]))
@@ -70,6 +79,9 @@ for num, titulo, ls in secoes:
         saida_secoes.append(("Editar Memo", bloco("SEC_EDITAR_NOVA")[1:]))
         continue
     if num == 12:
+        saida_secoes.append(("Grupos: Criar / Entrar", bloco("SEC_GRUPOS_NOVA")[1:]))
+        continue
+    if False:
         ls = trocar(ls, "Após criar, o sistema redireciona para o Seletor de Espaço ou para o Painel do Owner.",
                     "Após criar, o sistema redireciona para o Seletor de Espaço ou para Administrar grupo (Seção 14).")
         ls = trocar(ls, "DICA: O owner envia convites pelo Painel do Owner → aba Convites.",
@@ -103,6 +115,9 @@ for num, titulo, ls in secoes:
         saida_secoes.append(("Perguntas salvas", inserir_antes(bloco("SEC9NOVA")[1:], "## Como salvar", bloco("SEC9_TELA"))))
         continue
     if num == 10:
+        saida_secoes.append(("Minha Conta", bloco("SEC_CONTA_NOVA")[1:]))
+        continue
+    if False:
         ls = trocar(ls, "Lista todas as perguntas salvas pelo usuário. Por pergunta: texto, anotações, estrelas (1–5), grupo ou pessoal.",
                     "Lista todas as perguntas salvas pelo usuário. Por pergunta: texto, anotações, estrelas (1–5), grupo ou pessoal. Perguntas com ⚡ guardam também o plano com parâmetros (Seção 9); editar o texto remove o plano.")
         # Lote 3: as perguntas salvas têm tela própria

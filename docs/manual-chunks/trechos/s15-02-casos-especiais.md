@@ -3,9 +3,9 @@ Seção: Seção 15 — Aceitar Convite de Grupo
 Rota: /convite/grupo
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
-- Se o convidado não tiver conta, ao criar conta (com link do convite na URL), é vinculado ao grupo automaticamente no cadastro.
-- Convite expirado: exibe mensagem de erro. Owner deve reenviar.
-- Convite já utilizado: exibe mensagem informativa.
+- Convite vencido: a tela avisa; o dono deve reenviar.
+- Convite já aceito: a tela avisa e oferece Entrar.
+- Logado com outro e-mail: a tela pede para sair e entrar com a conta do e-mail convidado.
 
 Perguntas que este trecho responde:
 - Quais são os casos especiais de Aceitar Convite de Grupo?

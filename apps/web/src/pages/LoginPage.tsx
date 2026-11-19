@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 import { tokenDoConvite, useConviteGrupo } from "../lib/conviteGrupo";
 
 function safeNext(raw: string | null): string {
@@ -20,6 +21,8 @@ export default function LoginPage() {
     if (convite?.status === "pending") setEmail((atual) => atual || convite.email);
   }, [convite]);
   const [password, setPassword] = useState("");
+  const [verSenha, setVerSenha] = useState(false);
+  const [manterConectado, setManterConectado] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorCode, setErrorCode] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -33,7 +36,7 @@ export default function LoginPage() {
     setResendMsg(null);
     setBusy(true);
     try {
-      await apiPostJson("/api/auth/login", { email, password });
+      await apiPostJson("/api/auth/login", { email, password, manterConectado });
       navigate(afterLogin, { replace: true });
     } catch (err) {
       const raw = err instanceof Error ? err.message : String(err);
@@ -67,9 +70,10 @@ export default function LoginPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
         <h1 className={styles.title}>Entrar</h1>
-        <p className={styles.sub}>Use o e-mail e a senha da sua conta MyMemory.</p>
+        <p className={styles.sub}>Use o e-mail e a senha da sua conta.</p>
 
         {error ? (
           <div className={styles.error} role="alert">
@@ -116,19 +120,43 @@ export default function LoginPage() {
             />
           </div>
           <div className={styles.field}>
-            <label className={styles.label} htmlFor="login-password">
-              Senha
-            </label>
-            <input
-              id="login-password"
-              className={styles.input}
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <div className={styles.labelRow}>
+              <label className={styles.label} htmlFor="login-password">
+                Senha
+              </label>
+              <Link to="/esqueci-senha" className={styles.linkInline} style={{ fontSize: "0.82rem" }}>
+                Esqueci a senha
+              </Link>
+            </div>
+            <div className={styles.senhaWrap}>
+              <input
+                id="login-password"
+                className={styles.input}
+                type={verSenha ? "text" : "password"}
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <button
+                type="button"
+                className={styles.olho}
+                onClick={() => setVerSenha((v) => !v)}
+                aria-label={verSenha ? "Esconder a senha" : "Mostrar a senha"}
+                title={verSenha ? "Esconder a senha" : "Mostrar a senha"}
+              >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" />
+                  <circle cx="12" cy="12" r="3" />
+                  {verSenha ? <path d="M4 4l16 16" /> : null}
+                </svg>
+              </button>
+            </div>
           </div>
+          <label className={styles.check}>
+            <input type="checkbox" checked={manterConectado} onChange={(e) => setManterConectado(e.target.checked)} />
+            Manter conectado neste aparelho
+          </label>
           <div className={styles.actions}>
             <button type="submit" className={`mm-btn mm-btn--primary ${styles.wide}`} disabled={busy}>
               {busy ? "Entrando…" : "Entrar"}
@@ -136,12 +164,13 @@ export default function LoginPage() {
           </div>
         </form>
 
-        <div className={styles.links}>
+        <div className={styles.divisor} />
+        <p className={styles.rodape}>
+          Ainda não tem conta?{" "}
           <Link to={afterLogin !== "/" ? `/select-plan?next=${encodeURIComponent(afterLogin)}` : "/select-plan"}>
             Criar conta
           </Link>
-          <Link to="/esqueci-senha">Esqueci a senha</Link>
-        </div>
+        </p>
       </div>
     </div>
   );

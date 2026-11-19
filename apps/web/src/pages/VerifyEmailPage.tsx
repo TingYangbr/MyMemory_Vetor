@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 
 export default function VerifyEmailPage() {
   const [search] = useSearchParams();
@@ -67,6 +68,7 @@ export default function VerifyEmailPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
         <h1 className={styles.title}>Confirmar e-mail</h1>
         {!done ? <p className={styles.sub}>Validando o link…</p> : null}
@@ -91,7 +93,7 @@ export default function VerifyEmailPage() {
 
         {done ? (
           <div className={styles.links}>
-            <Link to={destino}>{entrou ? "Continuar" : "Entrar agora"}</Link>
+            <Link to={destino} className="mm-btn mm-btn--primary">{entrou ? "Continuar" : "Entrar agora"}</Link>
           </div>
         ) : null}
       </div>
