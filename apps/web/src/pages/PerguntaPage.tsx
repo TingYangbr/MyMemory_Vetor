@@ -1741,7 +1741,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema" }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1776,6 +1776,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.thresholdOverride != null) body.thresholdOverride = opts.thresholdOverride;
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
       if (opts?.ampliarAteAchar) body.ampliarAteAchar = true;
+      if (opts?.forceAlvo) body.forceAlvo = opts.forceAlvo;
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
         method: "POST",
@@ -3002,6 +3003,27 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                             {renderPipeLabel(p)}
                           </button>
                         ))}
+                        {r.resposta.alvo === "uso_do_sistema" ? (
+                          <button
+                            type="button"
+                            className={styles.refazerPipeBtn}
+                            disabled={busy}
+                            title="Procurar nos seus registros, não no manual"
+                            onClick={() => void enviar({ forceAlvo: "dados", perguntaOverride: r.perguntaTexto })}
+                          >
+                            🗓 Meus registros
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            className={styles.refazerPipeBtn}
+                            disabled={busy}
+                            title="Responder como dúvida de uso, pelo manual"
+                            onClick={() => void enviar({ forceAlvo: "uso_do_sistema", perguntaOverride: r.perguntaTexto })}
+                          >
+                            📘 No manual
+                          </button>
+                        )}
                         <button type="button" className={styles.refazerClose} onClick={() => setRefazerIdx(null)} title="Cancelar">×</button>
                       </div>
                     ) : isSemResposta(r) ? (
@@ -3065,6 +3087,20 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   })()}
                   <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
+                  {r.resposta.alvo === "uso_do_sistema" ? (
+                    <div className={styles.ampliarWrap}>
+                      <span className={styles.alvoUsoNota}>Respondi como dúvida de uso.</span>
+                      <button
+                        type="button"
+                        className={styles.refazerBtn}
+                        disabled={busy}
+                        title="Procurar a mesma pergunta nos seus registros, não no manual"
+                        onClick={() => void enviar({ forceAlvo: "dados", perguntaOverride: r.perguntaTexto })}
+                      >
+                        🗓 Buscar nos meus registros
+                      </button>
+                    </div>
+                  ) : null}
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (

@@ -1120,7 +1120,12 @@ export interface PerguntaClassificacao {
   justificativa: string;
   /** O que o texto quer: consultar (pergunta), criar um registro novo ou alterar um existente. Ausente = consultar. */
   acao?: PerguntaAcao;
+  /** Sobre o quê: os dados do usuário (memos, registros) ou o uso do sistema (como fazer, para que serve). Ausente = dados. */
+  alvo?: PerguntaAlvo;
 }
+
+/** "dados": os memos e registros; "uso_do_sistema": como usar o MyMemory (responde pelo conhecimento importado). */
+export type PerguntaAlvo = "dados" | "uso_do_sistema";
 
 export type PerguntaAcao = "consultar" | "criar" | "alterar";
 
@@ -1194,6 +1199,8 @@ export interface PerguntaResposta {
   limitacoes: string[];
   confianca_estimada: number;
   dados_estruturados?: PerguntaResultadoEstruturado | PerguntaResultadoEstruturado[] | null;
+  /** Respondida como dúvida de uso (pelo conhecimento): a tela oferece buscar nos registros. */
+  alvo?: PerguntaAlvo;
 }
 
 export interface PerguntaFiltros {
@@ -1212,6 +1219,8 @@ export interface PerguntaRequest {
   thresholdOverride?: number;
   /** Categorias a usar quando forcePipe está definido, para preservar o boost de categoria da busca original. */
   forceCategories?: string[];
+  /** Força o alvo: "dados" ignora a resposta pelo conhecimento; "uso_do_sistema" busca só no conhecimento. */
+  forceAlvo?: PerguntaAlvo;
 }
 
 export interface PerguntaCardHistorico {
