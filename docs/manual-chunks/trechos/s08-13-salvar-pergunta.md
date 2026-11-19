@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Salvar pergunta
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Salvar pergunta
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 Clicar no ícone de salvar do card (balão de conversa com +) guarda a pergunta em "Perguntas salvas".
@@ -8,5 +8,5 @@ Clicar no ícone de salvar do card (balão de conversa com +) guarda a pergunta 
 - Se tem parâmetros (cliente, produto, período…), aparecem duas opções: "Salvar só o texto" (padrão, já com foco) e "⚡ Com parâmetros". Ver Seção 9.
 
 Perguntas que este trecho responde:
-- O que é salvar pergunta em Perguntar ao MyMemory?
+- O que é salvar pergunta em Fale comigo?
 - Como funciona salvar pergunta no MyMemory?

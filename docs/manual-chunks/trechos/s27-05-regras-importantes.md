@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Regras importantes
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: conceito · Versão do manual: 2
 
 - O texto entra exatamente como no arquivo (sem acentos, como todos os memos do sistema); a IA não reescreve nem classifica.

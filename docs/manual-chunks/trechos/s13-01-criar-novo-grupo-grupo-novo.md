@@ -7,7 +7,7 @@ Perfil: usuário · Tipo: passo a passo · Versão do manual: 2
 2. No cartão "Novo grupo", o quadro "Plano do grupo" mostra o plano ("Trocar" volta à escolha).
 3. Preencher o nome do grupo e, se quiser, "Para que serve".
 4. "Criar grupo": quem cria vira o dono do grupo.
-Após criar, o sistema leva ao Seletor de Espaço ou a Administrar grupo (Seção 14).
+Após criar, o sistema leva ao Seletor de Espaço ou a Painel Owners (Seção 14).
 
 Perguntas que este trecho responde:
 - Como criar novo grupo (/grupo/novo) em Grupos: Criar / Entrar?

@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Série mês a mês
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Série mês a mês
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 Perguntas de evolução ao longo do tempo ("variação % mensal de faturamento em 2026", "crescimento mês a mês") vêm em uma tabela só, com uma linha por período e a coluna "<medida> var. %": a variação de cada período sobre o anterior, calculada pelo sistema. O primeiro período fica sem variação.
@@ -10,5 +10,5 @@ NOTA: Os destaques do texto seguem o impacto em R$. Um item com queda percentual
 DICA: O CMV total depende de a query da categoria ter a coluna de custo total (custo unitário × quantidade). Se só houver o custo unitário, a soma não representa o CMV. Ver Seção 17.
 
 Perguntas que este trecho responde:
-- O que é série mês a mês em Perguntar ao MyMemory?
+- O que é série mês a mês em Fale comigo?
 - Como funciona série mês a mês no MyMemory?

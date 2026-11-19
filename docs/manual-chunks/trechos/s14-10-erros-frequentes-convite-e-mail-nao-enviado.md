@@ -1,5 +1,5 @@
-Manual MyMemory › Administrar grupo › Erros frequentes: Convite: e-mail não enviado
-Seção: Seção 14 — Administrar grupo
+Manual MyMemory › Painel Owners › Erros frequentes: Convite: e-mail não enviado
+Seção: Seção 14 — Painel Owners
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 Perfil: owner · Tipo: erro · Versão do manual: 2
 
@@ -8,4 +8,4 @@ Causa e solução: Falha no Resend. Convite registrado no banco — usuário pod
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Convite: e-mail não enviado"?
-- Por que acontece "Convite: e-mail não enviado" em Administrar grupo?
+- Por que acontece "Convite: e-mail não enviado" em Painel Owners?

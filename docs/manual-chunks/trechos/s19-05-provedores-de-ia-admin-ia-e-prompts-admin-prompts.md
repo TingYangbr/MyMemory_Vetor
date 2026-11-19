@@ -1,5 +1,5 @@
-Manual MyMemory › Admin do sistema › Provedores de IA (/admin/ia) e Prompts (/admin/prompts)
-Seção: Seção 19 — Admin do sistema
+Manual MyMemory › Painel Admin › Provedores de IA (/admin/ia) e Prompts (/admin/prompts)
+Seção: Seção 19 — Painel Admin
 Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 Perfil: admin · Tipo: conceito · Versão do manual: 2
 
@@ -7,5 +7,5 @@ Perfil: admin · Tipo: conceito · Versão do manual: 2
 - Prompts: o texto de instrução de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com ajuste por categoria. O que a IA recebeu de fato aparece em "Último prompt" (Seção 24).
 
 Perguntas que este trecho responde:
-- O que é provedores de ia (/admin/ia) e prompts (/admin/prompts) em Admin do sistema?
+- O que é provedores de ia (/admin/ia) e prompts (/admin/prompts) em Painel Admin?
 - Como funciona provedores de ia (/admin/ia) e prompts (/admin/prompts) no MyMemory?

@@ -1,9 +1,9 @@
 Manual MyMemory › Admin: Importar conhecimento › Antes de importar
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: passo a passo · Versão do manual: 2
 
-1. Em Administrar grupo → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
+1. Em Painel Owners → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
 2. Criar nela os campos Seção, Tela, Rota, Perfil, Tipo e Versão. Os nomes são casados com ou sem acento ("Secao" = "Seção").
 3. Ter o arquivo .jsonl com um trecho por linha (campos obrigatórios: id e texto).
 

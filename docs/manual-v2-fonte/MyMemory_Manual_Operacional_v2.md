@@ -11,18 +11,18 @@ Este documento descreve todas as telas do sistema MyMemory, seus campos, comport
 - Seção 5 — Catalogar Memo (todos os tipos de mídia)
 - Seção 6 — Revisar antes de salvar
 - Seção 7 — Buscar Memos
-- Seção 8 — Perguntar ao MyMemory
+- Seção 8 — Fale comigo (perguntas ao proMemory)
 - Seção 9 — Perguntas salvas
 - Seção 10 — Editar Memo
 - Seção 11 — Minha Conta
 - Seção 12 — Meus avisos e lembretes
 - Seção 13 — Grupos: Criar / Entrar
-- Seção 14 — Administrar grupo
+- Seção 14 — Painel Owners
 - Seção 15 — Aceitar Convite de Grupo
 - Seção 16 — Importação em Lote
-- Seção 17 — Categorias (Administrar grupo)
+- Seção 17 — Categorias (Painel Owners)
 - Seção 18 — Lembretes por e-mail
-- Seção 19 — Admin do sistema
+- Seção 19 — Painel Admin
 - Seção 20 — Admin: Mídia por plano
 - Seção 21 — Admin: Documento — roteamento IA
 - Seção 22 — Admin: CAD/BIM — Pipeline IA
@@ -65,7 +65,7 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Extração mais fiel: endereços e nomes copiados como no texto, tempo sempre com unidade, "eu/me" = autor do memo | Seção 17 |
 | Perguntas comparam texto dos memos por palavras ("sr. Wilson" acha "Sr. Wilson da FAPESP") | Seção 17 |
 | Sem resultado nos seus memos Pessoal, a pergunta busca nos de todos (com aviso); resposta vazia com confiança baixa | Seção 17 |
-| Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Perguntar, com ↶ Desfazer | Seções 8 e 17 |
+| Categoria Atualizável: alterar, concluir ou cancelar memos (ex.: agenda) direto na resposta do Fale comigo, com ↶ Desfazer | Seções 8 e 17 |
 | Períodos relativos ("semana que vem", "próxima sexta", "fim de semana"…) calculados pelo sistema no horário de Brasília | Seção 8 |
 | ✎ no fim da resposta para alterar memo atualizável; com vários memos, abre a escolha "Qual memo alterar?" | Seção 8 |
 | Campo dono vazio é preenchido com o nome de quem salvou; Situação vazia é gravada como Ativo (também nos memos antigos) | Seção 17 |
@@ -90,10 +90,10 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Perguntar sobre remarcações e cancelamentos ("o que foi remarcado esta semana?", "o que foi cancelado em outubro?") com a consulta automática "Alterações — categoria" | Seções 8 e 17 |
 | Editar memo e Histórico abrem para o dono, quem catalogou e donos/editores do grupo; sem permissão, a mensagem diz de quem é o memo | Seção 10 |
 | Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela | Seção 28 |
-| Novo visual: cabeçalho com menu da conta, sino de avisos e lembretes, Perguntar, Buscar, Catalogar e escolha do espaço | Seções 4, 7 e 8 |
+| Novo visual: cabeçalho com menu da conta, sino de avisos e lembretes, Fale comigo, Buscar, Catalogar e escolha do espaço | Seções 4, 7 e 8 |
 | "Título curto" passa a se chamar Assunto, sugerido pela IA | Seções 4, 6 e 10 |
-| Perguntas fixadas viram atalho embaixo da caixa do Perguntar | Seções 4 e 9 |
-| Administrar grupo (/grupo/:id/admin) substitui o Painel do owner e a Estrutura do contexto | Seções 14 e 17 |
+| Perguntas fixadas viram atalho embaixo da caixa do Fale comigo | Seções 4 e 9 |
+| Painel Owners (/grupo/:id/admin) substitui o Painel do owner e a Estrutura do contexto | Seções 14 e 17 |
 | Revisar antes de salvar só quando a categoria pede (Sempre revisar ou % mínimo de campos); nos outros casos salva direto | Seções 5, 6 e 17 |
 | Revisão e Editar memo com o mesmo desenho: original à esquerda, memo à direita; campos em formulário; Excluir no Editar | Seções 6 e 10 |
 | Meus avisos e lembretes: abas Avisos e Lembretes, histórico, editar, Verificar agora e "Mais" para os próximos 7 dias | Seção 12 |
@@ -103,8 +103,9 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Criar conta com o plano escolhido e a barra de senha; "Confira seu e-mail" depois de criar e de pedir nova senha | Seções 2 e 3 |
 | Minha conta com menu lateral: Perfil e senha (trocar nome e senha), Preferências salvas sozinhas, Uso do plano com barras e créditos por área | Seção 11 |
 | Entrar em grupo mostra o seu e-mail para copiar e os convites esperando você | Seções 13 e 15 |
-| Admin do sistema numa tela só, com menu lateral em 6 grupos e endereço próprio por seção; Início com verificação automática | Seção 19 |
+| Painel Admin numa tela só, com menu lateral em 6 grupos e endereço próprio por seção; Início com verificação automática | Seção 19 |
 | Admin: Chamadas de IA por etapa; assinantes por plano; totais no relatório de custos; último teste das conexões; Eliminar pede para digitar ELIMINAR | Seção 19 |
+| Nomes novos: aba Fale comigo (antes Perguntar); no menu do avatar, Painel Admin, Painel Owners e Categorias Modelos; menu lateral do Painel Admin em 2 níveis, com largura ajustável e recolhível | Seções 4, 8, 14 e 19 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 # SEÇÃO 1 — Entrar
 Rota: /login
@@ -184,29 +185,29 @@ NOTA: Logado, a senha também pode ser trocada em Minha conta → Perfil e senha
 # SEÇÃO 4 — Tela Principal (Home)
 Rota: /
 ## Visão geral
-A tela principal é o ponto central do sistema. Ela tem três abas: Perguntar, Buscar e Catalogar. A aba ativa é salva no localStorage (mm_home_tab) e restaurada na próxima visita.
+A tela principal é o ponto central do sistema. Ela tem três abas: Fale comigo, Buscar e Catalogar. A aba ativa é salva no localStorage (mm_home_tab) e restaurada na próxima visita.
 ## Cabeçalho (Header)
 | Campo / Elemento | Descrição |
 |---|---|
 | Logotipo / Nome do sistema | Clique retorna à home. |
 | Indicador de espaço ativo | Mostra o grupo atual ou 'Pessoal'. Clique abre o Seletor de Espaço. |
-| Menu da conta (avatar) | Conta (Minha conta, Meus avisos e lembretes, Importar em lote), Trocar espaço, Criar grupo, Administração (Administrar grupo para o dono; Categorias globais e telas de admin para o administrador do sistema), tema claro/escuro e Sair. |
+| Menu da conta (avatar) | Conta (Minha conta, Meus avisos e lembretes, Importar em lote), Trocar espaço, Criar grupo, Administração (Painel Owners para o dono; Categorias Modelos e telas de admin para o administrador do sistema), tema claro/escuro e Sair. |
 | 🔔 Sino (Avisos e lembretes) | Mostra quantos avisos novos e lembretes próximos existem. Abre um painel com duas abas: Avisos (respostas que mudaram) e Lembretes (compromissos dos próximos 7 dias em que você é destinatário). O link "Meus avisos e lembretes" abre a tela completa (Seção 12). |
 
 ## Seletor de Espaço (Workspace Picker)
 Aparece quando o usuário clica no indicador de espaço ou acessa /?escolherEspaco=1.
 - Exibe card 'Meus Memos Pessoais' e cards de cada grupo do qual faz parte.
-- Card do grupo em que o usuário é dono exibe o link 'Administrar grupo' (Seção 14).
+- Card do grupo em que o usuário é dono exibe o link 'Painel Owners' (Seção 14).
 - Botões: 'Criar novo grupo' → /grupo/novo · 'Entrar em outro Grupo' → /grupo/entrar · 'Cancelar'.
-## Aba Perguntar
-Ver Seção 8 — Perguntar ao MyMemory.
+## Aba Fale comigo
+Ver Seção 8 — Fale comigo (perguntas ao proMemory).
 ## Aba Buscar
 Ver Seção 7 — Buscar Memos.
 ## Aba Catalogar
 Ver Seção 5 — Catalogar Memo.
 Abaixo do painel de catalogação, a lista de Memos Recentes exibe os últimos registros do espaço ativo.
-## Perguntas fixadas (atalhos do Perguntar)
-Embaixo da caixa do Perguntar aparecem como botões as perguntas salvas que você fixou. Um toque faz a pergunta na hora. Para fixar ou desafixar, use "Fixar no Perguntar" na tela Perguntas salvas (Seção 9) ou o alfinete na lista de perguntas salvas do Perguntar. As fixadas são por pessoa e por espaço.
+## Perguntas fixadas (atalhos do Fale comigo)
+Embaixo da caixa do Fale comigo aparecem como botões as perguntas salvas que você fixou. Um toque faz a pergunta na hora. Para fixar ou desafixar, use "Fixar no Fale comigo" na tela Perguntas salvas (Seção 9) ou o alfinete na lista de perguntas salvas do Fale comigo. As fixadas são por pessoa e por espaço.
 ## Assunto dos memos
 Cada memo tem um Assunto: até 5 palavras que resumem o memo e aparecem no Buscar, nos Recentes e nas listas. A IA sugere o Assunto ao catalogar e ele pode ser trocado na revisão ou no Editar memo. Nas versões anteriores ele se chamava "título curto".
 ## Comportamentos importantes
@@ -348,13 +349,13 @@ Rota: / (aba Buscar) · Componente: MemoSearchPage
 | Busca semântica indisponível | Módulo de embeddings não configurado ou sem créditos de IA. |
 | Microfone bloqueado | Permissão de microfone negada no navegador. Liberar em configurações do browser. |
 
-# SEÇÃO 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+# SEÇÃO 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 ## Propósito
 Permite ao usuário fazer perguntas em linguagem natural sobre os memos do espaço ativo e sobre os dados estruturados (queries das categorias, inclusive bancos SQL Server de ERP). A IA classifica a pergunta, escolhe o caminho de resposta e mostra o resultado com as fontes usadas.
 ## Como usar
 1. Digitar a pergunta no campo de texto ou falar clicando no microfone 🎤.
-2. Clicar "Perguntar →" ou pressionar Enter.
+2. Clicar "Enviar" ou pressionar Enter.
 3. A resposta aparece em um card, com os memos e dados usados.
 4. Clicar em "Memo #id" abre o memo; a tabela de dados estruturados pode ser rolada e ordenada.
 5. Para reutilizar, salvar a pergunta pelo ícone de salvar do card (ver "Salvar pergunta" abaixo).
@@ -460,7 +461,7 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
 - A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
 ## Perguntar sobre remarcações e cancelamentos
-Nas categorias atualizáveis, o Perguntar também responde sobre o que MUDOU, usando o registro de alterações (consulta "Alterações — Agenda", criada sozinha; Seção 17).
+Nas categorias atualizáveis, o Fale comigo também responde sobre o que MUDOU, usando o registro de alterações (consulta "Alterações — Agenda", criada sozinha; Seção 17).
 | Pergunta | O que o sistema procura |
 |---|---|
 | "O que foi remarcado NESTA semana?" | Alterações feitas nesta semana (pela data em que você mudou). |
@@ -483,10 +484,10 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
 | Sem memos suficientes para responder | Base de memos do espaço ativo vazia ou sem conteúdo relevante. Usar "Ampliar busca" ou reformular. |
-| Não encontrei dados estruturados para essa pergunta | Nenhuma categoria identificada. Conferir nome e descrição das categorias em Administrar grupo → Categorias. |
-| Erro ao processar a pergunta: Query #N "nome": … | Falha no SQL da query N. Abrir "ver etapas" para ver o SQL e os parâmetros; corrigir a query ou os parâmetros em Administrar grupo → Categorias. |
+| Não encontrei dados estruturados para essa pergunta | Nenhuma categoria identificada. Conferir nome e descrição das categorias em Painel Owners → Categorias. |
+| Erro ao processar a pergunta: Query #N "nome": … | Falha no SQL da query N. Abrir "ver etapas" para ver o SQL e os parâmetros; corrigir a query ou os parâmetros em Painel Owners → Categorias. |
 | invalid input syntax for type numeric / date | Campo de memo com texto onde se esperava número ou data. Desde a v2 a Query padrão converte com tolerância; em queries editadas à mão, usar mymemory_parse_number / mymemory_parse_date (Seção 17). |
-| A query "X" foi clonada e ainda não tem conexão definida | Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela em Administrar grupo → Categorias. |
+| A query "X" foi clonada e ainda não tem conexão definida | Query clonada com conexão pendente. Escolher a "Conexão BD externa" dela em Painel Owners → Categorias. |
 | Resposta traz registros de outros clientes | Filtro do template não está sendo aplicado (ex.: nome de parâmetro digitado errado no SQL, como @Abrev_Abrev_Empresa). Conferir o SQL em "ver etapas". |
 | Resposta cita dados fora do contexto | O planejador associou o termo ao campo errado. Preencher a descrição do campo (Seção 17) e refazer em Nova sessão. |
 | Variação entre períodos: "não é possível cruzar os dois meses" | A comparação não foi montada (ex.: períodos com filtros diferentes, ou mais de dois períodos). Refazer em Nova sessão, citando os dois períodos e as medidas: "faturamento por produto, variação % de fevereiro sobre janeiro de 2026". Se repetir, enviar o trace ao suporte. |
@@ -496,19 +497,19 @@ Cada pergunta consome créditos de IA. O custo estimado é exibido no card de re
 | Os servidores de IA estão temporariamente sobrecarregados | Provedor de IA indisponível. Tentar novamente em alguns segundos ou minutos. |
 | Créditos de IA esgotados | Limite do plano atingido. Aguardar renovação ou fazer upgrade. |
 # SEÇÃO 9 — Perguntas salvas
-Rota: / (aba Perguntar) · Componentes: PerguntaPage, PerguntaChips
+Rota: / (aba Fale comigo) · Componentes: PerguntaPage, PerguntaChips
 ## Propósito
 Uma pergunta salva com parâmetros guarda, além do texto, o plano da consulta (classificação, queries e parâmetros). Ao reutilizá-la, os parâmetros viram chips clicáveis na frase. O usuário troca só o que precisa (outro cliente, outro período) e a pergunta é reexecutada direto, sem as etapas de classificação e planejamento — mais rápida e com resultado consistente.
 ## Tela Perguntas salvas
-Rota: /perguntas-salvas. "Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Perguntar."
+Rota: /perguntas-salvas. "Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Fale comigo."
 | Campo / Elemento | Descrição |
 |---|---|
 | Busca | Procura nas perguntas e nas anotações. |
 | Filtros por categoria | Etiquetas com as categorias das perguntas; "Sem categoria" para as demais. |
 | Ordenar | Mais recentes, Mais antigas, Mais estrelas, De A a Z. |
 | Grupos | As perguntas aparecem agrupadas por categoria. |
-| 📌 Fixar no Perguntar | Vira atalho embaixo da caixa do Perguntar (só para você). Tocar de novo desafixa. |
-| Perguntar | Faz a pergunta na hora, já na aba Perguntar. |
+| 📌 Fixar no Fale comigo | Vira atalho embaixo da caixa do Fale comigo (só para você). Tocar de novo desafixa. |
+| Perguntar | Faz a pergunta na hora, já na aba Fale comigo. |
 | Me avise ligado | Etiqueta que aparece quando a pergunta tem um aviso ativo; tocar abre Meus avisos e lembretes. |
 | Editar (tocar no texto) | Pergunta, categoria, anotações, classificação (estrelas), Fixar e "Me avise quando a resposta mudar". Botões Salvar, Cancelar e Excluir. |
 ## Como salvar
@@ -520,7 +521,7 @@ NOTA: Só respostas estruturadas com parâmetros trocáveis oferecem a opção. 
 1. Abrir "Perguntas salvas" e escolher uma pergunta marcada com ⚡.
 2. A frase aparece com os chips no lugar dos valores. Ex.: "faturamento do cliente [Cliente: Diguinho] [Período: nos últimos 6 meses]".
 3. Clicar em um chip para trocar o valor.
-4. Clicar "Perguntar →". O card da resposta mostra ⚡ indicando que o plano salvo foi reaproveitado.
+4. Clicar "Enviar". O card da resposta mostra ⚡ indicando que o plano salvo foi reaproveitado.
 ## Seletor do chip
 | Elemento | Descrição |
 |---|---|
@@ -549,7 +550,7 @@ Chips alterados ficam com borda tracejada. Os botões ao lado da frase são: ✎
 # SEÇÃO 10 — Editar Memo
 Rota: /memo/:id/editar
 ## Acesso
-Toque no memo no Buscar, nos Recentes ou no cartão do memo aberto pela resposta do Perguntar.
+Toque no memo no Buscar, nos Recentes ou no cartão do memo aberto pela resposta do Fale comigo.
 ## Como é a tela
 O mesmo desenho da revisão (Seção 6): o original à esquerda e o memo à direita (no celular, abas Original e Memo).
 | Campo / Elemento | Descrição |
@@ -604,7 +605,7 @@ Cada mudança é salva sozinha em menos de um segundo; o canto da tela mostra "S
 - Cartão do plano: o nome do plano. Os créditos de IA voltam a zero todo mês.
 - Quatro barras: Memos, Armazenamento, Créditos de IA (este mês) e Downloads (este mês), cada uma com o usado e o limite.
 - A partir de 80% do limite, a barra fica laranja com "Perto do limite". Passando do limite, o uso continua liberado por enquanto.
-- "Onde a IA foi usada este mês": créditos gastos em Catalogar, Perguntar, Importar em lote e Avisos.
+- "Onde a IA foi usada este mês": créditos gastos em Catalogar, Fale comigo, Importar em lote e Avisos.
 NOTA: Créditos e downloads contam no mês do calendário. Os limites vêm do plano individual ou do plano de grupo (quando o usuário é dono de um grupo assinante).
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
@@ -617,7 +618,7 @@ Rota: /avisos (menu da conta → Meus avisos e lembretes, ou o link do 🔔 sino
 ## Propósito
 Avisos: o proMemory refaz uma pergunta sua e avisa quando a resposta muda (ex.: "me avise quando surgir nova nota fiscal do cliente X"). Lembretes: compromissos que chegam até você por e-mail antes da data.
 ## Como criar um aviso
-1. No card de uma resposta do Perguntar, tocar em "🔔 Me avise". Também dá para ligar em Perguntas salvas ("Me avise quando a resposta mudar").
+1. No card de uma resposta do Fale comigo, tocar em "🔔 Me avise". Também dá para ligar em Perguntas salvas ("Me avise quando a resposta mudar").
 2. Revisar a descrição do aviso e confirmar.
 3. O sistema reexecuta a pergunta periodicamente com o mesmo caminho (semântico, estruturado ou híbrido) e compara o resultado.
 - A cada execução o sistema confere de novo se quem criou o aviso ainda é membro do grupo e se as queries e o perfil de acesso permitem. Se não permitem mais, o aviso é pausado e nada é enviado.
@@ -639,7 +640,7 @@ NOTA: A lista é só de leitura. Quem decide quais categorias mandam lembrete, e
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|
-| Você ainda não tem avisos | Situação normal — nenhum aviso foi criado. Faça a pergunta no Perguntar e toque em Me avise. |
+| Você ainda não tem avisos | Situação normal — nenhum aviso foi criado. Faça a pergunta no Fale comigo e toque em Me avise. |
 | Aviso nunca dispara | A resposta não mudou, ou a query usada mudou de formato. Use Verificar agora; se continuar, recrie o aviso a partir de uma nova pergunta. |
 | O aviso só pode ser enviado para o seu e-mail ou de um membro do grupo | E-mail de destino fora do grupo. Usar o próprio e-mail ou o de um membro. |
 | Aviso ficou Pausado sozinho | Na execução agendada, o sistema conferiu de novo grupo, queries e perfil e o usuário não tem mais acesso (saiu do grupo, perfil mudou ou query foi movida). Ajustar o acesso e ligar de novo, ou excluir o aviso. |
@@ -652,17 +653,17 @@ Rotas: /grupo/novo · /grupo/entrar
 - 2. No cartão "Novo grupo", o quadro "Plano do grupo" mostra o plano ("Trocar" volta à escolha).
 - 3. Preencher o nome do grupo e, se quiser, "Para que serve".
 - 4. "Criar grupo": quem cria vira o dono do grupo.
-Após criar, o sistema leva ao Seletor de Espaço ou a Administrar grupo (Seção 14).
+Após criar, o sistema leva ao Seletor de Espaço ou a Painel Owners (Seção 14).
 ## Entrar em grupo (/grupo/entrar)
 Só se entra num grupo por convite.
 - A tela mostra o seu e-mail com o botão "Copiar", para passar ao dono do grupo.
 - "Convites esperando você" lista os convites pendentes para esse e-mail; "Ver convite" abre o aceite (Seção 15).
 - Sem convites: "Nenhum convite pendente para este e-mail".
-DICA: O dono envia convites em Administrar grupo → Pessoas → Convidar pessoa.
-# SEÇÃO 14 — Administrar grupo
+DICA: O dono envia convites em Painel Owners → Pessoas → Convidar pessoa.
+# SEÇÃO 14 — Painel Owners
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 ## Acesso
-Menu da conta → Administração → Administrar grupo. Só o dono (owner) do grupo e o administrador do sistema. O seletor de grupo no topo é uma busca e mostra só os grupos em que você é dono (o administrador vê todos e também "Categorias globais", que valem para todos os grupos).
+Menu da conta → Administração → Painel Owners. Só o dono (owner) do grupo e o administrador do sistema. O seletor de grupo no topo é uma busca e mostra só os grupos em que você é dono (o administrador vê todos e também "Categorias Modelos", que valem para todos os grupos).
 ## Seções do painel
 | Seção | O que tem |
 |---|---|
@@ -776,7 +777,7 @@ A aba "Importações automáticas" (em espaço de grupo) faz o servidor verifica
 | Campo / Elemento | Descrição |
 |---|---|
 | Verificar a cada | 15 minutos, 30 minutos, 1 hora, 6 horas ou 1 dia. |
-| Nível de IA | Sem IA, Básico ou Completo. Só o Completo gera os vetores da busca semântica do Perguntar. |
+| Nível de IA | Sem IA, Básico ou Completo. Só o Completo gera os vetores da busca semântica do Fale comigo. |
 | Máximo por execução | Limite de arquivos importados por vez (1 a 500). O que passar fica para a próxima. |
 | Copiar o arquivo para o armazenamento | Marcado: copia o arquivo como o Catalogar (S3/local ou WebDAV padrão do grupo). Desmarcado: só referencia o arquivo na pasta (Guarda própria). |
 | Enviar resumo por e-mail | Resumo para quem criou a automação quando importar algo ou der erro. |
@@ -815,7 +816,7 @@ Em categoria Pessoal, a importação (manual ou automática) grava o memo para o
 | Não chegou: a tela foi fechada antes de enviar este arquivo. | A tela foi fechada durante o envio. Importar de novo só os que faltaram. |
 | Arquivo grande demais (máx. 100 MB) | Limite do envio pelo navegador. Dividir o arquivo ou catalogar pelo WebDAV. |
 
-# SEÇÃO 17 — Categorias (Administrar grupo)
+# SEÇÃO 17 — Categorias (Painel Owners)
 Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 ## Propósito
 Editor de categorias, subcategorias, campos específicos e query templates. Define como a IA classifica e extrai dados dos memos. Admins veem todos os grupos; owners veem somente o seu grupo.
@@ -845,7 +846,7 @@ Editor de categorias, subcategorias, campos específicos e query templates. Defi
 | Ativo | Campo inativo não é enviado à IA. |
 
 ## Query templates
-Consultas parametrizadas vinculadas a uma categoria, usadas pelo Perguntar para respostas estruturadas. Podem rodar no PostgreSQL interno (sobre os memos) ou em um SQL Server externo (ERP), conforme a conexão escolhida.
+Consultas parametrizadas vinculadas a uma categoria, usadas pelo Fale comigo para respostas estruturadas. Podem rodar no PostgreSQL interno (sobre os memos) ou em um SQL Server externo (ERP), conforme a conexão escolhida.
 | Campo / Elemento | Descrição |
 |---|---|
 | Nome da query | Identificador amigável. |
@@ -909,7 +910,7 @@ Médias (AVG) são calculadas com casas decimais; antes, colunas inteiras eram t
 ## Ícones de ação
 Em cada linha (categoria, campo, query, parâmetro) há ✎ para editar e 🗑 para excluir. Só aparecem quando a tela está em modo de edição (admin, ou owner do grupo selecionado); em "Só visualização" ficam ocultos.
 ## Categoria Pessoal e campo dono
-Em Administrar grupo → Categorias → Editar categoria há a chave "Pessoal: cada memo é de uma pessoa" e o campo "Quem é o dono do memo". A marca diz de quem é cada memo; ela não esconde os memos dos outros membros. Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
+Em Painel Owners → Categorias → Editar categoria há a chave "Pessoal: cada memo é de uma pessoa" e o campo "Quem é o dono do memo". A marca diz de quem é cada memo; ela não esconde os memos dos outros membros. Nas perguntas, "minha agenda" ou "meus registros" mostram só os memos da própria pessoa; para ver todos, pergunte "de todos".
 - Marcada a opção, escolha o "Campo dono do memo": o campo com o e-mail ou o nome da pessoa (crie um campo como "Dono Agenda" se não existir).
 - Na importação em lote, manual ou automática, o memo passa a ser do membro do grupo indicado nesse campo. Não identificado, vai para a aba "Extrair dono do memo" da Importação em Lote.
 - No Catalogar e ao editar um memo, vale a mesma regra: se o campo dono indicar outro membro do grupo, o memo passa a ser dele ao salvar. Vazio, o próprio autor ou nome não reconhecido: o memo continua de quem salvou (sem ir para a lista de pendentes).
@@ -931,10 +932,10 @@ NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo qua
 ## Categoria Atualizável
 Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
 - Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo salvo sem situação é gravado como Ativo; os memos antigos com Situação vazia também foram marcados como Ativo.
-- Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
+- Nas respostas do Fale comigo, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
-- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Administrar grupo → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
+- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Painel Owners → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
 | Situação | Significa | Agenda | Tarefa | Pedido |
 |---|---|---|---|---|
 | Ativo | vale, em andamento | marcado | aberta | em aberto |
@@ -949,7 +950,7 @@ Em Editar categoria, a parte "Revisão antes de salvar" decide quando a tela de 
 | Sempre revisar antes de salvar | Para categorias críticas, como Contratos. A tela de revisão sempre abre. |
 | % mínimo dos campos | Se a IA preencher pelo menos este % dos campos, o memo é salvo direto. Abaixo dele, o usuário escolhe Editar, Gravar assim ou Cancelar. Sugerido: 80%. |
 ## Permissões de edição
-- Admin do sistema: pode criar/editar/excluir qualquer categoria (global ou de grupo).
+- Painel Admin: pode criar/editar/excluir qualquer categoria (global ou de grupo).
 - Owner do grupo: pode criar/editar/excluir categorias do próprio grupo. Não pode alterar categorias globais.
 - Membros comuns: acesso somente leitura (veem as categorias disponíveis, mas não editam).
 ## Erros frequentes
@@ -967,7 +968,7 @@ Rota: /grupo/:groupId/admin → Categorias → Editar categoria (parte Lembretes
 ## Propósito
 Envia e-mail antes da data/hora de cada memo de uma categoria (Agenda, vencimentos, renovações). O memo pode sobrepor o padrão da categoria (ex.: "me lembre 30 min antes", "avisar o João", "não precisa lembrar").
 ## Acesso
-Em Administrar grupo → Categorias, abrir a categoria e ir à parte Lembretes (a categoria precisa de um campo de data). Só o dono do grupo e o admin configuram. Lembretes só existem em categorias do grupo, não nas globais.
+Em Painel Owners → Categorias, abrir a categoria e ir à parte Lembretes (a categoria precisa de um campo de data). Só o dono do grupo e o admin configuram. Lembretes só existem em categorias do grupo, não nas globais.
 | Ícone | Significado |
 |---|---|
 | 🔔 | Lembretes ligados nesta categoria. Clique para ver ou alterar. |
@@ -997,7 +998,7 @@ Um campo do memo ligado ao seletor "Destinatário" avisa outras pessoas além de
 | "grupo", "todos", "equipe" | Todos do grupo |
 | Nome que não é de membro, ou que serve a vários | Os demais encontrados e quem registrou; a prévia mostra o nome não encontrado |
 | Vazio | O destinatário padrão da categoria |
-NOTA: Renomear um campo em Administrar grupo → Categorias atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
+NOTA: Renomear um campo em Painel Owners → Categorias atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
 ## Antecedência por memo (campo "Lembrar antes")
 Cada memo pode ter a própria antecedência, no lugar da antecedência padrão da categoria.
 1. Na categoria (ex.: Agenda), criar o campo "Lembrar antes", do tipo texto, com uma descrição como "Antecedência do lembrete, ex.: 30 min, 2 horas, 1 dia; 2 dias; 1 hora".
@@ -1025,17 +1026,17 @@ DICA: O campo não precisa entrar na Query padrão para os lembretes funcionarem
 | Lembrete não chegou | Conferir se a categoria está ativa para lembretes, se o memo tem data válida e se o e-mail não foi para o spam. Ver a prévia "Próximos lembretes". |
 | Prévia vazia | Nenhum memo com data nos próximos 60 dias, ou "Campo de data" errado. |
 | Horário errado | Memo sem hora: usa "Horário quando o memo não tiver". |
-# SEÇÃO 19 — Admin do sistema
+# SEÇÃO 19 — Painel Admin
 Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 ## Acesso
-Só para administradores do sistema: menu do avatar → Administração → "Admin do sistema". Sem login, vai para Entrar; sem perfil de admin, aparece "Acesso negado".
+Só para administradores do sistema: menu do avatar → Administração → "Painel Admin". Sem login, vai para Entrar; sem perfil de admin, aparece "Acesso negado".
 ## Menu lateral
 Todas as telas de admin têm o mesmo menu à esquerda (no celular, ele fica no topo). Os itens estão em 6 grupos; o grupo da tela aberta fica aberto e os outros podem ser abertos com um toque.
 | Grupo | Itens (endereço) |
 |---|---|
 | Clientes e planos | Planos de assinatura (/admin/planos) · Assinaturas e grupos (/admin/assinaturas) · Convites de usuários (/admin/convites) · Storage por grupo (/admin/storage) · Mídia por plano (/admin/midia) |
 | Inteligência artificial | Provedores de IA (/admin/ia) · Prompts (/admin/prompts) · Último prompt (/admin/llm-prompt) · Roteamento de documentos (/admin/documento-ia) · CAD/BIM (/admin/cad-pipeline) |
-| Conteúdo | Categorias globais · Importar conhecimento (/admin/conhecimento) · Consulta de memos (/admin/consulta) · Eliminação definitiva (/admin/eliminacao) |
+| Conteúdo | Categorias Modelos · Importar conhecimento (/admin/conhecimento) · Consulta de memos (/admin/consulta) · Eliminação definitiva (/admin/eliminacao) |
 | Integrações | Conexões de banco (/admin/conexoes) · Perfis de acesso (/admin/perfis) |
 | Custos e saúde | Relatório de custos (/admin/custos) · Chamadas de IA (/admin/chamadas-ia) · Verificação do sistema (/admin/verificacao) |
 | Sistema | Configurações (/admin/system-config) |
@@ -1060,7 +1061,7 @@ NOTA: Plano com assinaturas (ativas ou encerradas) não pode ser excluído; o bo
 - Provedores de IA: para cada tipo de trabalho (texto, imagem, transcrição de áudio), o provedor, o modelo, a temperatura, o máximo de tokens e se está ativo. A chave de cada provedor fica no servidor e não aparece na tela.
 - Prompts: o texto de instrução de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com ajuste por categoria. O que a IA recebeu de fato aparece em "Último prompt" (Seção 24).
 ## Consulta de memos (/admin/consulta)
-Igual à Consulta de memos de Administrar grupo, mas com acesso a todos os grupos. Filtros por grupo de categorias, categoria, grupo de memos e data.
+Igual à Consulta de memos de Painel Owners, mas com acesso a todos os grupos. Filtros por grupo de categorias, categoria, grupo de memos e data.
 ## Eliminação definitiva (/admin/eliminacao)
 Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do mês e os arquivos deles (os registros de custo ficam).
 - Para confirmar, é preciso digitar ELIMINAR na janela que aparece.
@@ -1068,13 +1069,13 @@ Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do m�
 NOTA: A eliminação não pode ser desfeita. Combine com o responsável técnico antes.
 ## Conexões de banco (/admin/conexoes) e Perfis de acesso (/admin/perfis)
 - Conexões de banco: todas as conexões SQL Server dos grupos. Cada conexão mostra o resultado do último teste ("✓ Conectou · N ms" ou "✗ Não conectou" com o motivo) e a data; "Ainda não testada" quando nunca foi testada. "Testar" atualiza.
-- Perfis de acesso: escolher o grupo e editar os perfis dele (o mesmo painel de Administrar grupo → Perfis de acesso).
+- Perfis de acesso: escolher o grupo e editar os perfis dele (o mesmo painel de Painel Owners → Perfis de acesso).
 ## Relatório de custos (/admin/custos)
 Custos de IA e de download por plano, grupo e pessoa, no período e tipo de mídia escolhidos. No topo, três totais: IA no período (US$), Créditos cobrados e Download (US$). Abaixo, a tabela por plano, que abre por grupo e por pessoa, e o detalhe das últimas chamadas.
 ## Chamadas de IA (/admin/chamadas-ia)
 Para o último dia, 7, 30 ou 90 dias: por etapa (classificação, planejamento, síntese, extração…), quantas chamadas, quantas falharam, o tempo médio, o tempo em que 9 de cada 10 terminam, o custo em US$ e os modelos usados. Serve para achar o que está caro ou lento.
 ## Verificação do sistema (/admin/verificacao)
-"Executar diagnóstico" testa as dependências do Perguntar (banco, embeddings, provedor de IA) e mostra o status, o tempo e o detalhe de cada uma.
+"Executar diagnóstico" testa as dependências do Fale comigo (banco, embeddings, provedor de IA) e mostra o status, o tempo e o detalhe de cada uma.
 ## Convites de usuários (/admin/convites)
 Convidar uma pessoa por e-mail e acompanhar os convites (enviado, aceito, expirado).
 ## Erros frequentes
@@ -1125,7 +1126,7 @@ Rota: /admin/system-config
 Parâmetros globais que afetam todos os usuários.
 | Campo / Elemento | Descrição |
 |---|---|
-| Pesquisa semântica — limiares (Perguntar) | Limiar inicial e mínimo de similaridade. Quando a busca retorna vazio, o sistema reduz o limiar em 10% a cada tentativa até o mínimo. Valores de 0,01 a 1,00. |
+| Pesquisa semântica — limiares (Fale comigo) | Limiar inicial e mínimo de similaridade. Quando a busca retorna vazio, o sistema reduz o limiar em 10% a cada tentativa até o mínimo. Valores de 0,01 a 1,00. |
 | Busca Semântica de Memos | Limiar da busca semântica da tela Buscar (top 40 resultados acima do mínimo). Valores de 0 a 1,00. |
 | Multiplicador USD → créditos (fatorCredCost) | Multiplica o custo em USD para calcular os créditos exibidos e descontados. Padrão: 100. |
 # SEÇÃO 24 — Admin: Último prompt LLM
@@ -1139,7 +1140,7 @@ Tela de diagnóstico: mostra fielmente o último payload enviado à API de IA (m
 | Atualizar | Recarrega o último registro. |
 ## Relatório de chamadas de IA
 Toda chamada de IA fica registrada (etapa, modelo, tamanho do prompt e da resposta em caracteres, tempo, falha e custo). O admin consulta o resumo por etapa em /api/admin/llm-chamadas?dias=7 (JSON; dias de 1 a 90). Serve para ver quais prompts pesam mais e onde enxugar.
-NOTA: A edição dos prompts (com override por categoria) fica em Admin do sistema → Inteligência artificial → Prompts (Seção 19). Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
+NOTA: A edição dos prompts (com override por categoria) fica em Painel Admin → Inteligência artificial → Prompts (Seção 19). Para ver todas as etapas de uma pergunta específica, use "ver etapas" no card da resposta (Seção 8).
 # SEÇÃO 25 — Admin: Assinaturas
 Rota: /admin/assinaturas
 ## Propósito
@@ -1205,12 +1206,12 @@ NOTA: A janela "Armazenamento do arquivo" da edição do memo mostra a localiza�
 | Não aparece dropdown de WebDAV no Batch Import | Verificar se há config ativa e padrão para o grupo no /admin/storage. |
 
 # SEÇÃO 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 ## Propósito
 Importa conhecimento já dividido em trechos — por exemplo o próprio Manual MyMemory (docs/manual-chunks/chunks-mymemory-operacional.jsonl) ou um FAQ interno — para dentro de um grupo. Cada trecho vira um memo de texto com categoria, campos e vetores da busca semântica, sem passar pela IA de extração. Depois disso, as perguntas feitas no grupo passam a ser respondidas também com esses trechos.
 Cada importação leva um Nome do manual (origem). Vários manuais podem dividir a mesma categoria: Substituir e Remover só afetam os trechos do manual com o mesmo nome.
 ## Antes de importar
-1. Em Administrar grupo → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
+1. Em Painel Owners → Categorias, criar a categoria de destino (ex.: "Manual MyMemory") no grupo ou como global.
 2. Criar nela os campos Seção, Tela, Rota, Perfil, Tipo e Versão. Os nomes são casados com ou sem acento ("Secao" = "Seção").
 3. Ter o arquivo .jsonl com um trecho por linha (campos obrigatórios: id e texto).
 ## Como importar
@@ -1350,7 +1351,7 @@ Sistemas externos, como o Softing-erp, podem fazer perguntas ao MyMemory em nome
 | /admin/assinaturas | Assinaturas de usuários e grupos |
 | /admin/storage | Storage WebDAV por grupo |
 | /admin/conhecimento | Importar conhecimento em trechos para um grupo |
-| /grupo/:groupId/admin | Administrar grupo: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin) |
+| /grupo/:groupId/admin | Painel Owners: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin) |
 | /avisos | Meus avisos e lembretes |
 | /perguntas-salvas | Perguntas salvas |
 | /importar-lote | Importar em lote |

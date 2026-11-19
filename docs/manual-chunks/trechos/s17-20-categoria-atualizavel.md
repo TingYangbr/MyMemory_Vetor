@@ -1,14 +1,14 @@
 Manual MyMemory › Categorias › Categoria Atualizável
-Seção: Seção 17 — Categorias (Administrar grupo)
+Seção: Seção 17 — Categorias (Painel Owners)
 Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
 Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
 - Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo salvo sem situação é gravado como Ativo; os memos antigos com Situação vazia também foram marcados como Ativo.
-- Nas respostas do Perguntar, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
+- Nas respostas do Fale comigo, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
-- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Administrar grupo → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
+- Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Painel Owners → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
 - Situação: Ativo; Significa: vale, em andamento; Agenda: marcado; Tarefa: aberta; Pedido: em aberto
 - Situação: Concluído; Significa: terminou; Agenda: aconteceu; Tarefa: feita; Pedido: entregue
 - Situação: Cancelado; Significa: não vai acontecer; Agenda: desmarcado; Tarefa: desistida; Pedido: cancelado

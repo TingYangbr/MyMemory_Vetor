@@ -1,5 +1,5 @@
 Manual MyMemory › Categorias › Parâmetros das queries
-Seção: Seção 17 — Categorias (Administrar grupo)
+Seção: Seção 17 — Categorias (Painel Owners)
 Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
