@@ -284,6 +284,10 @@ Além do perfil (Seção 9), o servidor confere o acesso em todos os caminhos qu
 ## Login e configuração do servidor
 - Tentativas limitadas por rede e por e-mail no login (60 e 10 a cada 15 minutos), cadastro (10 por hora), esqueci a senha e reenvio da confirmação (20 e 5 por hora), confirmação de e-mail e nova senha (30 a cada 15 minutos).
 - Em produção a API não sobe com JWT_SECRET vazio ou com o valor padrão. Os atalhos de desenvolvimento (cabeçalho de usuário e login automático) ficam desligados em servidor publicado com https.
+- Duração da sessão (cookie mm_access): "Manter conectado neste aparelho" marcado = 30 dias; desmarcado = cookie de sessão (some ao fechar o navegador; token de 12 h); clientes antigos que não mandam a opção = 7 dias.
+- Minha conta (lote 4): PATCH /api/me/perfil troca o nome; POST /api/me/senha troca a senha e exige a senha atual (erro "A senha atual não confere"). O e-mail não muda pela conta.
+- Convites: GET /api/me/convites lista só os convites pendentes e no prazo do e-mail da própria conta (o mesmo token que foi enviado a esse e-mail).
+- Uso do plano: os créditos por área vêm de api_usage_logs.operation no mês (memo_batch_ia = Importar em lote; Response to Question = Perguntar; Monitoring Alert = Avisos; demais memo_* e voice_transcription = Catalogar).
 
 ## Ponto de atenção: chave de integração
 Quem tem a chave de integração do grupo (Seção 10) pode perguntar como qualquer pessoa ligada no de-para, informando o id dela no ERP. Por isso a chave fica só no servidor do ERP, cifrada, nunca no navegador. Restrição por IP, validade e registro de uso da chave ainda não estão disponíveis.

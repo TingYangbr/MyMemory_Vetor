@@ -1,5 +1,5 @@
-Manual MyMemory › Login › Limite de tentativas
-Seção: Seção 1 — Login
+Manual MyMemory › Entrar › Limite de tentativas
+Seção: Seção 1 — Entrar
 Rota: /login
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
@@ -10,5 +10,5 @@ Para dificultar adivinhação de senha, o sistema limita as tentativas por ender
 - Confirmação de e-mail e nova senha: até 30 a cada 15 minutos por rede.
 
 Perguntas que este trecho responde:
-- O que é limite de tentativas em Login?
+- O que é limite de tentativas em Entrar?
 - Como funciona limite de tentativas no MyMemory?

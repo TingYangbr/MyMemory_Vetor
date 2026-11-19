@@ -64,6 +64,10 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 | Meus avisos e lembretes: abas Avisos e Lembretes, histórico, editar, Verificar agora e "Mais" para os próximos 7 dias | Seção 12 |
 | Tela Perguntas salvas própria: busca, categorias, fixar, Perguntar, Me avise | Seção 9 |
 | Importar em lote em 3 passos; Disco local e Rede local pelo navegador (o original é descartado); aba Extrair dono do memo | Seção 16 |
+| Telas de acesso novas: painel da marca, olho de mostrar a senha e "Manter conectado neste aparelho" (30 dias) | Seções 1 a 3 |
+| Criar conta com o plano escolhido e a barra de senha; "Confira seu e-mail" depois de criar e de pedir nova senha | Seções 2 e 3 |
+| Minha conta com menu lateral: Perfil e senha (trocar nome e senha), Preferências salvas sozinhas, Uso do plano com barras e créditos por área | Seção 11 |
+| Entrar em grupo mostra o seu e-mail para copiar e os convites esperando você | Seções 13 e 15 |
 | Correção: descrição das telas admin Mídia por plano, Documento — roteamento IA, CAD/BIM, Config. do Sistema e Último prompt LLM (estavam incorretas na v1) | Seções 20 a 24 |
 @@FIM
 
@@ -863,4 +867,163 @@ Em Editar categoria, a parte "Revisão antes de salvar" decide quando a tela de 
 |---|---|
 | Sempre revisar antes de salvar | Para categorias críticas, como Contratos. A tela de revisão sempre abre. |
 | % mínimo dos campos | Se a IA preencher pelo menos este % dos campos, o memo é salvo direto. Abaixo dele, o usuário escolhe Editar, Gravar assim ou Cancelar. Sugerido: 80%. |
+@@FIM
+
+@@SEC1NOVA
+# SEÇÃO 1 — Entrar
+Rota: /login
+## Objetivo
+Entrar no proMemory com o e-mail e a senha da conta. No computador, à esquerda fica o painel verde "O assistente profissional para a sua memória", que explica o que o proMemory faz; no celular aparece só o cartão de entrar.
+## Campos
+| Campo / Elemento | Descrição |
+|---|---|
+| E-mail | E-mail da conta. Obrigatório. Aberto por um convite de grupo, já vem preenchido com o e-mail convidado. |
+| Senha | Senha da conta. O olho ao lado mostra ou esconde o que foi digitado. |
+| Esqueci a senha | Link ao lado do rótulo Senha. Abre /esqueci-senha (Seção 3). |
+| Manter conectado neste aparelho | Marcado (padrão): a sessão dura 30 dias neste navegador. Desmarcado: a sessão termina ao fechar o navegador (use em computador de outra pessoa). |
+| Botão Entrar | Envia o e-mail e a senha. Fica desabilitado enquanto entra. |
+| Ainda não tem conta? Criar conta | Abre a escolha do plano (Seção 2). |
+
+## Comportamentos
+- Depois de entrar, volta para a página de onde veio (parâmetro ?next=) ou para o início.
+- E-mail ainda não confirmado: aparece o erro com o botão "Reenviar e-mail de confirmação".
+## Limite de tentativas
+Para dificultar adivinhação de senha, o sistema limita as tentativas por endereço de rede e por e-mail:
+- Login: até 60 tentativas a cada 15 minutos por rede e 10 por e-mail.
+- Criar conta: até 10 por hora por rede.
+- Esqueci a senha e reenvio da confirmação: até 20 por hora por rede e 5 por e-mail.
+- Confirmação de e-mail e nova senha: até 30 a cada 15 minutos por rede.
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| E-mail ou senha incorretos | Conferir o e-mail e a senha (o olho mostra o que foi digitado). Se esqueceu, usar "Esqueci a senha". |
+| Muitas tentativas. Tente de novo em N minuto(s). | Limite de tentativas atingido. Aguardar o tempo indicado; se esqueceu a senha, usar "Esqueci a senha" depois da espera. |
+| Confirme seu e-mail antes de entrar | A conta foi criada, mas o e-mail não foi confirmado. Usar o botão "Reenviar e-mail de confirmação" da própria tela. |
+| Sai da conta toda vez que fecha o navegador | "Manter conectado neste aparelho" estava desmarcado ao entrar. Entrar de novo com a opção marcada. |
+@@FIM
+
+@@SEC2NOVA
+# SEÇÃO 2 — Criar Conta / Escolher Plano
+Rotas: /select-plan → /cadastro
+## Fluxo de cadastro
+- 1. Em "Escolha seu plano" (/select-plan), cada plano mostra o preço (ou Grátis), os memos, o armazenamento e "Participar de grupos sem limite". O plano mais escolhido aparece em destaque. Clicar em "Escolher".
+- 2. Em "Criar conta" (/cadastro), o quadro "Plano escolhido" mostra o plano; "Trocar" volta à escolha.
+- 3. Preencher nome, e-mail e senha. Abaixo da senha, a barra mostra se já tem o mínimo de 8 caracteres.
+- 4. "Criar conta" cria a conta e manda o e-mail de confirmação.
+- 5. A tela vira "Confira seu e-mail": o link do e-mail entra direto, sem digitar a senha de novo.
+## Campos do formulário de cadastro
+| Campo / Elemento | Descrição |
+|---|---|
+| Nome | Obrigatório, mínimo 2 caracteres. |
+| E-mail | Único no sistema. Obrigatório. Vindo de um convite de grupo, fica preso ao e-mail convidado. |
+| Senha | Mínimo 8 caracteres. A barra abaixo mostra quantos faltam. |
+| Botão Criar conta | Desabilitado enquanto processa. |
+| Já tem conta? Entrar | Volta para /login. |
+
+## Casos especiais
+- E-mail já cadastrado: aparece o erro com os links Entrar e Esqueci a senha.
+- Falha no envio do e-mail (Resend): a conta é criada e a tela mostra o aviso de diagnóstico.
+- Vindo de um convite de grupo: depois de confirmar o e-mail, o usuário já entra no grupo.
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| E-mail já cadastrado | Usar "Entrar" ou "Esqueci a senha". |
+| E-mail de confirmação não chegou | Ver o spam e a aba Promoções. Se não chegou, usar "Reenviar e-mail de confirmação" na tela Entrar. |
+| Senha muito curta | A senha precisa de pelo menos 8 caracteres; a barra abaixo do campo mostra quantos faltam. |
+@@FIM
+
+@@SEC3NOVA
+# SEÇÃO 3 — Confirmar E-mail / Esqueci a Senha
+Rotas: /verificar-email · /esqueci-senha · /redefinir-senha
+## Confirmar e-mail (/verificar-email)
+Aberta pelo link do e-mail de confirmação. O link é conferido sozinho: válido, a conta é ativada, aparece "E-mail confirmado!" e o usuário já entra (ou vai para Entrar). Inválido ou vencido, aparece o erro.
+## Esqueci a senha (/esqueci-senha)
+- 1. Digitar o e-mail da conta e clicar "Enviar o link".
+- 2. A tela vira "Confira seu e-mail". A mensagem é a mesma exista ou não a conta (segurança). O botão "Reenviar" manda de novo.
+## Nova senha (/redefinir-senha)
+- 1. Aberta pelo link do e-mail.
+- 2. Digitar a senha nova (mínimo 8 caracteres) e repetir. Abaixo aparece "✓ As duas senhas são iguais" quando conferem.
+- 3. "Salvar senha" grava e leva para Entrar.
+NOTA: Logado, a senha também pode ser trocada em Minha conta → Perfil e senha (Seção 11), informando a senha atual.
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Link de confirmação inválido ou vencido | Na tela Entrar, usar "Reenviar e-mail de confirmação". |
+| Link de nova senha vencido | Pedir de novo em "Esqueci a senha". |
+| E-mail não chegou | Ver o spam e a aba Promoções. Se persistir, conferir a configuração do Resend no servidor. |
+@@FIM
+
+@@SEC_CONTA_NOVA
+# SEÇÃO 11 — Minha Conta
+Rota: /conta/preferencias (seções por ?tab=perfil · padrão = Preferências · ?tab=uso)
+## Menu lateral
+| Campo / Elemento | Descrição |
+|---|---|
+| Nome e e-mail | No alto do menu, com as iniciais do usuário. |
+| Perfil e senha | Trocar o nome e a senha. |
+| Preferências | Como o proMemory se comporta ao catalogar e responder. Salva sozinha. |
+| Uso do plano | O plano, o consumo do mês e onde a IA foi usada. |
+| Perguntas salvas ↗ | Abre a tela própria /perguntas-salvas (Seção 9). |
+| Avisos e lembretes ↗ | Abre /avisos (Seção 12). |
+
+No celular, o menu vira uma faixa de botões no topo.
+## Perfil e senha
+- Nome: trocar e clicar "Salvar". O e-mail é o login e não muda aqui.
+- Trocar a senha: informar a senha atual e a nova (mínimo 8 caracteres) e clicar "Trocar a senha". Esqueceu a atual? O link leva a "Esqueci a senha" (Seção 3).
+## Preferências
+Cada mudança é salva sozinha em menos de um segundo; o canto da tela mostra "Salvando…" e depois "✓ Salvo automaticamente". Não há botão de salvar.
+| Campo / Elemento | Descrição |
+|---|---|
+| Conferir antes de mandar para a IA | Se ligado, pede confirmação (com o nível de IA) antes de mandar o arquivo à IA. A revisão depois do processamento segue a regra da categoria (Seção 6). |
+| Guardar campos que não são da categoria | Se ligado, dados que a IA achar e a categoria não prevê ficam no memo mesmo assim. |
+| Fotos pouco nítidas: ler com IA de imagem | Valor de 1 a 100. Abaixo dessa nitidez, a IA olha a própria imagem (custo extra só nesses casos). Vazio = desligado. |
+| Quanto de IA usar em cada tipo | Para Texto, Imagem, Áudio, Vídeo, Documento e Página da web, três botões: Sem IA (só guarda), Básico (palavras-chave e categoria) e Completo (também os campos da categoria). Vale para os memos novos. |
+| Voz ligada | Lê as respostas em voz alta e deixa usar o microfone. |
+| Velocidade da voz | De 0,5× (lenta) a 2,0× (rápida). Aparece só com a voz ligada. |
+| Abrir o PDF numa aba nova | O PDF da resposta abre numa aba em vez de ser baixado. |
+
+## Uso do plano
+- Cartão do plano: o nome do plano. Os créditos de IA voltam a zero todo mês.
+- Quatro barras: Memos, Armazenamento, Créditos de IA (este mês) e Downloads (este mês), cada uma com o usado e o limite.
+- A partir de 80% do limite, a barra fica laranja com "Perto do limite". Passando do limite, o uso continua liberado por enquanto.
+- "Onde a IA foi usada este mês": créditos gastos em Catalogar, Perguntar, Importar em lote e Avisos.
+NOTA: Créditos e downloads contam no mês do calendário. Os limites vêm do plano individual ou do plano de grupo (quando o usuário é dono de um grupo assinante).
+## Erros frequentes
+| Mensagem / Sintoma | Causa e solução |
+|---|---|
+| Não foi possível salvar (Preferências) | Falha de rede ou da API. A mensagem aparece no topo; mudar a opção de novo tenta salvar outra vez. |
+| A senha atual não confere | A senha atual digitada está errada. Conferir, ou usar "Esqueci a senha". |
+| Seção Preferências apagada (cinza) | O banco ainda não tem as colunas de preferências. O administrador deve rodar as migrations da API. |
+@@FIM
+
+@@SEC_GRUPOS_NOVA
+# SEÇÃO 13 — Grupos: Criar / Entrar
+Rotas: /grupo/novo · /grupo/entrar
+## Criar novo grupo (/grupo/novo)
+- 1. "Novo grupo": escolher o plano do grupo e clicar "Escolher".
+- 2. No cartão "Novo grupo", o quadro "Plano do grupo" mostra o plano ("Trocar" volta à escolha).
+- 3. Preencher o nome do grupo e, se quiser, "Para que serve".
+- 4. "Criar grupo": quem cria vira o dono do grupo.
+Após criar, o sistema leva ao Seletor de Espaço ou a Administrar grupo (Seção 14).
+## Entrar em grupo (/grupo/entrar)
+Só se entra num grupo por convite.
+- A tela mostra o seu e-mail com o botão "Copiar", para passar ao dono do grupo.
+- "Convites esperando você" lista os convites pendentes para esse e-mail; "Ver convite" abre o aceite (Seção 15).
+- Sem convites: "Nenhum convite pendente para este e-mail".
+DICA: O dono envia convites em Administrar grupo → Pessoas → Convidar pessoa.
+@@FIM
+
+@@SEC_CONVITE_NOVA
+# SEÇÃO 15 — Aceitar Convite de Grupo
+Rota: /convite/grupo
+## Fluxo
+- 1. O convidado recebe o e-mail com o link do convite (ou vê o convite em Entrar em grupo, Seção 13).
+- 2. O link abre /convite/grupo?token=… com "Fulano convidou você" e o nome do grupo.
+- 3. Já tem conta: "Entrar e aceitar o convite" (a tela Entrar já vem com o e-mail convidado).
+- 4. Não tem conta: "Criar minha conta e aceitar o convite"; depois de confirmar o e-mail, já entra no grupo.
+- 5. Logado com o e-mail certo, o convite é aceito sozinho e o grupo passa a ser o espaço ativo.
+## Casos especiais
+- Convite vencido: a tela avisa; o dono deve reenviar.
+- Convite já aceito: a tela avisa e oferece Entrar.
+- Logado com outro e-mail: a tela pede para sair e entrar com a conta do e-mail convidado.
 @@FIM
