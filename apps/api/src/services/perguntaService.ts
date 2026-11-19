@@ -29,6 +29,7 @@ import {
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
+import { detectarPerguntaSobreAssuntos, respostaComoUsar, respostaListaAssuntos } from "./assuntosAjudaService.js";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -281,6 +282,40 @@ export async function perguntarMemory(input: {
   planoSalvavel?: PerguntaPlanoSalvo;
 }> {
   let totalCost = 0;
+
+  // Perguntas sobre os próprios assuntos ("quais assuntos posso usar?", "como uso a Agenda?"):
+  // respondidas por regra, sem classificar nem buscar nos memos. Respeita o perfil de acesso.
+  if (!input.forcePipe) {
+    const efetivoPerfil = input.perfil?.efetivo;
+    const liberadas = efetivoPerfil && !efetivoPerfil.todas ? new Set(efetivoPerfil.categoriasPermitidas) : null;
+    const visiveis = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
+    const sobre = detectarPerguntaSobreAssuntos(input.pergunta, visiveis);
+    if (sobre) {
+      const r =
+        sobre.tipo === "lista"
+          ? { texto: respostaListaAssuntos(visiveis), costUsd: 0 }
+          : await respostaComoUsar(sobre.categoria);
+      return {
+        resposta: {
+          resposta: r.texto,
+          tipo_resposta: "semantica",
+          dados_usados: [],
+          limitacoes: [],
+          confianca_estimada: 1,
+        },
+        classificacao: {
+          pipe: "semantica",
+          categorias: sobre.tipo === "como_usar" ? [sobre.categoria.name] : [],
+          multi_categoria: false,
+          intencao: "explicacao",
+          contexto: "nova",
+          escopo_sugerido: "global",
+          justificativa: "pergunta sobre os assuntos (categorias), respondida por regra",
+        },
+        apiCost: r.costUsd,
+      };
+    }
+  }
 
   // Classificação (ou pipe forçado)
   let classificacao: PerguntaClassificacao;
