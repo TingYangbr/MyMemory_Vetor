@@ -35,6 +35,8 @@ export interface Pipe1Input {
    * (parando no mínimo). Usa os mesmos resultados da busca: não busca de novo nem chama a IA.
    */
   ampliarAteAchar?: boolean;
+  /** Dúvida de uso: como a categoria citada está configurada neste grupo (a resposta adapta o manual a ela). */
+  configuracaoCategoria?: string;
 }
 
 export interface Pipe1Result {
@@ -186,6 +188,7 @@ async function gerarRespostaSemantica(input: {
   memos: MemoHit[];
   categoryId?: number | null;
   contextoTela?: string;
+  configuracaoCategoria?: string;
 }): Promise<{ resposta: PerguntaResposta; costUsd: number }> {
   const memosPayload = input.memos.map((m) => {
     let camposEstruturados: Record<string, unknown> | null = null;
@@ -211,6 +214,9 @@ async function gerarRespostaSemantica(input: {
       // selecionado) — use pra resolver referências implícitas ("ele", "esse cliente") que não
       // aparecem no texto da pergunta em si.
       contexto_tela: input.contextoTela ?? null,
+      // Dúvida de uso do sistema: os memos são trechos do manual; esta é a configuração real da
+      // categoria citada neste grupo — use os nomes dela (campos, situações) ao explicar.
+      ...(input.configuracaoCategoria ? { configuracao_da_categoria: input.configuracaoCategoria } : {}),
       memos_usados: memosPayload,
       metadados: {
         quantidade_memos: input.memos.length,
@@ -325,6 +331,7 @@ export async function executarPipe1(input: Pipe1Input): Promise<Pipe1Result> {
     memos,
     categoryId: input.categoryId,
     contextoTela: input.contextoTela,
+    configuracaoCategoria: input.configuracaoCategoria,
   }));
 
   return {

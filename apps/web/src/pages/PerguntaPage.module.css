@@ -456,6 +456,12 @@
   gap: 0.3rem;
 }
 
+.alvoUsoNota {
+  font-size: 0.8rem;
+  color: var(--mm-text-muted, var(--mm-text));
+  opacity: 0.8;
+}
+
 .ajudaBtn {
   display: inline-flex;
   align-items: center;

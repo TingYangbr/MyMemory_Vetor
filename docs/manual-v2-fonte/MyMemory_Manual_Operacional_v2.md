@@ -370,6 +370,15 @@ NOTA: O tipo é escolhido pela IA. No card da resposta há botões para refazer 
 - Com perfil de acesso ligado, só aparecem as categorias que o perfil libera.
 - Os exemplos vêm do modelo do catálogo de onde a categoria foi habilitada. Sem modelo, a IA gera os exemplos a partir dos campos (uma vez por versão da categoria; custo pequeno).
 - Para a pergunta ser reconhecida, ela deve ser só isso: "Quais categorias de despesa tive em março?" continua sendo uma consulta normal.
+## Dúvida de uso × busca nos registros
+A classificação decide se a pergunta é sobre os **registros** (dados) ou sobre **como usar** o sistema. Citar uma categoria não decide: "O que tenho na agenda amanhã?" busca nos registros; "Como faço para remarcar um compromisso na agenda?" é dúvida de uso.
+| Dúvida de uso | Como é respondida |
+|---|---|
+| O grupo tem conhecimento importado (Admin → Conhecimento) | Busca só nos trechos do manual, junto com a configuração da categoria citada (campos, situações), para a resposta usar os nomes do grupo |
+| Sem manual, ou nada achado nele, e a pergunta cita uma categoria | Responde pela configuração da categoria (igual a "Como uso o assunto X?") |
+| Sem manual e sem categoria citada | Segue como pergunta normal |
+- A resposta de uso mostra "Respondi como dúvida de uso." e o botão **🗓 Buscar nos meus registros**, que refaz a pergunta nos registros.
+- No **↺ Refazer**, o botão **📘 No manual** refaz uma resposta de registros como dúvida de uso (e, numa resposta de uso, **🗓 Meus registros** faz o contrário).
 ## Etapas da resposta estruturada
 1. Classificação: identifica o tipo e as categorias envolvidas.
 2. Planejamento: escolhe as queries da categoria e preenche os parâmetros (cliente, período, produto…).

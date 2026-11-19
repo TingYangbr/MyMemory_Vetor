@@ -12,6 +12,7 @@ import { lerValoresStatus, rotulosSituacao } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { MARCA_CONHECIMENTO_LIKE } from "../lib/openaiEmbedding.js";
 
 /** Minúsculas, sem acento, sem pontuação, espaços simples. */
 export function normalizarTexto(s: string): string {
@@ -142,7 +143,22 @@ async function exemplosGerados(cat: MemoContextCategory): Promise<{ ex: Exemplos
   }
 }
 
-export async function respostaComoUsar(cat: MemoContextCategory): Promise<{ texto: string; costUsd: number }> {
+/** O grupo tem conhecimento importado (manuais em trechos)? */
+export async function grupoTemConhecimento(groupId: number | null): Promise<boolean> {
+  if (groupId == null) return false;
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 AS ok FROM memos WHERE groupid = ? AND isactive = 1 AND mediametadata LIKE ? LIMIT 1`,
+    [groupId, MARCA_CONHECIMENTO_LIKE]
+  );
+  return rows.length > 0;
+}
+
+/** Configuração da categoria em texto (sem exemplos, sem IA): vai junto com os trechos do manual. */
+export function descricaoConfiguracao(cat: MemoContextCategory): string {
+  return linhasConfiguracao(cat).join("\n");
+}
+
+function linhasConfiguracao(cat: MemoContextCategory): string[] {
   const partes: string[] = [`Assunto ${cat.name}`];
   const desc = String(cat.description ?? "").replace(/\s+/g, " ").trim();
   partes.push("", `Para que serve: ${desc || "(sem descrição — o dono do grupo pode escrever uma em Categorias)."}`);
@@ -165,7 +181,11 @@ export async function respostaComoUsar(cat: MemoContextCategory): Promise<{ text
       `Situação: cada registro começa ${rot.aberto} e pode passar a ${rot.opcoes.filter((e) => e !== "aberto").map((e) => rot[e]).join(" ou ")} (${estados}). É só dizer, por exemplo, que concluiu, cancelou ou mudou algo.`
     );
   }
+  return partes;
+}
 
+export async function respostaComoUsar(cat: MemoContextCategory): Promise<{ texto: string; costUsd: number }> {
+  const partes = linhasConfiguracao(cat);
   let costUsd = 0;
   const doModelo = await exemplosDoModelo(cat.id);
   if (doModelo.length) {
