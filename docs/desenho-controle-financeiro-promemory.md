@@ -192,3 +192,79 @@ O custo dessa ordem é que o histórico completo da B3 só chega no passo 2.
 **Ainda sem receber:** a Movimentação da B3 com o período máximo e o relatório com preço médio da Itaú (conta 1073394) e da XP conta 3394753.
 
 **Ainda não li:** a tela de revisão do Catalogar (já li `createMemoTextReviewed`, só a parte do backend), `entityResolutionService`, os demais pontos de criação de memo e a tela do Perguntar. Das rotas do Perguntar li só a lista (`/api/perguntas` e as de alteração).
+
+## 12. Despesas e receitas (controle de gastos)
+
+*Acrescentada em 19/11/2026, a partir da análise da demonstração do concorrente meuassessor e da discussão com a Ting.*
+
+### 12.1 Decisão: comando grava direto nas tabelas, sem memo
+
+No controle de gastos o registro oficial é o **DB interno**. O comando do Fale comigo ("gastei 62 na farmácia", "Uber 23,90, débito") grava direto nas tabelas `fin_`. **Não cria memo.** O relato (frase digitada, áudio transcrito, foto do cupom ou do boleto) fica em `fin_evidencias`, ligado aos fatos que gerou.
+
+Motivos:
+- **A relação 1:1 entre memo e registro não se sustenta.** Uma frase pode ter vários lançamentos ("50 mercado, 30 farmácia e 20 de uber"); um parcelado gera 6 títulos; uma recorrência gera títulos futuros. Evidência e fato são N:M por natureza.
+- **Volume e custo.** São muitos lançamentos por dia. Um memo por gasto teria vetor e resumo por IA a cada um e encheria a busca de memos pequenos.
+- **A regra do plano de atributos continua valendo:** memo quando o item tem conteúdo e é manipulado sozinho (agenda, contrato). Lançamento de gasto é linha de tabela.
+
+Consequências:
+- **Confirmação:** o comando mostra um cartão com as linhas que vai gravar (valor, data, grupo, forma de pagamento) e grava após o sim. Com várias linhas, uma confirmação só.
+- **Alteração e Desfazer:** precisam de histórico próprio das tabelas `fin_` (equivalente ao `memo_alteracoes`), com lote para o Desfazer.
+- **Perguntas:** as consultas da categoria leem as tabelas (o Pipe 2). A busca semântica de memos não enxerga gastos, e não precisa.
+- **Em aberto:** se Investimentos (seção 3, porta 1) também deve deixar de criar memo, para as categorias de DB interno terem uma regra só. Recomendação: sim.
+
+### 12.2 O que o concorrente faz (demonstração com 25 frases)
+
+| Capacidade | Exemplo | Situação no proMemory |
+| --- | --- | --- |
+| Lançar gasto por texto ou voz, retroativo, valor por extenso | "almoço de ontem, 39", "sessenta e oito na pizza" | Falta gravar em tabela |
+| Forma de pagamento | "Uber 23,90, débito", "180 de luz no pix" | Desenhado |
+| Vários lançamentos numa frase | "50 mercado, 30 farmácia e 20 de uber" | Falta |
+| Receita | "recebi 800 do freela" | Desenhado (título a receber) |
+| Parcelado | "cadeira em 6x de 95" | Desenhado (6 títulos) |
+| Recorrência | "toda segunda 89,90 da academia" | Falta (regra que gera títulos futuros) |
+| Foto do boleto (conta a pagar com vencimento) e da nota | condomínio, posto | Parcial: o Catalogar lê fotos, mas não gera título |
+| Orçamento por grupo e quanto sobrou | "800 por mês pra alimentação" | Desenhado (`fin_orcamento`), sem comando |
+| Meta de receita | "meta de receita é 15 mil" | Falta |
+| Corrigir e apagar por texto | "foi 45, não 54", "apaga o ifood de ontem" | Existe para memos; falta para tabelas |
+| Apagar em lote | "apaga todos de julho, foi teste" | Falta; exige confirmação forte |
+| Regras de classificação | "guincho é sempre Manutenção do Carro" | Falta |
+| Reclassificar em lote | "transferências pra Michelle → Lavanderia" | Falta |
+| Criar grupo de gasto | "cria uma categoria Pets" | Falta |
+| Explicar um total | "de onde vem 1.240?" | Falta: listar os lançamentos que somam o valor |
+| Recorrências e maiores gastos | "gasto que se repete todo mês?", "3 maiores" | Maiores já existe (destaques); recorrência falta |
+
+Onde o proMemory já ganha: memos e documentos com busca, ERP na versão empresarial, grupos familiares com dono por pessoa, investimentos com custo médio.
+
+### 12.3 Modelo de dados (rascunho)
+
+Uma categoria (Controle de gastos) com várias tabelas, como o Faturamento do ERP lê nota, itens e títulos.
+
+| Tabela | Guarda | Paralelo no ERP |
+| --- | --- | --- |
+| `fin_lancamentos` | Cabeçalho: data, sentido (despesa ou receita), estabelecimento ou origem, valor total, forma de pagamento, conta ou cartão, grupo de gasto, dono | Nota de entrada ou saída |
+| `fin_lancamento_itens` | Itens do cupom, quando houver | Itens da nota |
+| `fin_titulos` | Parcelas com vencimento, valor e situação (aberto, pago ou recebido); sentido a pagar ou a receber | Contas a pagar e a receber |
+| `fin_recorrencias` | Regra: valor, grupo, periodicidade, próxima data; gera títulos futuros | Contrato recorrente |
+| `fin_grupos_gasto` | Lista de grupos do espaço (Alimentação, Pets…) | Plano de contas |
+| `fin_regras_grupo` | "guincho → Manutenção do Carro" | Regra de classificação |
+| `fin_orcamento` e metas | Valor por grupo e mês; meta de receita | Orçamento |
+| `fin_movimentos` (conta corrente) | Extrato; a baixa liga título a movimento | Conta corrente e conciliação |
+
+- **"Grupo de gasto", não "categoria":** no proMemory "categoria" é a categoria do memo. A decisão de 14/11 (grupo como texto livre da fonte) é revista: o usuário quer criar grupos, regras e reclassificar.
+- **PIX e débito:** o lançamento já nasce pago (título e baixa juntos, ou sem título).
+- **Cartão de crédito:** as compras se juntam na fatura, que vira um título a pagar.
+- **Parcelas:** podem vir de uma condição de pagamento, o mesmo conceito do item 1 do backlog do Softing-erp.
+- **Fluxo de caixa:** previsto = títulos em aberto por vencimento; realizado = movimentos.
+
+### 12.4 Etapas sugeridas
+
+1. **Lançamentos e títulos:** despesas e receitas por texto, voz e foto (inclusive várias numa frase), forma de pagamento, parcelado e boleto como títulos, grupos de gasto com regras, corrigir e apagar com Desfazer.
+2. **Orçamento, metas e recorrência.**
+3. **Conta corrente, baixa e conciliação; fluxo de caixa.**
+
+### 12.5 Perguntas em aberto
+
+- [ ] Investimentos também deixa de criar memo na porta 1 (12.1)?
+- [ ] Cartão de crédito: a fatura entra na etapa 1 ou na 3?
+- [ ] Grupos de gasto: lista inicial padrão (Alimentação, Transporte, Moradia…) ou vazia?
+- [ ] Apagar em lote: que confirmação (digitar o mês, como o ELIMINAR do Painel Admin)?
