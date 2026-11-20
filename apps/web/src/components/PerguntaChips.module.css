@@ -93,6 +93,75 @@
   margin-bottom: 0.45rem;
 }
 
+/* ── Modelo de registro: balão compacto, sempre dentro da tela ───────────── */
+
+/* A largura e a posição à esquerda vêm do componente (caixa de chips); aqui só o tamanho interno */
+.seletorReg {
+  box-sizing: border-box;
+  padding: 0.5rem 0.6rem;
+}
+
+.regTopo {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+
+.regAcoes {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.regLinha {
+  display: flex;
+  align-items: stretch;
+  gap: 0.4rem;
+}
+
+/* O campo ocupa a sobra da linha entre as duas setas */
+.regInput {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 1.1rem;
+  padding: 0.5rem 0.4rem;
+}
+
+.seta {
+  flex-shrink: 0;
+  width: 2.75rem;
+  min-height: 2.75rem;
+  padding: 0;
+  border: 1px solid var(--mm-border-muted);
+  border-radius: 8px;
+  background: var(--mm-card);
+  color: var(--mm-primary-hover);
+  font-size: 1.6rem;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.seta:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.setaOk {
+  background: var(--mm-primary);
+  border-color: var(--mm-primary);
+  color: #fff;
+}
+
+/* Chip em edição, destacado, para ficar claro qual campo está aberto */
+.chipAtivo {
+  box-shadow: 0 0 0 2px var(--mm-primary);
+}
+
 .fechar {
   border: none;
   background: none;
