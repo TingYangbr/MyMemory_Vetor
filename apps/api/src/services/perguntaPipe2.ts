@@ -261,6 +261,34 @@ function extractSelectColumnNames(sentencaSql: string): string[] {
     .filter((c) => c.length > 0 && c !== "*");
 }
 
+/**
+ * Colunas do SELECT que guardam NÚMERO como texto: vêm de campo de memo (`...->>'Campo' AS col`, sempre texto)
+ * e a query declara o campo como número (parâmetros `col_ini`/`col_fin` do tipo número). SUM/AVG/MIN/MAX nelas
+ * precisam passar por mymemory_parse_number: no PostgreSQL `avg(text)` não existe ("function avg(text) does not
+ * exist"). Colunas que já são numéricas de verdade (cast, função, tabela) ficam de fora e não são tocadas.
+ */
+export function colunasNumericasEmTexto(sentencaSql: string, params: { nome: string; tipo: string }[]): Set<string> {
+  const declaradas = new Set<string>();
+  for (const p of params) {
+    const m = /^(.+)_(ini|fin)$/i.exec(p.nome);
+    if (m && /^(number|numeric|numero)$/i.test(p.tipo)) declaradas.add(m[1].toLowerCase());
+  }
+  const out = new Set<string>();
+  if (!declaradas.size) return out;
+  const sel = /\bSELECT\b([\s\S]+?)\bFROM\b/i.exec(sentencaSql);
+  if (!sel) return out;
+  for (const item of sel[1].split(",")) {
+    const t = item.trim().replace(/\s+/g, " ");
+    const as = /\bAS\s+[\[\"`]?(\w+)[\]\"`]?\s*$/i.exec(t);
+    if (!as) continue;
+    const col = as[1].toLowerCase();
+    const ehTextoDoJson = /->>/.test(t);
+    const jaEhNumero = /::\s*(numeric|int|integer|float|double|decimal)|mymemory_parse_number|\bcast\s*\(/i.test(t);
+    if (declaradas.has(col) && ehTextoDoJson && !jaEhNumero) out.add(col);
+  }
+  return out;
+}
+
 /** Quota um identificador de coluna usando a convenção do dialeto. Aceita qualquer nome. */
 function sanitizeIdentifier(name: string, dialect: "pg" | "mssql" = "pg"): string {
   if (dialect === "mssql") {
@@ -283,12 +311,24 @@ const MEDIDA_ALIAS: Record<string, string> = {
   max: "maximo", maximo: "maximo",
 };
 
-function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "mssql" = "pg"): string {
+export function applyAgregacao(
+  baseSql: string,
+  ag: PlanoAgregacao,
+  dialect: "pg" | "mssql" = "pg",
+  /** Colunas que guardam número como texto (campos de memo): entram em SUM/AVG/MIN/MAX por mymemory_parse_number. */
+  textoNumerico?: Set<string>
+): string {
   const cleanBase = stripLimitOffset(baseSql);
   const qi = (name: string) => sanitizeIdentifier(name, dialect);
 
   // Remove prefixo "_base." que o LLM às vezes inclui nos nomes de coluna
   const stripBase = (name: string) => name.replace(/^_base\./i, "");
+
+  // Argumento de uma função de agregação: coluna de texto com número vira número (só PostgreSQL)
+  const numArg = (campo: string) => {
+    const nome = stripBase(campo);
+    return dialect === "pg" && textoNumerico?.has(nome.toLowerCase()) ? `mymemory_parse_number(${qi(nome)})` : qi(nome);
+  };
 
   // Desempacota chamadas de função literais que o LLM coloca no order_by:
   // "COUNT(*)" → "contagem", "SUM(col)" → "col", "MIN(col)" → "col".
@@ -357,7 +397,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     const FN: Record<string, string> = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX", count: "COUNT" };
     const AL: Record<string, string> = { sum: "total", avg: "media", min: "minimo", max: "maximo", count: "contagem" };
     const measureExprs = ag.medidas.map((m) => {
-      const arg = m.medida === "count" ? "*" : qi(stripBase(m.campo));
+      const arg = m.medida === "count" ? "*" : numArg(m.campo);
       const alias = m.alias || `${AL[m.medida]}_${stripBase(m.campo).toLowerCase().replace(/[^a-z0-9]/g, "_")}`;
       return `${FN[m.medida]}(${m.medida === "avg" ? avgArg(arg) : arg}) AS ${alias}`;
     });
@@ -379,7 +419,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
       } else {
         const extraAlias = `ord_${lower.replace(/[^a-z0-9_]/g, "_")}`;
         if (!multiOrderExtras.some((e) => e.alias === extraAlias)) {
-          multiOrderExtras.push({ alias: extraAlias, expr: `SUM(${qi(name)}) AS ${extraAlias}` });
+          multiOrderExtras.push({ alias: extraAlias, expr: `SUM(${numArg(name)}) AS ${extraAlias}` });
         }
         resolved = extraAlias;
       }
@@ -413,7 +453,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     measureExpr = `${measureFnExpr} AS ${measureAlias}`;
   } else {
     if (!ag.campo_medida) throw new Error(`campo_medida obrigatório para medida "${ag.medida}"`);
-    const col = qi(stripBase(ag.campo_medida));
+    const col = numArg(ag.campo_medida);
     const fnName = { sum: "SUM", avg: "AVG", min: "MIN", max: "MAX" }[ag.medida];
     measureAlias = { sum: "total", avg: "media", min: "minimo", max: "maximo" }[ag.medida];
     measureFnExpr = `${fnName}(${ag.medida === "avg" ? avgArg(col) : col})`;
@@ -436,7 +476,7 @@ function applyAgregacao(baseSql: string, ag: PlanoAgregacao, dialect: "pg" | "ms
     if (groupByLowers.has(lower)) return name;
     const alias = `ord_${lower.replace(/[^a-z0-9_]/g, "_")}`;
     if (!orderByExtras.some((e) => e.alias === alias)) {
-      orderByExtras.push({ alias, expr: `SUM(${qi(name)}) AS ${alias}` });
+      orderByExtras.push({ alias, expr: `SUM(${numArg(name)}) AS ${alias}` });
     }
     return alias;
   };
@@ -958,10 +998,20 @@ function isLikelyNumericColumn(col: string): boolean {
  * Valida e sanitiza os campos de agregação contra as colunas disponíveis no SELECT do template.
  * Previne "Invalid column name" no SQL Server quando o LLM referencia colunas de outro template.
  */
-function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAgregacao {
+export function sanitizeAgregacaoCols(
+  ag: PlanoAgregacao,
+  sentencaSql: string,
+  /** Colunas que o campo da categoria declara como número (guardado em texto): valem para SUM/AVG mesmo sem "parecer" número pelo nome. */
+  numericasDeclaradas?: Set<string>,
+  /** Só no PostgreSQL interno (memos): sobe o limite de série por data em ordem crescente (ver abaixo). O ERP (SQL Server) não muda. */
+  pisoLimiteSerie = false
+): PlanoAgregacao {
   const available = new Set(extractSelectColumnNames(sentencaSql));
   if (available.size === 0) return ag; // não conseguiu extrair colunas — deixa passar
   let { medida, campo_medida, group_by, order_by } = ag;
+  // Antes só o NOME decidia (ex.: peso_*, valor_*, qtde_*); "igp", "imc" ou "idade_corporal" eram descartadas.
+  // O tipo declarado do campo na categoria passa a valer primeiro.
+  const numerica = (col: string) => !!numericasDeclaradas?.has(col.toLowerCase()) || isLikelyNumericColumn(col);
 
   // Valida medidas[] quando presente
   let medidas = ag.medidas;
@@ -972,7 +1022,7 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
         console.warn(`[Pipe2] medidas campo "${m.campo}" não existe no SELECT do template. Removendo.`);
         return false;
       }
-      if ((m.medida === "sum" || m.medida === "avg") && !isLikelyNumericColumn(lower)) {
+      if ((m.medida === "sum" || m.medida === "avg") && !numerica(lower)) {
         console.warn(`[Pipe2] medidas campo "${m.campo}" não parece numérico para medida "${m.medida}". Removendo.`);
         return false;
       }
@@ -985,7 +1035,7 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       console.warn(`[Pipe2] campo_medida "${campo_medida}" não existe no SELECT do template. Colunas disponíveis: ${[...available].join(", ")}`);
       campo_medida = null;
       medida = null;
-    } else if ((medida === "sum" || medida === "avg") && !isLikelyNumericColumn(campo_medida)) {
+    } else if ((medida === "sum" || medida === "avg") && !numerica(campo_medida)) {
       // SUM/AVG exigem coluna numérica. MIN/MAX funcionam em datas e textos — não bloquear.
       console.warn(`[Pipe2] campo_medida "${campo_medida}" não parece numérico para medida "${medida}". Removendo.`);
       campo_medida = null;
@@ -1012,7 +1062,7 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       if (!medida && available.has(lower)) return o;
       // Se a coluna existe no template e parece numérica, deixa passar — applyAgregacao vai envolvê-la em SUM()
       // Não deixar passar varchar/date: applyAgregacao usa SUM() cegamente e quebraria no SQL Server.
-      if (available.has(lower) && isLikelyNumericColumn(lower)) return o;
+      if (available.has(lower) && numerica(lower)) return o;
       // Coluna inexistente no template: substitui pelo alias da medida para não gerar SQL inválido
       const fallbackAlias = medida ? (MEDIDA_ALIAS[medida] ?? null) : null;
       if (fallbackAlias) {
@@ -1023,7 +1073,18 @@ function sanitizeAgregacaoCols(ag: PlanoAgregacao, sentencaSql: string): PlanoAg
       return null;
     })
     .filter((o): o is NonNullable<typeof o> => o !== null);
-  return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy, medidas };
+  // Série por data em ordem crescente ("evolução diária dos últimos 15 dias"): o período já limita as linhas, e um
+  // limite escrito pela IA com a conta errada (15 para 16 dias) cortaria o dia mais recente. Piso de 400 linhas.
+  // Não vale para "top N" (ordenado pela medida) nem para "os N mais recentes" (ordem decrescente).
+  const trunc = ag.group_by_trunc?.length === 1 ? ag.group_by_trunc[0] : null;
+  const ordenaPelaData =
+    pisoLimiteSerie &&
+    !!trunc &&
+    validOrderBy.length > 0 &&
+    validOrderBy[0].direcao === "asc" &&
+    validOrderBy[0].campo.toLowerCase().replace(/^_base\./i, "") === trunc.campo.toLowerCase().replace(/^_base\./i, "");
+  const limit = ordenaPelaData && ag.limit != null && ag.limit < 400 ? 400 : ag.limit;
+  return { ...ag, medida, campo_medida, group_by: validGroupBy, order_by: validOrderBy, medidas, limit };
 }
 
 // ── Internal: execução das queries do plano ───────────────────────────────────
@@ -1239,9 +1300,11 @@ async function executarConsultasPlano(input: {
 
       let finalSql = baseSql;
       if (task.agregacao) {
-        const ag = sanitizeAgregacaoCols(task.agregacao, template.sentencaSql);
+        // Campos de memo guardam número como texto: a média/soma precisa converter (ver colunasNumericasEmTexto)
+        const textoNumerico = colunasNumericasEmTexto(template.sentencaSql, template.params);
+        const ag = sanitizeAgregacaoCols(task.agregacao, template.sentencaSql, textoNumerico, true);
         try {
-          finalSql = applyAgregacao(baseSql, ag);
+          finalSql = applyAgregacao(baseSql, ag, "pg", textoNumerico);
         } catch (err) {
           console.warn("[Pipe2] applyAgregacao ignorada:", err instanceof Error ? err.message : err);
         }
