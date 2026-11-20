@@ -441,3 +441,21 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **IR:** as regras do exterior (Lei 14.754/2023) e de moeda em espécie são diferentes das de ações no Brasil; com valor na moeda, valor em reais e cotação de cada data, o cálculo pode ser feito depois.
 - **Compra no cartão brasileiro em dólar:** já vem em reais na fatura (com IOF); a moeda original fica só como informação (futuro).
 - **Implementado:** migration 181, `finCotacaoService.ts`, regras em `financeiroService.ts`, campos na tela. Testado contra Postgres real com PTAX real (câmbio, custo médio em dólar, AAPL, câmbio de volta com ganho, livro fechando em reais).
+
+### 13.11 Etapa 2a: o Fale comigo responde sobre o financeiro (20/11/2026)
+
+**Três categorias-modelo**, separadas pelo tempo da pergunta (sugestão do Ting, pela experiência do ERP: categorias menores deixam a classificação e a escolha da consulta mais certeiras; revê a recomendação de categoria única da 12.6):
+
+| Categoria | Pergunta sobre | Consultas |
+| --- | --- | --- |
+| Financeiro — Contas a pagar e receber | o futuro | Agenda (vencimentos, atrasados, pagos, com a previsão das recorrentes); Fluxo de caixa previsto por mês |
+| Financeiro — Gastos e lançamentos | o passado | Gastos e receitas por grupo (competência); Resultado por mês; Entradas e saídas por conta (caixa); Lançamentos (extrato) |
+| Financeiro — Saldos e investimentos | a posição | Saldos das contas (inclui moeda e valor de hoje); Posição de investimentos |
+
+- **Onde ficam:** no Catálogo de modelos (Categorias Modelos). O dono habilita num grupo; a cópia leva as consultas. No espaço Pessoal valem as categorias dos grupos de que a pessoa participa, e as consultas leem os dados do espaço em que a pergunta foi feita.
+- **Motor em SQL:** função `fin_agenda(de, ate)`, igual à agenda da tela (comparada nos testes: mesmo resultado em 4 períodos, incluindo dia 31, 29/02, quinzenal, exceções e pagos).
+- **Segurança:** as consultas rodam pelo papel restrito com RLS por espaço; testado que outro usuário não aparece e que o papel não lê outras tabelas.
+- **Filtros tolerantes:** tipo ("contas a pagar", "gastos") e situação ("atrasadas", "em aberto", "pagas") aceitam o jeito de falar; nomes de conta e grupo sem acento.
+- **Limites:** cotação do dólar nas consultas = a última que o app já buscou (aparece a data); preço de mercado de ações não existe ainda.
+- **Implementado:** migration 182, `apps/api/src/services/finConsultas.ts`.
+- **Próxima etapa (2b):** comandos de gravação pela IA ("paguei o aluguel", "aluguel de 2.500 todo dia 5").
