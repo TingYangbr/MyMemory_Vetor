@@ -1,7 +1,9 @@
 import { randomUUID } from "node:crypto";
 import {
   FIN_CONTAS_SISTEMA,
+  FIN_MOEDA_CODIGOS,
   FIN_TIPOS_CONTA,
+  finContaEhDinheiro,
   finDataValida,
   finGerarParcelas,
   finOcorrencias,
@@ -20,6 +22,7 @@ import {
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { assertUserWorkspaceGroupAccess } from "./memoContextService.js";
+import { obterCotacao } from "./finCotacaoService.js";
 
 /**
  * Controle financeiro — núcleo (desenho, seção 13). Livro de dois lados, títulos e o motor de recorrência.
@@ -105,16 +108,17 @@ interface ContaRow {
   nome: string;
   chave: string | null;
   ativo: boolean;
+  moeda: string;
 }
 
 async function obterConta(c: Conn, e: Espaco, id: number, tipos?: FinTipoConta[], campo = "conta"): Promise<ContaRow> {
   const f = esp(e);
   const [r] = await c.query<RowDataPacket[]>(
-    `SELECT id, tipo, nome, chave, ativo FROM fin_contas WHERE id = ? AND ${f.sql} LIMIT 1`,
+    `SELECT id, tipo, nome, chave, ativo, moeda FROM fin_contas WHERE id = ? AND ${f.sql} LIMIT 1`,
     [id, ...f.params]
   );
   if (!r[0]) throw new FinErro("conta_nao_encontrada", `A ${campo} não existe neste espaço.`);
-  const conta: ContaRow = { id: Number(r[0].id), tipo: r[0].tipo, nome: r[0].nome, chave: r[0].chave, ativo: n(r[0].ativo) === 1 };
+  const conta: ContaRow = { id: Number(r[0].id), tipo: r[0].tipo, nome: r[0].nome, chave: r[0].chave, ativo: n(r[0].ativo) === 1, moeda: String(r[0].moeda).trim() };
   if (tipos && !tipos.includes(conta.tipo)) {
     const rot = tipos.map((t) => FIN_TIPOS_CONTA.find((x) => x.tipo === t)?.rotulo ?? t).join(", ");
     throw new FinErro("conta_tipo", `A ${campo} "${conta.nome}" não serve aqui (esperado: ${rot}).`);
@@ -128,7 +132,9 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
   const f = esp(e, "c");
   // Despesa/receita: total do período. Demais: posição acumulada até "ate".
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.id, c.nome, c.tipo, c.chave, c.papel, c.corretora_contaid AS "corretoraContaId", c.ativo,
+    `SELECT c.id, c.nome, c.tipo, c.chave, c.papel, c.corretora_contaid AS "corretoraContaId", c.ativo, c.moeda,
+       COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?), 0) AS "entradasMoeda",
+       COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_origemid = c.id AND l.data <= ?), 0) AS "saidasMoeda",
        COALESCE((SELECT SUM(l.valor) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?
                  AND (c.tipo NOT IN ('despesa','receita') OR l.data >= ?)), 0) AS "entradas",
        COALESCE((SELECT SUM(l.valor) FROM fin_lancamentos l WHERE l.conta_origemid = c.id AND l.data <= ?
@@ -139,8 +145,14 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
        END AS "qtd"
      FROM fin_contas c WHERE ${f.sql}
      ORDER BY c.tipo, c.nome`,
-    [ate, de, ate, de, ate, ...f.params]
+    [ate, ate, ate, de, ate, de, ate, ...f.params]
   );
+  // Cotação de cada moeda estrangeira na data final (ou hoje, se o período ainda não acabou)
+  const dataCot = ate < hojeSaoPaulo() ? ate : hojeSaoPaulo();
+  const cotacoes = new Map<string, { data: string; valor: number } | null>();
+  for (const m of new Set(rows.map((r) => String(r.moeda).trim()).filter((m) => m !== "BRL"))) {
+    cotacoes.set(m, await obterCotacao(m, dataCot).catch(() => null));
+  }
   return rows.map((r) => {
     const tipo = r.tipo as FinTipoConta;
     const ent = n(r.entradas);
@@ -148,6 +160,10 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
     const ativoOuDespesa = ["banco", "corretora", "investimento", "a_receber", "despesa"].includes(tipo);
     const saldo = r2(ativoOuDespesa ? ent - sai : sai - ent);
     const qtd = tipo === "investimento" ? n(r.qtd) : null;
+    const moeda = String(r.moeda).trim();
+    const estrangeira = moeda !== "BRL";
+    const saldoMoeda = estrangeira ? r2(tipo === "cartao" ? n(r.saidasMoeda) - n(r.entradasMoeda) : n(r.entradasMoeda) - n(r.saidasMoeda)) : null;
+    const cot = estrangeira ? cotacoes.get(moeda) ?? null : null;
     return {
       id: Number(r.id),
       nome: r.nome,
@@ -159,18 +175,29 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
       saldo,
       quantidade: qtd,
       custoMedio: qtd && qtd > 0 ? Math.round((saldo / qtd) * 1e6) / 1e6 : null,
+      moeda,
+      saldoMoeda,
+      custoMedioMoeda: estrangeira && qtd && qtd > 0 && saldoMoeda != null ? Math.round((saldoMoeda / qtd) * 1e6) / 1e6 : null,
+      cotacao: cot,
+      // Valor de hoje só para dinheiro em moeda (o preço de um papel não temos)
+      valorHoje: estrangeira && cot && saldoMoeda != null && tipo !== "investimento" ? r2(saldoMoeda * cot.valor) : null,
     };
   });
 }
 
 export async function criarConta(
   e: Espaco,
-  inp: { nome: string; tipo: FinTipoConta; papel?: string | null; corretoraContaId?: number | null; saldoInicial?: number | null; dataSaldo?: string | null }
+  inp: {
+    nome: string; tipo: FinTipoConta; papel?: string | null; corretoraContaId?: number | null; moeda?: string | null;
+    saldoInicial?: number | null; saldoInicialReais?: number | null; dataSaldo?: string | null;
+  }
 ): Promise<FinConta> {
   const def = FIN_TIPOS_CONTA.find((t) => t.tipo === inp.tipo);
   if (!def?.manual) throw new FinErro("tipo_invalido", "Este tipo de conta é criado pelo sistema.");
   const nome = inp.nome.trim();
   if (!nome) throw new FinErro("nome_vazio", "Informe o nome da conta.");
+  const moeda = finContaEhDinheiro(inp.tipo) ? (inp.moeda || "BRL").toUpperCase() : "BRL";
+  if (!FIN_MOEDA_CODIGOS.includes(moeda)) throw new FinErro("moeda", `Moeda não suportada: ${moeda}.`);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -179,8 +206,8 @@ export async function criarConta(
       corretora = (await obterConta(conn, e, inp.corretoraContaId, ["corretora", "banco"], "corretora")).id;
     }
     const [ins] = await conn.query<RowDataPacket[]>(
-      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid) VALUES (?, ?, ?, ?, ?, ?) RETURNING id`,
-      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora]
+      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid, moeda) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora, moeda]
     );
     const id = Number(ins[0].id);
     const si = inp.saldoInicial ?? 0;
@@ -190,13 +217,27 @@ export async function criarConta(
       const pat = await contaSistema(conn, e, "saldo_inicial");
       // Banco/corretora: saldo inicial → conta. Cartão (dívida): conta → saldo inicial. Negativo inverte.
       const entra = inp.tipo === "cartao" ? si < 0 : si > 0;
+      // Em outra moeda: o saldo vem na moeda; o custo em reais é o informado ou a cotação PTAX da data
+      let reais = Math.abs(si);
+      let cot: number | null = null;
+      if (moeda !== "BRL") {
+        if (inp.saldoInicialReais != null && inp.saldoInicialReais > 0) reais = r2(inp.saldoInicialReais);
+        else {
+          const c = await obterCotacao(moeda, data);
+          if (!c) throw new FinErro("cotacao", `Sem cotação do ${moeda} em ${data}. Informe quanto o saldo custou em reais.`);
+          reais = r2(Math.abs(si) * c.valor);
+        }
+        cot = Math.round((reais / Math.abs(si)) * 1e8) / 1e8;
+      }
       await conn.query(
-        `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [e.groupId, e.userId, data, `Saldo inicial — ${nome}`, Math.abs(si), entra ? pat : id, entra ? id : pat]
+        `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, valor_moeda, moeda, cotacao)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [e.groupId, e.userId, data, `Saldo inicial — ${nome}`, reais, entra ? pat : id, entra ? id : pat,
+          moeda !== "BRL" ? Math.abs(si) : null, moeda !== "BRL" ? moeda : null, cot]
       );
     }
     await conn.commit();
-    return { id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, ativo: true };
+    return { id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, moeda, ativo: true };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -273,6 +314,12 @@ function pagamentoDoSentido(sentido: "pagar" | "receber"): FinTipoConta[] {
   return sentido === "pagar" ? ["banco", "corretora", "cartao"] : ["banco", "corretora"];
 }
 
+/** Títulos e recorrências são em reais: pagar/receber só por conta em real (câmbio é lançamento à parte). */
+function exigirReal(c: ContaRow): ContaRow {
+  if (c.moeda !== "BRL") throw new FinErro("moeda", `A conta "${c.nome}" é em ${c.moeda}. Contas a pagar e receber usam conta em reais; o câmbio é um lançamento.`);
+  return c;
+}
+
 export async function criarRecorrencia(
   e: Espaco,
   inp: { sentido: "pagar" | "receber"; descricao: string; valor: number; periodicidade: FinPeriodicidade; inicio: string; fim?: string | null; contaGrupoId: number; contaPagamentoId?: number | null }
@@ -283,7 +330,7 @@ export async function criarRecorrencia(
     if (inp.fim < inp.inicio) throw new FinErro("fim_antes", "O fim é anterior ao início.");
   }
   await obterConta(pool, e, inp.contaGrupoId, grupoDoSentido(inp.sentido), "conta do grupo");
-  if (inp.contaPagamentoId) await obterConta(pool, e, inp.contaPagamentoId, pagamentoDoSentido(inp.sentido), "conta de pagamento");
+  if (inp.contaPagamentoId) exigirReal(await obterConta(pool, e, inp.contaPagamentoId, pagamentoDoSentido(inp.sentido), "conta de pagamento"));
   const [r] = await pool.query<RowDataPacket[]>(
     `INSERT INTO fin_recorrencias (groupid, userid, sentido, descricao, valor, periodicidade, inicio, fim, conta_grupoid, conta_pagamentoid)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
@@ -316,7 +363,7 @@ export async function atualizarRecorrencia(
     sets.push("conta_grupoid = ?"); params.push(inp.contaGrupoId);
   }
   if (inp.contaPagamentoId !== undefined) {
-    if (inp.contaPagamentoId) await obterConta(pool, e, inp.contaPagamentoId, pagamentoDoSentido(regra.sentido), "conta de pagamento");
+    if (inp.contaPagamentoId) exigirReal(await obterConta(pool, e, inp.contaPagamentoId, pagamentoDoSentido(regra.sentido), "conta de pagamento"));
     sets.push("conta_pagamentoid = ?"); params.push(inp.contaPagamentoId || null);
   }
   if (inp.ativo !== undefined) { sets.push("ativo = ?"); params.push(inp.ativo ? 1 : 0); }
@@ -453,13 +500,19 @@ export async function excluirLote(e: Espaco, lote: string): Promise<void> {
 async function lancar(
   c: Tx,
   e: Espaco,
-  l: { data: string; descricao: string; valor: number; origem: number; destino: number; tituloId?: number | null; lote?: string | null; quantidade?: number | null; preco?: number | null }
+  l: {
+    data: string; descricao: string; valor: number; origem: number; destino: number; tituloId?: number | null; lote?: string | null;
+    quantidade?: number | null; preco?: number | null; valorMoeda?: number | null; moeda?: string | null;
+  }
 ): Promise<void> {
-  if (l.valor === 0 && !l.quantidade) return;
+  if (l.valor === 0 && !l.quantidade && !l.valorMoeda) return;
+  const vm = l.moeda && l.moeda !== "BRL" && l.valorMoeda != null ? r2(l.valorMoeda) : null;
   await c.query(
-    `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, quantidade, preco, tituloid, lote)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [e.groupId, e.userId, l.data, l.descricao, r2(l.valor), l.origem, l.destino, l.quantidade ?? null, l.preco ?? null, l.tituloId ?? null, l.lote ?? null]
+    `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, quantidade, preco, tituloid, lote,
+       valor_moeda, moeda, cotacao)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [e.groupId, e.userId, l.data, l.descricao, r2(l.valor), l.origem, l.destino, l.quantidade ?? null, l.preco ?? null, l.tituloId ?? null, l.lote ?? null,
+      vm, vm != null ? l.moeda : null, vm ? Math.round((r2(l.valor) / vm) * 1e8) / 1e8 : null]
   );
 }
 
@@ -487,7 +540,7 @@ export async function baixar(
       if (!t) throw new FinErro("nao_encontrado", "Título não encontrado.");
       if (t.situacao !== "aberto") throw new FinErro("ja_pago", "Este título já foi pago.");
       const sentido = t.sentido as "pagar" | "receber";
-      const conta = await obterConta(conn, e, inp.contaPagamentoId, pagamentoDoSentido(sentido), "conta de pagamento");
+      const conta = exigirReal(await obterConta(conn, e, inp.contaPagamentoId, pagamentoDoSentido(sentido), "conta de pagamento"));
       const valor = n(t.valor);
       const vp = inp.valorPago != null ? r2(inp.valorPago) : valor;
       if (!(vp > 0)) throw new FinErro("valor", "Informe o valor pago.");
@@ -514,7 +567,7 @@ export async function baixar(
       exigirOcorrencia(regra, inp.referencia);
       const exc = (await excecoesDe(conn, [regra.id])).get(regra.id)?.get(inp.referencia);
       if (exc?.pular) throw new FinErro("pulado", "Este vencimento está marcado para pular. Desmarque antes de pagar.");
-      const conta = await obterConta(conn, e, inp.contaPagamentoId, pagamentoDoSentido(regra.sentido), "conta de pagamento");
+      const conta = exigirReal(await obterConta(conn, e, inp.contaPagamentoId, pagamentoDoSentido(regra.sentido), "conta de pagamento"));
       const previsto = exc?.valor ?? regra.valor;
       const vp = inp.valorPago != null ? r2(inp.valorPago) : previsto;
       if (!(vp > 0)) throw new FinErro("valor", "Informe o valor pago.");
@@ -704,7 +757,7 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     `SELECT l.id, to_char(l.data, 'YYYY-MM-DD') AS "data", l.descricao, l.valor,
        l.conta_origemid AS "contaOrigemId", o.nome AS "contaOrigemNome",
        l.conta_destinoid AS "contaDestinoId", d.nome AS "contaDestinoNome",
-       l.quantidade, l.preco, l.tituloid AS "tituloId"
+       l.quantidade, l.preco, l.tituloid AS "tituloId", l.valor_moeda AS "valorMoeda", l.moeda, l.cotacao
      FROM fin_lancamentos l
      JOIN fin_contas o ON o.id = l.conta_origemid
      JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -725,51 +778,142 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     quantidade: nOuNull(r.quantidade),
     preco: nOuNull(r.preco),
     tituloId: nOuNull(r.tituloId),
+    valorMoeda: nOuNull(r.valorMoeda),
+    moeda: r.moeda ? String(r.moeda).trim() : null,
+    cotacao: nOuNull(r.cotacao),
   }));
 }
 
+/** Posição de uma conta até a data: custo em reais, saldo na moeda (contas estrangeiras) e quantidade. */
+async function posicao(c: Conn, contaId: number, data: string): Promise<{ reais: number; moeda: number; qtd: number }> {
+  const [p] = await c.query<RowDataPacket[]>(
+    `SELECT
+       COALESCE(SUM(CASE WHEN conta_destinoid = ? THEN valor ELSE 0 END), 0)
+         - COALESCE(SUM(CASE WHEN conta_origemid = ? THEN valor ELSE 0 END), 0) AS "reais",
+       COALESCE(SUM(CASE WHEN conta_destinoid = ? THEN valor_moeda ELSE 0 END), 0)
+         - COALESCE(SUM(CASE WHEN conta_origemid = ? THEN valor_moeda ELSE 0 END), 0) AS "moeda",
+       COALESCE(SUM(quantidade), 0) AS "qtd"
+     FROM fin_lancamentos WHERE (conta_destinoid = ? OR conta_origemid = ?) AND data <= ?`,
+    [contaId, contaId, contaId, contaId, contaId, contaId, data]
+  );
+  return { reais: n(p[0]?.reais), moeda: n(p[0]?.moeda), qtd: n(p[0]?.qtd) };
+}
+
 /**
- * Lançamento livre: débito, compra no cartão, fatura, transferência, aplicação, dividendo, desdobramento.
+ * Lançamento livre: débito, compra no cartão, fatura, transferência, aplicação, dividendo, desdobramento, câmbio.
  * A receber/a pagar ficam de fora — só se movem por títulos (senão deixam de conferir).
- * Quantidade (investimento): positiva entra no papel de destino, negativa sai do papel de origem;
- * origem = destino = mesmo papel com valor 0 é desdobramento/grupamento/bonificação.
+ * Quantidade (investimento): positiva entra no papel de destino; origem = destino = mesmo papel com valor 0
+ * é desdobramento/grupamento/bonificação.
+ * Moedas (13.10): o livro fecha em reais; o lado em outra moeda guarda também o valor na moeda.
+ *  - real → moeda (dinheiro): câmbio — informar os dois valores; a cotação sai deles;
+ *  - receita/saldo inicial → moeda: reais = informado ou PTAX da data;
+ *  - moeda → moeda, ou moeda → despesa: sai pelo custo médio em reais da conta de origem;
+ *  - moeda → real (dinheiro): câmbio de volta — sai pelo custo médio; a diferença é ganho ou perda cambial.
  */
 export async function criarLancamento(
   e: Espaco,
-  inp: { data: string; descricao: string; valor: number; contaOrigemId: number; contaDestinoId: number; quantidade?: number | null; preco?: number | null }
-): Promise<void> {
+  inp: {
+    data: string; descricao: string; valor?: number | null; valorMoeda?: number | null;
+    contaOrigemId: number; contaDestinoId: number; quantidade?: number | null; preco?: number | null;
+  }
+): Promise<{ valor: number; resultado: number | null }> {
   exigirData(inp.data, "data");
-  if (inp.valor < 0) throw new FinErro("valor", "O valor não pode ser negativo.");
+  const valorInf = inp.valor ?? null;
+  const vmInf = inp.valorMoeda ?? null;
+  if ((valorInf != null && valorInf < 0) || (vmInf != null && vmInf < 0)) throw new FinErro("valor", "O valor não pode ser negativo.");
   const proibidos = ["a_receber", "a_pagar"];
   const o = await obterConta(pool, e, inp.contaOrigemId, undefined, "conta de origem");
   const d = await obterConta(pool, e, inp.contaDestinoId, undefined, "conta de destino");
   if (proibidos.includes(o.tipo) || proibidos.includes(d.tipo)) {
     throw new FinErro("conta_controle", "Contas a receber e a pagar só se movem por títulos (parcelado ou pagamento).");
   }
-  let qtd: number | null = null;
-  const q = inp.quantidade ?? 0;
-  if (q) {
-    if (o.id === d.id) {
-      if (o.tipo !== "investimento") throw new FinErro("conta_tipo", "Só investimento aceita ajuste de quantidade.");
-      if (inp.valor !== 0) throw new FinErro("valor", "Desdobramento/grupamento/bonificação vai com valor 0 (só muda a quantidade).");
-      qtd = q;
-    } else if (d.tipo === "investimento") {
-      qtd = Math.abs(q);
-    } else if (o.tipo === "investimento") {
-      throw new FinErro("venda", "Para vender um papel use Venda de investimento (calcula o custo médio e o ganho).");
-    } else {
-      throw new FinErro("conta_tipo", "Quantidade só vale quando uma das contas é um investimento.");
+  const desc = inp.descricao.trim() || "Lançamento";
+
+  // Desdobramento / grupamento / bonificação: só quantidade
+  if (o.id === d.id) {
+    if (o.tipo !== "investimento" || !inp.quantidade) throw new FinErro("mesma_conta", "Origem e destino são a mesma conta.");
+    if (valorInf || vmInf) throw new FinErro("valor", "Desdobramento/grupamento/bonificação vai com valor 0 (só muda a quantidade).");
+    const conn = await pool.getConnection();
+    try {
+      await lancar(conn, e, { data: inp.data, descricao: desc, valor: 0, origem: o.id, destino: d.id, quantidade: inp.quantidade });
+    } finally {
+      conn.release();
     }
-  } else {
-    if (o.id === d.id) throw new FinErro("mesma_conta", "Origem e destino são a mesma conta.");
-    if (!(inp.valor > 0)) throw new FinErro("valor", "Informe o valor.");
+    return { valor: 0, resultado: null };
   }
-  const preco = inp.preco ?? (qtd && inp.valor > 0 ? Math.round((inp.valor / Math.abs(qtd)) * 1e6) / 1e6 : null);
-  await pool.query(
-    `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, quantidade, preco)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [e.groupId, e.userId, inp.data, inp.descricao.trim() || "Lançamento", r2(inp.valor), o.id, d.id, qtd, preco]
-  );
+
+  let qtd: number | null = null;
+  if (inp.quantidade) {
+    if (d.tipo === "investimento") qtd = Math.abs(inp.quantidade);
+    else if (o.tipo === "investimento") throw new FinErro("venda", "Para vender um papel use Venda de investimento (calcula o custo médio e o ganho).");
+    else throw new FinErro("conta_tipo", "Quantidade só vale quando uma das contas é um investimento.");
+  } else if (o.tipo === "investimento" && d.tipo !== "investimento") {
+    throw new FinErro("venda", "Para vender um papel use Venda de investimento (calcula o custo médio e o ganho).");
+  }
+
+  const mo = o.moeda;
+  const md = d.moeda;
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    let valor: number;
+    let vm: number | null = null;
+    let moeda: string | null = null;
+    let resultado: number | null = null;
+    const lote = randomUUID();
+
+    if (mo === "BRL" && md === "BRL") {
+      if (!(valorInf != null && valorInf > 0)) throw new FinErro("valor", "Informe o valor.");
+      valor = r2(valorInf);
+      await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd });
+    } else {
+      if (mo !== "BRL" && md !== "BRL" && mo !== md) {
+        throw new FinErro("moeda", `De ${mo} para ${md} não é direto: converta passando por uma conta em reais.`);
+      }
+      moeda = mo !== "BRL" ? mo : md;
+      if (!(vmInf != null && vmInf > 0)) throw new FinErro("valor", `Informe o valor em ${moeda}.`);
+      vm = r2(vmInf);
+
+      if (mo === "BRL") {
+        // Entra dinheiro na conta em moeda
+        if (finContaEhDinheiro(o.tipo)) {
+          if (!(valorInf != null && valorInf > 0)) throw new FinErro("valor", "Câmbio: informe quanto saiu em reais.");
+          valor = r2(valorInf);
+        } else if (valorInf != null && valorInf > 0) {
+          valor = r2(valorInf);
+        } else {
+          const c = await obterCotacao(moeda, inp.data);
+          if (!c) throw new FinErro("cotacao", `Sem cotação do ${moeda} em ${inp.data}. Informe o valor em reais.`);
+          valor = r2(vm * c.valor);
+        }
+        await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, valorMoeda: vm, moeda });
+      } else {
+        // Sai da conta em moeda: pelo custo médio em reais
+        const pos = await posicao(conn, o.id, inp.data);
+        if (pos.moeda + 1e-9 < vm) throw new FinErro("saldo_moeda", `Saldo de ${o.nome} em ${inp.data}: ${pos.moeda} ${moeda}. Não dá para tirar ${vm}.`);
+        const custo = r2((pos.reais / pos.moeda) * vm);
+        if (md !== "BRL" || !finContaEhDinheiro(d.tipo)) {
+          valor = custo;
+          await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, valorMoeda: vm, moeda });
+        } else {
+          // Câmbio de volta para reais: diferença para o custo = ganho/perda cambial
+          if (!(valorInf != null && valorInf > 0)) throw new FinErro("valor", "Câmbio: informe quanto entrou em reais.");
+          valor = r2(valorInf);
+          resultado = r2(valor - custo);
+          await lancar(conn, e, { data: inp.data, descricao: desc, valor: custo, origem: o.id, destino: d.id, valorMoeda: vm, moeda, lote });
+          if (resultado > 0) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ganho cambial`, valor: resultado, origem: await contaSistema(conn, e, "ganho_cambial"), destino: d.id, lote });
+          if (resultado < 0) await lancar(conn, e, { data: inp.data, descricao: `${desc} — perda cambial`, valor: -resultado, origem: d.id, destino: await contaSistema(conn, e, "perda_cambial"), lote });
+        }
+      }
+    }
+    await conn.commit();
+    return { valor, resultado };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 export async function excluirLancamento(e: Espaco, id: number): Promise<void> {
@@ -787,11 +931,14 @@ export async function excluirLancamento(e: Espaco, id: number): Promise<void> {
   await pool.query(`DELETE FROM fin_lancamentos WHERE id = ?`, [id]);
 }
 
-/** Venda: sai do papel pelo custo médio; a diferença vira ganho ou perda. */
+/**
+ * Venda: sai do papel pelo custo médio; a diferença vira ganho ou perda.
+ * Papel em outra moeda: valor e resultado na moeda; o ganho/perda entra em reais pela cotação da data.
+ */
 export async function venderInvestimento(
   e: Espaco,
   inp: { contaPapelId: number; contaDestinoId: number; data: string; quantidade: number; valorTotal: number }
-): Promise<{ custo: number; resultado: number }> {
+): Promise<{ custo: number; resultado: number; moeda: string }> {
   exigirData(inp.data, "data");
   if (!(inp.quantidade > 0) || !(inp.valorTotal > 0)) throw new FinErro("valor", "Informe quantidade e valor da venda.");
   const conn = await pool.getConnection();
@@ -799,29 +946,36 @@ export async function venderInvestimento(
     await conn.beginTransaction();
     const papel = await obterConta(conn, e, inp.contaPapelId, ["investimento"], "conta do papel");
     const dest = await obterConta(conn, e, inp.contaDestinoId, ["corretora", "banco"], "conta que recebe");
-    const [p] = await conn.query<RowDataPacket[]>(
-      `SELECT
-         COALESCE(SUM(CASE WHEN conta_destinoid = ? THEN valor ELSE 0 END), 0)
-           - COALESCE(SUM(CASE WHEN conta_origemid = ? THEN valor ELSE 0 END), 0) AS "custo",
-         COALESCE(SUM(quantidade), 0) AS "qtd"
-       FROM fin_lancamentos WHERE (conta_destinoid = ? OR conta_origemid = ?) AND data <= ?`,
-      [papel.id, papel.id, papel.id, papel.id, inp.data]
-    );
-    const qtd = n(p[0]?.qtd);
-    const custoTotal = n(p[0]?.custo);
-    if (inp.quantidade > qtd + 1e-9) throw new FinErro("posicao", `Posição em ${inp.data}: ${qtd}. Não dá para vender ${inp.quantidade}.`);
-    const custo = r2((custoTotal / qtd) * inp.quantidade);
+    const moeda = papel.moeda;
+    if (dest.moeda !== moeda) throw new FinErro("moeda", `O papel é em ${moeda}; a venda tem de entrar numa conta em ${moeda}.`);
+    const pos = await posicao(conn, papel.id, inp.data);
+    if (inp.quantidade > pos.qtd + 1e-9) throw new FinErro("posicao", `Posição em ${inp.data}: ${pos.qtd}. Não dá para vender ${inp.quantidade}.`);
+    const custoReais = r2((pos.reais / pos.qtd) * inp.quantidade);
+    const estrangeira = moeda !== "BRL";
+    const custo = estrangeira ? r2((pos.moeda / pos.qtd) * inp.quantidade) : custoReais;
     const resultado = r2(inp.valorTotal - custo);
+    let resultadoReais = resultado;
+    if (estrangeira && resultado !== 0) {
+      const c = await obterCotacao(moeda, inp.data);
+      if (!c) throw new FinErro("cotacao", `Sem cotação do ${moeda} em ${inp.data}.`);
+      resultadoReais = r2(resultado * c.valor);
+    }
     const lote = randomUUID();
     const desc = `Venda ${inp.quantidade} ${papel.nome}`;
+    const m = estrangeira ? moeda : null;
     await lancar(conn, e, {
-      data: inp.data, descricao: desc, valor: custo, origem: papel.id, destino: dest.id, lote,
+      data: inp.data, descricao: desc, valor: custoReais, origem: papel.id, destino: dest.id, lote,
       quantidade: -inp.quantidade, preco: Math.round((inp.valorTotal / inp.quantidade) * 1e6) / 1e6,
+      valorMoeda: estrangeira ? custo : null, moeda: m,
     });
-    if (resultado > 0) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ganho`, valor: resultado, origem: await contaSistema(conn, e, "ganho_capital"), destino: dest.id, lote });
-    if (resultado < 0) await lancar(conn, e, { data: inp.data, descricao: `${desc} — perda`, valor: -resultado, origem: dest.id, destino: await contaSistema(conn, e, "perda_capital"), lote });
+    if (resultado > 0) {
+      await lancar(conn, e, { data: inp.data, descricao: `${desc} — ganho`, valor: resultadoReais, origem: await contaSistema(conn, e, "ganho_capital"), destino: dest.id, lote, valorMoeda: estrangeira ? resultado : null, moeda: m });
+    }
+    if (resultado < 0) {
+      await lancar(conn, e, { data: inp.data, descricao: `${desc} — perda`, valor: -resultadoReais, origem: dest.id, destino: await contaSistema(conn, e, "perda_capital"), lote, valorMoeda: estrangeira ? -resultado : null, moeda: m });
+    }
     await conn.commit();
-    return { custo, resultado };
+    return { custo, resultado, moeda };
   } catch (err) {
     await conn.rollback();
     throw err;
