@@ -28,8 +28,10 @@ export function PerguntaChips(props: {
   valores: Record<string, PerguntaChipValor>;
   onChange: (chave: string, valor: PerguntaChipValor | null) => void;
   disabled?: boolean;
+  /** Modelo de registro: os valores não vêm de uma query, então não há autocomplete. */
+  semSugestoes?: boolean;
 }) {
-  const { modeloId, pergunta, chips, valores, onChange, disabled } = props;
+  const { modeloId, pergunta, chips, valores, onChange, disabled, semSugestoes } = props;
   const [aberto, setAberto] = useState<string | null>(null);
   const { segmentos, extras } = useMemo(() => montarFrase(pergunta, chips), [pergunta, chips]);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -66,6 +68,7 @@ export function PerguntaChips(props: {
             chip={chip}
             valor={v ?? chip.valor}
             alterado={alterado}
+            semSugestoes={semSugestoes}
             onEscolher={(nv) => { onChange(chip.chave, nv); setAberto(null); }}
             onRestaurar={() => { onChange(chip.chave, null); setAberto(null); }}
             onFechar={() => setAberto(null)}
@@ -77,7 +80,7 @@ export function PerguntaChips(props: {
 
   return (
     <div ref={wrapRef} className={styles.frase}>
-      <span className={styles.badge} title="Pergunta salva com plano: reexecuta direto, sem replanejar">⚡</span>
+      <span className={styles.badge} title="Pergunta salva com parâmetros: troque só o que precisa">⚡</span>
       {segmentos.map((s, i) => ("chip" in s ? chipBtn(s.chip, s.texto) : <span key={`t${i}`}>{s.texto}</span>))}
       {extras.length ? (
         <div className={styles.extras}>
@@ -93,11 +96,12 @@ function ChipSeletor(props: {
   chip: PerguntaChip;
   valor: PerguntaChipValor;
   alterado: boolean;
+  semSugestoes?: boolean;
   onEscolher: (v: PerguntaChipValor) => void;
   onRestaurar: () => void;
   onFechar: () => void;
 }) {
-  const { modeloId, chip, valor, alterado, onEscolher, onRestaurar, onFechar } = props;
+  const { modeloId, chip, valor, alterado, semSugestoes, onEscolher, onRestaurar, onFechar } = props;
   const periodo = chip.tipo === "periodo";
   const pv = periodo ? (valor as PeriodoValor) : null;
   const [texto, setTexto] = useState(periodo ? "" : String(valor));
@@ -110,7 +114,7 @@ function ChipSeletor(props: {
   const capturaRef = useRef<CapturaVoz | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const buscaSeq = useRef(0);
-  const autocomplete = chip.tipo === "texto" || chip.tipo === "lista";
+  const autocomplete = (chip.tipo === "texto" || chip.tipo === "lista") && !semSugestoes;
 
   useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
   useEffect(() => () => capturaRef.current?.parar(), []);
@@ -261,7 +265,7 @@ function ChipSeletor(props: {
 
       {alterado ? (
         <button type="button" className={styles.restaurar} onClick={onRestaurar}>
-          ↺ voltar ao valor salvo ({descreverValorChip(chip, chip.valor)})
+          {chip.valor === "" ? "↺ limpar (deixar vazio)" : `↺ voltar ao valor salvo (${descreverValorChip(chip, chip.valor)})`}
         </button>
       ) : null}
     </div>

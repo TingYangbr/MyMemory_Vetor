@@ -3,7 +3,8 @@
  * para reexecutar sem as chamadas de IA de classificação e planejamento. Os parâmetros viram "chips"
  * na frase da pergunta, trocáveis por teclado ou voz.
  */
-import type { PerguntaClassificacao } from "./index.js";
+import { normalizarDataParaIso } from "./dataCampo.js";
+import type { ComandoCriacao, PerguntaClassificacao } from "./index.js";
 
 export interface PlanoSalvoParam {
   nome: string;
@@ -334,4 +335,108 @@ export function aplicarValoresNoPlano(plano: PlanoSalvo, chips: PerguntaChip[], 
     }
   }
   return copia;
+}
+
+// ── Modelo de registro: pergunta salva que CRIA um memo ─────────────────────
+
+/**
+ * Pergunta salva a partir de um pedido de criação ("minha medida de hoje: peso 78,5, IGP 45…").
+ * Não guarda valores: só o começo da frase e os campos da categoria. Ao usar, os chips começam vazios e o
+ * texto enviado à IA leva apenas o que foi preenchido — nada de ontem é regravado e o campo vazio fica nulo.
+ * Ao enviar, o servidor monta o cartão "Revisar e salvar" direto dos valores dos chips, sem IA
+ * (como a pergunta salva com parâmetros pula a classificação e o planejamento). Se a categoria ou um
+ * campo mudou, o texto segue pelo caminho normal, com IA.
+ */
+export interface PerguntaPlanoCriacao {
+  versao: 1;
+  tipo: "criacao";
+  categoria: string;
+  /** Começo da frase, sempre terminado em ":". */
+  prefixo: string;
+  campos: { nome: string; tipo: "texto" | "numero" }[];
+  /** Campos de data que, ao salvar o modelo, valiam "hoje": no uso recebem a data do dia (nunca a de quando foi salvo). */
+  hoje?: string[];
+}
+
+export function ehPlanoCriacao(p: unknown): p is PerguntaPlanoCriacao {
+  if (!p || typeof p !== "object") return false;
+  const o = p as { tipo?: unknown; campos?: unknown };
+  return o.tipo === "criacao" && Array.isArray(o.campos);
+}
+
+/** Campos que viram chip: texto e número, fora o campo dono (o sistema o preenche com quem salva). */
+export function camposDeModeloCriacao(criacao: ComandoCriacao): PerguntaPlanoCriacao["campos"] {
+  const dono = criacao.campoDono ? semAcento(criacao.campoDono).trim() : null;
+  return criacao.campos
+    .filter((c) => (c.tipo === "text" || c.tipo === "number") && semAcento(c.nome).trim() !== dono)
+    .map((c) => ({ nome: c.nome, tipo: c.tipo === "number" ? ("numero" as const) : ("texto" as const) }));
+}
+
+/** Começo da frase: o que vem antes do primeiro nome de campo (ou do primeiro número) na frase original. */
+function prefixoDeCriacao(pergunta: string, categoria: string, nomesCampos: string[]): string {
+  const base = pergunta.trim();
+  let corte = -1;
+  for (const nome of nomesCampos) {
+    const pos = localizar(base, nome);
+    if (pos && (corte < 0 || pos[0] < corte)) corte = pos[0];
+  }
+  if (corte < 0) {
+    const m = /\d/.exec(base);
+    if (m) corte = m.index;
+  }
+  const ini = (corte >= 0 ? base.slice(0, corte) : base).replace(/[\s:;,\-–—]+$/u, "").trim();
+  return `${ini || `Novo registro em ${categoria}`}:`;
+}
+
+/** Plano de um modelo de registro, ou null se a categoria não tem campo de texto/número para virar chip. */
+export function planoDeCriacao(criacao: ComandoCriacao, pergunta: string, hojeIso?: string): PerguntaPlanoCriacao | null {
+  const campos = camposDeModeloCriacao(criacao);
+  if (!campos.length || !criacao.categoria) return null;
+  // Campos de data com o valor do dia em que o modelo foi salvo → "hoje" (a data que o AI extraiu de "de hoje")
+  const hoje: string[] = [];
+  if (hojeIso) {
+    let extraidos: Record<string, unknown> = {};
+    try {
+      const j = JSON.parse(criacao.processado.dadosEspecificosJson ?? "{}") as unknown;
+      if (j && typeof j === "object" && !Array.isArray(j)) extraidos = j as Record<string, unknown>;
+    } catch { /* sem campos extraídos */ }
+    for (const c of criacao.campos) {
+      if (c.tipo !== "date") continue;
+      const k = Object.keys(extraidos).find((x) => semAcento(x).trim() === semAcento(c.nome).trim());
+      const v = k != null ? String(extraidos[k] ?? "") : "";
+      if (v && normalizarDataParaIso(v) === hojeIso) hoje.push(c.nome);
+    }
+  }
+  return {
+    versao: 1,
+    tipo: "criacao",
+    categoria: criacao.categoria,
+    prefixo: prefixoDeCriacao(pergunta, criacao.categoria, campos.map((c) => c.nome)),
+    campos,
+    ...(hoje.length ? { hoje } : {}),
+  };
+}
+
+/** Chips do modelo de registro: todos vazios (valor "" e sem trecho na frase → aparecem depois do começo dela). */
+export function chipsDeCriacao(plano: PerguntaPlanoCriacao): PerguntaChip[] {
+  return plano.campos.map((c) => ({
+    chave: c.nome,
+    rotulo: c.nome,
+    tipo: c.tipo,
+    param: c.nome,
+    valor: "",
+    termo: "",
+    queryId: "",
+  }));
+}
+
+/** Texto enviado à IA: começo da frase + só os campos preenchidos. Vazio se nada foi preenchido. */
+export function textoDeCriacao(plano: PerguntaPlanoCriacao, valores: Record<string, PerguntaChipValor>): string {
+  const partes: string[] = [];
+  for (const c of plano.campos) {
+    const v = valores[c.nome];
+    const t = typeof v === "string" ? v.trim() : "";
+    if (t) partes.push(`${c.nome}: ${t}`);
+  }
+  return partes.length ? `${plano.prefixo} ${partes.join(" - ")}` : "";
 }
