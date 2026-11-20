@@ -98,6 +98,20 @@ export type CriacaoDeModelo =
 const dataBr = (iso: string) => iso.split("-").reverse().join("/");
 
 /**
+ * Campo de texto que guarda o período do dia (Manhã/Noite): pelos padrões do campo ("Manhã, Noite") ou, sem
+ * padrões, pelo nome "Periodo_Medicao". Devolve os rótulos exatos a gravar.
+ */
+function periodoDoDia(f: MemoContextCategory["campos"][number]): { manha: string; noite: string } | null {
+  if (f.tipo !== "text") return null;
+  const termos = String(f.normalizedTerms ?? "").split(/[,;\n]/).map((t) => t.trim()).filter(Boolean);
+  const manha = termos.find((t) => norm(t) === "manha");
+  const noite = termos.find((t) => norm(t) === "noite");
+  if (manha && noite) return { manha, noite };
+  if (!termos.length && norm(f.name).replace(/[^a-z]/g, "") === "periodomedicao") return { manha: "Manhã", noite: "Noite" };
+  return null;
+}
+
+/**
  * Monta o mesmo `ComandoCriacao` que `prepararCriacao` devolve, mas só com os valores preenchidos nos chips:
  * campo vazio fica nulo, nada do dia em que o modelo foi salvo é reaproveitado, e os campos de data marcados
  * como "hoje" recebem a data de hoje. Resumo e palavras-chave são texto fixo (sem IA). Nada é gravado aqui:
@@ -111,6 +125,8 @@ export function montarCriacaoDeModelo(input: {
   groupId: number | null;
   /** Hoje (AAAA-MM-DD, fuso de São Paulo). */
   hojeIso: string;
+  /** Hora de agora (0–23, fuso de São Paulo): define o período do dia (Manhã antes das 12h, Noite depois). */
+  hora?: number;
 }): CriacaoDeModelo {
   const { plano, categories } = input;
   const texto = textoDeCriacao(plano, input.valores);
@@ -156,7 +172,18 @@ export function montarCriacaoDeModelo(input: {
     }
   }
 
-  const resumo = `${cat.name}${comData ? ` de ${dataBr(input.hojeIso)}` : ""} — ${preenchidos.map((p) => `${p.nome} ${p.valor}`).join("; ")}`;
+  // Período do dia automático, se o campo existe e a pessoa não o preencheu (a pessoa pode trocar no cartão)
+  const campoPeriodo = ativos.map((f) => ({ f, p: periodoDoDia(f) })).find((x) => x.p != null);
+  if (campoPeriodo && input.hora != null && !(dados[campoPeriodo.f.name] ?? "").trim()) {
+    dados[campoPeriodo.f.name] = input.hora < 12 ? campoPeriodo.p!.manha : campoPeriodo.p!.noite;
+  }
+  const periodo = campoPeriodo ? (dados[campoPeriodo.f.name] ?? "").trim() : "";
+
+  // O período aparece entre parênteses; os demais campos preenchidos vêm depois do traço
+  const itens = preenchidos
+    .filter((p) => !campoPeriodo || p.nome !== campoPeriodo.f.name)
+    .map((p) => `${p.nome} ${p.valor}`);
+  const resumo = `${cat.name}${comData ? ` de ${dataBr(input.hojeIso)}` : ""}${periodo ? ` (${periodo})` : ""}${itens.length ? ` — ${itens.join("; ")}` : ""}`;
   const processado: TextMemoProcessResponse = {
     originalText: texto,
     suggestedMediaText: resumo,
@@ -183,6 +210,7 @@ export function montarCriacaoDeModelo(input: {
       campoSituacao,
       campoDono: cat.campoDono ?? null,
       situacaoAberta: valorDaSituacao("aberto", cat.situacaoTipo),
+      origemModelo: true,
       processado,
     },
   };

@@ -119,6 +119,13 @@
   color: var(--mm-danger);
 }
 
+/* Aviso só informativo (ex.: registro montado sem IA): cor neutra, não de alerta */
+.aviso {
+  margin-top: 0.25rem;
+  font-size: 0.78rem;
+  color: var(--mm-muted, #64748b);
+}
+
 .salvar {
   width: 100%;
   margin-top: 0.9rem;

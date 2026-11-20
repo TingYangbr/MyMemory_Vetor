@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   PERIODO_ATALHOS,
   calcularPeriodo,
@@ -69,6 +69,8 @@ export function PerguntaChips(props: {
             valor={v ?? chip.valor}
             alterado={alterado}
             semSugestoes={semSugestoes}
+            // Modelo de registro: o que foi digitado vale ao sair do chip, mesmo sem OK/Enter
+            onRascunho={semSugestoes ? (nv) => onChange(chip.chave, nv) : undefined}
             onEscolher={(nv) => { onChange(chip.chave, nv); setAberto(null); }}
             onRestaurar={() => { onChange(chip.chave, null); setAberto(null); }}
             onFechar={() => setAberto(null)}
@@ -97,14 +99,34 @@ function ChipSeletor(props: {
   valor: PerguntaChipValor;
   alterado: boolean;
   semSugestoes?: boolean;
+  /** Guarda o texto digitado ao sair do chip sem confirmar (clicar em outro chip ou fora). Só no modelo de registro. */
+  onRascunho?: (v: string) => void;
   onEscolher: (v: PerguntaChipValor) => void;
   onRestaurar: () => void;
   onFechar: () => void;
 }) {
-  const { modeloId, chip, valor, alterado, semSugestoes, onEscolher, onRestaurar, onFechar } = props;
+  const { modeloId, chip, valor, alterado, semSugestoes, onRascunho, onEscolher: escolherProp, onRestaurar: restaurarProp, onFechar: fecharProp } = props;
+  // Confirmar (OK/Enter/voz/atalho), limpar ou cancelar (×/Esc) é uma decisão explícita: não vale o rascunho
+  const decididoRef = useRef(false);
+  const onEscolher = (v: PerguntaChipValor) => { decididoRef.current = true; escolherProp(v); };
+  const onRestaurar = () => { decididoRef.current = true; restaurarProp(); };
+  const onFechar = () => { decididoRef.current = true; fecharProp(); };
   const periodo = chip.tipo === "periodo";
   const pv = periodo ? (valor as PeriodoValor) : null;
   const [texto, setTexto] = useState(periodo ? "" : String(valor));
+  const textoRef = useRef(texto);
+  textoRef.current = texto;
+  const inicialRef = useRef(periodo ? "" : String(valor).trim());
+  const rascunhoRef = useRef(onRascunho);
+  rascunhoRef.current = onRascunho;
+  // Ao fechar sem decidir (clique em outro chip, fora, ou Enviar), o texto digitado e diferente do valor vale.
+  // Layout effect: roda ainda dentro do clique, antes de o Enviar ler os valores.
+  useLayoutEffect(() => () => {
+    if (!rascunhoRef.current || decididoRef.current || periodo) return;
+    const t = textoRef.current.trim();
+    if (t && t !== inicialRef.current) rascunhoRef.current(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const [ini, setIni] = useState(pv?.ini ?? "");
   const [fin, setFin] = useState(pv?.fin ?? "");
   const [sugestoes, setSugestoes] = useState<string[]>([]);

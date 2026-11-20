@@ -123,7 +123,7 @@ export function MemoNovoCartao({
           </button>
         </div>
 
-        {p.processingWarning ? <p className={styles.dica}>{p.processingWarning}</p> : null}
+        {p.processingWarning ? <p className={criacao.origemModelo ? styles.aviso : styles.dica}>{p.processingWarning}</p> : null}
 
         <div className={styles.campos}>
           <div className={styles.campo}>
