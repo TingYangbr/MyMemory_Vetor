@@ -97,7 +97,7 @@ export async function prepararRepeticaoLista(input: {
   let rows: RowDataPacket[];
   if (input.pedido.memoId != null) {
     [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.id, m.mediatext, m.keywords, m.category, m.dadosespecificosjson, m.createdat
+      `SELECT m.id, m.mediatext AS "texto", m.keywords AS "palavras", m.category AS "categoria", m.dadosespecificosjson AS "dados", m.createdat AS "criado"
        FROM memos m WHERE m.id = ? AND m.isactive = 1 AND ${escopo} LIMIT 1`,
       [input.pedido.memoId, escopoVal]
     );
@@ -105,7 +105,7 @@ export async function prepararRepeticaoLista(input: {
     const nomes = (input.pedido.categoria ? [input.pedido.categoria] : listas).map((c) => c.name);
     if (!nomes.length) return { erro: "Não há categoria com lista neste grupo." };
     [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT m.id, m.mediatext, m.keywords, m.category, m.dadosespecificosjson, m.createdat
+      `SELECT m.id, m.mediatext AS "texto", m.keywords AS "palavras", m.category AS "categoria", m.dadosespecificosjson AS "dados", m.createdat AS "criado"
        FROM memos m WHERE m.isactive = 1 AND ${escopo} AND m.category IN (${nomes.map(() => "?").join(",")})
        ORDER BY m.createdat DESC LIMIT 30`,
       [escopoVal, ...nomes]
@@ -122,19 +122,19 @@ export async function prepararRepeticaoLista(input: {
   // Sem número: a última lista CONCLUÍDA (a que já foi usada); se nenhuma foi concluída, a mais recente
   const catDe = (nome: unknown) => listas.find((c) => semAcento(c.name) === semAcento(String(nome ?? "")));
   const concluida = (r: RowDataPacket) => {
-    const cat = catDe(r.category);
+    const cat = catDe(r.categoria);
     if (!cat?.campoSituacao) return false;
-    const d = lerDados(r.dadosespecificosjson);
+    const d = lerDados(r.dados);
     const k = Object.keys(d).find((x) => semAcento(x) === semAcento(cat.campoSituacao!));
     return k != null && estadoDaSituacao(d[k]) === "concluido";
   };
   const origem = input.pedido.memoId != null ? rows[0]! : rows.find(concluida) ?? rows[0]!;
-  const cat = catDe(origem.category);
+  const cat = catDe(origem.categoria);
   if (!cat) return { erro: `O memo #${origem.id} não é de uma categoria com lista.` };
 
   const campoSituacao = cat.atualizavel && cat.campoSituacao ? cat.campoSituacao : null;
   const ativos = (cat.campos ?? []).filter((f) => f.isActive === 1);
-  const antigos = lerDados(origem.dadosespecificosjson);
+  const antigos = lerDados(origem.dados);
   const dados: Record<string, string> = {};
   let itensNovos = 0;
   // Sem escolha: todos menos os cancelados
@@ -157,7 +157,7 @@ export async function prepararRepeticaoLista(input: {
     }
   }
 
-  const quando = dataBr(origem.createdat);
+  const quando = dataBr(origem.criado);
   const campos = ativos
     .filter((f) => !campoSituacao || semAcento(f.name) !== semAcento(campoSituacao))
     .map((f) => ({
@@ -166,7 +166,7 @@ export async function prepararRepeticaoLista(input: {
       descricao: f.description ?? null,
       ...(f.tipo === "status" ? { valores: lerValoresStatus(f.normalizedTerms) } : {}),
     }));
-  const resumo = String(origem.mediatext ?? "").trim() || `${cat.name} (repetida da lista #${origem.id})`;
+  const resumo = String(origem.texto ?? "").trim() || `${cat.name} (repetida da lista #${origem.id})`;
   return {
     criacao: {
       mensagem:
@@ -190,7 +190,7 @@ export async function prepararRepeticaoLista(input: {
       processado: {
         originalText: `Lista repetida da lista #${origem.id}${quando ? ` de ${quando}` : ""}.`,
         suggestedMediaText: resumo,
-        suggestedKeywords: String(origem.keywords ?? ""),
+        suggestedKeywords: String(origem.palavras ?? ""),
         maxSummaryChars: Math.max(resumo.length, 500),
         apiCost: 0,
         iaLevel: "semIA",
