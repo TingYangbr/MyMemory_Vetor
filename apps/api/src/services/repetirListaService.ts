@@ -37,7 +37,7 @@ export function detectarRepetirLista(texto: string, categories: MemoContextCateg
   if (!listas.length) return null;
   const id = /#\s*(\d+)/.exec(t);
   const citada = listas.find((c) => t.includes(semAcento(c.name)));
-  const soConcluidos = /\bitens? (concluid|comprad|feit|marcad|ticad)\w*/.test(t) || /\b(so|somente|apenas) (os )?(concluid|comprad)\w*/.test(t);
+  const soConcluidos = /\bitens? (concluid|comprad|feit|marcad|ticad)\w*/.test(t) || /\b(so|somente|apenas) (os )?(concluid|comprad)\w*/.test(t) || /\bo que (eu )?(comprei|conclui|fiz)\b/.test(t);
   return {
     memoId: id ? Number(id[1]) : null,
     categoria: citada ?? (listas.length === 1 ? listas[0]! : null),
