@@ -1655,6 +1655,7 @@ export interface MemoAlteracaoResponse {
 }
 export * from "./lembretes.js";
 export * from "./perguntaPlano.js";
+export * from "./numeroFalado.js";
 export * from "./dataCampo.js";
 export * from "./listaItens.js";
 export * from "./campoStatus.js";

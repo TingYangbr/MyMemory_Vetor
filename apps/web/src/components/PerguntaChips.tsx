@@ -2,16 +2,18 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   PERIODO_ATALHOS,
   calcularPeriodo,
+  comandoDeVoz,
   descreverValorChip,
   interpretarPeriodo,
   montarFrase,
+  numeroFalado,
   valorIgual,
   type PerguntaChip,
   type PerguntaChipValor,
   type PeriodoValor,
 } from "@mymemory/shared";
 import { apiGet } from "../api";
-import { capturarFalaCurta, vozDisponivel, type CapturaVoz } from "../lib/vozCurta";
+import { abrirSessaoVoz, capturarFalaCurta, vozDisponivel, type CapturaVoz, type SessaoVoz } from "../lib/vozCurta";
 import styles from "./PerguntaChips.module.css";
 
 const semAcento = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
@@ -36,6 +38,29 @@ export function PerguntaChips(props: {
   const { segmentos, extras } = useMemo(() => montarFrase(pergunta, chips), [pergunta, chips]);
   const wrapRef = useRef<HTMLDivElement>(null);
 
+  // Voz contínua (modelo de registro): o 🎤 de um chip abre o microfone uma vez e segue pelos próximos chips,
+  // um por vez, até acabarem, "parar", tocar de novo no ⏸, tocar em outro chip ou em Enviar.
+  const sessaoVozRef = useRef<SessaoVoz | null>(null);
+  const [vozContinua, setVozContinua] = useState(false);
+  const encerrarVoz = () => {
+    sessaoVozRef.current?.fechar();
+    sessaoVozRef.current = null;
+    setVozContinua(false);
+  };
+  const abrirVoz = async (): Promise<SessaoVoz> => {
+    if (sessaoVozRef.current) return sessaoVozRef.current;
+    const s = await abrirSessaoVoz();
+    sessaoVozRef.current = s;
+    setVozContinua(true);
+    return s;
+  };
+  // Libera o microfone quando nenhum chip está aberto (clicou fora ou em Enviar) e ao sair da tela
+  useEffect(() => {
+    if (!aberto && sessaoVozRef.current) encerrarVoz();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [aberto]);
+  useEffect(() => () => { sessaoVozRef.current?.fechar(); sessaoVozRef.current = null; }, []);
+
   useEffect(() => {
     if (!aberto) return;
     const fechar = (e: MouseEvent) => {
@@ -49,12 +74,15 @@ export function PerguntaChips(props: {
     const v = valores[chip.chave];
     const alterado = v != null && !valorIgual(v, chip.valor);
     const texto = alterado || textoOriginal == null ? descreverValorChip(chip, v ?? chip.valor) : textoOriginal;
+    // Voz contínua só no modelo de registro e fora do período (que tem seu próprio seletor)
+    const idx = chips.findIndex((c) => c.chave === chip.chave);
+    const vozDoRegistro = !!semSugestoes && chip.tipo !== "periodo";
     return (
       <span key={chip.chave} className={styles.chipWrap}>
         <button
           type="button"
           className={`${styles.chip} ${alterado ? styles.chipAlterado : ""}`}
-          onClick={() => setAberto((a) => (a === chip.chave ? null : chip.chave))}
+          onClick={() => { encerrarVoz(); setAberto((a) => (a === chip.chave ? null : chip.chave)); }}
           disabled={disabled}
           title={`${chip.rotulo} — clique para trocar`}
         >
@@ -69,6 +97,18 @@ export function PerguntaChips(props: {
             valor={v ?? chip.valor}
             alterado={alterado}
             semSugestoes={semSugestoes}
+            autoFalar={vozDoRegistro && vozContinua}
+            progresso={vozDoRegistro && vozContinua ? `${idx + 1} de ${chips.length}` : undefined}
+            abrirVoz={vozDoRegistro ? abrirVoz : undefined}
+            aoVozConcluir={vozDoRegistro ? (acao, nv) => {
+              if (acao === "valor" && nv != null) onChange(chip.chave, nv);
+              // Sem fala ou sem entender: encerra o modo e deixa o seletor aberto para tentar de novo
+              if (acao === "vazio") { encerrarVoz(); return; }
+              if (acao === "parar") { encerrarVoz(); setAberto(null); return; }
+              const proximo = chips.slice(idx + 1).find((c) => c.tipo !== "periodo");
+              if (proximo) setAberto(proximo.chave);
+              else { encerrarVoz(); setAberto(null); }
+            } : undefined}
             // Modelo de registro: o que foi digitado vale ao sair do chip, mesmo sem OK/Enter
             onRascunho={semSugestoes ? (nv) => onChange(chip.chave, nv) : undefined}
             onEscolher={(nv) => { onChange(chip.chave, nv); setAberto(null); }}
@@ -101,11 +141,19 @@ function ChipSeletor(props: {
   semSugestoes?: boolean;
   /** Guarda o texto digitado ao sair do chip sem confirmar (clicar em outro chip ou fora). Só no modelo de registro. */
   onRascunho?: (v: string) => void;
+  /** Voz contínua (modelo de registro): abre o microfone uma vez para a sessão inteira. */
+  abrirVoz?: () => Promise<SessaoVoz>;
+  /** Voz contínua: o que foi dito neste chip (valor, pular, parar, ou vazio = sem fala/sem entender). */
+  aoVozConcluir?: (acao: "valor" | "pular" | "parar" | "vazio", valor?: string) => void;
+  /** Voz contínua já ativa: este chip abre ouvindo, sem tocar no 🎤 e sem abrir o teclado. */
+  autoFalar?: boolean;
+  /** Ex.: "2 de 7" */
+  progresso?: string;
   onEscolher: (v: PerguntaChipValor) => void;
   onRestaurar: () => void;
   onFechar: () => void;
 }) {
-  const { modeloId, chip, valor, alterado, semSugestoes, onRascunho, onEscolher: escolherProp, onRestaurar: restaurarProp, onFechar: fecharProp } = props;
+  const { modeloId, chip, valor, alterado, semSugestoes, onRascunho, abrirVoz, aoVozConcluir, autoFalar, progresso, onEscolher: escolherProp, onRestaurar: restaurarProp, onFechar: fecharProp } = props;
   // Confirmar (OK/Enter/voz/atalho), limpar ou cancelar (×/Esc) é uma decisão explícita: não vale o rascunho
   const decididoRef = useRef(false);
   const onEscolher = (v: PerguntaChipValor) => { decididoRef.current = true; escolherProp(v); };
@@ -138,8 +186,24 @@ function ChipSeletor(props: {
   const buscaSeq = useRef(0);
   const autocomplete = (chip.tipo === "texto" || chip.tipo === "lista") && !semSugestoes;
 
-  useEffect(() => { inputRef.current?.focus(); inputRef.current?.select(); }, []);
-  useEffect(() => () => capturaRef.current?.parar(), []);
+  const seletorRef = useRef<HTMLDivElement>(null);
+  const montadoRef = useRef(true);
+  const cancelouRef = useRef(false);
+  const autoFalarRef = useRef(autoFalar);
+
+  // Com a voz contínua ativa o chip abre ouvindo: nada de teclado. Senão, foco no campo como sempre.
+  useEffect(() => {
+    if (!autoFalarRef.current) { inputRef.current?.focus(); inputRef.current?.select(); }
+    seletorRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, []);
+  useEffect(() => {
+    montadoRef.current = true;
+    if (!autoFalarRef.current) return () => { montadoRef.current = false; capturaRef.current?.parar(); };
+    // Pequena pausa para a tela mostrar o chip antes de gravar
+    const t = setTimeout(() => { void falar(); }, 300);
+    return () => { clearTimeout(t); montadoRef.current = false; capturaRef.current?.parar(); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function buscar(q: string): Promise<string[]> {
     const termo = chip.tipo === "lista" ? (q.split(",").pop() ?? "").trim() : q.trim();
@@ -185,7 +249,55 @@ function ChipSeletor(props: {
     if (texto.trim()) onEscolher(texto.trim());
   }
 
+  /** Voz contínua: o que foi dito vale para este chip e a escuta segue para o próximo (ou para). */
+  async function falarEmSequencia() {
+    if (ouvindo) { cancelouRef.current = true; capturaRef.current?.parar(); return; }
+    setErro(null);
+    cancelouRef.current = false;
+    inputRef.current?.blur(); // fecha o teclado do celular
+    setOuvindo(true);
+    let cap: CapturaVoz;
+    try {
+      const sessao = await abrirVoz!();
+      cap = sessao.capturar((parcial) => setTexto(parcial));
+    } catch (e) {
+      setErro(e instanceof Error ? e.message : "Erro no microfone.");
+      setOuvindo(false);
+      aoVozConcluir?.("vazio");
+      return;
+    }
+    capturaRef.current = cap;
+    let falado = "";
+    try {
+      falado = (await cap.resultado).trim();
+    } catch (e) {
+      if (!montadoRef.current) return;
+      setErro(e instanceof Error ? e.message : "Erro no microfone.");
+      capturaRef.current = null;
+      setOuvindo(false);
+      aoVozConcluir?.("vazio");
+      return;
+    }
+    capturaRef.current = null;
+    if (!montadoRef.current) return; // a pessoa saiu deste chip enquanto falava
+    setOuvindo(false);
+    if (cancelouRef.current) { decididoRef.current = true; aoVozConcluir?.("parar"); return; }
+    if (!falado) { setErro("Não ouvi nada. Toque no 🎤 para continuar."); aoVozConcluir?.("vazio"); return; }
+    const comando = comandoDeVoz(falado);
+    if (comando) { decididoRef.current = true; aoVozConcluir?.(comando); return; }
+    const valorDito = chip.tipo === "numero" ? numeroFalado(falado) : falado;
+    if (chip.tipo === "numero" && !/\d/.test(valorDito)) {
+      setErro(`Não entendi "${falado}" como número. Toque no 🎤 para tentar de novo.`);
+      aoVozConcluir?.("vazio");
+      return;
+    }
+    setTexto(valorDito);
+    decididoRef.current = true;
+    aoVozConcluir?.("valor", valorDito);
+  }
+
   async function falar() {
+    if (aoVozConcluir && abrirVoz && !periodo) return falarEmSequencia();
     if (ouvindo) { capturaRef.current?.parar(); return; }
     setErro(null);
     setOuvindo(true);
@@ -217,9 +329,9 @@ function ChipSeletor(props: {
   }
 
   return (
-    <div className={styles.seletor} role="dialog" aria-label={chip.rotulo}>
+    <div ref={seletorRef} className={styles.seletor} role="dialog" aria-label={chip.rotulo}>
       <div className={styles.seletorTopo}>
-        <strong>{chip.rotulo}</strong>
+        <strong>{chip.rotulo}{progresso ? <span className={styles.dica}> · {progresso}</span> : null}</strong>
         <button type="button" className={styles.fechar} onClick={onFechar} aria-label="Fechar">×</button>
       </div>
       <div className={styles.linhaInput}>
@@ -240,12 +352,22 @@ function ChipSeletor(props: {
             type="button"
             className={`${styles.mic} ${ouvindo ? styles.micAtivo : ""}`}
             onClick={() => void falar()}
-            title={ouvindo ? "Parar" : "Falar (encerra sozinho quando você para de falar)"}
+            title={
+              ouvindo ? (abrirVoz ? "Parar de ouvir" : "Parar")
+              : abrirVoz && !periodo ? "Falar este e os próximos campos (diga “pular” ou “parar”)"
+              : "Falar (encerra sozinho quando você para de falar)"
+            }
           >{ouvindo ? "⏸" : "🎤"}</button>
         ) : null}
         <button type="button" className={styles.ok} onClick={confirmarTexto} disabled={!texto.trim()}>OK</button>
       </div>
-      {ouvindo ? <div className={styles.dica}>Ouvindo… pode falar.</div> : null}
+      {ouvindo ? (
+        <div className={styles.dica}>
+          {abrirVoz && !periodo
+            ? `Ouvindo… diga o valor de ${chip.rotulo}. “Pular” deixa vazio; “parar” encerra.`
+            : "Ouvindo… pode falar."}
+        </div>
+      ) : null}
       {erro ? <div className={styles.erro}>{erro}</div> : null}
 
       {autocomplete && (sugestoes.length || buscando) ? (
