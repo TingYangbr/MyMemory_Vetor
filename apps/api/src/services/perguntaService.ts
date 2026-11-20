@@ -29,6 +29,7 @@ import {
 import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
+import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -328,6 +329,43 @@ export async function perguntarMemory(input: {
           justificativa: "pergunta sobre os assuntos (categorias), respondida por regra",
         },
         apiCost: r.costUsd,
+      };
+    }
+  }
+
+  // "Repete a última lista de compras" / botão ⧉ Repetir lista: cartão de registro novo com a lista
+  // anterior (itens pendentes, sem os cancelados). Só pela tela do usuário; nada é gravado aqui.
+  if (!input.forcePipe && !input.forceAlvo && input.permitirComandos) {
+    const pedidoLista = detectarRepetirLista(input.pergunta, categoriasVisiveis);
+    if (pedidoLista) {
+      const r = await prepararRepeticaoLista({
+        userId: input.userId,
+        groupId: input.groupId,
+        categories: categoriasVisiveis,
+        pedido: pedidoLista,
+      });
+      const classificacaoLista: PerguntaClassificacao = {
+        pipe: "semantica",
+        categorias: "criacao" in r && r.criacao.categoria ? [r.criacao.categoria] : [],
+        multi_categoria: false,
+        intencao: "outro",
+        contexto: "nova",
+        escopo_sugerido: "global",
+        justificativa: "repetir lista (regra)",
+        acao: "criar",
+      };
+      const texto = "criacao" in r ? r.criacao.mensagem : r.erro;
+      return {
+        resposta: {
+          resposta: texto,
+          tipo_resposta: "semantica",
+          dados_usados: [],
+          limitacoes: [],
+          confianca_estimada: "criacao" in r ? 1 : 0,
+        },
+        classificacao: classificacaoLista,
+        apiCost: 0,
+        ...("criacao" in r ? { criacao: r.criacao } : {}),
       };
     }
   }

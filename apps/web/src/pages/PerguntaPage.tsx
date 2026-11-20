@@ -487,6 +487,8 @@ interface AlteracaoCtxValor {
   aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
   /** Grava um campo do memo (ex.: a lista com o estado de um item mudado), com aviso e Desfazer. */
   alterarCampo: (memoId: number, campo: string, valor: string, aviso: string) => Promise<void>;
+  /** "⧉ Repetir lista": pede ao Perguntar uma lista nova a partir desta (cartão de registro novo). */
+  repetirLista: (memoId: number) => void;
 }
 const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   alteraveis: new Set(),
@@ -497,6 +499,7 @@ const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   mudarSituacao: () => {},
   aplicarLocal: () => {},
   alterarCampo: async () => {},
+  repetirLista: () => {},
 });
 
 /** Uma mudança mostrada no formato do usuário: lista com o que entra destacado e o que sai riscado. */
@@ -790,7 +793,7 @@ function perguntaPedeFeitos(pergunta: string): boolean {
 }
 
 function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: PerguntaResultadoEstruturado; colLista: string; pergunta: string; onVerTabela: () => void }) {
-  const { alteraveis, locais, abrir, mudarSituacao } = useContext(AlteracaoCtx);
+  const { alteraveis, locais, abrir, mudarSituacao, repetirLista } = useContext(AlteracaoCtx);
   const colTitulo = dados.colunas.filter(
     (c) => c !== colLista && !COLUNAS_FORA_DO_TITULO.has(c.toLowerCase()) && !/situa/i.test(toParamName(c))
   );
@@ -872,6 +875,14 @@ function VisaoLista({ dados, colLista, pergunta, onVerTabela }: { dados: Pergunt
                       ↺ Reabrir lista
                     </button>
                   )}
+                  <button
+                    type="button"
+                    className={styles.refazerBtn}
+                    onClick={() => repetirLista(id!)}
+                    title="Criar uma lista nova com estes itens (todos pendentes, sem os cancelados); esta lista fica como está"
+                  >
+                    ⧉ Repetir lista
+                  </button>
                 </div>
               ) : null}
             </div>
@@ -1938,6 +1949,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     }
   }
 
+  // O contexto é memorizado; o botão ⧉ Repetir lista chama sempre o enviar da renderização atual
+  const enviarRef = useRef<typeof enviar | null>(null);
+  enviarRef.current = enviar;
   const alteracaoCtx = useMemo<AlteracaoCtxValor>(
     () => ({
       alteraveis,
@@ -1948,6 +1962,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       mudarSituacao: (id: number, situacao: "Pendente" | "Concluído" | "Cancelado") => void mudarSituacaoDireto(id, situacao),
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
       alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
+      repetirLista: (id: number) => void enviarRef.current?.({ perguntaOverride: `Repetir a lista #${id}` }),
     }),
     [alteraveis, alteracoesLocais, criados]
   );
