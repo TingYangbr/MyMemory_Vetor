@@ -1178,6 +1178,8 @@ export interface ComandoCriacao {
   campos: { nome: string; tipo: MemoContextCampoTipo; descricao: string | null; valores?: string[] }[];
   /** Campo de situação da categoria atualizável (preenchido com o valor aberto ao gravar), ou null. */
   campoSituacao: string | null;
+  /** Campo dono da categoria Pessoal (o sistema o preenche com quem salva), ou null. */
+  campoDono?: string | null;
   /** Valor da situação de um registro novo: Pendente (ou Válido, na categoria de registro). */
   situacaoAberta?: string;
   processado: TextMemoProcessResponse;
@@ -1359,7 +1361,7 @@ export interface AdminDiagnosticsResponse {
 
 // ── Perguntas Modelo (salvas pelo usuário) ───────────────────────────────────
 
-import type { PerguntaPlanoSalvo } from "./perguntaPlano.js";
+import type { PerguntaPlanoCriacao, PerguntaPlanoSalvo } from "./perguntaPlano.js";
 
 export interface PerguntaModelo {
   id: number;
@@ -1369,8 +1371,8 @@ export interface PerguntaModelo {
   pergunta: string;
   anotacoes: string | null;
   estrelas: number | null;
-  /** Plano salvo (classificação + queries + parâmetros); null = pergunta salva só com texto */
-  plano?: PerguntaPlanoSalvo | null;
+  /** Plano salvo (classificação + queries + parâmetros) ou modelo de registro (tipo "criacao"); null = pergunta salva só com texto */
+  plano?: PerguntaPlanoSalvo | PerguntaPlanoCriacao | null;
   /** Fixada pelo usuário atual como atalho no Perguntar. */
   fixada?: boolean;
   createdAt: string;

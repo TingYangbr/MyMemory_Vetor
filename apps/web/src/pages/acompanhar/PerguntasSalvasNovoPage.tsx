@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import type { MeResponse, PerguntaModelo } from "@mymemory/shared";
+import { ehPlanoCriacao, type MeResponse, type PerguntaModelo } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPostJson, apiPutJson, avisos as avisosApi } from "../../api";
 import { useCategoryOptions } from "../../hooks/useCategoryOptions";
 import Header from "../../components/Header";
@@ -295,9 +295,14 @@ export default function PerguntasSalvasNovoPage() {
                       ) : null}
                     </button>
                     <span className={styles.qacoes}>
-                      <button type="button" className={`mm-btn mm-btn--primary ${styles.btnPerguntar}`} onClick={() => perguntar(m.pergunta)} title="Perguntar agora" aria-label="Perguntar agora">
-                        <IconSend size={14} /><span className={styles.btnTexto}>Perguntar</span>
-                      </button>
+                      {ehPlanoCriacao(m.plano) ? (
+                        // Modelo de registro: "Perguntar" reenviaria os valores do dia em que foi salvo
+                        <span className={styles.tag} title="Modelo de registro: fixe com 📌 e use pelo atalho no Fale comigo, preenchendo os valores">⚡ Registro rápido</span>
+                      ) : (
+                        <button type="button" className={`mm-btn mm-btn--primary ${styles.btnPerguntar}`} onClick={() => perguntar(m.pergunta)} title="Perguntar agora" aria-label="Perguntar agora">
+                          <IconSend size={14} /><span className={styles.btnTexto}>Perguntar</span>
+                        </button>
+                      )}
                       <button type="button" className={styles.ib} title="Editar" aria-label="Editar" onClick={abrir}><IconEdit size={15} /></button>
                       <button type="button" className={`${styles.ib} ${styles.ibPerigo}`} title="Excluir" aria-label="Excluir" onClick={() => setConfirmar(m.id)}><IconTrash size={15} /></button>
                     </span>

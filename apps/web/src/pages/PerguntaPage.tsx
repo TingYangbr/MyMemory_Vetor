@@ -16,7 +16,7 @@ import type {
   PerguntaChip,
   PerguntaChipValor,
 } from "@mymemory/shared";
-import { derivarChips, escreverItensLista, lerItensLista, perguntaComValores, situacaoEncerrada, toParamName } from "@mymemory/shared";
+import { camposDeModeloCriacao, chipsDeCriacao, derivarChips, ehPlanoCriacao, escreverItensLista, lerItensLista, perguntaComValores, planoDeCriacao, situacaoEncerrada, textoDeCriacao, toParamName } from "@mymemory/shared";
 import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
@@ -2313,13 +2313,22 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   function selecionarModelo(m: PerguntaModelo) {
     setPergunta(m.pergunta);
     setChipValores({});
-    const chips = m.plano ? derivarChips(m.plano.plano) : [];
+    const plano = m.plano;
+    // Modelo de registro: chips vazios (um por campo); nada do dia em que foi salvo é reaproveitado
+    const chips = !plano ? [] : ehPlanoCriacao(plano) ? chipsDeCriacao(plano) : derivarChips(plano.plano);
     // Sem parâmetros trocáveis → comportamento de sempre (texto na caixa)
     setModeloAtivo(chips.length ? { modelo: m, chips } : null);
   }
 
   function sairDoModelo() {
-    if (modeloAtivo) setPergunta(perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores));
+    if (modeloAtivo) {
+      const plano = modeloAtivo.modelo.plano;
+      setPergunta(
+        ehPlanoCriacao(plano)
+          ? textoDeCriacao(plano, chipValores) || plano.prefixo
+          : perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores)
+      );
+    }
     setModeloAtivo(null);
     setChipValores({});
   }
@@ -2328,7 +2337,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   async function executarModelo() {
     if (!modeloAtivo || busy) return;
     stopListening();
-    const q = perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores);
+    // Modelo de registro: só o que foi preenchido vale (campo vazio fica nulo); o servidor monta o cartão sem IA
+    const planoCriacao = modeloAtivo.modelo.plano;
+    const registro = ehPlanoCriacao(planoCriacao);
+    const q = ehPlanoCriacao(planoCriacao)
+      ? textoDeCriacao(planoCriacao, chipValores)
+      : perguntaComValores(modeloAtivo.modelo.pergunta, modeloAtivo.chips, chipValores);
+    if (registro && !q) {
+      setError("Preencha ao menos um valor.");
+      return;
+    }
     setError(null);
     setErrorTrace(null);
     setStatusMsg("Executando a pergunta salva…");
@@ -2365,6 +2383,11 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             dados_usados: res.resposta.dados_usados.length > 0 ? res.resposta.dados_usados : undefined,
           },
         ].slice(-5));
+        if (res.criacao) {
+          // Registro novo: abre o cartão "Revisar e salvar"; os chips voltam a ficar vazios para o próximo uso
+          setCriando(res.criacao);
+          setChipValores({});
+        }
       } else throw new Error("Resposta não recebida.");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível obter a resposta.");
@@ -2384,7 +2407,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   function cliqueSalvarModelo(cardIdx: number) {
     const r = respostas[cardIdx];
     if (!r) return;
-    const temParametros = !!r.planoSalvavel && derivarChips(r.planoSalvavel.plano).length > 0;
+    // Pedido de criação ("minha medida de hoje: …"): modelo de registro, com os campos da categoria como chips
+    const temParametros = r.criacao
+      ? camposDeModeloCriacao(r.criacao).length > 0
+      : !!r.planoSalvavel && derivarChips(r.planoSalvavel.plano).length > 0;
     if (temParametros) setSalvarEscolhaIdx((v) => (v === cardIdx ? null : cardIdx));
     else void salvarModelo(cardIdx, false);
   }
@@ -2393,7 +2419,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     const r = respostas[cardIdx];
     setSalvarEscolhaIdx(null);
     if (!r || modeloSavingIdx === cardIdx || modeloSavedIdx === cardIdx) return;
-    const category = r.classificacao.categorias[0] ?? null;
+    const category = r.criacao?.categoria ?? r.classificacao.categorias[0] ?? null;
+    // "hoje" no fuso local: o campo de data que valia hoje ao salvar passa a valer sempre "hoje" no uso
+    const hojeIso = new Date().toLocaleDateString("sv-SE");
+    const plano = comPlano ? (r.criacao ? planoDeCriacao(r.criacao, r.perguntaTexto, hojeIso) : r.planoSalvavel ?? null) : null;
     setModeloSaveErr(null);
     setModeloSavingIdx(cardIdx);
     try {
@@ -2401,7 +2430,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         pergunta: r.perguntaTexto,
         category,
         workspaceGroupId: workspaceGroupId ?? null,
-        plano: comPlano ? r.planoSalvavel ?? null : null,
+        plano,
       });
       setModeloSavedIdx(cardIdx);
       setTimeout(() => setModeloSavedIdx((v) => (v === cardIdx ? null : v)), 2000);
@@ -2608,9 +2637,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             {modeloAtivo ? (
               <PerguntaChips
                 modeloId={modeloAtivo.modelo.id}
-                pergunta={modeloAtivo.modelo.pergunta}
+                pergunta={ehPlanoCriacao(modeloAtivo.modelo.plano) ? modeloAtivo.modelo.plano.prefixo : modeloAtivo.modelo.pergunta}
                 chips={modeloAtivo.chips}
                 valores={chipValores}
+                semSugestoes={ehPlanoCriacao(modeloAtivo.modelo.plano)}
                 disabled={busy}
                 onChange={(chave, v) => setChipValores((prev) => {
                   const nv = { ...prev };
