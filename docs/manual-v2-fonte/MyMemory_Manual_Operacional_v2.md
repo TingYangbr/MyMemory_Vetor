@@ -460,6 +460,12 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
 - Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
 - A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
+## Repetir uma lista
+Cria uma lista nova a partir de uma anterior (ex.: a lista de compras da semana passada). A lista anterior fica como está, com as marcas ✓/✗ e a data dela.
+- Pelo botão **⧉ Repetir lista** no cartão da lista (ao lado de ✎ Alterar e ☑ Concluir lista), ou dizendo: "repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior", "copiar a lista do mercado".
+- Sem número, vale a última lista **concluída** da categoria (se nenhuma foi concluída, a mais recente). Com mais de uma categoria de lista, cite o nome (ex.: "lista de compras").
+- A lista nova é a **cópia** da anterior com a **data de hoje** (nos campos de data): mesmos campos, mesmos itens sem as marcas ✓ (ainda a fazer na lista nova), **sem os itens cancelados** (✗) e com a situação Pendente. Abre o cartão de registro novo: confira, tire ou acrescente itens e toque em Salvar registro — nada é gravado antes.
+
 ## Perguntar sobre remarcações e cancelamentos
 Nas categorias atualizáveis, o Fale comigo também responde sobre o que MUDOU, usando o registro de alterações (consulta "Alterações — Agenda", criada sozinha; Seção 17).
 | Pergunta | O que o sistema procura |
