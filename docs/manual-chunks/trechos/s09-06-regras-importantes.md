@@ -1,6 +1,6 @@
 Manual MyMemory › Perguntas salvas › Regras importantes
 Seção: Seção 9 — Perguntas salvas
-Rota: / (aba Perguntar) · Componentes: PerguntaPage, PerguntaChips · Rota: /perguntas-salvas. "Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Perguntar."
+Rota: / (aba Fale comigo) · Componentes: PerguntaPage, PerguntaChips · Rota: /perguntas-salvas. "Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Fale comigo."
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 - Curingas do plano são mantidos: se o valor salvo era "GAMA%" (começa com) e o usuário escolhe "Genea", o sistema busca "Genea%".

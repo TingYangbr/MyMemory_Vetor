@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Carregar pergunta salva
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Carregar pergunta salva
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 O botão "Perguntas salvas" abre a lista do espaço ativo, com busca por texto e filtro por categoria.
@@ -10,5 +10,5 @@ O botão "Perguntas salvas" abre a lista do espaço ativo, com busca por texto e
 - Ao editar uma pergunta salva (na lista ou na página Perguntas salvas), dá para trocar também a categoria, usada no filtro da lista.
 
 Perguntas que este trecho responde:
-- O que é carregar pergunta salva em Perguntar ao MyMemory?
+- O que é carregar pergunta salva em Fale comigo?
 - Como funciona carregar pergunta salva no MyMemory?

@@ -1,5 +1,5 @@
-Manual MyMemory › Administrar grupo › Seções do painel
-Seção: Seção 14 — Administrar grupo
+Manual MyMemory › Painel Owners › Seções do painel
+Seção: Seção 14 — Painel Owners
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
@@ -11,5 +11,5 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 - Configurações: Chaves do grupo; cada uma salva sozinha ao mudar.
 
 Perguntas que este trecho responde:
-- Quais são as opções de seções do painel em Administrar grupo?
+- Quais são as opções de seções do painel em Painel Owners?
 - O que significa cada item de seções do painel?

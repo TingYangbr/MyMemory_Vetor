@@ -5,7 +5,7 @@ Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 - Logotipo / Nome do sistema: Clique retorna à home.
 - Indicador de espaço ativo: Mostra o grupo atual ou 'Pessoal'. Clique abre o Seletor de Espaço.
-- Menu da conta (avatar): Conta (Minha conta, Meus avisos e lembretes, Importar em lote), Trocar espaço, Criar grupo, Administração (Administrar grupo para o dono; Categorias globais e telas de admin para o administrador do sistema), tema claro/escuro e Sair.
+- Menu da conta (avatar): Conta (Minha conta, Meus avisos e lembretes, Importar em lote), Trocar espaço, Criar grupo, Administração (Painel Owners para o dono; Categorias Modelos e telas de admin para o administrador do sistema), tema claro/escuro e Sair.
 - 🔔 Sino (Avisos e lembretes): Mostra quantos avisos novos e lembretes próximos existem. Abre um painel com duas abas: Avisos (respostas que mudaram) e Lembretes (compromissos dos próximos 7 dias em que você é destinatário). O link "Meus avisos e lembretes" abre a tela completa (Seção 12).
 
 Perguntas que este trecho responde:

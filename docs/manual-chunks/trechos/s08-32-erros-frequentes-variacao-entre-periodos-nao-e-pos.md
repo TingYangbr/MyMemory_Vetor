@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Erros frequentes: Variação entre períodos: "não é possível cruzar os dois meses"
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Erros frequentes: Variação entre períodos: "não é possível cruzar os dois meses"
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: Variação entre períodos: "não é possível cruzar os dois meses"
@@ -8,4 +8,4 @@ Causa e solução: A comparação não foi montada (ex.: períodos com filtros d
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Variação entre períodos: "não é possível cruzar os dois meses""?
-- Por que acontece "Variação entre períodos: "não é possível cruzar os dois meses"" em Perguntar ao MyMemory?
+- Por que acontece "Variação entre períodos: "não é possível cruzar os dois meses"" em Fale comigo?

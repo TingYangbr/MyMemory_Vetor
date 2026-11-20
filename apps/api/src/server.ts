@@ -91,6 +91,7 @@ import { UserPdfAbrirAba1700000000176 } from "./migrations/1700000000176-UserPdf
 import { GrupoPessoalECatalogo1700000000177 } from "./migrations/1700000000177-GrupoPessoalECatalogo.js";
 import { DescricaoSituacaoNova1700000000178 } from "./migrations/1700000000178-DescricaoSituacaoNova.js";
 import { ConexaoUltimoTeste1700000000179 } from "./migrations/1700000000179-ConexaoUltimoTeste.js";
+import { FinanceiroNucleo1700000000180 } from "./migrations/1700000000180-FinanceiroNucleo.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -128,6 +129,7 @@ import perguntaModelosRoutes from "./routes/perguntaModelos.js";
 import avisosRoutes from "./routes/avisos.js";
 import sinoRoutes from "./routes/sino.js";
 import lembretesRoutes from "./routes/lembretes.js";
+import financeiroRoutes from "./routes/financeiro.js";
 import { iniciarAvisoScheduler } from "./services/avisoScheduler.js";
 import { iniciarLembreteScheduler } from "./services/lembreteScheduler.js";
 import { iniciarTituloCurtoScheduler } from "./services/tituloCurtoService.js";
@@ -228,6 +230,7 @@ assertMediaStorageEnv();
       GrupoPessoalECatalogo1700000000177,
       DescricaoSituacaoNova1700000000178,
       ConexaoUltimoTeste1700000000179,
+      FinanceiroNucleo1700000000180,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -286,6 +289,7 @@ await app.register(perguntaModelosRoutes);
 await app.register(avisosRoutes);
 await app.register(sinoRoutes);
 await app.register(lembretesRoutes);
+await app.register(financeiroRoutes);
 await app.register(adminSubscriptionPlansRoutes);
 await app.register(adminMediaSettingsRoutes);
 await app.register(adminDocumentAiRoutes);

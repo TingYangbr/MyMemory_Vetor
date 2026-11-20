@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Comparação entre dois períodos
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Comparação entre dois períodos
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 Perguntas de variação entre dois períodos têm as contas feitas pelo sistema, não pela IA.
@@ -12,5 +12,5 @@ Perguntas de variação entre dois períodos têm as contas feitas pelo sistema,
 - Até 4 medidas por comparação (ex.: faturamento, CMV, quantidade).
 
 Perguntas que este trecho responde:
-- O que é comparação entre dois períodos em Perguntar ao MyMemory?
+- O que é comparação entre dois períodos em Fale comigo?
 - Como funciona comparação entre dois períodos no MyMemory?

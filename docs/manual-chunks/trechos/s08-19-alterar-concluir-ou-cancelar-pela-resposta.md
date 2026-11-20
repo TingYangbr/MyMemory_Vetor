@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Alterar, concluir ou cancelar pela resposta
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Alterar, concluir ou cancelar pela resposta
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: passo a passo · Versão do manual: 2
 
 Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎ discreto, sem contorno, alinhado à direita na última linha do texto. Nas tabelas da resposta, o memo também aparece com ✎ ao lado do número e a linha fica clicável. O ✎ só aparece para quem pode alterar: o dono do memo, quem o catalogou e owners/editores do grupo.
@@ -15,5 +15,5 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
 
 Perguntas que este trecho responde:
-- Como alterar, concluir ou cancelar pela resposta em Perguntar ao MyMemory?
+- Como alterar, concluir ou cancelar pela resposta em Fale comigo?
 - Qual o passo a passo de alterar, concluir ou cancelar pela resposta?

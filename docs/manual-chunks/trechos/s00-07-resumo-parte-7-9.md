@@ -7,10 +7,10 @@ Resumo do que mudou no sistema entre julho e novembro de 2026. Cada item remete 
 - Perguntar sobre remarcações e cancelamentos ("o que foi remarcado esta semana?", "o que foi cancelado em outubro?") com a consulta automática "Alterações — categoria": Seções 8 e 17
 - Editar memo e Histórico abrem para o dono, quem catalogou e donos/editores do grupo; sem permissão, a mensagem diz de quem é o memo: Seção 10
 - Autenticação por chave de API para integrações externas (ex.: Softing-erp) com contexto da tela: Seção 28
-- Novo visual: cabeçalho com menu da conta, sino de avisos e lembretes, Perguntar, Buscar, Catalogar e escolha do espaço: Seções 4, 7 e 8
+- Novo visual: cabeçalho com menu da conta, sino de avisos e lembretes, Fale comigo, Buscar, Catalogar e escolha do espaço: Seções 4, 7 e 8
 - "Título curto" passa a se chamar Assunto, sugerido pela IA: Seções 4, 6 e 10
-- Perguntas fixadas viram atalho embaixo da caixa do Perguntar: Seções 4 e 9
-- Administrar grupo (/grupo/:id/admin) substitui o Painel do owner e a Estrutura do contexto: Seções 14 e 17
+- Perguntas fixadas viram atalho embaixo da caixa do Fale comigo: Seções 4 e 9
+- Painel Owners (/grupo/:id/admin) substitui o Painel do owner e a Estrutura do contexto: Seções 14 e 17
 
 Perguntas que este trecho responde:
 - O que mudou na versão 2 do MyMemory?

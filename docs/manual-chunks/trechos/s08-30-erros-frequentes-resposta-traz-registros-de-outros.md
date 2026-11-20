@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Erros frequentes: Resposta traz registros de outros clientes
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Erros frequentes: Resposta traz registros de outros clientes
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: Resposta traz registros de outros clientes
@@ -8,4 +8,4 @@ Causa e solução: Filtro do template não está sendo aplicado (ex.: nome de pa
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Resposta traz registros de outros clientes"?
-- Por que acontece "Resposta traz registros de outros clientes" em Perguntar ao MyMemory?
+- Por que acontece "Resposta traz registros de outros clientes" em Fale comigo?

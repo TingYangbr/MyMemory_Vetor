@@ -1,5 +1,5 @@
-Manual MyMemory › Admin do sistema › Erros frequentes: Acesso negado
-Seção: Seção 19 — Admin do sistema
+Manual MyMemory › Painel Admin › Erros frequentes: Acesso negado
+Seção: Seção 19 — Painel Admin
 Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 Perfil: admin · Tipo: erro · Versão do manual: 2
 
@@ -8,4 +8,4 @@ Causa e solução: O usuário não é administrador do sistema. Conferir no banc
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Acesso negado"?
-- Por que acontece "Acesso negado" em Admin do sistema?
+- Por que acontece "Acesso negado" em Painel Admin?

@@ -1,5 +1,5 @@
-Manual MyMemory › Admin do sistema › Erros frequentes: Seção não encontrada
-Seção: Seção 19 — Admin do sistema
+Manual MyMemory › Painel Admin › Erros frequentes: Seção não encontrada
+Seção: Seção 19 — Painel Admin
 Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 Perfil: admin · Tipo: erro · Versão do manual: 2
 
@@ -8,4 +8,4 @@ Causa e solução: O endereço /admin/<seção> não existe. Usar o menu lateral
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Seção não encontrada"?
-- Por que acontece "Seção não encontrada" em Admin do sistema?
+- Por que acontece "Seção não encontrada" em Painel Admin?

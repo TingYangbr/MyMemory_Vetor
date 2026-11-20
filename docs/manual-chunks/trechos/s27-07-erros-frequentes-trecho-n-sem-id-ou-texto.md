@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Erros frequentes: Trecho N sem "id" ou "texto"
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Admin do sistema → Conteúdo → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: erro · Versão do manual: 2
 
 Sintoma: Trecho N sem "id" ou "texto"

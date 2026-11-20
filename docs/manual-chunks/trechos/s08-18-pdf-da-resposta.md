@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › PDF da resposta
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › PDF da resposta
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 O ícone de PDF no cabeçalho da resposta (ao lado do alto-falante) baixa a resposta como documento PDF:
@@ -13,5 +13,5 @@ Tabelas com mais de 6 colunas saem em paisagem. O arquivo se chama resposta-<in�
 NOTA: Respostas dadas antes desta versão trazem só as 20 linhas que já tinham; refaça a pergunta para o PDF levar todas.
 
 Perguntas que este trecho responde:
-- O que é pdf da resposta em Perguntar ao MyMemory?
+- O que é pdf da resposta em Fale comigo?
 - Como funciona pdf da resposta no MyMemory?

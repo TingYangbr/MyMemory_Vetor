@@ -1,5 +1,5 @@
-Manual MyMemory › Admin do sistema › Eliminação definitiva (/admin/eliminacao)
-Seção: Seção 19 — Admin do sistema
+Manual MyMemory › Painel Admin › Eliminação definitiva (/admin/eliminacao)
+Seção: Seção 19 — Painel Admin
 Rota: /admin (cada seção com endereço próprio: /admin/planos, /admin/custos…)
 Perfil: admin · Tipo: conceito · Versão do manual: 2
 
@@ -9,5 +9,5 @@ Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do m�
 NOTA: A eliminação não pode ser desfeita. Combine com o responsável técnico antes.
 
 Perguntas que este trecho responde:
-- O que é eliminação definitiva (/admin/eliminacao) em Admin do sistema?
+- O que é eliminação definitiva (/admin/eliminacao) em Painel Admin?
 - Como funciona eliminação definitiva (/admin/eliminacao) no MyMemory?

@@ -1684,3 +1684,4 @@ export interface BatchProcessJobStatus extends BatchProcessResponse {
   processed: number;
 }
 
+export * from "./financeiro.js";
