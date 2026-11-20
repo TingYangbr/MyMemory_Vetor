@@ -18,6 +18,7 @@ import {
   IconSun,
   IconSwap,
   IconUpload,
+  IconCalendar,
   IconUser,
   IconUsers,
 } from "./icons";
@@ -321,6 +322,11 @@ function HeaderInterno({
                     <Link to="/importar-lote" role="menuitem" className={styles.item} onClick={close}>
                       <IconUpload /> Importar em lote
                     </Link>
+                    {isAdmin ? (
+                      <Link to="/financeiro" role="menuitem" className={styles.item} onClick={close}>
+                        <IconCalendar /> Contas a pagar e receber <span className={styles.itemHint}>teste</span>
+                      </Link>
+                    ) : null}
                     {onOpenWorkspacePicker ? (
                       <button
                         type="button"

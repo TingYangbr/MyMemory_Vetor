@@ -26,6 +26,7 @@ import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
 import AvisosNovoPage from "./pages/acompanhar/AvisosNovoPage";
 import PerguntasSalvasNovoPage from "./pages/acompanhar/PerguntasSalvasNovoPage";
 import ImportarLoteNovoPage from "./pages/acompanhar/ImportarLoteNovoPage";
+import FinanceiroPage from "./pages/financeiro/FinanceiroPage";
 
 export default function App() {
   return (
@@ -60,6 +61,7 @@ export default function App() {
       <Route path="/revisao/memo-video" element={<RevisarMemoPage rota="video" />} />
       <Route path="/revisao/memo-documento" element={<RevisarMemoPage rota="documento" />} />
       <Route path="/importar-lote" element={<ImportarLoteNovoPage />} />
+      <Route path="/financeiro" element={<FinanceiroPage />} />
       {/* Endereços usados durante o teste do lote 3 */}
       <Route path="/acompanhar/avisos" element={<Navigate to="/avisos" replace />} />
       <Route path="/acompanhar/perguntas-salvas" element={<Navigate to="/perguntas-salvas" replace />} />

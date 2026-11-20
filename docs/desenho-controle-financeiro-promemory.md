@@ -379,7 +379,8 @@ Pela contabilidade, a previsão de um recorrente não é recebível nem conta a 
 | --- | --- | --- |
 | Pagamento ou recebimento | "paguei o aluguel de novembro": título já quitado + lançamento com dois lados | PF e ERP (caso normal) |
 | Documento emitido | NF ou boleto da mensalidade do cliente | ERP |
-| Exceção num mês | "em dezembro o aluguel é 2.000", "este mês não tem" | PF e ERP |
+
+**Exceção num mês** ("em dezembro o aluguel é 2.000", "este mês não tem") fica gravada **na regra** (`fin_recorrencia_excecoes`), não vira título: ainda não é obrigação, e assim Contas a Pagar/Receber continuam conferindo com os títulos (13.8).
 
 **O motor calcula na hora, sem gravar:**
 - **previsão** ("quanto vou receber em março?") = títulos existentes + ocorrências das regras ainda sem título; a resposta separa "confirmado" de "previsto";
@@ -410,3 +411,13 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - [ ] Lista final do catálogo de eventos (estorno, empréstimo a terceiros, adiantamento entram na etapa 1?).
 - [ ] Visão padrão das respostas quando a pergunta não deixa claro: caixa (proposta) ou competência?
 - [ ] O mesmo núcleo vira base do financeiro do Softing-erp (backlog item 5)?
+
+### 13.9 Etapa 1 implementada (19/11/2026)
+
+- **Tabelas** (migration 180): `fin_contas`, `fin_lancamentos` (dois lados + quantidade/preço), `fin_titulos`, `fin_recorrencias`, `fin_recorrencia_excecoes`; RLS por espaço para as consultas de categoria.
+- **Motor** em `packages/shared/src/financeiro.ts` (ocorrências, dia 31 e 29/02, parcelas em centavos) — reaproveitável no Softing-erp.
+- **Serviço** `apps/api/src/services/financeiroService.ts` e rotas `/api/fin/*`: contas com saldo inicial; recorrência com reajuste, fim e exceções; parcelado (todos os títulos + despesa/receita na data da compra); pagar/receber (juros e desconto vão para contas próprias); desfazer pagamento; lançamento livre (cartão, fatura, transferência, aplicação, desdobramento); venda pelo custo médio com ganho/perda; conferência 13.8.
+- **Tela** `/financeiro` "Contas a pagar e receber" (agenda do mês, lançamentos, contas e saldos, recorrências). No menu só para admin, marcada "teste".
+- **Regras de atraso:** ocorrência de recorrência conta como atraso a partir do mês em que a regra foi cadastrada (o anterior é histórico) e no máximo 1 ano.
+- **Testado** contra Postgres real (PGlite): 30 verificações, incluindo partidas dobradas fechando e isolamento entre usuários.
+- **Próxima etapa:** comandos pela IA, consultas para o Fale comigo, lembretes de vencimento.
