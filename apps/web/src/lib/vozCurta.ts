@@ -84,30 +84,73 @@ function capturarDesktop(onParcial?: (texto: string) => void): CapturaVoz {
   return { resultado, parar: () => parar() };
 }
 
+/** Sessão de voz: vários trechos seguidos (um por campo) sem reabrir o microfone a cada vez. */
+export interface SessaoVoz {
+  /** Grava um trecho até o silêncio e devolve o texto. */
+  capturar: (onParcial?: (texto: string) => void) => CapturaVoz;
+  /** Libera o microfone. */
+  fechar: () => void;
+}
+
+const MSG_MICROFONE_BLOQUEADO = "Microfone bloqueado. Permita o acesso nas configurações do navegador.";
+
+/**
+ * Abre uma sessão de voz. Chame DENTRO do toque da pessoa (o iOS só liberta o áudio num gesto).
+ * Celular: pede o microfone uma vez e grava um trecho por campo no mesmo fluxo (MediaRecorder + Whisper).
+ * Desktop: cada trecho usa a Web Speech API, sem nada a abrir.
+ */
+export async function abrirSessaoVoz(): Promise<SessaoVoz> {
+  if (!VOZ_MOBILE) return { capturar: (p) => capturarDesktop(p), fechar: () => {} };
+  // O contexto de áudio nasce já no toque, antes de esperar a permissão (depois dela o gesto se perde no iOS)
+  const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+  const ctx = AC ? new AC() : null;
+  void ctx?.resume().catch(() => {});
+  let stream: MediaStream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    void ctx?.close().catch(() => {});
+    throw new Error(MSG_MICROFONE_BLOQUEADO);
+  }
+  const analyser = ctx?.createAnalyser() ?? null;
+  if (ctx && analyser) {
+    analyser.fftSize = 1024;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+  }
+  return {
+    capturar: () => gravarTrecho(stream, analyser),
+    fechar: () => {
+      stream.getTracks().forEach((t) => t.stop());
+      void ctx?.close().catch(() => {});
+    },
+  };
+}
+
 function capturarMobile(): CapturaVoz {
   let parar = () => {};
   const resultado = (async () => {
-    let stream: MediaStream;
+    const sessao = await abrirSessaoVoz();
+    const c = sessao.capturar();
+    parar = c.parar;
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    } catch {
-      throw new Error("Microfone bloqueado. Permita o acesso nas configurações do navegador.");
+      return await c.resultado;
+    } finally {
+      sessao.fechar();
     }
+  })();
+  return { resultado, parar: () => parar() };
+}
+
+/** Grava um trecho no fluxo já aberto: termina no silêncio (pelo volume), transcreve no Whisper e devolve o texto. */
+function gravarTrecho(stream: MediaStream, analyser: AnalyserNode | null): CapturaVoz {
+  let parar = () => {};
+  const resultado = (async () => {
     const mimeType =
       MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" :
       MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "audio/mp4";
     const chunks: Blob[] = [];
     const recorder = new MediaRecorder(stream, { mimeType });
     recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
-
-    // Detector de silêncio pelo volume (RMS) do microfone
-    const AC = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    const ctx = AC ? new AC() : null;
-    const analyser = ctx?.createAnalyser();
-    if (ctx && analyser) {
-      analyser.fftSize = 1024;
-      ctx.createMediaStreamSource(stream).connect(analyser);
-    }
 
     const parou = new Promise<void>((resolve) => {
       recorder.onstop = () => resolve();
@@ -134,8 +177,6 @@ function capturarMobile(): CapturaVoz {
     recorder.start(250);
     await parou;
     clearInterval(tick);
-    stream.getTracks().forEach((t) => t.stop());
-    void ctx?.close().catch(() => {});
 
     const blob = new Blob(chunks, { type: mimeType });
     if (blob.size < 1000) return "";

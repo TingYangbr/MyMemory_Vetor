@@ -243,6 +243,25 @@
 .carregarModeloBtn:hover { border-color: var(--mm-primary); color: var(--mm-primary); }
 .novaSessaoBtn svg, .carregarModeloBtn svg { flex-shrink: 0; }
 
+/* ✎ (editar como texto livre) e ✕ (fechar) da pergunta salva aberta, na linha de ações */
+.modeloAcaoBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.4rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--mm-radius-sm, 8px);
+  border: 1px solid var(--mm-border);
+  background: var(--mm-card);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--mm-text-secondary);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.modeloAcaoBtn:hover { border-color: var(--mm-primary); color: var(--mm-primary); }
+
 .perguntarBtn {
   display: inline-flex;
   align-items: center;
@@ -2038,12 +2057,24 @@
    Respostas antigas em cima, a mais nova logo acima da caixa de pergunta, que fica presa embaixo
    (acima da barra de abas; com o teclado aberto, acima do teclado). */
 @media (max-width: 760px) {
+  /* A Home recua 1,35rem de cada lado; aqui devolve parte desse espaço para a caixa usar a largura do celular */
+  .embeddedShell {
+    margin-left: -0.85rem;
+    margin-right: -0.85rem;
+  }
+
   .embeddedShell .main {
-    padding: 0.75rem 0.75rem 0;
+    padding: 0.75rem 0.25rem 0;
     gap: 0.85rem;
     /* ocupa a tela entre o cabeçalho e as abas, para a caixa de pergunta começar embaixo */
     min-height: calc(100dvh - 52px - 76px - env(safe-area-inset-bottom, 0px));
     justify-content: flex-end;
+  }
+
+  /* Pergunta salva aberta e sem respostas: sem a área vazia de conversa; a caixa sobe para o topo */
+  .embeddedShell .mainCompacto {
+    min-height: 0;
+    justify-content: flex-start;
   }
 
   .embeddedShell .card { scroll-margin-top: 64px; }
