@@ -1426,7 +1426,8 @@ async function gerarRespostaEstruturada(input: {
       parametros_aplicados,
       normalizacoes_aplicadas,
       ...(avisosTruncamento.length > 0 ? { avisos_truncamento: avisosTruncamento } : {}),
-      ...(input.avisosExecucao?.length ? { consultas_nao_executadas: input.avisosExecucao } : {}),
+      // Consultas puladas e buscas ampliadas (sem termo genérico / sem uma palavra): cite na resposta
+      ...(input.avisosExecucao?.length ? { avisos_execucao: input.avisosExecucao } : {}),
     },
     null,
     2
