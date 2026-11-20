@@ -95,10 +95,19 @@
 
 /* ── Modelo de registro: balão compacto, sempre dentro da tela ───────────── */
 
-/* A largura e a posição à esquerda vêm do componente (caixa de chips); aqui só o tamanho interno */
+/*
+ * Edição EM LINHA, dentro da caixa de chips (a caixa cresce): nada flutua por cima dos outros chips nem do
+ * botão Enviar. Anula o posicionamento flutuante do .seletor.
+ */
 .seletorReg {
+  position: static;
+  width: auto;
+  margin-top: 0.5rem;
   box-sizing: border-box;
   padding: 0.5rem 0.6rem;
+  box-shadow: none;
+  border: 1px solid var(--mm-primary);
+  background: var(--mm-primary-faint);
 }
 
 .regTopo {

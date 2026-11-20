@@ -70,19 +70,57 @@ export function PerguntaChips(props: {
     return () => document.removeEventListener("mousedown", fechar);
   }, [aberto]);
 
+  // Modelo de registro: setas e voz contínua (o período, que tem seu próprio seletor, fica de fora)
+  const navegaveis = chips.filter((c) => c.tipo !== "periodo");
+  const ehRegistro = (chip: PerguntaChip) => !!semSugestoes && chip.tipo !== "periodo";
+
+  function seletorDe(chip: PerguntaChip) {
+    const v = valores[chip.chave];
+    const alterado = v != null && !valorIgual(v, chip.valor);
+    const vozDoRegistro = ehRegistro(chip);
+    const pos = navegaveis.findIndex((c) => c.chave === chip.chave);
+    return (
+      <ChipSeletor
+        key={chip.chave}
+        modeloId={modeloId}
+        chip={chip}
+        valor={v ?? chip.valor}
+        alterado={alterado}
+        semSugestoes={semSugestoes}
+        autoFalar={vozDoRegistro && vozContinua}
+        progresso={vozDoRegistro ? `${pos + 1} de ${navegaveis.length}` : undefined}
+        ehPrimeiro={vozDoRegistro && pos <= 0}
+        ehUltimo={vozDoRegistro && pos === navegaveis.length - 1}
+        abrirVoz={vozDoRegistro ? abrirVoz : undefined}
+        aoVozConcluir={vozDoRegistro ? (acao, nv, dir = 1) => {
+          if (nv != null && nv !== "") onChange(chip.chave, nv);
+          // Sem fala ou sem entender: encerra o modo e deixa o seletor aberto para tentar de novo
+          if (acao === "vazio") { encerrarVoz(); return; }
+          if (acao === "parar") { encerrarVoz(); setAberto(null); return; }
+          // valor, pular e seta: vai ao chip seguinte (dir = 1) ou ao anterior (dir = -1)
+          const alvo = navegaveis[pos + dir];
+          if (alvo) setAberto(alvo.chave);
+          else if (dir === 1) { encerrarVoz(); setAberto(null); } // passou do último: concluído
+        } : undefined}
+        // Modelo de registro: o que foi digitado vale ao sair do chip, mesmo sem OK/Enter
+        onRascunho={semSugestoes ? (nv) => onChange(chip.chave, nv) : undefined}
+        onEscolher={(nv) => { onChange(chip.chave, nv); setAberto(null); }}
+        onRestaurar={() => { onChange(chip.chave, null); setAberto(null); }}
+        onFechar={() => setAberto(null)}
+      />
+    );
+  }
+
   function chipBtn(chip: PerguntaChip, textoOriginal: string | null) {
     const v = valores[chip.chave];
     const alterado = v != null && !valorIgual(v, chip.valor);
     const texto = alterado || textoOriginal == null ? descreverValorChip(chip, v ?? chip.valor) : textoOriginal;
-    // Modelo de registro: setas e voz contínua (o período, que tem seu próprio seletor, fica de fora)
-    const vozDoRegistro = !!semSugestoes && chip.tipo !== "periodo";
-    const navegaveis = chips.filter((c) => c.tipo !== "periodo");
-    const pos = navegaveis.findIndex((c) => c.chave === chip.chave);
+    const registro = ehRegistro(chip);
     return (
       <span key={chip.chave} className={styles.chipWrap}>
         <button
           type="button"
-          className={`${styles.chip} ${alterado ? styles.chipAlterado : ""} ${aberto === chip.chave && vozDoRegistro ? styles.chipAtivo : ""}`}
+          className={`${styles.chip} ${alterado ? styles.chipAlterado : ""} ${aberto === chip.chave && registro ? styles.chipAtivo : ""}`}
           onClick={() => { encerrarVoz(); setAberto((a) => (a === chip.chave ? null : chip.chave)); }}
           disabled={disabled}
           title={`${chip.rotulo} — clique para trocar`}
@@ -91,41 +129,18 @@ export function PerguntaChips(props: {
           {texto}
           <span className={styles.chipSeta} aria-hidden>▾</span>
         </button>
-        {aberto === chip.chave ? (
-          <ChipSeletor
-            modeloId={modeloId}
-            chip={chip}
-            valor={v ?? chip.valor}
-            alterado={alterado}
-            semSugestoes={semSugestoes}
-            autoFalar={vozDoRegistro && vozContinua}
-            progresso={vozDoRegistro ? `${pos + 1} de ${navegaveis.length}` : undefined}
-            ehPrimeiro={vozDoRegistro && pos <= 0}
-            ehUltimo={vozDoRegistro && pos === navegaveis.length - 1}
-            abrirVoz={vozDoRegistro ? abrirVoz : undefined}
-            aoVozConcluir={vozDoRegistro ? (acao, nv, dir = 1) => {
-              if (nv != null && nv !== "") onChange(chip.chave, nv);
-              // Sem fala ou sem entender: encerra o modo e deixa o seletor aberto para tentar de novo
-              if (acao === "vazio") { encerrarVoz(); return; }
-              if (acao === "parar") { encerrarVoz(); setAberto(null); return; }
-              // valor, pular e seta: vai ao chip seguinte (dir = 1) ou ao anterior (dir = -1)
-              const alvo = navegaveis[pos + dir];
-              if (alvo) setAberto(alvo.chave);
-              else if (dir === 1) { encerrarVoz(); setAberto(null); } // passou do último: concluído
-            } : undefined}
-            // Modelo de registro: o que foi digitado vale ao sair do chip, mesmo sem OK/Enter
-            onRascunho={semSugestoes ? (nv) => onChange(chip.chave, nv) : undefined}
-            onEscolher={(nv) => { onChange(chip.chave, nv); setAberto(null); }}
-            onRestaurar={() => { onChange(chip.chave, null); setAberto(null); }}
-            onFechar={() => setAberto(null)}
-          />
-        ) : null}
+        {/* Perguntas de consulta: balão preso ao chip, como sempre. O registro edita dentro da caixa (abaixo). */}
+        {aberto === chip.chave && !registro ? seletorDe(chip) : null}
       </span>
     );
   }
 
+  // Registro: a edição abre DENTRO da caixa de chips, logo abaixo deles, e a caixa cresce. Nada flutua por cima
+  // dos outros chips nem do botão Enviar, e não há segundo painel.
+  const chipEmEdicao = chips.find((c) => c.chave === aberto && ehRegistro(c)) ?? null;
+
   return (
-    <div ref={wrapRef} className={styles.frase} data-frase>
+    <div ref={wrapRef} className={styles.frase}>
       <span className={styles.badge} title="Pergunta salva com parâmetros: troque só o que precisa">⚡</span>
       {segmentos.map((s, i) => ("chip" in s ? chipBtn(s.chip, s.texto) : <span key={`t${i}`}>{s.texto}</span>))}
       {extras.length ? (
@@ -133,6 +148,7 @@ export function PerguntaChips(props: {
           {extras.map((c) => chipBtn(c, null))}
         </div>
       ) : null}
+      {chipEmEdicao ? seletorDe(chipEmEdicao) : null}
     </div>
   );
 }
@@ -206,24 +222,6 @@ function ChipSeletor(props: {
   const pedidoRef = useRef<1 | -1 | null>(null);
   const [transcrevendo, setTranscrevendo] = useState(false);
 
-  // O balão do registro ocupa a largura da caixa de chips (e não a do chip), para nunca sair da tela
-  // no celular: as duas setas ficam sempre visíveis, mesmo nos chips da direita.
-  useLayoutEffect(() => {
-    if (!registro) return;
-    const el = seletorRef.current;
-    const wrap = el?.parentElement;
-    const frase = wrap?.closest("[data-frase]");
-    if (!el || !wrap || !frase) return;
-    const ajustar = () => {
-      const f = frase.getBoundingClientRect();
-      const w = wrap.getBoundingClientRect();
-      el.style.left = `${f.left - w.left}px`;
-      el.style.width = `${f.width}px`;
-    };
-    ajustar();
-    window.addEventListener("resize", ajustar);
-    return () => window.removeEventListener("resize", ajustar);
-  }, [registro]);
 
   // Com a voz contínua ativa o chip abre ouvindo: nada de teclado. Senão, foco no campo como sempre.
   useEffect(() => {
