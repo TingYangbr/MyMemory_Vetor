@@ -244,7 +244,7 @@ Uma categoria (Controle de gastos) com várias tabelas, como o Faturamento do ER
 | `fin_lancamentos` | Cabeçalho: data, sentido (despesa ou receita), estabelecimento ou origem, valor total, forma de pagamento, conta ou cartão, grupo de gasto, dono | Nota de entrada ou saída |
 | `fin_lancamento_itens` | Itens do cupom, quando houver | Itens da nota |
 | `fin_titulos` | Parcelas com vencimento, valor e situação (aberto, pago ou recebido); sentido a pagar ou a receber | Contas a pagar e a receber |
-| `fin_recorrencias` | Regra: valor, grupo, periodicidade, próxima data; gera títulos futuros | Contrato recorrente |
+| `fin_recorrencias` | Regra: valor, grupo, periodicidade, início e fim; **não gera títulos adiantados** — a previsão é calculada pelo motor (ver 13.7) | Contrato recorrente |
 | `fin_grupos_gasto` | Lista de grupos do espaço (Alimentação, Pets…) | Plano de contas |
 | `fin_regras_grupo` | "guincho → Manutenção do Carro" | Regra de classificação |
 | `fin_orcamento` e metas | Valor por grupo e mês; meta de receita | Orçamento |
@@ -359,6 +359,50 @@ A IA **não aprende sozinha** com o uso (não guarda memória entre chamadas). E
 **Ao responder,** a IA escolhe a visão pelo jeito da pergunta e diz qual usou: "quanto **gastei**" = competência (data da compra); "quanto **saiu da conta**" = caixa (data do pagamento); "quanto **tenho**" = saldos.
 
 **Onde erra mais:** transferência própria × pagamento a terceiro, estorno, compra parcelada, "paguei o cartão" (fatura inteira ou uma compra?). **Proteções:** o cartão de confirmação mostra sempre de onde sai e para onde vai ("Saem R$ 2.300 do Itaú e a fatura de outubro do Nubank fica paga"); regras gravadas reduzem as escolhas da IA; nos bancos, o **extrato é a verdade final** e a conciliação acusa o que não bate.
+
+### 13.7 Recorrência: o motor e quando nasce o título
+
+*Decisão de 19/11/2026.*
+
+**A pergunta-chave é se a obrigação já existe.**
+
+| Situação | Como gravar |
+| --- | --- |
+| Prazo determinado: compra parcelada em 6x, financiamento, acordo | A dívida já nasceu: **gravar todos os títulos de uma vez** |
+| Prazo indeterminado: mensalidade, aluguel, salário, conta de luz | **Só a regra no motor** (`fin_recorrencias`); nada é gravado adiantado |
+
+Pela contabilidade, a previsão de um recorrente não é recebível nem conta a pagar: o direito só nasce com o fato (serviço prestado, NF, pagamento).
+
+**O título de uma recorrência nasce no primeiro fato real, nunca por agendamento:**
+
+| Fato | Exemplo | Quem usa |
+| --- | --- | --- |
+| Pagamento ou recebimento | "paguei o aluguel de novembro": título já quitado + lançamento com dois lados | PF e ERP (caso normal) |
+| Documento emitido | NF ou boleto da mensalidade do cliente | ERP |
+| Exceção num mês | "em dezembro o aluguel é 2.000", "este mês não tem" | PF e ERP |
+
+**O motor calcula na hora, sem gravar:**
+- **previsão** ("quanto vou receber em março?") = títulos existentes + ocorrências das regras ainda sem título; a resposta separa "confirmado" de "previsto";
+- **atraso**: mês com vencimento passado e sem título = pendente;
+- **lembretes** ("aluguel vence amanhã").
+
+**Cuidado único:** o título nascido de uma regra guarda **a regra e o mês de referência**. Assim a previsão pula esse mês, o mesmo mês não é pago duas vezes, e pagar adiantado ou atrasado não confunde. Essa junção (títulos + projeção) fica numa rotina única, usada por todas as consultas e pela IA. Mudar a regra (reajuste, cancelamento) afeta só os meses que ainda não viraram título.
+
+### 13.8 Contas a Receber e a Pagar conferem com os títulos
+
+No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas como as outras, e o saldo delas **é** a soma dos títulos em aberto (é o "razão auxiliar" da contabilidade).
+
+| Momento | De onde sai | Para onde vai |
+| --- | --- | --- |
+| Venda a prazo / NF emitida (título nasce aberto) | Receita | Contas a Receber |
+| Recebimento (baixa) | Contas a Receber | Conta Itaú |
+| Compra parcelada em 6x no boleto (6 títulos) | Contas a Pagar | Despesa |
+| Pagamento de cada parcela | Conta Itaú | Contas a Pagar |
+| Recorrente com título nascido no pagamento | Receita (ou Conta Itaú) | Conta Itaú (ou Despesa), direto, sem passar por Receber/Pagar |
+
+- **Cartão de crédito** faz o papel de conta a pagar própria: a compra entra na conta Cartão, e o pagamento da fatura a quita.
+- **O saldo não é guardado em dois lugares:** vem dos lançamentos. Título e lançamento são gravados na **mesma transação**, então batem sempre; uma conferência periódica ("soma dos títulos abertos = saldo da conta") é só o teste de sanidade, como o inventário no estoque.
+- **Pessoa física:** essas contas ficam escondidas; a pessoa vê "contas a pagar" como lista de títulos. **ERP:** aparecem no balancete.
 
 ### 13.6 Perguntas em aberto
 
