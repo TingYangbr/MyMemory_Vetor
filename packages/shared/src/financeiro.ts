@@ -68,6 +68,9 @@ export const FIN_MOEDAS: { codigo: string; rotulo: string }[] = [
 ];
 export const FIN_MOEDA_CODIGOS = FIN_MOEDAS.map((m) => m.codigo);
 
+export type FinMercado = "local" | "exterior";
+export const finMercadoPadrao = (moeda: string): FinMercado => (moeda === "BRL" ? "local" : "exterior");
+
 /** Tipos que representam dinheiro ou bens (não grupos de resultado). */
 export function finContaEhDinheiro(tipo: FinTipoConta): boolean {
   return tipo === "banco" || tipo === "corretora" || tipo === "cartao" || tipo === "investimento";
@@ -201,6 +204,8 @@ export interface FinConta {
   papel: string | null;
   corretoraContaId: number | null;
   moeda: string;
+  /** Banco, corretora, cartão e investimento: Brasil ou exterior (BDR é local em reais; Avenue é exterior). */
+  mercado: FinMercado | null;
   ativo: boolean;
 }
 

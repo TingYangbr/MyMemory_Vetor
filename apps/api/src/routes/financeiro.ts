@@ -89,6 +89,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       papel: z.string().max(30).nullish(),
       corretoraContaId: id.nullish(),
       moeda: z.string().length(3).nullish(),
+      mercado: z.enum(["local", "exterior"]).nullish(),
       saldoInicial: z.number().finite().nullish(),
       saldoInicialReais: z.number().finite().positive().nullish(),
       dataSaldo: data.nullish(),
@@ -97,7 +98,7 @@ const plugin: FastifyPluginAsync = async (app) => {
   }));
 
   app.patch("/api/fin/contas/:id", rota(async (e, req) => {
-    const b = z.object({ nome: z.string().max(120).optional(), ativo: z.boolean().optional() }).parse(req.body);
+    const b = z.object({ nome: z.string().max(120).optional(), ativo: z.boolean().optional(), mercado: z.enum(["local", "exterior"]).optional() }).parse(req.body);
     await atualizarConta(e, id.parse((req.params as { id: string }).id), b);
     return { ok: true };
   }));
