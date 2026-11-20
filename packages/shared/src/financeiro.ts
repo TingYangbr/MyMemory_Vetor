@@ -37,7 +37,9 @@ export type FinChaveSistema =
   | "descontos_obtidos"
   | "descontos_concedidos"
   | "ganho_capital"
-  | "perda_capital";
+  | "perda_capital"
+  | "ganho_cambial"
+  | "perda_cambial";
 
 export const FIN_CONTAS_SISTEMA: Record<FinChaveSistema, { nome: string; tipo: FinTipoConta }> = {
   a_receber: { nome: "Contas a receber", tipo: "a_receber" },
@@ -49,7 +51,27 @@ export const FIN_CONTAS_SISTEMA: Record<FinChaveSistema, { nome: string; tipo: F
   descontos_concedidos: { nome: "Descontos concedidos", tipo: "despesa" },
   ganho_capital: { nome: "Ganho na venda de investimentos", tipo: "receita" },
   perda_capital: { nome: "Perda na venda de investimentos", tipo: "despesa" },
+  ganho_cambial: { nome: "Ganho cambial", tipo: "receita" },
+  perda_cambial: { nome: "Perda cambial", tipo: "despesa" },
 };
+
+/** Moedas com cotação PTAX do Banco Central. O livro fecha em reais; contas em outra moeda guardam também o valor na moeda. */
+export const FIN_MOEDAS: { codigo: string; rotulo: string }[] = [
+  { codigo: "BRL", rotulo: "Real" },
+  { codigo: "USD", rotulo: "Dólar americano" },
+  { codigo: "EUR", rotulo: "Euro" },
+  { codigo: "GBP", rotulo: "Libra esterlina" },
+  { codigo: "CHF", rotulo: "Franco suíço" },
+  { codigo: "CAD", rotulo: "Dólar canadense" },
+  { codigo: "AUD", rotulo: "Dólar australiano" },
+  { codigo: "JPY", rotulo: "Iene" },
+];
+export const FIN_MOEDA_CODIGOS = FIN_MOEDAS.map((m) => m.codigo);
+
+/** Tipos que representam dinheiro ou bens (não grupos de resultado). */
+export function finContaEhDinheiro(tipo: FinTipoConta): boolean {
+  return tipo === "banco" || tipo === "corretora" || tipo === "cartao" || tipo === "investimento";
+}
 
 /** Contas em que o saldo é "quanto tenho" (entradas − saídas). As demais: "quanto devo" ou total do período. */
 export function finContaEhAtivo(tipo: FinTipoConta): boolean {
@@ -178,6 +200,7 @@ export interface FinConta {
   chave: FinChaveSistema | null;
   papel: string | null;
   corretoraContaId: number | null;
+  moeda: string;
   ativo: boolean;
 }
 
@@ -186,6 +209,11 @@ export interface FinContaSaldo extends FinConta {
   saldo: number;
   quantidade: number | null;
   custoMedio: number | null;
+  /** Só contas em outra moeda: saldo na moeda, custo médio na moeda (investimento) e valor hoje pela cotação. */
+  saldoMoeda: number | null;
+  custoMedioMoeda: number | null;
+  cotacao: { data: string; valor: number } | null;
+  valorHoje: number | null;
 }
 
 export interface FinRecorrencia {
@@ -252,6 +280,9 @@ export interface FinLancamento {
   quantidade: number | null;
   preco: number | null;
   tituloId: number | null;
+  valorMoeda: number | null;
+  moeda: string | null;
+  cotacao: number | null;
 }
 
 export interface FinConferencia {

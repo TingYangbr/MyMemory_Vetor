@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
+  FIN_MOEDAS,
   FIN_PERIODICIDADES,
   FIN_TIPOS_CONTA,
   type FinAgendaResposta,
@@ -28,6 +29,9 @@ type Filtro = "tudo" | "aberto" | "atraso" | "pago";
 type Recorrencia = FinRecorrencia & { excecoes: { referencia: string; valor: number | null; pular: boolean }[] };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const emMoeda = (v: number, moeda: string) => v.toLocaleString("pt-BR", { style: "currency", currency: moeda });
+const cot = (v: number) => v.toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
+const ehDinheiro = (t: FinTipoConta) => t === "banco" || t === "corretora" || t === "cartao" || t === "investimento";
 const dataBr = (s: string | null) => (s ? `${s.slice(8, 10)}/${s.slice(5, 7)}/${s.slice(0, 4)}` : "");
 const num = (s: string) => {
   const t = s.trim().replace(/\s/g, "");
@@ -187,13 +191,13 @@ interface Ctx {
   ocupado: boolean;
 }
 
-function SelConta(props: { valor: string; onChange: (v: string) => void; contas: FinContaSaldo[]; tipos?: FinTipoConta[]; vazio?: string }) {
-  const lista = props.contas.filter((c) => !props.tipos || props.tipos.includes(c.tipo));
+function SelConta(props: { valor: string; onChange: (v: string) => void; contas: FinContaSaldo[]; tipos?: FinTipoConta[]; vazio?: string; soReal?: boolean }) {
+  const lista = props.contas.filter((c) => (!props.tipos || props.tipos.includes(c.tipo)) && (!props.soReal || c.moeda === "BRL"));
   return (
     <select value={props.valor} onChange={(e) => props.onChange(e.target.value)}>
       <option value="">{props.vazio ?? "— escolha —"}</option>
       {lista.map((c) => (
-        <option key={c.id} value={c.id}>{c.nome}{props.tipos?.length === 1 ? "" : ` (${rotuloTipo(c.tipo)})`}</option>
+        <option key={c.id} value={c.id}>{c.nome}{c.moeda !== "BRL" ? ` · ${c.moeda}` : ""}{props.tipos?.length === 1 ? "" : ` (${rotuloTipo(c.tipo)})`}</option>
       ))}
     </select>
   );
@@ -306,7 +310,7 @@ function FormBaixa({ ctx, i, fechar }: { ctx: Ctx; i: FinItemAgenda; fechar: () 
         <label className={styles.campo}>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
         <label className={styles.campo}>Valor {pagar ? "pago" : "recebido"}<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
         <label className={styles.campo}>{pagar ? "Saiu de" : "Entrou em"}
-          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={pagar ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} />
+          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={pagar ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} soReal />
         </label>
       </div>
       {i.tituloId && num(valor) !== i.valor ? (
@@ -376,7 +380,7 @@ function FormRecorrencia({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
           <SelConta valor={grupo} onChange={setGrupo} contas={ctx.contas} tipos={sentido === "pagar" ? ["despesa"] : ["receita"]} />
         </label>
         <label className={styles.campo}>{sentido === "pagar" ? "Paga normalmente por" : "Recebe normalmente em"} (opcional)
-          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={sentido === "pagar" ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} vazio="— nenhuma —" />
+          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={sentido === "pagar" ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} vazio="— nenhuma —" soReal />
         </label>
       </div>
       <p className={styles.dica}>Nada é gravado adiantado: o motor calcula os vencimentos. Falta um grupo? Crie em Contas e saldos.</p>
@@ -452,7 +456,8 @@ function AbaLancamentos({ ctx, lancs }: { ctx: Ctx; lancs: FinLancamento[] }) {
             <span className={styles.data}>{dataBr(l.data)}</span>
             <div className={styles.desc}>
               <b>{l.descricao}</b>
-              <small>{l.contaOrigemNome} → {l.contaDestinoNome}{l.quantidade ? ` · qtd ${l.quantidade > 0 ? "+" : ""}${l.quantidade}${l.preco ? ` a ${brl(l.preco)}` : ""}` : ""}</small>
+              <small>{l.contaOrigemNome} → {l.contaDestinoNome}{l.quantidade ? ` · qtd ${l.quantidade > 0 ? "+" : ""}${l.quantidade}${l.preco ? ` a ${l.moeda ? emMoeda(l.preco, l.moeda) : brl(l.preco)}` : ""}` : ""}</small>
+              {l.moeda && l.valorMoeda != null ? <small>{emMoeda(l.valorMoeda, l.moeda)}{l.cotacao ? ` · cotação ${cot(l.cotacao)}` : ""}</small> : null}
               {!l.tituloId ? (
                 <div className={styles.acoes}>
                   <button type="button" className={`${styles.link} ${styles.linkPerigo}`} disabled={ctx.ocupado}
@@ -474,33 +479,79 @@ function FormLancamento({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [data, setData] = useState(ctx.hoje);
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
+  const [valorMoeda, setValorMoeda] = useState("");
   const [origem, setOrigem] = useState("");
   const [destino, setDestino] = useState("");
   const [qtd, setQtd] = useState("");
+  const [cotacao, setCotacao] = useState<{ data: string; valor: number } | null>(null);
   const livres = ctx.todas.filter((c) => c.ativo && c.tipo !== "a_pagar" && c.tipo !== "a_receber");
-  const temInvest = [origem, destino].some((id) => livres.find((c) => String(c.id) === id)?.tipo === "investimento");
+  const o = livres.find((c) => String(c.id) === origem);
+  const d = livres.find((c) => String(c.id) === destino);
+  const temInvest = o?.tipo === "investimento" || d?.tipo === "investimento";
+  // Moedas (13.10): qual valor pedir depende de onde sai e para onde vai
+  const moeda = o && o.moeda !== "BRL" ? o.moeda : d && d.moeda !== "BRL" ? d.moeda : null;
+  const caso: "real" | "cambioIda" | "entradaCotacao" | "saidaCusto" | "cambioVolta" | null =
+    !o || !d ? null
+    : !moeda ? "real"
+    : o.moeda === "BRL" ? (ehDinheiro(o.tipo) ? "cambioIda" : "entradaCotacao")
+    : d.moeda === "BRL" && ehDinheiro(d.tipo) ? "cambioVolta" : "saidaCusto";
+  const pedeReais = caso === "real" || caso === "cambioIda" || caso === "cambioVolta" || caso === "entradaCotacao";
+  useEffect(() => {
+    if (!moeda) { setCotacao(null); return; }
+    apiGet<{ cotacao: { data: string; valor: number } | null }>(`/api/fin/cotacao?moeda=${moeda}&data=${data}`)
+      .then((r) => setCotacao(r.cotacao)).catch(() => setCotacao(null));
+  }, [moeda, data]);
   const salvar = async () => {
-    const ok = await ctx.agir(() => apiPostJson("/api/fin/lancamentos", {
-      data, descricao, valor: num(valor) || 0, contaOrigemId: Number(origem), contaDestinoId: Number(destino),
-      quantidade: temInvest && qtd ? num(qtd) : null,
-    }), "Lançamento gravado.");
-    if (ok) fechar();
+    let msg = "Lançamento gravado.";
+    const ok = await ctx.agir(async () => {
+      const r = await apiPostJson<{ valor: number; resultado: number | null }>("/api/fin/lancamentos", {
+        data, descricao,
+        valor: pedeReais && valor ? num(valor) : caso === "real" ? 0 : null,
+        valorMoeda: moeda && valorMoeda ? num(valorMoeda) : null,
+        contaOrigemId: Number(origem), contaDestinoId: Number(destino),
+        quantidade: temInvest && qtd ? num(qtd) : null,
+      });
+      if (caso === "saidaCusto") msg = `Lançamento gravado: ${brl(r.valor)} pelo custo médio.`;
+      if (caso === "entradaCotacao" && !valor) msg = `Lançamento gravado: ${brl(r.valor)} pela cotação PTAX.`;
+      if (r.resultado != null) msg = `Câmbio gravado: ${r.resultado >= 0 ? "ganho" : "perda"} cambial de ${brl(Math.abs(r.resultado))}.`;
+    }, undefined);
+    if (ok) { fechar(); alert(msg); }
   };
+  const vm = num(valorMoeda);
+  const vr = num(valor);
   return (
     <div className={styles.form}>
       <h3 className={styles.formTitulo}>Novo lançamento</h3>
       <div className={styles.grade}>
         <label className={styles.campo}>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
-        <label className={styles.campo}>Descrição<input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Mercado, fatura…" /></label>
-        <label className={styles.campo}>Valor<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
+        <label className={styles.campo}>Descrição<input value={descricao} onChange={(e) => setDescricao(e.target.value)} placeholder="Mercado, fatura, remessa…" /></label>
         <label className={styles.campo}>De onde sai<SelConta valor={origem} onChange={setOrigem} contas={livres} /></label>
         <label className={styles.campo}>Para onde vai<SelConta valor={destino} onChange={setDestino} contas={livres} /></label>
+        {moeda ? (
+          <label className={styles.campo}>Valor em {moeda}<input inputMode="decimal" value={valorMoeda} onChange={(e) => setValorMoeda(e.target.value)} /></label>
+        ) : null}
+        {pedeReais ? (
+          <label className={styles.campo}>
+            {caso === "cambioIda" ? "Quanto saiu em reais" : caso === "cambioVolta" ? "Quanto entrou em reais" : caso === "entradaCotacao" ? "Valor em reais (opcional)" : "Valor"}
+            <input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder={caso === "entradaCotacao" ? "vazio = cotação PTAX" : ""} />
+          </label>
+        ) : null}
         {temInvest ? <label className={styles.campo}>Quantidade<input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} /></label> : null}
       </div>
-      <p className={styles.dica}>
-        Exemplos: mercado no débito = Itaú → Alimentação; no cartão = Nubank → Alimentação; fatura = Itaú → Nubank;
-        compra de ação = Corretora → PETR4 (com quantidade); desdobramento = PETR4 → PETR4, valor 0, quantidade a mais.
-      </p>
+      {moeda ? (
+        <p className={styles.dica}>
+          {cotacao ? `PTAX do ${moeda}: ${cot(cotacao.valor)} em ${dataBr(cotacao.data)}. ` : `Sem cotação do ${moeda} para esta data. `}
+          {caso === "cambioIda" && vm > 0 && vr > 0 ? `Cotação desta operação: ${cot(vr / vm)}. ` : ""}
+          {caso === "saidaCusto" ? `Sai pelo custo médio em reais de ${o?.nome}. ` : ""}
+          {caso === "cambioVolta" ? "Sai pelo custo médio; a diferença para o que entrou em reais vira ganho ou perda cambial. " : ""}
+        </p>
+      ) : (
+        <p className={styles.dica}>
+          Exemplos: mercado no débito = Itaú → Alimentação; no cartão = Nubank → Alimentação; fatura = Itaú → Nubank;
+          compra de ação = Corretora → PETR4 (com quantidade); desdobramento = PETR4 → PETR4, valor 0, quantidade a mais;
+          remessa para o exterior = Itaú → conta em dólar.
+        </p>
+      )}
       <div className={styles.formAcoes}>
         <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>
         <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={ctx.ocupado || !origem || !destino} onClick={() => void salvar()}>Gravar</button>
@@ -518,10 +569,10 @@ function FormVenda({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const salvar = async () => {
     let msg = "";
     const ok = await ctx.agir(async () => {
-      const r = await apiPostJson<{ custo: number; resultado: number }>("/api/fin/investimentos/venda", {
+      const r = await apiPostJson<{ custo: number; resultado: number; moeda: string }>("/api/fin/investimentos/venda", {
         contaPapelId: Number(papel), contaDestinoId: Number(destino), data, quantidade: num(qtd), valorTotal: num(valor),
       });
-      msg = `Venda gravada: custo ${brl(r.custo)}, ${r.resultado >= 0 ? "ganho" : "perda"} de ${brl(Math.abs(r.resultado))}.`;
+      msg = `Venda gravada: custo ${emMoeda(r.custo, r.moeda)}, ${r.resultado >= 0 ? "ganho" : "perda"} de ${emMoeda(Math.abs(r.resultado), r.moeda)}.`;
     });
     if (ok) { fechar(); if (msg) alert(msg); }
   };
@@ -531,12 +582,17 @@ function FormVenda({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
       <h3 className={styles.formTitulo}>Venda de investimento</h3>
       <div className={styles.grade}>
         <label className={styles.campo}>Papel<SelConta valor={papel} onChange={setPapel} contas={ctx.contas} tipos={["investimento"]} /></label>
-        <label className={styles.campo}>Recebe em<SelConta valor={destino} onChange={setDestino} contas={ctx.contas} tipos={["corretora", "banco"]} /></label>
+        <label className={styles.campo}>Recebe em<SelConta valor={destino} onChange={setDestino} contas={ctx.contas.filter((c) => !p || c.moeda === p.moeda)} tipos={["corretora", "banco"]} /></label>
         <label className={styles.campo}>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
         <label className={styles.campo}>Quantidade<input inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} /></label>
-        <label className={styles.campo}>Valor total da venda<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
+        <label className={styles.campo}>Valor total da venda{p && p.moeda !== "BRL" ? ` (${p.moeda})` : ""}<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
       </div>
-      {p ? <p className={styles.dica}>Posição: {p.quantidade ?? 0} · custo médio {p.custoMedio != null ? brl(p.custoMedio) : "—"}. A diferença para o custo vira ganho ou perda.</p> : null}
+      {p ? (
+        <p className={styles.dica}>
+          Posição: {p.quantidade ?? 0} · custo médio {p.moeda !== "BRL" && p.custoMedioMoeda != null ? `${emMoeda(p.custoMedioMoeda, p.moeda)} (${p.custoMedio != null ? brl(p.custoMedio) : "—"})` : p.custoMedio != null ? brl(p.custoMedio) : "—"}.
+          A diferença para o custo vira ganho ou perda{p.moeda !== "BRL" ? `, em ${p.moeda}, convertida em reais pela cotação do dia` : ""}. Recebe numa conta em {p.moeda}.
+        </p>
+      ) : null}
       <div className={styles.formAcoes}>
         <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>
         <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={ctx.ocupado || !papel || !destino || !(num(qtd) > 0) || !(num(valor) > 0)} onClick={() => void salvar()}>Gravar venda</button>
@@ -569,14 +625,24 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
         const periodo = t === "despesa" || t === "receita";
         return (
           <div key={t}>
-            <div className={styles.secao}>{rotuloTipo(t)}{periodo ? " — total do mês" : t === "cartao" || t === "a_pagar" ? " — quanto deve" : " — saldo"}</div>
+            <div className={styles.secao}>{rotuloTipo(t)}{periodo ? " — total do mês" : t === "cartao" || t === "a_pagar" ? " — quanto deve" : " — saldo (em reais)"}</div>
             <div className={styles.lista}>
               {lista.map((c) => (
                 <div key={c.id} className={styles.linha} style={{ opacity: c.ativo ? 1 : 0.55 }}>
                   <span className={styles.data}>{c.papel ?? ""}</span>
                   <div className={styles.desc}>
-                    <b>{c.nome}</b>{c.ativo ? "" : <span className={styles.tag}>inativa</span>}
-                    {c.tipo === "investimento" ? <small>Quantidade {c.quantidade ?? 0} · custo médio {c.custoMedio != null ? brl(c.custoMedio) : "—"}</small> : null}
+                    <b>{c.nome}</b>{c.moeda !== "BRL" ? <span className={styles.tag}>{c.moeda}</span> : null}{c.ativo ? "" : <span className={styles.tag}>inativa</span>}
+                    {c.tipo === "investimento" ? (
+                      <small>
+                        Quantidade {c.quantidade ?? 0} · custo médio {c.moeda !== "BRL" && c.custoMedioMoeda != null ? `${emMoeda(c.custoMedioMoeda, c.moeda)} (${c.custoMedio != null ? brl(c.custoMedio) : "—"})` : c.custoMedio != null ? brl(c.custoMedio) : "—"}
+                      </small>
+                    ) : null}
+                    {c.moeda !== "BRL" && c.saldoMoeda != null ? (
+                      <small>
+                        {emMoeda(c.saldoMoeda, c.moeda)} · custo {brl(c.saldo)}
+                        {c.valorHoje != null && c.cotacao ? ` · hoje ${brl(c.valorHoje)} (cotação ${cot(c.cotacao.valor)} em ${dataBr(c.cotacao.data)}; ${c.valorHoje - c.saldo >= 0 ? "+" : "−"}${brl(Math.abs(c.valorHoje - c.saldo))} de variação cambial)` : ""}
+                      </small>
+                    ) : null}
                     {!c.chave ? (
                       <div className={styles.acoes}>
                         <button type="button" className={styles.link} disabled={ctx.ocupado}
@@ -607,14 +673,19 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [papel, setPapel] = useState("");
   const [corretora, setCorretora] = useState("");
   const [saldo, setSaldo] = useState("");
+  const [saldoReais, setSaldoReais] = useState("");
+  const [moeda, setMoeda] = useState("BRL");
   const [dataSaldo, setDataSaldo] = useState(ctx.hoje);
   const comSaldo = tipo === "banco" || tipo === "corretora" || tipo === "cartao";
+  const comMoeda = ehDinheiro(tipo);
   const salvar = async () => {
     const ok = await ctx.agir(() => apiPostJson("/api/fin/contas", {
       tipo, nome: nome || (tipo === "investimento" ? papel.toUpperCase() : ""),
       papel: tipo === "investimento" ? papel : null,
       corretoraContaId: tipo === "investimento" && corretora ? Number(corretora) : null,
+      moeda: comMoeda ? moeda : "BRL",
       saldoInicial: comSaldo && saldo ? num(saldo) : null, dataSaldo: comSaldo && saldo ? dataSaldo : null,
+      saldoInicialReais: comSaldo && saldo && moeda !== "BRL" && saldoReais ? num(saldoReais) : null,
     }), "Conta criada.");
     if (ok) fechar();
   };
@@ -633,11 +704,21 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
             <label className={styles.campo}>Corretora<SelConta valor={corretora} onChange={setCorretora} contas={ctx.contas} tipos={["corretora", "banco"]} vazio="— nenhuma —" /></label>
           </>
         ) : null}
+        {comMoeda ? (
+          <label className={styles.campo}>Moeda
+            <select value={moeda} onChange={(e) => setMoeda(e.target.value)}>
+              {FIN_MOEDAS.map((m) => <option key={m.codigo} value={m.codigo}>{m.codigo} — {m.rotulo}</option>)}
+            </select>
+          </label>
+        ) : null}
         <label className={styles.campo}>Nome{tipo === "investimento" ? " (opcional)" : ""}<input value={nome} onChange={(e) => setNome(e.target.value)} placeholder={tipo === "investimento" ? "PETR4 – Clear" : ""} /></label>
         {comSaldo ? (
           <>
-            <label className={styles.campo}>{tipo === "cartao" ? "Dívida atual (opcional)" : "Saldo atual (opcional)"}<input inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} /></label>
+            <label className={styles.campo}>{tipo === "cartao" ? "Dívida atual (opcional)" : "Saldo atual (opcional)"}{moeda !== "BRL" ? ` em ${moeda}` : ""}<input inputMode="decimal" value={saldo} onChange={(e) => setSaldo(e.target.value)} /></label>
             <label className={styles.campo}>Saldo em<input type="date" value={dataSaldo} onChange={(e) => setDataSaldo(e.target.value)} /></label>
+            {moeda !== "BRL" && saldo ? (
+              <label className={styles.campo}>Quanto custou em reais (opcional)<input inputMode="decimal" value={saldoReais} onChange={(e) => setSaldoReais(e.target.value)} placeholder="vazio = cotação PTAX da data" /></label>
+            ) : null}
           </>
         ) : null}
       </div>

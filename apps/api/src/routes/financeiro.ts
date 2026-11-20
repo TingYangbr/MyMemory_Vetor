@@ -1,6 +1,8 @@
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { resolveUserId } from "../lib/userContext.js";
+import { FIN_MOEDA_CODIGOS } from "@mymemory/shared";
+import { obterCotacao } from "../services/finCotacaoService.js";
 import {
   FinErro,
   agenda,
@@ -86,7 +88,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       tipo: z.enum(["banco", "cartao", "corretora", "investimento", "despesa", "receita"]),
       papel: z.string().max(30).nullish(),
       corretoraContaId: id.nullish(),
+      moeda: z.string().length(3).nullish(),
       saldoInicial: z.number().finite().nullish(),
+      saldoInicialReais: z.number().finite().positive().nullish(),
       dataSaldo: data.nullish(),
     }).parse(req.body);
     return { conta: await criarConta(e, b) };
@@ -164,11 +168,10 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   app.post("/api/fin/lancamentos", rota(async (e, req) => {
     const b = z.object({
-      data, descricao: z.string().max(200), valor, contaOrigemId: id, contaDestinoId: id,
+      data, descricao: z.string().max(200), valor: valor.nullish(), valorMoeda: valor.nullish(), contaOrigemId: id, contaDestinoId: id,
       quantidade: z.number().finite().nullish(), preco: z.number().finite().positive().nullish(),
     }).parse(req.body);
-    await criarLancamento(e, b);
-    return { ok: true };
+    return criarLancamento(e, b);
   }));
 
   app.delete("/api/fin/lancamentos/:id", rota(async (e, req) => {
@@ -184,6 +187,15 @@ const plugin: FastifyPluginAsync = async (app) => {
   }));
 
   app.get("/api/fin/conferencia", rota(async (e) => conferencia(e)));
+
+  /** Cotação PTAX (fechamento) da moeda na data ou a última anterior. */
+  app.get("/api/fin/cotacao", rota(async (_e, req) => {
+    const q = req.query as { moeda?: string; data?: string };
+    const moeda = String(q.moeda ?? "").toUpperCase();
+    if (!FIN_MOEDA_CODIGOS.includes(moeda)) throw new FinErro("moeda", "Moeda não suportada.");
+    const d = q.data && data.safeParse(q.data).success ? q.data : hojeSaoPaulo();
+    return { moeda, cotacao: await obterCotacao(moeda, d) };
+  }));
 };
 
 export default plugin;

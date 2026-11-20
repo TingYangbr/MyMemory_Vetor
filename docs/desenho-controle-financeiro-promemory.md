@@ -421,3 +421,23 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Regras de atraso:** ocorrência de recorrência conta como atraso a partir do mês em que a regra foi cadastrada (o anterior é histórico) e no máximo 1 ano.
 - **Testado** contra Postgres real (PGlite): 30 verificações, incluindo partidas dobradas fechando e isolamento entre usuários.
 - **Próxima etapa:** comandos pela IA, consultas para o Fale comigo, lembretes de vencimento.
+
+### 13.10 Moedas (etapa 1.1, 19/11/2026)
+
+**Decisão:** o livro fecha em **reais**; cada conta tem uma moeda (real por padrão) e o lado em outra moeda guarda também o **valor na moeda e a cotação**.
+
+| Situação | Como é gravado |
+| --- | --- |
+| Câmbio de ida (Itaú → Avenue) | Informa os dois valores (R$ 5.500 e US$ 1.000); a cotação sai deles (5,50) |
+| Entrada sem câmbio (dividendo, saldo inicial em dólar) | Reais = informado ou cotação PTAX da data |
+| Saída da conta em moeda (comprar AAPL, despesa em dólar) | Sai pelo **custo médio em reais** da conta — o dólar se comporta como um investimento |
+| Câmbio de volta (Avenue → Itaú) | Sai pelo custo médio; a diferença para o que entrou em reais é **ganho ou perda cambial realizado** |
+| Venda de papel em moeda | Custo e ganho na moeda; o ganho entra em reais pela cotação da data; recebe numa conta da mesma moeda |
+| Valor de hoje | Saldo na moeda × cotação de hoje, **calculado, não gravado**; a diferença para o custo é a variação cambial não realizada |
+
+- **Cotação:** PTAX de fechamento (venda) do Banco Central, guardada em `fin_cotacoes`; dia sem cotação usa a anterior. Moedas: USD, EUR, GBP, CHF, CAD, AUD, JPY.
+- **Contas a pagar e receber continuam em reais:** título e recorrência são pagos só por conta em real; câmbio é um lançamento à parte.
+- **Grupos de despesa e receita são sempre em real** (despesa em dólar entra em reais pelo custo, guardando o valor em dólar).
+- **IR:** as regras do exterior (Lei 14.754/2023) e de moeda em espécie são diferentes das de ações no Brasil; com valor na moeda, valor em reais e cotação de cada data, o cálculo pode ser feito depois.
+- **Compra no cartão brasileiro em dólar:** já vem em reais na fatura (com IOF); a moeda original fica só como informação (futuro).
+- **Implementado:** migration 181, `finCotacaoService.ts`, regras em `financeiroService.ts`, campos na tela. Testado contra Postgres real com PTAX real (câmbio, custo médio em dólar, AAPL, câmbio de volta com ganho, livro fechando em reais).

@@ -92,6 +92,7 @@ import { GrupoPessoalECatalogo1700000000177 } from "./migrations/1700000000177-G
 import { DescricaoSituacaoNova1700000000178 } from "./migrations/1700000000178-DescricaoSituacaoNova.js";
 import { ConexaoUltimoTeste1700000000179 } from "./migrations/1700000000179-ConexaoUltimoTeste.js";
 import { FinanceiroNucleo1700000000180 } from "./migrations/1700000000180-FinanceiroNucleo.js";
+import { FinanceiroMoedas1700000000181 } from "./migrations/1700000000181-FinanceiroMoedas.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -231,6 +232,7 @@ assertMediaStorageEnv();
       DescricaoSituacaoNova1700000000178,
       ConexaoUltimoTeste1700000000179,
       FinanceiroNucleo1700000000180,
+      FinanceiroMoedas1700000000181,
     ],
   });
   const ds = await AppDataSource.initialize();
