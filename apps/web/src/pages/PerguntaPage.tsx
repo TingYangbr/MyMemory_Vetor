@@ -3466,7 +3466,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           <button
                             type="button"
                             className={`${styles.modeloItemEditBtn} ${m.fixada ? styles.modeloItemPinOn : ""}`}
-                            title={m.fixada ? "Desafixar do Perguntar" : "Fixar no Perguntar (atalho embaixo da caixa)"}
+                            title={m.fixada ? "Desafixar do Fale comigo" : "Fixar no Fale comigo (atalho embaixo da caixa)"}
                             aria-label={m.fixada ? "Desafixar pergunta" : "Fixar pergunta"}
                             aria-pressed={Boolean(m.fixada)}
                             onClick={(e) => { e.stopPropagation(); void alternarFixada(m); }}

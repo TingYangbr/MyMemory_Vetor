@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Ver etapas (trace)
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Ver etapas (trace)
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 Para usuários com o trace habilitado, o card mostra o botão de trace com o número de chamadas. Ele abre a janela "LLM Trace" com cada etapa: classificação, planejamento, SQL executado com os parâmetros, linhas entregues à IA e síntese. O cabeçalho da janela mostra a pergunta daquele card.
@@ -8,5 +8,5 @@ Para usuários com o trace habilitado, o card mostra o botão de trace com o nú
 DICA: Para diagnosticar uma resposta errada, abra "ver etapas" no card da própria pergunta e confira a etapa planejamento_estruturado (parâmetros escolhidos) e consulta_sql (SQL e linhas retornadas).
 
 Perguntas que este trecho responde:
-- O que é ver etapas (trace) em Perguntar ao MyMemory?
+- O que é ver etapas (trace) em Fale comigo?
 - Como funciona ver etapas (trace) no MyMemory?

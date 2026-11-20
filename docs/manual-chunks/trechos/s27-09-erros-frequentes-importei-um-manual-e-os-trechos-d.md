@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Erros frequentes: Importei um manual e os trechos de outro sumiram
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: erro · Versão do manual: 2
 
 Sintoma: Importei um manual e os trechos de outro sumiram

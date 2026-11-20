@@ -3,8 +3,11 @@ Seção: Seção 13 — Grupos: Criar / Entrar
 Rotas: /grupo/novo · /grupo/entrar
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
-Tela de instrução: para entrar em um grupo, o usuário precisa de um convite enviado pelo owner. O link de convite chegará por e-mail.
-DICA: O owner envia convites em Administrar grupo → Pessoas → Convidar pessoa.
+Só se entra num grupo por convite.
+- A tela mostra o seu e-mail com o botão "Copiar", para passar ao dono do grupo.
+- "Convites esperando você" lista os convites pendentes para esse e-mail; "Ver convite" abre o aceite (Seção 15).
+- Sem convites: "Nenhum convite pendente para este e-mail".
+DICA: O dono envia convites em Painel Owners → Pessoas → Convidar pessoa.
 
 Perguntas que este trecho responde:
 - O que é entrar em grupo (/grupo/entrar) em Grupos: Criar / Entrar?

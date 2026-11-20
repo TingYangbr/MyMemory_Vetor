@@ -170,7 +170,7 @@ export function SinoNotificacoes() {
               ) : (
                 <p className={styles.vazio}>
                   Nenhuma mudança nas perguntas monitoradas nos últimos 30 dias. Use "Me avise" numa resposta do
-                  Perguntar para acompanhar.
+                  Fale comigo para acompanhar.
                 </p>
               )
             ) : dados?.lembretes.length ? (

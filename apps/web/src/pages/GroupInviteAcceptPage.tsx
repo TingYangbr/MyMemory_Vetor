@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { AcceptGroupInviteResponse, MeResponse } from "@mymemory/shared";
 import { apiGetOptional, apiPatchJson, apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 import { useConviteGrupo } from "../lib/conviteGrupo";
 
 function inviteReturnPath(token: string): string {
@@ -76,6 +77,7 @@ export default function GroupInviteAcceptPage() {
   if (!token) {
     return (
       <div className={styles.shell}>
+        <AuthMarca />
         <div className={styles.card}>
           <h1 className={styles.title}>Convite de grupo</h1>
           <p className={styles.error} role="alert">
@@ -92,6 +94,7 @@ export default function GroupInviteAcceptPage() {
   if (phase === "loading" || phase === "working") {
     return (
       <div className={styles.shell}>
+        <AuthMarca />
         <div className={styles.card}>
           <h1 className={styles.title}>Convite de grupo</h1>
           <p className={styles.sub}>
@@ -113,6 +116,7 @@ export default function GroupInviteAcceptPage() {
     if (convite && convite.status !== "pending") {
       return (
         <div className={styles.shell}>
+          <AuthMarca />
           <div className={styles.card}>
             <h1 className={styles.title}>Convite de grupo</h1>
             {titulo}
@@ -130,9 +134,19 @@ export default function GroupInviteAcceptPage() {
     }
     return (
       <div className={styles.shell}>
+        <AuthMarca />
         <div className={styles.card}>
-          <h1 className={styles.title}>Convite de grupo</h1>
-          {titulo}
+          <div className={styles.centro}>
+            <div className={styles.iconeRedondo} aria-hidden>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="9" cy="8" r="3.5" />
+                <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+                <path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" />
+              </svg>
+            </div>
+            <h1 className={styles.title}>{convite?.inviterName ? `${convite.inviterName} convidou você` : "Convite de grupo"}</h1>
+            {titulo}
+          </div>
           {convite?.temConta ? (
             <>
               <p className={styles.sub}>
@@ -172,6 +186,7 @@ export default function GroupInviteAcceptPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
         <h1 className={styles.title}>Convite de grupo</h1>
         <p className={styles.error} role="alert">

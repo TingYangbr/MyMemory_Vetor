@@ -25,7 +25,7 @@ function planFeatures(p: IndividualPlanOption): string[] {
   const lines: string[] = [
     `${p.maxMemos} memos pessoais`,
     `${p.maxStorageGB} GB de armazenamento`,
-    "Participar de grupos ilimitados",
+    "Participar de grupos sem limite",
   ];
   if (p.durationDays != null && p.durationDays > 0) {
     lines.push(`Válido por ${p.durationDays} dias`);
@@ -89,20 +89,20 @@ export default function SelectPlanPage() {
   return (
     <div className={styles.shell}>
       <header className={styles.topBar}>
-        <Link to="/login" className={styles.brand} aria-label="myMemory — área de login">
+        <Link to="/login" className={styles.brand} aria-label="proMemory — área de login">
           <img src="/mymemory-logo.png" alt="" width={36} height={36} />
-          <span>myMemory</span>
+          <span>proMemory</span>
         </Link>
         <nav className={styles.topLinks} aria-label="Conta">
-          <Link to="/login">Entrar</Link>
+          <Link to="/login">Já tenho conta · Entrar</Link>
         </nav>
       </header>
 
       <main className={styles.main}>
         <div className={styles.head}>
-          <h1 className={styles.title}>Escolha seu Plano</h1>
+          <h1 className={styles.title}>Escolha seu plano</h1>
           <p className={styles.subtitle}>
-            Selecione o plano individual que melhor atende suas necessidades
+            Dá para trocar depois, em Minha conta. Os grupos que você entrar não contam no seu limite.
           </p>
         </div>
 
@@ -130,7 +130,7 @@ export default function SelectPlanPage() {
                   key={p.id}
                   className={`${styles.card} ${popular ? styles.cardPopular : ""}`}
                 >
-                  {popular ? <span className={styles.badge}>Mais Popular</span> : null}
+                  {popular ? <span className={styles.badge}>Mais escolhido</span> : null}
                   <h2 className={styles.planName}>{p.name}</h2>
                   <div className={styles.price}>
                     {main}
@@ -147,11 +147,11 @@ export default function SelectPlanPage() {
                       className={styles.ctaPrimary}
                       onClick={() => choosePlan(p.id)}
                     >
-                      Escolher plano
+                      Escolher
                     </button>
                   ) : (
                     <button type="button" className={styles.ctaLink} onClick={() => choosePlan(p.id)}>
-                      Escolher plano
+                      Escolher
                     </button>
                   )}
                 </article>

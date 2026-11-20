@@ -8,7 +8,7 @@ A aba "Importações automáticas" (em espaço de grupo) faz o servidor verifica
 2. A janela verifica a pasta na hora. Se não der, mostra o motivo em vermelho (ex.: pasta não encontrada, fora da whitelist, WebDAV fora do ar) e o botão "Verificar de novo". Só salva com a pasta acessível.
 3. Escolha o intervalo, o nível de IA, o máximo de arquivos por execução e as opções, e clique em Salvar.
 - Verificar a cada: 15 minutos, 30 minutos, 1 hora, 6 horas ou 1 dia.
-- Nível de IA: Sem IA, Básico ou Completo. Só o Completo gera os vetores da busca semântica do Perguntar.
+- Nível de IA: Sem IA, Básico ou Completo. Só o Completo gera os vetores da busca semântica do Fale comigo.
 - Máximo por execução: Limite de arquivos importados por vez (1 a 500). O que passar fica para a próxima.
 - Copiar o arquivo para o armazenamento: Marcado: copia o arquivo como o Catalogar (S3/local ou WebDAV padrão do grupo). Desmarcado: só referencia o arquivo na pasta (Guarda própria).
 - Enviar resumo por e-mail: Resumo para quem criou a automação quando importar algo ou der erro.

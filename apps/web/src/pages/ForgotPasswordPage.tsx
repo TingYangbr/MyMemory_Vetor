@@ -2,6 +2,7 @@ import { FormEvent, useState } from "react";
 import { Link } from "react-router-dom";
 import { apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState("");
@@ -44,10 +45,37 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
+        {message && !mailFailed ? (
+          <div className={styles.centro} role="status">
+            <div className={styles.iconeRedondo} aria-hidden>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+              </svg>
+            </div>
+            <h1 className={styles.title}>Confira seu e-mail</h1>
+            <p className={styles.sub} style={{ marginBottom: "0.6rem" }}>
+              Se existir uma conta com <strong>{email}</strong>, o link para criar uma senha nova chega em alguns minutos.
+            </p>
+            <p className={styles.sub} style={{ fontSize: "0.82rem" }}>
+              Não chegou? Veja o spam e a aba Promoções.
+            </p>
+            <button
+              type="button"
+              className="mm-btn"
+              disabled={busy}
+              onClick={(e) => void onSubmit(e as unknown as FormEvent)}
+            >
+              {busy ? "Enviando…" : "Reenviar"}
+            </button>
+          </div>
+        ) : (
+        <>
         <h1 className={styles.title}>Esqueci a senha</h1>
         <p className={styles.sub}>
-          Informe o e-mail da sua conta. Se existir, enviaremos um link para redefinir a senha.
+          Digite o e-mail da conta. Mandamos um link para você criar uma senha nova.
         </p>
 
         <form onSubmit={(e) => void onSubmit(e)}>
@@ -67,7 +95,7 @@ export default function ForgotPasswordPage() {
           </div>
           <div className={styles.actions}>
             <button type="submit" className={`mm-btn mm-btn--primary ${styles.wide}`} disabled={busy}>
-              {busy ? "Enviando…" : "Enviar link"}
+              {busy ? "Enviando…" : "Enviar o link"}
             </button>
           </div>
 
@@ -90,17 +118,15 @@ export default function ForgotPasswordPage() {
                 </p>
               </div>
             ) : null}
-            {message && !mailFailed ? (
-              <p className={styles.success} role="status">
-                {message}
-              </p>
-            ) : null}
           </div>
         </form>
+        </>
+        )}
 
-        <div className={styles.links}>
-          <Link to="/login">← Voltar ao login</Link>
-        </div>
+        <div className={styles.divisor} />
+        <p className={styles.rodape}>
+          <Link to="/login">Voltar para Entrar</Link>
+        </p>
       </div>
     </div>
   );

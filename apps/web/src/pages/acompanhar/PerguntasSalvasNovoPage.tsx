@@ -181,8 +181,8 @@ export default function PerguntasSalvasNovoPage() {
         </div>
         <div style={{ display: "flex", gap: "10px 22px", marginTop: 12, flexWrap: "wrap" }}>
           <span className={styles.setrow}>
-            <button type="button" role="switch" aria-checked={!!m.fixada} aria-label="Fixar no Perguntar" className={`${styles.chave} ${m.fixada ? "" : styles.chaveOff}`} disabled={ocupado === m.id} onClick={() => void fixar(m)} />
-            Fixar no Perguntar <small>· vira atalho</small>
+            <button type="button" role="switch" aria-checked={!!m.fixada} aria-label="Fixar no Fale comigo" className={`${styles.chave} ${m.fixada ? "" : styles.chaveOff}`} disabled={ocupado === m.id} onClick={() => void fixar(m)} />
+            Fixar no Fale comigo <small>· vira atalho</small>
           </span>
           <span className={styles.setrow}>
             <button
@@ -230,7 +230,7 @@ export default function PerguntasSalvasNovoPage() {
           <h1>Perguntas salvas</h1>
           <span className={styles.sp} />
         </div>
-        <p className={styles.sub}>Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Perguntar.</p>
+        <p className={styles.sub}>Perguntas que você usa sempre. As fixadas aparecem como atalho embaixo da caixa do Fale comigo.</p>
 
         <div className={styles.ferramentas}>
           <label className={styles.busca}>
@@ -258,7 +258,7 @@ export default function PerguntasSalvasNovoPage() {
         {modelos && !modelos.length ? (
           <div className={styles.vazio}>
             <b>Nenhuma pergunta salva{workspaceGroupId ? " neste grupo" : ""}.</b>
-            No Perguntar, toque em Salvar embaixo de uma resposta para guardar a pergunta aqui.
+            No Fale comigo, toque em Salvar embaixo de uma resposta para guardar a pergunta aqui.
           </div>
         ) : null}
         {modelos && modelos.length > 0 && !grupos.length ? <p className={styles.muted} style={{ marginTop: 14 }}>Nada encontrado com esse filtro.</p> : null}
@@ -276,8 +276,8 @@ export default function PerguntasSalvasNovoPage() {
                     <button
                       type="button"
                       className={`${styles.pin} ${m.fixada ? styles.pinOn : ""}`}
-                      title={m.fixada ? "Desafixar do Perguntar" : "Fixar no Perguntar"}
-                      aria-label={m.fixada ? "Desafixar do Perguntar" : "Fixar no Perguntar"}
+                      title={m.fixada ? "Desafixar do Fale comigo" : "Fixar no Fale comigo"}
+                      aria-label={m.fixada ? "Desafixar do Fale comigo" : "Fixar no Fale comigo"}
                       aria-pressed={!!m.fixada}
                       disabled={ocupado === m.id}
                       onClick={() => void fixar(m)}

@@ -1,5 +1,5 @@
 Manual MyMemory › Categorias › Erros frequentes: Query falhou no teste
-Seção: Seção 17 — Categorias (Administrar grupo)
+Seção: Seção 17 — Categorias (Painel Owners)
 Rota: /grupo/:groupId/admin → Categorias (a antiga /estrutura-memo leva para cá)
 Perfil: owner · Tipo: erro · Versão do manual: 2
 

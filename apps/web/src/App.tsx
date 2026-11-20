@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes, useParams, useSearchParams } from "react-router-dom";
 import AdminPage from "./pages/AdminPage";
+import AdminLayout from "./components/AdminLayout";
 import AdminDocumentAiPage from "./pages/AdminDocumentAiPage";
 import AdminCadPipelinePage from "./pages/AdminCadPipelinePage";
 import AdminConhecimentoPage from "./pages/AdminConhecimentoPage";
@@ -25,6 +26,7 @@ import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
 import AvisosNovoPage from "./pages/acompanhar/AvisosNovoPage";
 import PerguntasSalvasNovoPage from "./pages/acompanhar/PerguntasSalvasNovoPage";
 import ImportarLoteNovoPage from "./pages/acompanhar/ImportarLoteNovoPage";
+import FinanceiroPage from "./pages/financeiro/FinanceiroPage";
 
 export default function App() {
   return (
@@ -36,15 +38,16 @@ export default function App() {
       <Route path="/esqueci-senha" element={<ForgotPasswordPage />} />
       <Route path="/redefinir-senha" element={<ResetPasswordPage />} />
       <Route path="/verificar-email" element={<VerifyEmailPage />} />
-      <Route path="/admin" element={<AdminPage />} />
-      <Route path="/admin/midia" element={<AdminMediaSettingsPage />} />
-      <Route path="/admin/documento-ia" element={<AdminDocumentAiPage />} />
-      <Route path="/admin/cad-pipeline" element={<AdminCadPipelinePage />} />
-      <Route path="/admin/conhecimento" element={<AdminConhecimentoPage />} />
-      <Route path="/admin/system-config" element={<AdminSystemConfigPage />} />
-      <Route path="/admin/llm-prompt" element={<AdminLlmPromptPage />} />
-      <Route path="/admin/assinaturas" element={<AdminSubscriptionsPage />} />
-      <Route path="/admin/storage" element={<AdminStoragePage />} />
+      <Route path="/admin" element={<AdminLayout><AdminPage /></AdminLayout>} />
+      <Route path="/admin/:secao" element={<AdminLayout><AdminPage /></AdminLayout>} />
+      <Route path="/admin/midia" element={<AdminLayout><AdminMediaSettingsPage /></AdminLayout>} />
+      <Route path="/admin/documento-ia" element={<AdminLayout><AdminDocumentAiPage /></AdminLayout>} />
+      <Route path="/admin/cad-pipeline" element={<AdminLayout><AdminCadPipelinePage /></AdminLayout>} />
+      <Route path="/admin/conhecimento" element={<AdminLayout><AdminConhecimentoPage /></AdminLayout>} />
+      <Route path="/admin/system-config" element={<AdminLayout><AdminSystemConfigPage /></AdminLayout>} />
+      <Route path="/admin/llm-prompt" element={<AdminLayout><AdminLlmPromptPage /></AdminLayout>} />
+      <Route path="/admin/assinaturas" element={<AdminLayout><AdminSubscriptionsPage /></AdminLayout>} />
+      <Route path="/admin/storage" element={<AdminLayout><AdminStoragePage /></AdminLayout>} />
       <Route path="/estrutura-memo" element={<EstruturaAntigaRedirect />} />
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />
@@ -58,6 +61,7 @@ export default function App() {
       <Route path="/revisao/memo-video" element={<RevisarMemoPage rota="video" />} />
       <Route path="/revisao/memo-documento" element={<RevisarMemoPage rota="documento" />} />
       <Route path="/importar-lote" element={<ImportarLoteNovoPage />} />
+      <Route path="/financeiro" element={<FinanceiroPage />} />
       {/* Endereços usados durante o teste do lote 3 */}
       <Route path="/acompanhar/avisos" element={<Navigate to="/avisos" replace />} />
       <Route path="/acompanhar/perguntas-salvas" element={<Navigate to="/perguntas-salvas" replace />} />

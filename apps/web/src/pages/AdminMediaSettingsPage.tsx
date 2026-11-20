@@ -201,9 +201,6 @@ export default function AdminMediaSettingsPage() {
     <div className={adminStyles.shell}>
       <Header adminMediaPlan={adminMediaPlan} />
       <main className={`${adminStyles.main} ${adminStyles.mainWide}`}>
-        <Link to="/admin" className={adminStyles.back}>
-          ← Painel admin
-        </Link>
         <h1 className={adminStyles.title}>Mídia por plano</h1>
         <p className={adminStyles.lead}>
           Tabela <code className={adminStyles.tableToolbarCode}>media_settings</code>: cada combinação{" "}
@@ -248,7 +245,7 @@ export default function AdminMediaSettingsPage() {
             </span>
             <span className="mm-muted">
               Esses interruptores estão em{" "}
-              <Link to="/admin">Planos de assinatura</Link>. Com desabilitado, o teto de envio segue o processamento
+              <Link to="/admin/planos">Planos de assinatura</Link>. Com desabilitado, o teto de envio segue o processamento
               simples.
             </span>
           </div>

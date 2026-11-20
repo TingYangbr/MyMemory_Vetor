@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Campos da tela
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: campos · Versão do manual: 2
 
 - Grupo: Grupo onde os memos serão criados. Só os membros desse grupo terão respostas a partir deles.

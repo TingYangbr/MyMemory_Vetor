@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyPluginAsync } from "fastify";
 import type {
+  ConvitePendente,
   MeResponse,
   PatchMePreferencesResponse,
   PatchWorkspaceResponse,
@@ -11,6 +12,7 @@ import type {
 } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { z } from "zod";
+import bcrypt from "bcryptjs";
 import { pool } from "../db.js";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
 import {
@@ -742,6 +744,64 @@ const plugin: FastifyPluginAsync = async (app) => {
     };
     return body;
   });
+  // ── Lote 4 (Conta): convites pendentes, nome e senha ─────────────────────
+  app.get("/api/me/convites", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT g.name AS "groupName", u.name AS "inviterName", ei.token, ei.expiresat AS "expiresAt"
+         FROM email_invites ei
+         JOIN users me ON me.id = ?
+         JOIN groups g ON g.id = ei.groupid
+         LEFT JOIN users u ON u.id = ei.invitedbyuserid
+        WHERE LOWER(TRIM(ei.email)) = LOWER(TRIM(me.email))
+          AND ei.status = 'pending' AND ei.expiresat >= NOW()
+        ORDER BY ei.id DESC LIMIT 20`,
+      [userId]
+    );
+    const convites: ConvitePendente[] = rows.map((r) => ({
+      groupName: String(r.groupName),
+      inviterName: r.inviterName != null ? String(r.inviterName) : null,
+      token: String(r.token),
+      expiresAt: new Date(String(r.expiresAt)).toISOString(),
+    }));
+    return { convites };
+  });
+
+  app.patch("/api/me/perfil", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const parsed = z.object({ name: z.string().trim().min(2, "Nome: mínimo 2 caracteres.").max(120) }).safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_body", message: parsed.error.issues[0]?.message ?? "Dados inválidos." });
+    }
+    await pool.query(`UPDATE users SET name = ? WHERE id = ?`, [parsed.data.name, userId]);
+    return { ok: true, name: parsed.data.name };
+  });
+
+  app.post("/api/me/senha", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (userId === null) return reply.code(401).send({ error: "unauthorized", message: "Faça login." });
+    const parsed = z
+      .object({ senhaAtual: z.string().min(1, "Informe a senha atual."), senhaNova: z.string().min(8, "Senha nova: no mínimo 8 caracteres.") })
+      .safeParse(req.body);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "invalid_body", message: parsed.error.issues[0]?.message ?? "Dados inválidos." });
+    }
+    const [rows] = await pool.query<RowDataPacket[]>(`SELECT passwordhash AS "passwordHash" FROM users WHERE id = ? LIMIT 1`, [userId]);
+    const hash = rows[0]?.passwordHash != null ? String(rows[0].passwordHash) : "";
+    let ok = false;
+    try {
+      ok = hash.length > 0 && (await bcrypt.compare(parsed.data.senhaAtual, hash));
+    } catch {
+      ok = false;
+    }
+    if (!ok) return reply.code(400).send({ error: "senha_atual", message: "A senha atual não confere." });
+    const novo = await bcrypt.hash(parsed.data.senhaNova, 10);
+    await pool.query(`UPDATE users SET passwordhash = ? WHERE id = ?`, [novo, userId]);
+    return { ok: true };
+  });
+
 };
 
 export default plugin;

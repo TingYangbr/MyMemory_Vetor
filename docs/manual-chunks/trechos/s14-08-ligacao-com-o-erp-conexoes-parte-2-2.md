@@ -1,5 +1,5 @@
-Manual MyMemory › Administrar grupo › Ligação com o ERP (conexões) (parte 2/2)
-Seção: Seção 14 — Administrar grupo
+Manual MyMemory › Painel Owners › Ligação com o ERP (conexões) (parte 2/2)
+Seção: Seção 14 — Painel Owners
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
@@ -12,5 +12,5 @@ Gerenciamento das conexões SQL Server usadas pelas queries do grupo. Servidor, 
 - Botão Desativar: Desativa a conexão (soft delete).
 
 Perguntas que este trecho responde:
-- Quais são as opções de ligação com o erp (conexões) (parte 2/2) em Administrar grupo?
+- Quais são as opções de ligação com o erp (conexões) (parte 2/2) em Painel Owners?
 - O que significa cada item de ligação com o erp (conexões) (parte 2/2)?

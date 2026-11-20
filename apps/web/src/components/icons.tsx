@@ -146,6 +146,14 @@ export const IconChat = (p: IconProps) => (
   </Svg>
 );
 
+/** Dois balões de conversa — aba "Fale comigo". */
+export const IconConversa = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M14.5 3.5h-9A2.5 2.5 0 0 0 3 6v5.5A2.5 2.5 0 0 0 5.5 14H6v3l3.5-3h5a2.5 2.5 0 0 0 2.5-2.5V6a2.5 2.5 0 0 0-2.5-2.5z" />
+    <path d="M17 8.5h1.5A2.5 2.5 0 0 1 21 11v5a2.5 2.5 0 0 1-2.5 2.5H18V21l-3.2-2.5H12a2.5 2.5 0 0 1-2.5-2.5v-.5" />
+  </Svg>
+);
+
 export const IconSearch = (p: IconProps) => (
   <Svg {...p}>
     <circle cx="11" cy="11" r="7" />

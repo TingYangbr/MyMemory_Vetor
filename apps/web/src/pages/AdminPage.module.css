@@ -1,12 +1,12 @@
 .shell {
-  min-height: 100vh;
   display: flex;
   flex-direction: column;
 }
 
 .main {
   flex: 1;
-  padding: 0.55rem 1.5rem 2rem;
+  box-sizing: border-box;
+  padding: 1.5rem 2rem 2.5rem;
   max-width: 1200px;
   margin: 0 auto;
   width: 100%;
@@ -1079,4 +1079,93 @@
   font-size: 0.85rem;
   font-weight: 500;
   padding-top: 0.25rem;
+}
+
+
+/* ── Lote 5: título da seção, Início e verificação ───────────────── */
+.secaoTopo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-bottom: 1.1rem;
+}
+.secaoGrupo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--mm-primary);
+}
+.inicio {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+.inicio .lead {
+  margin: 0;
+}
+.verificacaoFaixa {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 1.25rem;
+  padding: 0.85rem 1.1rem;
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
+  border-radius: 14px;
+  font-size: 0.88rem;
+}
+.verificacaoItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--mm-text-secondary);
+}
+.bolaOk,
+.bolaFalha {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--mm-success);
+}
+.bolaFalha {
+  background: var(--mm-danger);
+}
+.verificacaoFalha {
+  color: var(--mm-danger);
+  font-weight: 600;
+}
+.verificacaoLink {
+  margin-left: auto;
+  color: var(--mm-primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+.cartoesGrupos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+}
+.cartaoGrupo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  padding: 1.1rem 1.2rem;
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
+  border-radius: 14px;
+  color: var(--mm-text);
+  text-decoration: none;
+}
+.cartaoGrupo strong {
+  font-size: 1rem;
+}
+.cartaoGrupo span {
+  font-size: 0.82rem;
+  line-height: 1.5;
+  color: var(--mm-text-secondary);
+}
+.cartaoGrupo:hover {
+  border-color: var(--mm-primary);
+  box-shadow: var(--mm-shadow);
 }

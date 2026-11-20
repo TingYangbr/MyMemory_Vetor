@@ -88,9 +88,6 @@ export default function AdminLlmPromptPage() {
     <div className={adminStyles.shell}>
       <Header />
       <main className={`${adminStyles.main} ${adminStyles.mainWide}`}>
-        <Link to="/admin" className={adminStyles.back}>
-          ← Painel admin
-        </Link>
         <h1 className={adminStyles.title}>Último prompt LLM</h1>
         <p className={adminStyles.lead}>
           Mostra fielmente o último payload enviado para a API LLM (mensagens <code>system</code> e <code>user</code>) e
