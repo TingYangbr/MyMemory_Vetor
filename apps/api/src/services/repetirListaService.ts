@@ -128,7 +128,22 @@ export async function prepararRepeticaoLista(input: {
     const k = Object.keys(d).find((x) => semAcento(x) === semAcento(cat.campoSituacao!));
     return k != null && estadoDaSituacao(d[k]) === "concluido";
   };
-  const origem = input.pedido.memoId != null ? rows[0]! : rows.find(concluida) ?? rows[0]!;
+  // Lista sem nenhum item (ex.: uma cópia que saiu vazia) não serve de origem
+  const temItens = (r: RowDataPacket) => {
+    const c = catDe(r.categoria);
+    const d = lerDados(r.dados);
+    return (c?.campos ?? []).some((f) => {
+      if (f.isActive !== 1 || f.tipo !== "lista") return false;
+      const k = Object.keys(d).find((x) => semAcento(x) === semAcento(f.name));
+      return k != null && lerItensLista(d[k] ?? "").length > 0;
+    });
+  };
+  const comItens = rows.filter(temItens);
+  const origem =
+    input.pedido.memoId != null ? rows[0]! : comItens.find(concluida) ?? comItens[0];
+  if (!origem) {
+    return { erro: `Não achei nenhuma lista com itens${input.pedido.categoria ? ` em ${input.pedido.categoria.name}` : ""} para repetir.` };
+  }
   const cat = catDe(origem.categoria);
   if (!cat) return { erro: `O memo #${origem.id} não é de uma categoria com lista.` };
 
