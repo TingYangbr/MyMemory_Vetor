@@ -338,8 +338,10 @@ const plugin: FastifyPluginAsync = async (app) => {
           categories = categories.filter((c) => liberadas.has(c.name));
         }
       }
-      const hojeIso = new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
-      const r = montarCriacaoDeModelo({ plano: salvo, valores: digitados, categories, groupId: modelo.groupId, hojeIso });
+      const agora = new Date();
+      const hojeIso = agora.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+      const hora = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(agora), 10);
+      const r = montarCriacaoDeModelo({ plano: salvo, valores: digitados, categories, groupId: modelo.groupId, hojeIso, hora });
       if (!r.ok) {
         if (r.motivo === "sem_valores" || r.motivo === "valor_invalido") {
           return reply.code(400).send({ error: r.motivo, message: r.mensagem });

@@ -1180,6 +1180,8 @@ export interface ComandoCriacao {
   campoSituacao: string | null;
   /** Campo dono da categoria Pessoal (o sistema o preenche com quem salva), ou null. */
   campoDono?: string | null;
+  /** Cartão montado direto de um modelo de registro (sem IA): o aviso do cartão é informativo, não de alerta. */
+  origemModelo?: boolean;
   /** Valor da situação de um registro novo: Pendente (ou Válido, na categoria de registro). */
   situacaoAberta?: string;
   processado: TextMemoProcessResponse;
