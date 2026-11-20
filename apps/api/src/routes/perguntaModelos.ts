@@ -4,10 +4,12 @@ import { performance } from "node:perf_hooks";
 import {
   aplicarValoresNoPlano,
   derivarChips,
+  ehPlanoCriacao,
   perguntaComValores,
   type AvisoExecucaoSnapshot,
   type MemoContextCategory,
   type PerguntaChipValor,
+  type PerguntaPlanoCriacao,
   type PerguntaPlanoSalvo,
   type PerguntaResponse,
   type PlanoSalvo,
@@ -21,6 +23,8 @@ import { loadMemoContextStructure } from "../services/memoContextService.js";
 import { buildQueriesDisponiveis, hashQueryDisponivel } from "../services/perguntaService.js";
 import { executarPlanoSalvo, sugerirValoresParam, type PlanoConsulta, type QueryDisponivel } from "../services/perguntaPipe2.js";
 import { motivoQueriesNaoPermitidas } from "../services/acessoQueriesService.js";
+import { montarCriacaoDeModelo } from "../services/comandoCriacaoService.js";
+import { montarPerfilNaPergunta } from "../services/perfilPerguntaService.js";
 import { gerarSugestaoAviso } from "../services/avisoService.js";
 import { runWithTraces } from "../lib/invokeLlm.js";
 import { runWithTimings } from "../lib/requestTimings.js";
@@ -34,13 +38,26 @@ const planoSchema = z
   })
   .passthrough();
 
+/** Modelo de registro: pergunta salva que cria um memo (chips = campos da categoria, sem valores). */
+const planoCriacaoSchema = z.object({
+  versao: z.literal(1),
+  tipo: z.literal("criacao"),
+  categoria: z.string().min(1).max(200),
+  prefixo: z.string().min(1).max(500),
+  campos: z
+    .array(z.object({ nome: z.string().min(1).max(200), tipo: z.enum(["texto", "numero"]) }))
+    .min(1)
+    .max(60),
+  hoje: z.array(z.string().min(1).max(200)).max(20).optional(),
+});
+
 const createSchema = z.object({
   pergunta: z.string().min(1).max(4000),
   category: z.string().nullable().optional(),
   workspaceGroupId: z.number().int().positive().nullable().optional(),
   anotacoes: z.string().nullable().optional(),
-  /** Plano da execução que gerou a resposta (pergunta salva com chips). */
-  plano: planoSchema.nullable().optional(),
+  /** Plano da execução que gerou a resposta (pergunta salva com chips) ou modelo de registro. */
+  plano: z.union([planoSchema, planoCriacaoSchema]).nullable().optional(),
 });
 
 const updateSchema = z.object({
@@ -50,7 +67,7 @@ const updateSchema = z.object({
   estrelas: z.number().int().min(1).max(5).nullable().optional(),
 });
 
-type ModeloComPlano = { id: number; userId: number; groupId: number | null; pergunta: string; plano: PerguntaPlanoSalvo | null };
+type ModeloComPlano = { id: number; userId: number; groupId: number | null; pergunta: string; plano: PerguntaPlanoSalvo | PerguntaPlanoCriacao | null };
 
 /** Carrega a pergunta salva e confere o acesso (dono, ou membro do grupo dela). */
 async function carregarModeloAcessivel(id: number, userId: number): Promise<ModeloComPlano | "not_found" | "forbidden"> {
@@ -305,6 +322,57 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     const valores = parsed.data.valores as Record<string, PerguntaChipValor>;
     const salvo = modelo.plano;
+    // Modelo de registro: monta o cartão "Revisar e salvar" direto dos valores dos chips, sem IA.
+    // Categoria ou campo que mudou → o texto segue pelo caminho normal (/api/perguntas), com IA.
+    if (ehPlanoCriacao(salvo)) {
+      const digitados: Record<string, string> = {};
+      for (const [k, v] of Object.entries(valores)) if (typeof v === "string") digitados[k] = v;
+
+      let categories = await carregarCategorias(userId, modelo.groupId);
+      // Perfil de acesso ligado: só as categorias que o perfil libera (mesma regra do Fale comigo)
+      if (modelo.groupId != null) {
+        const perfil = await montarPerfilNaPergunta({ userId, groupId: modelo.groupId, porChave: false });
+        const efetivo = perfil?.efetivo;
+        if (efetivo && !efetivo.todas) {
+          const liberadas = new Set(efetivo.categoriasPermitidas);
+          categories = categories.filter((c) => liberadas.has(c.name));
+        }
+      }
+      const agora = new Date();
+      const hojeIso = agora.toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+      const hora = parseInt(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(agora), 10);
+      const r = montarCriacaoDeModelo({ plano: salvo, valores: digitados, categories, groupId: modelo.groupId, hojeIso, hora });
+      if (!r.ok) {
+        if (r.motivo === "sem_valores" || r.motivo === "valor_invalido") {
+          return reply.code(400).send({ error: r.motivo, message: r.mensagem });
+        }
+        return reply.send({ replanejar: true, pergunta: r.texto || modelo.pergunta, motivo: r.motivo });
+      }
+      const resultado: PerguntaResponse = {
+        resposta: {
+          resposta: `${r.criacao.mensagem} Nada foi gravado ainda.`,
+          tipo_resposta: "semantica",
+          dados_usados: [],
+          limitacoes: ["Registro novo ainda não gravado: confira no cartão e salve."],
+          confianca_estimada: 1,
+        },
+        classificacao: {
+          pipe: "semantica",
+          categorias: [r.criacao.categoria ?? salvo.categoria],
+          multi_categoria: false,
+          intencao: "outro",
+          contexto: "nova",
+          escopo_sugerido: "global",
+          justificativa: "modelo de registro (sem IA)",
+          acao: "criar",
+          alvo: "dados",
+        },
+        apiCost: 0,
+        planoReaproveitado: true,
+        criacao: r.criacao,
+      };
+      return reply.send({ pergunta: r.texto, resultado });
+    }
     const chips = salvo ? derivarChips(salvo.plano) : [];
     const perguntaTexto = perguntaComValores(modelo.pergunta, chips, valores);
     if (!salvo) return reply.send({ replanejar: true, pergunta: perguntaTexto, motivo: "sem_plano" });
@@ -384,9 +452,10 @@ const plugin: FastifyPluginAsync = async (app) => {
     const modelo = await carregarModeloAcessivel(id, userId);
     if (modelo === "not_found") return reply.code(404).send({ error: "not_found" });
     if (modelo === "forbidden") return reply.code(403).send({ error: "forbidden" });
-    if (!modelo.plano) return reply.send({ valores: [] });
+    const planoSalvo = modelo.plano;
+    if (!planoSalvo || ehPlanoCriacao(planoSalvo)) return reply.send({ valores: [] });
 
-    const chip = derivarChips(modelo.plano.plano).find((c) => c.chave === chave);
+    const chip = derivarChips(planoSalvo.plano).find((c) => c.chave === chave);
     if (!chip || chip.tipo === "periodo" || chip.tipo === "numero") return reply.send({ valores: [] });
 
     const chaveCache = `${userId}|${id}|${chave}|${termo.toLowerCase()}`;
@@ -394,7 +463,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     if (emCache && Date.now() - emCache.em < CACHE_SUGESTOES_MS) return reply.send({ valores: emCache.valores });
 
     const categories = await carregarCategorias(userId, modelo.groupId);
-    const template = buildQueriesDisponiveis(categories, modelo.plano.classificacao.categorias)
+    const template = buildQueriesDisponiveis(categories, planoSalvo.classificacao.categorias)
       .find((x) => x.query_id === chip.queryId);
     if (!template || template.conexaoPendente) return reply.send({ valores: [] });
     // Sugestões vêm direto da base (ERP): mesmo corte de perfil da execução
