@@ -17,7 +17,8 @@ function categoriasDeLista(categories: MemoContextCategory[]): MemoContextCatego
   return categories.filter((c) => c.isActive === 1 && (c.campos ?? []).some((f) => f.isActive === 1 && f.tipo === "lista"));
 }
 
-export type PedidoRepetirLista = { memoId: number | null; categoria: MemoContextCategory | null };
+/** soConcluidos: "com os itens concluídos/comprados" → só os itens marcados ✓ na lista anterior. */
+export type PedidoRepetirLista = { memoId: number | null; categoria: MemoContextCategory | null; soConcluidos?: boolean };
 
 /**
  * "Repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior",
@@ -29,13 +30,19 @@ export function detectarRepetirLista(texto: string, categories: MemoContextCateg
   const pedido =
     /\b(repet\w*|refaz\w*|refazer|copi\w*|duplic\w*|reaproveit\w*|reus\w*)\b.*\blistas?\b/.test(t) ||
     /\bnova lista\b.*\b(igual|mesma|mesmos|como a|como na|da ultima|da anterior|a partir)\b/.test(t) ||
-    /\b(mesma lista|lista igual)\b/.test(t);
+    /\b(mesma lista|lista igual)\b/.test(t) ||
+    /\b(ger\w*|cri\w*|faz\w*|faca|mont\w*|abr\w*)\b.*\blistas?\b.*\b(ultima|anterior|passada)\b/.test(t);
   if (!pedido) return null;
   const listas = categoriasDeLista(categories);
   if (!listas.length) return null;
   const id = /#\s*(\d+)/.exec(t);
   const citada = listas.find((c) => t.includes(semAcento(c.name)));
-  return { memoId: id ? Number(id[1]) : null, categoria: citada ?? (listas.length === 1 ? listas[0]! : null) };
+  const soConcluidos = /\bitens? (concluid|comprad|feit|marcad|ticad)\w*/.test(t) || /\b(so|somente|apenas) (os )?(concluid|comprad)\w*/.test(t);
+  return {
+    memoId: id ? Number(id[1]) : null,
+    categoria: citada ?? (listas.length === 1 ? listas[0]! : null),
+    ...(soConcluidos ? { soConcluidos: true } : {}),
+  };
 }
 
 function lerDados(json: unknown): Record<string, string> {
@@ -110,6 +117,7 @@ export async function prepararRepeticaoLista(input: {
   const dados: Record<string, string> = {};
   let itensNovos = 0;
   let cancelados = 0;
+  let foraPendentes = 0;
   for (const f of ativos) {
     if (campoSituacao && semAcento(f.name) === semAcento(campoSituacao)) continue; // o cartão põe a situação aberta
     const k = Object.keys(antigos).find((x) => semAcento(x) === semAcento(f.name));
@@ -117,7 +125,11 @@ export async function prepararRepeticaoLista(input: {
     if (f.tipo === "lista") {
       const itens = lerItensLista(v);
       cancelados += itens.filter((it) => it.estado === "cancelado").length;
-      const novos = itens.filter((it) => it.estado !== "cancelado").map((it) => it.texto);
+      // "com os itens concluídos": só os ✓; senão todos menos os cancelados
+      const novos = itens
+        .filter((it) => (input.pedido.soConcluidos ? it.estado === "concluido" : it.estado !== "cancelado"))
+        .map((it) => it.texto);
+      if (input.pedido.soConcluidos) foraPendentes += itens.filter((it) => it.estado === "pendente").length;
       itensNovos += novos.length;
       dados[f.name] = novos.join("\n");
     } else if (f.tipo === "date") {
@@ -142,7 +154,13 @@ export async function prepararRepeticaoLista(input: {
       mensagem:
         `Preparei uma lista nova a partir da lista #${origem.id}${quando ? ` de ${quando}` : ""}: ` +
         `cópia com a data de hoje, ${itensNovos === 1 ? "1 item" : `${itensNovos} itens`}` +
-        `${cancelados ? ` (${cancelados === 1 ? "1 cancelado ficou" : `${cancelados} cancelados ficaram`} de fora)` : ""}. ` +
+        `${input.pedido.soConcluidos ? ", só os concluídos" : ""}` +
+        `${cancelados || foraPendentes
+          ? ` (${[
+              cancelados ? (cancelados === 1 ? "1 cancelado" : `${cancelados} cancelados`) : "",
+              foraPendentes ? (foraPendentes === 1 ? "1 não concluído" : `${foraPendentes} não concluídos`) : "",
+            ].filter(Boolean).join(" e ")} de fora)`
+          : ""}. ` +
         `A lista anterior continua como está. Confira no cartão e toque em Salvar registro.`,
       groupId: input.groupId,
       categoria: cat.name,
