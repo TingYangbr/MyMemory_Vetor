@@ -4,7 +4,7 @@
  * dela com a data de hoje: mesmos campos, mesmos itens sem as marcas (os cancelados ficam de fora)
  * e a situação aberta. Nada é gravado aqui: devolve o cartão de registro novo, que o usuário confere e salva.
  */
-import type { ComandoCriacao, MemoContextCategory } from "@mymemory/shared";
+import type { ComandoCriacao, EstadoItemLista, MemoContextCategory } from "@mymemory/shared";
 import { estadoDaSituacao, lerItensLista, lerValoresStatus, valorDaSituacao } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
@@ -17,8 +17,17 @@ function categoriasDeLista(categories: MemoContextCategory[]): MemoContextCatego
   return categories.filter((c) => c.isActive === 1 && (c.campos ?? []).some((f) => f.isActive === 1 && f.tipo === "lista"));
 }
 
-/** soConcluidos: "com os itens concluídos/comprados" → só os itens marcados ✓ na lista anterior. */
-export type PedidoRepetirLista = { memoId: number | null; categoria: MemoContextCategory | null; soConcluidos?: boolean };
+/**
+ * estados: quais itens da lista anterior entram ("com os itens concluídos e cancelados" → ✓ e ✗).
+ * Ausente = todos menos os cancelados.
+ */
+export type PedidoRepetirLista = { memoId: number | null; categoria: MemoContextCategory | null; estados?: EstadoItemLista[] };
+
+const NOME_ESTADO: Record<EstadoItemLista, [string, string]> = {
+  pendente: ["não concluído", "não concluídos"],
+  concluido: ["concluído", "concluídos"],
+  cancelado: ["cancelado", "cancelados"],
+};
 
 /**
  * "Repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior",
@@ -37,11 +46,23 @@ export function detectarRepetirLista(texto: string, categories: MemoContextCateg
   if (!listas.length) return null;
   const id = /#\s*(\d+)/.exec(t);
   const citada = listas.find((c) => t.includes(semAcento(c.name)));
-  const soConcluidos = /\bitens? (concluid|comprad|feit|marcad|ticad)\w*/.test(t) || /\b(so|somente|apenas) (os )?(concluid|comprad)\w*/.test(t) || /\bo que (eu )?(comprei|conclui|fiz)\b/.test(t);
+  // Quais itens: "todos os itens" = todos; senão os estados citados (concluídos, cancelados, pendentes)
+  let estados: EstadoItemLista[] | undefined;
+  if (/\btodos (os )?(itens|itens da lista)\b|\bcom tudo\b|\binclusive (os )?cancelad/.test(t)) {
+    estados = ["pendente", "concluido", "cancelado"];
+  } else {
+    const citados = new Set<EstadoItemLista>();
+    if (/\b(concluid|comprad|feit|marcad|ticad)\w*/.test(t) || /\bo que (eu )?(comprei|conclui|fiz)\b/.test(t)) citados.add("concluido");
+    if (/\bcancelad\w*|\briscad\w*/.test(t)) citados.add("cancelado");
+    if (/\bpendent\w*|\bnao (comprad|concluid|feit)\w*|\bfalt(ou|aram|ando)\b|\bsem marca\b/.test(t)) citados.add("pendente");
+    // "lista concluída" fala da lista, não dos itens: só conta quando a frase cita itens ou diz o que comprou
+    const falaDeItens = /\bitens?\b|\bo que (eu )?(comprei|conclui|fiz)\b|\b(so|somente|apenas) (os )?(concluid|comprad|cancelad|pendent)/.test(t);
+    if (citados.size && falaDeItens) estados = [...citados];
+  }
   return {
     memoId: id ? Number(id[1]) : null,
     categoria: citada ?? (listas.length === 1 ? listas[0]! : null),
-    ...(soConcluidos ? { soConcluidos: true } : {}),
+    ...(estados ? { estados } : {}),
   };
 }
 
@@ -116,20 +137,17 @@ export async function prepararRepeticaoLista(input: {
   const antigos = lerDados(origem.dadosespecificosjson);
   const dados: Record<string, string> = {};
   let itensNovos = 0;
-  let cancelados = 0;
-  let foraPendentes = 0;
+  // Sem escolha: todos menos os cancelados
+  const entram = new Set<EstadoItemLista>(input.pedido.estados ?? ["pendente", "concluido"]);
+  const fora: Record<EstadoItemLista, number> = { pendente: 0, concluido: 0, cancelado: 0 };
   for (const f of ativos) {
     if (campoSituacao && semAcento(f.name) === semAcento(campoSituacao)) continue; // o cartão põe a situação aberta
     const k = Object.keys(antigos).find((x) => semAcento(x) === semAcento(f.name));
     const v = k != null ? antigos[k] ?? "" : "";
     if (f.tipo === "lista") {
       const itens = lerItensLista(v);
-      cancelados += itens.filter((it) => it.estado === "cancelado").length;
-      // "com os itens concluídos": só os ✓; senão todos menos os cancelados
-      const novos = itens
-        .filter((it) => (input.pedido.soConcluidos ? it.estado === "concluido" : it.estado !== "cancelado"))
-        .map((it) => it.texto);
-      if (input.pedido.soConcluidos) foraPendentes += itens.filter((it) => it.estado === "pendente").length;
+      for (const it of itens) if (!entram.has(it.estado)) fora[it.estado]++;
+      const novos = itens.filter((it) => entram.has(it.estado)).map((it) => it.texto);
       itensNovos += novos.length;
       dados[f.name] = novos.join("\n");
     } else if (f.tipo === "date") {
@@ -154,13 +172,15 @@ export async function prepararRepeticaoLista(input: {
       mensagem:
         `Preparei uma lista nova a partir da lista #${origem.id}${quando ? ` de ${quando}` : ""}: ` +
         `cópia com a data de hoje, ${itensNovos === 1 ? "1 item" : `${itensNovos} itens`}` +
-        `${input.pedido.soConcluidos ? ", só os concluídos" : ""}` +
-        `${cancelados || foraPendentes
-          ? ` (${[
-              cancelados ? (cancelados === 1 ? "1 cancelado" : `${cancelados} cancelados`) : "",
-              foraPendentes ? (foraPendentes === 1 ? "1 não concluído" : `${foraPendentes} não concluídos`) : "",
-            ].filter(Boolean).join(" e ")} de fora)`
-          : ""}. ` +
+        `${input.pedido.estados && input.pedido.estados.length < 3
+          ? `, só os ${input.pedido.estados.map((e) => NOME_ESTADO[e][1]).join(" e ")}`
+          : ""}` +
+        `${(() => {
+          const partes = (Object.keys(fora) as EstadoItemLista[])
+            .filter((e) => fora[e] > 0)
+            .map((e) => `${fora[e]} ${NOME_ESTADO[e][fora[e] === 1 ? 0 : 1]}`);
+          return partes.length ? ` (${partes.join(" e ")} de fora)` : "";
+        })()}. ` +
         `A lista anterior continua como está. Confira no cartão e toque em Salvar registro.`,
       groupId: input.groupId,
       categoria: cat.name,
