@@ -181,7 +181,12 @@ export async function prepararRepeticaoLista(input: {
       descricao: f.description ?? null,
       ...(f.tipo === "status" ? { valores: lerValoresStatus(f.normalizedTerms) } : {}),
     }));
-  const resumo = String(origem.texto ?? "").trim() || `${cat.name} (repetida da lista #${origem.id})`;
+  // O resumo da lista anterior pode ter ganhado "CONCLUÍDO — " ao ser concluída: a nova não herda a situação
+  const resumo =
+    String(origem.texto ?? "")
+      .trim()
+      .replace(/^(conclu[ií]d[oa]|cancelad[oa]|pendente|v[aá]lid[oa])\s*[—–:-]\s*/i, "") ||
+    `${cat.name} (repetida da lista #${origem.id})`;
   return {
     criacao: {
       mensagem:
