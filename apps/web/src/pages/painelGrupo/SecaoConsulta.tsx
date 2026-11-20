@@ -136,8 +136,9 @@ export function ConsultaMemos({ groupId, categoriaFixa, contextGroupId, compacto
 
       {res ? (
         <div className={s.card} style={{ marginTop: 12 }}>
-          <div className={s.tblWrap}>
-            <table className={s.tbl}>
+          {/* Compacto (aba Memos da categoria): altura limitada, então a barra de rolagem lateral fica à vista */}
+          <div className={`${s.tblWrap} ${compacto ? s.tblWrapRolagem : ""}`}>
+            <table className={`${s.tbl} ${compacto ? s.tblCompacta : ""}`}>
               <thead>
                 <tr>
                   {res.colunas.map((c) => (
@@ -185,6 +186,11 @@ export function ConsultaMemos({ groupId, categoriaFixa, contextGroupId, compacto
                             <Link to={`/memo/${String(l.id)}/editar`} title="Abrir o memo">
                               #{String(l.id)}
                             </Link>
+                          ) : c.key === "mediatext" || c.key === "mediaText" ? (
+                            // Texto em até 3 linhas, numa coluna de largura fixa; o texto inteiro aparece ao parar o mouse
+                            <span className={s.celTexto} title={String(l[c.key] ?? "")}>
+                              {celula(c.key, l[c.key])}
+                            </span>
                           ) : (
                             celula(c.key, l[c.key])
                           )}

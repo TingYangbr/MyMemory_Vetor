@@ -286,6 +286,34 @@
   overflow-x: auto;
 }
 
+/* Aba Memos da categoria: rola dentro da caixa (as duas barras ficam à vista) e o cabeçalho fica parado */
+.tblWrapRolagem {
+  max-height: 60vh;
+  overflow: auto;
+}
+
+.tblWrapRolagem thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--mm-card);
+}
+
+.tblCompacta td {
+  white-space: nowrap;
+  vertical-align: top;
+}
+
+.celTexto {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  white-space: normal;
+  width: 300px;
+  max-width: 300px;
+}
+
 .tbl {
   width: 100%;
   border-collapse: collapse;

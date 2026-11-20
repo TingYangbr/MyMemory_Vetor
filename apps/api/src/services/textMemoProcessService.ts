@@ -465,17 +465,32 @@ export function normalizeCamposForCategory(
 
   const rawEntries = Object.entries(rawCampos);
   const byLower = new Map<string, string>();
+  // Nome do campo como a IA escreveu pode variar ("Peso" × "Peso_Kg" × "peso (kg)"): compara sem acento,
+  // sem pontuação e sem espaços; se ainda não achar, aceita um nome que comece pelo outro (só se for único)
+  const chaveSolta = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const bySolta = new Map<string, string>();
   for (const [k, v] of rawEntries) {
     const kk = k.trim().toLowerCase();
     if (!kk) continue;
     byLower.set(kk, str(v).trim());
+    bySolta.set(chaveSolta(k), str(v).trim());
   }
+  const valorDoCampo = (nome: string): string => {
+    const exato = byLower.get(nome.toLowerCase());
+    if (exato != null) return exato;
+    const solta = chaveSolta(nome);
+    const s = bySolta.get(solta);
+    if (s != null) return s;
+    if (solta.length < 3) return "";
+    const parecidas = [...bySolta.keys()].filter((k) => k.length >= 3 && (k.startsWith(solta) || solta.startsWith(k)));
+    return parecidas.length === 1 ? bySolta.get(parecidas[0]!) ?? "" : "";
+  };
 
   // Garante shape estável: sempre devolve os campos cadastrados da categoria detectada.
   for (const c of selectedCategory.campos) {
     const key = c.name.trim();
     if (!key) continue;
-    const originalVal = byLower.get(key.toLowerCase()) ?? "";
+    const originalVal = valorDoCampo(key);
     originals[key] = originalVal;
     // Situação: Pendente/Válido, Concluído ou Cancelado (o "Ativo" antigo e o vazio viram o aberto do tipo)
     if (selectedCategory.situacao && key.toLowerCase() === selectedCategory.situacao.campo.toLowerCase()) {
@@ -489,7 +504,9 @@ export function normalizeCamposForCategory(
       normalized[key] = resolverValorStatus(originalVal, c.normalizedTerms, c.verbos) ?? c.normalizedTerms[0];
       continue;
     }
-    const padronizado = chooseBestNormalizedTerm(originalVal, c.normalizedTerms);
+    // Número e data não passam pelos termos padronizados: "24,1" contém o exemplo "24" e virava 24
+    const padronizado =
+      c.tipo === "number" || c.tipo === "date" ? originalVal : chooseBestNormalizedTerm(originalVal, c.normalizedTerms);
     // Campo de data: a IA devolve ora 27/11/2025, ora 2025-11-27 — grava sempre AAAA-MM-DD (o original fica em `originals`).
     normalized[key] = c.tipo === "date" ? (normalizarDataParaIso(padronizado) ?? padronizado) : padronizado;
   }
