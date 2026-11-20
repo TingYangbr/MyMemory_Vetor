@@ -2601,7 +2601,8 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         </div>
       ) : null}
 
-      <main className={styles.main}>
+      {/* Pergunta salva aberta e sem respostas: a caixa sobe para o topo (sem a área vazia de conversa em cima) */}
+      <main className={`${styles.main} ${modeloAtivo && respostas.length === 0 && !pendingQuestion ? styles.mainCompacto : ""}`}>
         {!embedded && (
           <div className={styles.topBar}>
             <h1 className={styles.pageTitle}>Pergunte ao myMemory</h1>
@@ -2662,24 +2663,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               disabled={busy}
             />
             )}
-            {modeloAtivo ? (
-              <div className={styles.micWrap}>
-                <button
-                  type="button"
-                  className={styles.micCancelBtn}
-                  onClick={sairDoModelo}
-                  title="Editar como texto livre"
-                  disabled={busy}
-                >✎</button>
-                <button
-                  type="button"
-                  className={styles.micCancelBtn}
-                  onClick={() => { setModeloAtivo(null); setChipValores({}); setPergunta(""); }}
-                  title="Fechar pergunta salva"
-                  disabled={busy}
-                >✕</button>
-              </div>
-            ) : (
+            {modeloAtivo ? null : (
             <div className={styles.micWrap}>
               <button
                 type="button"
@@ -2745,6 +2729,26 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 >
                   <IconStar size={16} /><span className={styles.soDesktop}>Perguntas salvas</span>
                 </button>
+              ) : null}
+              {/* Pergunta salva aberta: ✎ e ✕ ficam aqui, na linha de ações, e não numa coluna ao lado dos chips
+                  (que tirava cerca de um terço da largura da caixa no celular) */}
+              {modeloAtivo && !busy ? (
+                <>
+                  <button
+                    type="button"
+                    className={styles.modeloAcaoBtn}
+                    onClick={sairDoModelo}
+                    title="Editar como texto livre"
+                    aria-label="Editar como texto livre"
+                  >✎</button>
+                  <button
+                    type="button"
+                    className={styles.modeloAcaoBtn}
+                    onClick={() => { setModeloAtivo(null); setChipValores({}); setPergunta(""); }}
+                    title="Fechar pergunta salva"
+                    aria-label="Fechar pergunta salva"
+                  >✕</button>
+                </>
               ) : null}
             </div>
             {!busy ? (
@@ -3225,7 +3229,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               </article>
             ))}
           </div>
-        ) : pendingQuestion ? null : (
+        ) : pendingQuestion || modeloAtivo ? null : (
           <p className={styles.emptyHint}>As respostas aparecerão aqui. Faça sua primeira pergunta!</p>
         )}
       </main>
