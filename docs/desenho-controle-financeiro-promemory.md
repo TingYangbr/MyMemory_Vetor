@@ -459,3 +459,11 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Limites:** cotação do dólar nas consultas = a última que o app já buscou (aparece a data); preço de mercado de ações não existe ainda.
 - **Implementado:** migration 182, `apps/api/src/services/finConsultas.ts`.
 - **Próxima etapa (2b):** comandos de gravação pela IA ("paguei o aluguel", "aluguel de 2.500 todo dia 5").
+
+### 13.12 Mercado: Brasil ou exterior (20/11/2026)
+
+- **Campo da conta** (banco, corretora, cartão, investimento): `mercado` = local ou exterior. O padrão segue a moeda, mas é independente dela: BDR e fundo cambial são do Brasil em reais; Avenue e Nomad são exterior.
+- **Consultas** Saldos das contas e Posição de investimentos ganham a coluna e o filtro `mercado` ("no exterior", "no Brasil", "lá fora") e a instrução: separar a resposta por mercado e moeda, **nunca somar moedas diferentes**; valores em reais podem ser somados.
+- **Tela:** escolha do mercado ao criar a conta; etiqueta "exterior" e o link Marcar como Brasil/exterior na lista.
+- **Implementado:** migration 183 (coluna, preenchimento pelo padrão e atualização das duas consultas no modelo e nas cópias não editadas).
+

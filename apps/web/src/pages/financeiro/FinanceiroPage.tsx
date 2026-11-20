@@ -631,7 +631,7 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                 <div key={c.id} className={styles.linha} style={{ opacity: c.ativo ? 1 : 0.55 }}>
                   <span className={styles.data}>{c.papel ?? ""}</span>
                   <div className={styles.desc}>
-                    <b>{c.nome}</b>{c.moeda !== "BRL" ? <span className={styles.tag}>{c.moeda}</span> : null}{c.ativo ? "" : <span className={styles.tag}>inativa</span>}
+                    <b>{c.nome}</b>{c.moeda !== "BRL" ? <span className={styles.tag}>{c.moeda}</span> : null}{c.mercado === "exterior" ? <span className={styles.tag}>exterior</span> : null}{c.ativo ? "" : <span className={styles.tag}>inativa</span>}
                     {c.tipo === "investimento" ? (
                       <small>
                         Quantidade {c.quantidade ?? 0} · custo médio {c.moeda !== "BRL" && c.custoMedioMoeda != null ? `${emMoeda(c.custoMedioMoeda, c.moeda)} (${c.custoMedio != null ? brl(c.custoMedio) : "—"})` : c.custoMedio != null ? brl(c.custoMedio) : "—"}
@@ -653,6 +653,12 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                           onClick={() => void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, { ativo: !c.ativo }))}>
                           {c.ativo ? "Desativar" : "Reativar"}
                         </button>
+                        {c.mercado ? (
+                          <button type="button" className={styles.link} disabled={ctx.ocupado}
+                            onClick={() => void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, { mercado: c.mercado === "exterior" ? "local" : "exterior" }))}>
+                            {c.mercado === "exterior" ? "Marcar como Brasil" : "Marcar como exterior"}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -675,6 +681,7 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [saldo, setSaldo] = useState("");
   const [saldoReais, setSaldoReais] = useState("");
   const [moeda, setMoeda] = useState("BRL");
+  const [mercado, setMercado] = useState<"local" | "exterior">("local");
   const [dataSaldo, setDataSaldo] = useState(ctx.hoje);
   const comSaldo = tipo === "banco" || tipo === "corretora" || tipo === "cartao";
   const comMoeda = ehDinheiro(tipo);
@@ -684,6 +691,7 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
       papel: tipo === "investimento" ? papel : null,
       corretoraContaId: tipo === "investimento" && corretora ? Number(corretora) : null,
       moeda: comMoeda ? moeda : "BRL",
+      mercado: comMoeda ? mercado : null,
       saldoInicial: comSaldo && saldo ? num(saldo) : null, dataSaldo: comSaldo && saldo ? dataSaldo : null,
       saldoInicialReais: comSaldo && saldo && moeda !== "BRL" && saldoReais ? num(saldoReais) : null,
     }), "Conta criada.");
@@ -706,8 +714,16 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         ) : null}
         {comMoeda ? (
           <label className={styles.campo}>Moeda
-            <select value={moeda} onChange={(e) => setMoeda(e.target.value)}>
+            <select value={moeda} onChange={(e) => { setMoeda(e.target.value); setMercado(e.target.value === "BRL" ? "local" : "exterior"); }}>
               {FIN_MOEDAS.map((m) => <option key={m.codigo} value={m.codigo}>{m.codigo} — {m.rotulo}</option>)}
+            </select>
+          </label>
+        ) : null}
+        {comMoeda ? (
+          <label className={styles.campo}>Mercado
+            <select value={mercado} onChange={(e) => setMercado(e.target.value as "local" | "exterior")}>
+              <option value="local">Brasil</option>
+              <option value="exterior">Exterior</option>
             </select>
           </label>
         ) : null}
@@ -722,6 +738,7 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
           </>
         ) : null}
       </div>
+      {comMoeda ? <p className={styles.dica}>Mercado: segue a moeda, mas pode trocar — BDR e fundo cambial são do Brasil em reais; Avenue e Nomad são exterior.</p> : null}
       {tipo === "investimento" ? <p className={styles.dica}>Uma conta por papel em cada corretora. A posição atual entra como lançamento: de Saldo inicial → este papel, com a quantidade.</p> : null}
       <div className={styles.formAcoes}>
         <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>

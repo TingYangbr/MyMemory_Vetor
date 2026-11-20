@@ -4,6 +4,8 @@ import {
   FIN_MOEDA_CODIGOS,
   FIN_TIPOS_CONTA,
   finContaEhDinheiro,
+  finMercadoPadrao,
+  type FinMercado,
   finDataValida,
   finGerarParcelas,
   finOcorrencias,
@@ -132,7 +134,7 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
   const f = esp(e, "c");
   // Despesa/receita: total do período. Demais: posição acumulada até "ate".
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT c.id, c.nome, c.tipo, c.chave, c.papel, c.corretora_contaid AS "corretoraContaId", c.ativo, c.moeda,
+    `SELECT c.id, c.nome, c.tipo, c.chave, c.papel, c.corretora_contaid AS "corretoraContaId", c.ativo, c.moeda, c.mercado,
        COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?), 0) AS "entradasMoeda",
        COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_origemid = c.id AND l.data <= ?), 0) AS "saidasMoeda",
        COALESCE((SELECT SUM(l.valor) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?
@@ -176,6 +178,7 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
       quantidade: qtd,
       custoMedio: qtd && qtd > 0 ? Math.round((saldo / qtd) * 1e6) / 1e6 : null,
       moeda,
+      mercado: (r.mercado as FinMercado | null) ?? null,
       saldoMoeda,
       custoMedioMoeda: estrangeira && qtd && qtd > 0 && saldoMoeda != null ? Math.round((saldoMoeda / qtd) * 1e6) / 1e6 : null,
       cotacao: cot,
@@ -189,7 +192,7 @@ export async function criarConta(
   e: Espaco,
   inp: {
     nome: string; tipo: FinTipoConta; papel?: string | null; corretoraContaId?: number | null; moeda?: string | null;
-    saldoInicial?: number | null; saldoInicialReais?: number | null; dataSaldo?: string | null;
+    mercado?: FinMercado | null; saldoInicial?: number | null; saldoInicialReais?: number | null; dataSaldo?: string | null;
   }
 ): Promise<FinConta> {
   const def = FIN_TIPOS_CONTA.find((t) => t.tipo === inp.tipo);
@@ -198,6 +201,7 @@ export async function criarConta(
   if (!nome) throw new FinErro("nome_vazio", "Informe o nome da conta.");
   const moeda = finContaEhDinheiro(inp.tipo) ? (inp.moeda || "BRL").toUpperCase() : "BRL";
   if (!FIN_MOEDA_CODIGOS.includes(moeda)) throw new FinErro("moeda", `Moeda não suportada: ${moeda}.`);
+  const mercado = finContaEhDinheiro(inp.tipo) ? inp.mercado || finMercadoPadrao(moeda) : null;
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -206,8 +210,8 @@ export async function criarConta(
       corretora = (await obterConta(conn, e, inp.corretoraContaId, ["corretora", "banco"], "corretora")).id;
     }
     const [ins] = await conn.query<RowDataPacket[]>(
-      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid, moeda) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora, moeda]
+      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid, moeda, mercado) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora, moeda, mercado]
     );
     const id = Number(ins[0].id);
     const si = inp.saldoInicial ?? 0;
@@ -237,7 +241,7 @@ export async function criarConta(
       );
     }
     await conn.commit();
-    return { id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, moeda, ativo: true };
+    return { id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, moeda, mercado, ativo: true };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -246,11 +250,15 @@ export async function criarConta(
   }
 }
 
-export async function atualizarConta(e: Espaco, id: number, inp: { nome?: string; ativo?: boolean }): Promise<void> {
+export async function atualizarConta(e: Espaco, id: number, inp: { nome?: string; ativo?: boolean; mercado?: FinMercado }): Promise<void> {
   const c = await obterConta(pool, e, id);
   if (c.chave) throw new FinErro("conta_sistema", "Contas do sistema não podem ser alteradas.");
   if (inp.nome !== undefined && inp.nome.trim()) await pool.query(`UPDATE fin_contas SET nome = ? WHERE id = ?`, [inp.nome.trim(), id]);
   if (inp.ativo !== undefined) await pool.query(`UPDATE fin_contas SET ativo = ? WHERE id = ?`, [inp.ativo ? 1 : 0, id]);
+  if (inp.mercado !== undefined) {
+    if (!finContaEhDinheiro(c.tipo)) throw new FinErro("mercado", "Só banco, corretora, cartão e investimento têm mercado.");
+    await pool.query(`UPDATE fin_contas SET mercado = ? WHERE id = ?`, [inp.mercado, id]);
+  }
 }
 
 /* ---------------- Recorrências ---------------- */
