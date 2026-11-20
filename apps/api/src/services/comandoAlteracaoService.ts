@@ -157,6 +157,36 @@ export function aplicarOperacoesLista(atual: string, ops: Record<string, unknown
 }
 
 /**
+ * Por que as operações de lista não mudaram nada: o item a acrescentar já está pendente,
+ * ou o item a concluir/cancelar/tirar não está na lista. Vira a mensagem para a pessoa.
+ */
+export function notasOperacoesLista(atual: string, ops: Record<string, unknown>): string[] {
+  const lista = (x: unknown): unknown[] => (Array.isArray(x) ? x : x == null ? [] : [x]);
+  const itens = lerItensLista(atual);
+  const notas: string[] = [];
+  for (const a of lista(ops.acrescentar)) {
+    const texto = String(a ?? "").trim();
+    if (!texto) continue;
+    const it = itens.find((x) => norm(x.texto) === norm(texto)) ?? itens.find((x) => linhaCasa(x.texto, texto));
+    if (it && it.estado === "pendente") notas.push(`"${it.texto}" já está na lista`);
+  }
+  const semItem = (chave: string) => {
+    for (const n of lista(ops[chave])) {
+      const termo = String(n ?? "").trim();
+      if (termo && !itens.some((x) => linhaCasa(x.texto, termo))) notas.push(`não achei "${termo}" na lista`);
+    }
+  };
+  semItem("remover");
+  semItem("concluir");
+  semItem("cancelar");
+  for (const n of lista(ops.concluir)) {
+    const it = itens.find((x) => linhaCasa(x.texto, String(n ?? "")));
+    if (it && it.estado === "concluido") notas.push(`"${it.texto}" já estava concluído`);
+  }
+  return notas;
+}
+
+/**
  * A mudança dita para a pessoa. Em campo do tipo lista não repete a lista inteira (antes → depois
  * ficava parecendo itens repetidos): diz só o que entrou e o que saiu.
  */
@@ -331,6 +361,8 @@ export async function executarComandoAlteracao(input: {
 
   // Monta, para cada alvo, só os campos que existem na categoria e que de fato mudam
   const propostas: ComandoAlteracaoCandidato[] = [];
+  /** Lista sem mudança: o motivo (já está, não achei), para não responder "não entendi". */
+  const notasLista: string[] = [];
   for (const id of alvosIds) {
     const cand = porId.get(id)!;
     const cat = catPorNome.get(cand.categoria);
@@ -364,7 +396,12 @@ export async function executarComandoAlteracao(input: {
         if (!valor) continue;
         novo = valor;
       }
-      if (norm(novo) === norm(antes)) continue;
+      if (norm(novo) === norm(antes)) {
+        if (def.tipo === "lista" && typeof valorBruto === "object" && !Array.isArray(valorBruto)) {
+          notasLista.push(...notasOperacoesLista(antes, valorBruto as Record<string, unknown>));
+        }
+        continue;
+      }
       propostos[def.name] = novo;
       mudancas.push({ campo: def.name, antes, depois: novo, texto: textoMudanca(def.name, antes, novo, def.tipo) });
     }
@@ -379,7 +416,10 @@ export async function executarComandoAlteracao(input: {
   }
   if (!propostas.length) {
     const usados = alvosIds.map((id) => porId.get(id)!);
-    const msg = "Achei o registro, mas não entendi o que mudar nele. Tente dizer o valor novo.";
+    const notas = [...new Set(notasLista)];
+    const msg = notas.length
+      ? `Nada a mudar${usados[0]?.categoria ? ` em ${usados[0].categoria}` : ""}: ${notas.join("; ")}.`
+      : "Achei o registro, mas não entendi o que mudar nele. Tente dizer o valor novo.";
     return { resposta: resposta(msg, usados), comando: { status: "nao_encontrado", mensagem: msg }, costUsd };
   }
 
