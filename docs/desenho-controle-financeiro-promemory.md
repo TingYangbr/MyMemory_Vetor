@@ -308,3 +308,61 @@ Uma categoria (Controle de gastos) com várias tabelas, como o Faturamento do ER
 - [ ] Grupos de gasto: lista inicial padrão (Alimentação, Transporte, Moradia…) ou vazia?
 - [ ] Apagar em lote: que confirmação (digitar o mês, como o ELIMINAR do Painel Admin)?
 - [ ] Uma categoria só (Controle de gastos) ou separar despesas e receitas (12.6)? Recomendação: uma só.
+
+## 13. Núcleo contábil e o papel da IA
+
+*Discussão de 19/11/2026.*
+
+### 13.1 Por que integrar tudo
+
+O saldo da conta corrente só fecha se **todo** movimento que toca a conta for registrado: despesas pagas, recebimentos, transferências entre contas próprias, pagamento da fatura do cartão, aplicações e resgates, tarifas e rendimentos. Se faltar um tipo, a conta não bate, como no estoque que ignora a devolução. Por isso Recebíveis, Despesas, Investimentos, Cartão, Conta Corrente e Lançamentos formam **um modelo só**, e o controle de bancos é a última etapa, que fecha o conjunto.
+
+### 13.2 Decisão: partidas dobradas por dentro, linguagem do dia a dia por fora
+
+Cada evento grava **dois lados** (de onde sai, para onde vai). É a regra contábil usada como mecanismo, não como relatório; o usuário nunca vê débito e crédito.
+
+| Evento | De onde sai | Para onde vai |
+| --- | --- | --- |
+| Mercado no débito | Conta Itaú | Despesa Alimentação |
+| Compra no cartão | Cartão Nubank (dívida) | Despesa Alimentação |
+| Pagar a fatura | Conta Itaú | Cartão Nubank (quita a dívida) |
+| Transferência entre contas próprias | Conta Itaú | Conta Nubank (não é despesa) |
+| Aplicar no Tesouro | Conta Itaú | Investimento Tesouro |
+| Salário | Receita Salário | Conta Itaú |
+
+Assim saldo de banco, dívida do cartão, posição dos investimentos e resultado do mês saem do mesmo livro e sempre batem. Evita os erros clássicos: transferência contada como gasto e fatura contada duas vezes.
+
+### 13.3 Competência e caixa (o caso do recebível)
+
+- **Ao registrar o recebível:** nasce o **título** (direito a receber com vencimento). Na visão de competência já é receita do período; na de caixa ainda não é nada.
+- **Ao receber:** a **baixa** gera o movimento de caixa e quita o título.
+
+As duas visões saem dos mesmos dados. **ERP:** competência e plano de contas completo. **Pessoa física:** caixa por padrão, poucas contas. Um núcleo só serve aos dois produtos.
+
+### 13.4 Efeito no modelo de dados (revisa 12.3)
+
+O núcleo passa a ser um **livro único de lançamentos com dois lados**. Por cima dele:
+- **títulos:** compromissos a pagar e a receber (competência);
+- **contas:** banco, cartão, investimento, grupos de gasto e de receita (o "plano de contas" simplificado);
+- **visões:** caixa, competência, saldos e fluxo de caixa.
+
+A ordem das etapas (12.4) não muda; desde a primeira cada lançamento já grava os dois lados, e o controle de bancos no fim só liga o extrato. Não é preciso refazer nada.
+
+### 13.5 O papel da IA: tradutora, não contadora
+
+A IA **não aprende sozinha** com o uso (não guarda memória entre chamadas). Ela é ensinada **com texto** a cada chamada, e o trabalho fica dividido em três partes:
+
+1. **Catálogo fechado de eventos (no prompt):** despesa paga, compra no cartão, pagamento de fatura, transferência própria, aplicação/resgate, receita, título a pagar/receber — cada um com frases de exemplo. A IA só escolhe o tipo e extrai valor, data, conta e grupo. **Os dois lados quem monta é o código**, sempre igual para cada tipo.
+2. **Regras do usuário (no banco):** quando a pessoa corrige ("isso é transferência para minha outra conta"), grava-se uma regra ("Pix para CPF X = conta própria", "Michelle → Lavanderia"). O código aplica a regra **antes** de chamar a IA; as mais usadas também vão no prompt como exemplo. A "memória" fica no banco, não na IA.
+3. **Na dúvida, perguntar:** se a frase cabe em dois eventos ("mandei 500 para o João": despesa ou empréstimo?), a IA devolve "ambíguo" e o cartão de confirmação pergunta.
+
+**Ao responder,** a IA escolhe a visão pelo jeito da pergunta e diz qual usou: "quanto **gastei**" = competência (data da compra); "quanto **saiu da conta**" = caixa (data do pagamento); "quanto **tenho**" = saldos.
+
+**Onde erra mais:** transferência própria × pagamento a terceiro, estorno, compra parcelada, "paguei o cartão" (fatura inteira ou uma compra?). **Proteções:** o cartão de confirmação mostra sempre de onde sai e para onde vai ("Saem R$ 2.300 do Itaú e a fatura de outubro do Nubank fica paga"); regras gravadas reduzem as escolhas da IA; nos bancos, o **extrato é a verdade final** e a conciliação acusa o que não bate.
+
+### 13.6 Perguntas em aberto
+
+- [ ] Plano de contas inicial da pessoa física: quais contas e grupos vêm prontos?
+- [ ] Lista final do catálogo de eventos (estorno, empréstimo a terceiros, adiantamento entram na etapa 1?).
+- [ ] Visão padrão das respostas quando a pergunta não deixa claro: caixa (proposta) ou competência?
+- [ ] O mesmo núcleo vira base do financeiro do Softing-erp (backlog item 5)?
