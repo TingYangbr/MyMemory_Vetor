@@ -103,7 +103,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       "comparar meses, quanto saiu ou entrou de uma conta ou cartão, extrato, lançamentos, para quem paguei, maiores gastos.",
     resumo: "Quanto gastou e recebeu, por grupo e por mês, o que sobrou, e o extrato de cada conta e cartão.",
     exemplos: ["Quanto gastei com alimentação em outubro?", "Sobrou dinheiro em outubro?", "Quanto saiu do Itaú este mês?", "O que paguei para a Michelle?", "Quais foram meus maiores gastos no mês?"].join("\n"),
-    consultas: ["Financeiro — Gastos e receitas", "Financeiro — Resultado", "Financeiro — Entradas e saídas", "Financeiro — Lançamentos"],
+    consultas: ["Financeiro — Gastos e receitas", "Financeiro — Resultado", "Financeiro — Entradas e saídas", "Financeiro — Lançamentos", "Financeiro — Contas cadastradas"],
   },
   {
     nome: "Financeiro — Saldos e investimentos",
@@ -114,7 +114,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       "investimentos (ações, fundos, Tesouro): quantidade, preço médio, quanto investi em cada papel.",
     resumo: "Quanto tem em cada conta, quanto deve no cartão, quanto vale o dólar guardado e a posição dos investimentos.",
     exemplos: ["Quanto tenho no banco?", "Quanto devo no cartão?", "Quanto vale meu dólar hoje?", "Quantas PETR4 tenho e a que preço médio?", "Quanto tenho investido?"].join("\n"),
-    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos"],
+    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas"],
   },
 ];
 
@@ -338,4 +338,35 @@ FROM mov m
 ORDER BY m.mes`,
     params: [{ campo: "data_fin", tipo: "date", operadorSql: "<=" }],
   },
+  {
+    nome: "Financeiro — Contas cadastradas",
+    descricao:
+      "Lista das contas cadastradas no financeiro, com ou sem movimento: bancos, cartões, corretoras, investimentos (papéis), " +
+      "grupos de despesa (Alimentação, Moradia…) e grupos de receita (Salário…). Use para: quais contas/grupos/cartões tenho, " +
+      "quais grupos de despesa existem, em que conta lançar. Não traz valores (para saldo use Saldos das contas; para totais, Gastos por grupo). " +
+      "tipo_conta aceita o jeito de falar: despesa/gasto, receita, banco, cartão, corretora, investimento. Contas do sistema sem uso não aparecem.",
+    sql: `SELECT c.nome AS conta, c.tipo AS tipo_conta, c.papel, c.moeda, c.mercado,
+  CASE WHEN c.ativo = 1 THEN 'ativa' ELSE 'inativa' END AS situacao,
+  (SELECT MAX(l.data) FROM fin_lancamentos l WHERE c.id IN (l.conta_origemid, l.conta_destinoid)) AS ultimo_lancamento
+FROM fin_contas c
+WHERE (c.chave IS NULL OR EXISTS (SELECT 1 FROM fin_lancamentos l2 WHERE c.id IN (l2.conta_origemid, l2.conta_destinoid)))
+  AND (:tipo_conta IS NULL OR c.tipo = CASE
+        WHEN :tipo_conta ILIKE '%desp%' OR :tipo_conta ILIKE '%gast%' THEN 'despesa'
+        WHEN :tipo_conta ILIKE '%receit%' THEN 'receita'
+        WHEN :tipo_conta ILIKE '%cart%' THEN 'cartao'
+        WHEN :tipo_conta ILIKE '%corret%' THEN 'corretora'
+        WHEN :tipo_conta ILIKE '%invest%' OR :tipo_conta ILIKE '%papel%' OR :tipo_conta ILIKE '%a__es%' THEN 'investimento'
+        WHEN :tipo_conta ILIKE '%banc%' OR :tipo_conta ILIKE '%corrente%' THEN 'banco'
+        WHEN :tipo_conta ILIKE '%pagar%' THEN 'a_pagar'
+        WHEN :tipo_conta ILIKE '%receber%' THEN 'a_receber'
+        ELSE c.tipo END)
+  AND (:conta IS NULL OR c.nome ILIKE :conta)
+ORDER BY c.tipo, c.nome
+LIMIT 300`,
+    params: [
+      { campo: "tipo_conta", tipo: "string", operadorSql: "=" },
+      { campo: "conta", tipo: "string", operadorSql: "LIKE" },
+    ],
+  },
 ];
+
