@@ -1640,6 +1640,51 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     }
   }
 
+  // Ainda vazio e um filtro de texto tem várias palavras ("carro oficina"): cada palavra precisa estar no
+  // campo. Tenta sem uma palavra de cada vez (da última para a primeira; no máximo 4 tentativas) e fica
+  // com a primeira que achar algo. O termo dito continua valendo quando existe: só se amplia no vazio.
+  if (agregado.totalLinhas === 0) {
+    const PARADAS = new Set(["de", "da", "do", "das", "dos", "na", "no", "nas", "nos", "a", "o", "as", "os", "e", "com", "para", "pra", "em", "um", "uma"]);
+    const tentativas: { plano: PlanoConsulta; tirada: string }[] = [];
+    planoExec.queries.forEach((q, qi) => {
+      q.parametros.forEach((p, pi) => {
+        if (typeof p.valor !== "string" || ehTipoData(p.tipo) || /situac|status|estado/i.test(p.nome)) return;
+        if (/^\d{4}-\d{2}-\d{2}/.test(p.valor)) return;
+        const palavras = p.valor.split(/\s+/).filter(Boolean);
+        const significativas = palavras.filter((w) => w.length >= 3 && !PARADAS.has(semAcentoMin(w)));
+        if (significativas.length < 2) return;
+        for (const w of [...significativas].reverse()) {
+          if (tentativas.length >= 4) return;
+          const valor = palavras.filter((x) => x !== w).join(" ");
+          tentativas.push({
+            tirada: w,
+            plano: {
+              ...planoExec,
+              queries: planoExec.queries.map((q2, i) =>
+                i !== qi ? q2 : { ...q2, parametros: q2.parametros.map((p2, j) => (j === pi ? { ...p2, valor } : p2)) }
+              ),
+            },
+          });
+        }
+      });
+    });
+    for (const t of tentativas) {
+      const r3 = await withSpan(`Execução sem a palavra "${t.tirada}"`, () => executarConsultasPlano({
+        plano: t.plano,
+        queriesDisponiveis: input.queriesDisponiveis,
+        userId: input.userId,
+        groupId: input.groupId,
+        escopoAutorId: input.escopoAutorId,
+      }));
+      if (r3.agregado.totalLinhas > 0) {
+        planoExec = t.plano;
+        ({ agregado, porQuery } = r3);
+        avisos = [...r3.avisos, `Nenhum registro tem "${t.tirada}" junto com o resto da pergunta; mostrando os que batem sem essa palavra.`];
+        break;
+      }
+    }
+  }
+
   // Comparação simples entre dois períodos: contas feitas em código (null = consulta comum, fluxo inalterado)
   const comparacao = detectarComparacaoPeriodos(planoExec, porQuery);
 
