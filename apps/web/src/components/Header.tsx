@@ -8,9 +8,7 @@ import {
   IconArrowLeft,
   IconBell,
   IconChevronDown,
-  IconCode,
   IconDoc,
-  IconFolder,
   IconHelp,
   IconLayers,
   IconLogout,
@@ -20,11 +18,13 @@ import {
   IconSun,
   IconSwap,
   IconUpload,
+  IconCalendar,
   IconUser,
   IconUsers,
 } from "./icons";
 import { SinoNotificacoes } from "./SinoNotificacoes";
 import styles from "./Header.module.css";
+import { useEmbutidoNoAdmin } from "./adminContexto";
 
 /** Iniciais para o avatar: duas letras do nome, ou do e-mail. */
 function initialsOf(me: MeResponse | null): string {
@@ -52,7 +52,14 @@ type Props = {
   center?: ReactNode;
 };
 
-export default function Header({
+/** Dentro da moldura do Admin do sistema o cabeçalho já aparece uma vez (AdminLayout): as telas não o repetem. */
+export default function Header(props: Props) {
+  const embutido = useEmbutidoNoAdmin();
+  if (embutido) return null;
+  return <HeaderInterno {...props} />;
+}
+
+function HeaderInterno({
   onMenuAction,
   meRefreshKey = 0,
   onOpenWorkspacePicker,
@@ -315,6 +322,11 @@ export default function Header({
                     <Link to="/importar-lote" role="menuitem" className={styles.item} onClick={close}>
                       <IconUpload /> Importar em lote
                     </Link>
+                    {isAdmin ? (
+                      <Link to="/financeiro" role="menuitem" className={styles.item} onClick={close}>
+                        <IconCalendar /> Contas a pagar e receber <span className={styles.itemHint}>teste</span>
+                      </Link>
+                    ) : null}
                     {onOpenWorkspacePicker ? (
                       <button
                         type="button"
@@ -337,31 +349,20 @@ export default function Header({
                 {hasAdminSection ? (
                   <div className={styles.menuGroup}>
                     <div className={styles.menuLabel}>Administração</div>
+                    {isAdmin ? (
+                      <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
+                        <IconSettings /> Painel Admin
+                      </Link>
+                    ) : null}
                     {ownerPanelGroupId != null ? (
                       <Link to={`/grupo/${ownerPanelGroupId}/admin`} role="menuitem" className={styles.item} onClick={close}>
-                        <IconUsers /> Administrar grupo
+                        <IconUsers /> Painel Owners
                       </Link>
                     ) : null}
                     {isAdmin ? (
                       <Link to="/grupo/globais/admin?secao=categorias" role="menuitem" className={styles.item} onClick={close}>
-                        <IconLayers /> Categorias globais
+                        <IconLayers /> Categorias Modelos
                       </Link>
-                    ) : null}
-                    {isAdmin ? (
-                      <>
-                        <Link to="/admin" role="menuitem" className={styles.item} onClick={close}>
-                          <IconSettings /> Painel admin
-                        </Link>
-                        <Link to="/admin/midia" role="menuitem" className={styles.item} onClick={close}>
-                          <IconFolder /> Mídia por plano
-                        </Link>
-                        <Link to="/admin/documento-ia" role="menuitem" className={styles.item} onClick={close}>
-                          <IconDoc /> Documento IA (roteamento)
-                        </Link>
-                        <Link to="/admin/llm-prompt" role="menuitem" className={styles.item} onClick={close}>
-                          <IconCode /> Último prompt LLM
-                        </Link>
-                      </>
                     ) : null}
                   </div>
                 ) : null}

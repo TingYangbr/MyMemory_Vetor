@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import type { IndividualPlanOption, IndividualPlansResponse } from "@mymemory/shared";
 import { apiGet, apiPostJson } from "../api";
 import styles from "./AuthPage.module.css";
+import AuthMarca from "../components/AuthMarca";
 import { tokenDoConvite, useConviteGrupo } from "../lib/conviteGrupo";
 
 function formatBrl(n: number): string {
@@ -128,6 +129,7 @@ export default function RegisterPage() {
   if (planGate === "loading" || planGate === "redirect") {
     return (
       <div className={styles.shell}>
+        <AuthMarca />
         <div className={styles.card}>
           <p className={styles.sub}>Carregando…</p>
           <div className={styles.links}>
@@ -143,12 +145,36 @@ export default function RegisterPage() {
 
   return (
     <div className={styles.shell}>
+      <AuthMarca />
       <div className={styles.card}>
-        <h1 className={styles.title}>{success && !mailFailed ? "Confirme seu e-mail" : "Criar conta"}</h1>
+        {success && !mailFailed ? (
+          <div className={styles.centro}>
+            <div className={styles.iconeRedondo} aria-hidden>
+              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="5" width="18" height="14" rx="2" />
+                <path d="m3 7 9 6 9-6" />
+              </svg>
+            </div>
+            <h1 className={styles.title}>Confira seu e-mail</h1>
+          </div>
+        ) : (
+          <h1 className={styles.title}>Criar conta</h1>
+        )}
         {!success ? (
-          <p className={styles.sub}>
-            Plano <strong>{chosenPlan?.name}</strong> ({priceLabel}) · <Link to={selectPlanHref}>Alterar plano</Link>
-          </p>
+          <>
+            <p className={styles.sub}>Três campos e pronto. Depois você confirma o e-mail.</p>
+            <div className={styles.planoBox}>
+              <div>
+                <span className={styles.planoRotulo}>Plano escolhido</span>
+                <span className={styles.planoNome}>
+                  {chosenPlan?.name} · {priceLabel}
+                </span>
+              </div>
+              <Link to={selectPlanHref} className={styles.linkInline} style={{ fontSize: "0.85rem" }}>
+                Trocar
+              </Link>
+            </div>
+          </>
         ) : null}
 
         {emailTravado && convite && !success ? (
@@ -190,13 +216,13 @@ export default function RegisterPage() {
           </div>
         ) : null}
         {success && !mailFailed ? (
-          <div className={styles.success} role="status">
-            <p style={{ margin: 0 }}>
-              Enviamos um link para <strong>{email}</strong>. Clique nele para ativar sua conta
-              {emailTravado && convite ? <> e entrar no grupo <strong>{convite.groupName}</strong></> : null}.
+          <div className={styles.centro} role="status">
+            <p className={styles.sub} style={{ marginBottom: "0.6rem" }}>
+              Enviamos um link para <strong>{email}</strong>. Clique nele para entrar direto, sem digitar a senha de novo
+              {emailTravado && convite ? <>, e já entrar no grupo <strong>{convite.groupName}</strong></> : null}.
             </p>
-            <p style={{ margin: "0.45rem 0 0", fontSize: "0.82rem", opacity: 0.9 }}>
-              Não chegou? Veja o spam.
+            <p className={styles.sub} style={{ fontSize: "0.82rem" }}>
+              Não chegou? Veja o spam e a aba Promoções.
             </p>
           </div>
         ) : null}
@@ -249,21 +275,31 @@ export default function RegisterPage() {
                 minLength={8}
                 placeholder="Mínimo 8 caracteres"
               />
+              <div className={styles.forca} aria-live="polite">
+                <span data-on={password.length >= 1 ? "1" : "0"} />
+                <span data-on={password.length >= 8 ? "1" : "0"} />
+                <span data-on={password.length >= 12 ? "1" : "0"} />
+                <em>{password.length >= 8 ? "Mínimo 8 caracteres ✓" : `Faltam ${8 - password.length} caractere(s)`}</em>
+              </div>
             </div>
             <div className={styles.actions}>
               <button type="submit" className={`mm-btn mm-btn--primary ${styles.wide}`} disabled={busy}>
-                {busy ? "Cadastrando…" : "Cadastrar"}
+                {busy ? "Criando…" : "Criar conta"}
               </button>
             </div>
           </form>
         ) : null}
 
-        <div className={styles.links}>
-          {success
-            ? <Link to={loginHref}>Já confirmei meu e-mail → Entrar</Link>
-            : <Link to={loginHref}>← Já tenho conta — entrar</Link>
-          }
-        </div>
+        <div className={styles.divisor} />
+        <p className={styles.rodape}>
+          {success ? (
+            <Link to={loginHref}>Já confirmei meu e-mail · Entrar</Link>
+          ) : (
+            <>
+              Já tem conta? <Link to={loginHref}>Entrar</Link>
+            </>
+          )}
+        </p>
       </div>
     </div>
   );

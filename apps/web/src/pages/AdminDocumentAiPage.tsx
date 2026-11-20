@@ -109,9 +109,6 @@ export default function AdminDocumentAiPage() {
     <div className={adminStyles.shell}>
       <Header />
       <main className={`${adminStyles.main} ${adminStyles.mainWide}`}>
-        <Link to="/admin" className={adminStyles.back}>
-          ← Painel admin
-        </Link>
         <h1 className={adminStyles.title}>Documento — roteamento IA</h1>
         <p className={adminStyles.lead}>
           Coluna <code className={adminStyles.tableToolbarCode}>ai_config.documentRoutingJson</code> na operação{" "}

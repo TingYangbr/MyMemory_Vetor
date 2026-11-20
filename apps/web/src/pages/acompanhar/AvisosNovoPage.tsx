@@ -178,7 +178,7 @@ function AvisoPainel(props: { aviso: AvisoRow; onFechar: () => void; onSalvo: (a
           className="mm-btn mm-btn--ghost"
           onClick={() => { pedirPerguntaAgora(a.perguntaOriginal); navigate("/?tab=perguntar"); }}
         >
-          <IconSend size={14} /> Abrir no Perguntar
+          <IconSend size={14} /> Abrir no Fale comigo
         </button>
 
         <div className={styles.sec}>Configuração</div>
@@ -449,7 +449,7 @@ export default function AvisosNovoPage() {
         ) : avisos.length === 0 ? (
           <div className={styles.vazio}>
             <b>Você ainda não tem avisos.</b>
-            Faça uma pergunta no Perguntar e toque em <b style={{ display: "inline", fontSize: "inherit" }}>Me avise</b> na resposta.
+            Faça uma pergunta no Fale comigo e toque em <b style={{ display: "inline", fontSize: "inherit" }}>Me avise</b> na resposta.
             <div style={{ marginTop: 12 }}>
               <button type="button" className="mm-btn mm-btn--primary" onClick={() => navigate("/?tab=perguntar")}>Fazer uma pergunta</button>
             </div>
@@ -511,7 +511,7 @@ export default function AvisosNovoPage() {
                 </div>
               );
             })}
-            <p className={styles.rodape}>Para criar um aviso, faça a pergunta no <b>Perguntar</b> e toque em <b>Me avise</b> na resposta.</p>
+            <p className={styles.rodape}>Para criar um aviso, faça a pergunta no <b>Fale comigo</b> e toque em <b>Me avise</b> na resposta.</p>
           </>
         )}
       </main>

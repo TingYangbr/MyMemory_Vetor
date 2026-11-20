@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Tipos de resposta (pipe)
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Tipos de resposta (pipe)
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 - Semântica: A resposta depende de interpretar textos dos memos (explicação, resumo, notícias). Usa busca por similaridade (pgvector).
@@ -9,5 +9,5 @@ Perfil: usuário · Tipo: campos · Versão do manual: 2
 NOTA: O tipo é escolhido pela IA. No card da resposta há botões para refazer a pergunta forçando outro tipo (ex.: "tentar semântica").
 
 Perguntas que este trecho responde:
-- Quais são as opções de tipos de resposta (pipe) em Perguntar ao MyMemory?
+- Quais são as opções de tipos de resposta (pipe) em Fale comigo?
 - O que significa cada item de tipos de resposta (pipe)?

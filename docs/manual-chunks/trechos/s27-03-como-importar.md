@@ -1,6 +1,6 @@
 Manual MyMemory › Admin: Importar conhecimento › Como importar
 Seção: Seção 27 — Admin: Importar conhecimento
-Rota: /admin/conhecimento (Painel Admin → Importar conhecimento)
+Rota: /admin/conhecimento (Painel Admin → Conteúdo → Importar conhecimento)
 Perfil: admin · Tipo: passo a passo · Versão do manual: 2
 
 1. Abrir Admin → Importar conhecimento.

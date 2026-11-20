@@ -9,7 +9,7 @@ Um campo do memo ligado ao seletor "Destinatário" avisa outras pessoas além de
 - "grupo", "todos", "equipe": Todos do grupo
 - Nome que não é de membro, ou que serve a vários: Os demais encontrados e quem registrou; a prévia mostra o nome não encontrado
 - Vazio: O destinatário padrão da categoria
-NOTA: Renomear um campo em Administrar grupo → Categorias atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
+NOTA: Renomear um campo em Painel Owners → Categorias atualiza também a regra de lembrete (campos escolhidos e variáveis {campo} do texto da mensagem).
 
 Perguntas que este trecho responde:
 - Quais são as opções de destinatário por memo (campo "avisar também") em Lembretes por e-mail?

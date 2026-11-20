@@ -456,6 +456,17 @@ export interface UserUsageDashboardResponse {
   storageGB: UserUsageMetric;
   apiCreditsMonth: UserUsageMetric;
   downloadsMonthGB: UserUsageMetric;
+  /** Créditos de IA do mês por área (soma de api_usage_logs × multiplicador). */
+  creditosPorArea?: { catalogar: number; perguntar: number; lote: number; avisos: number; outros: number };
+}
+
+/** Convite de grupo pendente para o e-mail do usuário logado (`GET /api/me/convites`). */
+export interface ConvitePendente {
+  groupName: string;
+  inviterName: string | null;
+  /** Token do convite (o mesmo do link enviado por e-mail a este endereço). */
+  token: string;
+  expiresAt: string;
 }
 
 /** Limites de tamanho de arquivo por mídia (`GET /api/me/media-limits`), alinhados a `media_settings` + plano. */
@@ -730,6 +741,11 @@ export interface DbConnection {
   groupId?: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Resultado do último "Testar" (lista do Admin do sistema). */
+  ultimoTesteEm?: string | null;
+  ultimoTesteOk?: number | null;
+  ultimoTesteMs?: number | null;
+  ultimoTesteMsg?: string | null;
 }
 
 export interface DbConnectionListResponse {
@@ -1668,3 +1684,4 @@ export interface BatchProcessJobStatus extends BatchProcessResponse {
   processed: number;
 }
 
+export * from "./financeiro.js";

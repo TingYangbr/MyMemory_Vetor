@@ -4,7 +4,7 @@ Rota: /avisos (menu da conta → Meus avisos e lembretes, ou o link do 🔔 sino
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: Você ainda não tem avisos
-Causa e solução: Situação normal — nenhum aviso foi criado. Faça a pergunta no Perguntar e toque em Me avise.
+Causa e solução: Situação normal — nenhum aviso foi criado. Faça a pergunta no Fale comigo e toque em Me avise.
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Você ainda não tem avisos"?

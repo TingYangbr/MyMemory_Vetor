@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Erros frequentes: Os servidores de IA estão temporariamente sobrecarregados
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Erros frequentes: Os servidores de IA estão temporariamente sobrecarregados
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: erro · Versão do manual: 2
 
 Sintoma: Os servidores de IA estão temporariamente sobrecarregados
@@ -8,4 +8,4 @@ Causa e solução: Provedor de IA indisponível. Tentar novamente em alguns segu
 
 Perguntas que este trecho responde:
 - O que fazer quando aparece "Os servidores de IA estão temporariamente sobrecarregados"?
-- Por que acontece "Os servidores de IA estão temporariamente sobrecarregados" em Perguntar ao MyMemory?
+- Por que acontece "Os servidores de IA estão temporariamente sobrecarregados" em Fale comigo?

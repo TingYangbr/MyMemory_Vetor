@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Texto da resposta e tabela
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Texto da resposta e tabela
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: conceito · Versão do manual: 2
 
 A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o PDF) traz os registros.
@@ -12,5 +12,5 @@ A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o
 DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento") para que os destaques venham no texto.
 
 Perguntas que este trecho responde:
-- O que é texto da resposta e tabela em Perguntar ao MyMemory?
+- O que é texto da resposta e tabela em Fale comigo?
 - Como funciona texto da resposta e tabela no MyMemory?

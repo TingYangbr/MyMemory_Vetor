@@ -3,7 +3,7 @@ Seção: Seção 30 — Referência Rápida Admin
 Perfil: admin · Tipo: campos · Versão do manual: 2
 
 - /admin/conhecimento: Importar conhecimento em trechos para um grupo
-- /grupo/:groupId/admin: Administrar grupo: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin)
+- /grupo/:groupId/admin: Painel Owners: pessoas, categorias, queries, lembretes, perfis, ERP (owner e admin)
 - /avisos: Meus avisos e lembretes
 - /perguntas-salvas: Perguntas salvas
 - /importar-lote: Importar em lote

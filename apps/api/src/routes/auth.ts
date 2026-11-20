@@ -26,6 +26,8 @@ const registerBody = z.object({
 const loginBody = z.object({
   email: z.string(),
   password: z.string(),
+  /** Manter conectado neste aparelho: 30 dias. Desmarcado: sessão do navegador (12 h). Ausente = 7 dias (clientes antigos). */
+  manterConectado: z.boolean().optional(),
 });
 
 const forgotBody = z.object({
@@ -352,9 +354,10 @@ const plugin: FastifyPluginAsync = async (app) => {
         });
       }
 
+      const manter = parsed.data.manterConectado;
       const token = await reply.jwtSign(
         { sub: String(row.id) },
-        { sign: { expiresIn: "7d" } }
+        { sign: { expiresIn: manter === true ? "30d" : manter === false ? "12h" : "7d" } }
       );
 
       reply.setCookie("mm_access", token, {
@@ -362,7 +365,8 @@ const plugin: FastifyPluginAsync = async (app) => {
         httpOnly: true,
         sameSite: "lax",
         secure: config.cookieSecure,
-        maxAge: 7 * 24 * 3600,
+        // Desmarcado: cookie de sessão (some ao fechar o navegador)
+        ...(manter === false ? {} : { maxAge: (manter === true ? 30 : 7) * 24 * 3600 }),
       });
 
       return {

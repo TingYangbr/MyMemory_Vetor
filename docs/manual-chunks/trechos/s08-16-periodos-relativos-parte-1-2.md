@@ -1,6 +1,6 @@
-Manual MyMemory › Perguntar ao MyMemory › Períodos relativos (parte 1/2)
-Seção: Seção 8 — Perguntar ao MyMemory
-Rota: / (aba Perguntar) · Componente: PerguntaPage
+Manual MyMemory › Fale comigo › Períodos relativos (parte 1/2)
+Seção: Seção 8 — Fale comigo (perguntas ao proMemory)
+Rota: / (aba Fale comigo) · Componente: PerguntaPage
 Perfil: usuário · Tipo: campos · Versão do manual: 2
 
 Expressões de tempo na pergunta são calculadas pelo sistema, no horário de Brasília, e enviadas prontas à IA — a pergunta não é reescrita. A semana vai de segunda a domingo. Exemplo com hoje = segunda-feira, 26/10/2026:
@@ -15,5 +15,5 @@ NOTA: "Próximos 7 dias" é diferente de "semana que vem": conta a partir de hoj
 - Expressão: próxima sexta; Período: a próxima; numa sexta-feira, a da semana seguinte; Exemplo: 30/10
 
 Perguntas que este trecho responde:
-- Quais são as opções de períodos relativos (parte 1/2) em Perguntar ao MyMemory?
+- Quais são as opções de períodos relativos (parte 1/2) em Fale comigo?
 - O que significa cada item de períodos relativos (parte 1/2)?

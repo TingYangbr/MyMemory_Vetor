@@ -1,5 +1,5 @@
-Manual MyMemory › Administrar grupo › Configurações
-Seção: Seção 14 — Administrar grupo
+Manual MyMemory › Painel Owners › Configurações
+Seção: Seção 14 — Painel Owners
 Rota: /grupo/:groupId/admin (as rotas antigas /grupo/:id/painel e /estrutura-memo levam para cá)
 Perfil: owner · Tipo: campos · Versão do manual: 2
 
@@ -9,5 +9,5 @@ Perfil: owner · Tipo: campos · Versão do manual: 2
 - Só pergunta ao ERP quem tem usuário do ERP ligado: Ligue depois de ligar as pessoas em Pessoas, senão elas ficam sem resposta do ERP.
 
 Perguntas que este trecho responde:
-- Quais são as opções de configurações em Administrar grupo?
+- Quais são as opções de configurações em Painel Owners?
 - O que significa cada item de configurações?

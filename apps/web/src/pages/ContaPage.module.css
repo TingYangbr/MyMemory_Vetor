@@ -1,0 +1,406 @@
+/* Minha conta — lote 4 do redesenho. Menu lateral + cartões. Cores pelos tokens do app. */
+
+.pagina {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  align-items: flex-start;
+  color: var(--mm-text);
+}
+
+/* ── Menu lateral ────────────────────────────────────────────────── */
+.menu {
+  flex: 1 1 220px;
+  max-width: 260px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.quem {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0 0.5rem 1.1rem;
+}
+.avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--mm-primary);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+}
+.quemTexto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  font-size: 0.88rem;
+}
+.quemTexto span {
+  color: var(--mm-muted);
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.item {
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.65rem 0.75rem;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mm-text-secondary);
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+.item:hover {
+  background: var(--mm-primary-faint);
+  color: var(--mm-text);
+}
+.itemAtivo,
+.itemAtivo:hover {
+  background: var(--mm-primary-soft);
+  color: var(--mm-primary-hover);
+  font-weight: 700;
+}
+.separador {
+  height: 1px;
+  margin: 0.6rem 0;
+  background: var(--mm-border);
+}
+
+/* ── Conteúdo ────────────────────────────────────────────────────── */
+.conteudo {
+  flex: 999 1 560px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.tituloLinha {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.titulo {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.salvo {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--mm-success);
+}
+
+.cartao {
+  box-sizing: border-box;
+  padding: 1.4rem 1.5rem;
+  background: var(--mm-card);
+  border: 1px solid var(--mm-border);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.cartaoTitulo {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.bloqueado {
+  opacity: 0.55;
+}
+
+/* Opção com chave (rótulo + explicação à esquerda, controle à direita) */
+.opcao {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--mm-border);
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.opcao:last-child {
+  border-bottom: 0;
+}
+.opcao small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--mm-muted);
+}
+.opcao input[type="checkbox"] {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  accent-color: var(--mm-primary);
+}
+.velocidade {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--mm-muted);
+}
+.velocidade input {
+  width: 200px;
+  accent-color: var(--mm-primary);
+}
+.velocidade b {
+  color: var(--mm-text);
+  min-width: 2.6rem;
+}
+
+/* Nível de IA por tipo: botões segmentados */
+.gradeIa {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 0.6rem 2rem;
+}
+.linhaIa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.rotuloIa {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+.segmentos {
+  display: flex;
+  border: 1px solid var(--mm-border-muted);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.segmento {
+  min-height: 36px;
+  padding: 0 0.75rem;
+  border: 0;
+  border-left: 1px solid var(--mm-border-muted);
+  background: var(--mm-card);
+  color: var(--mm-text-secondary);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.segmento:first-child {
+  border-left: 0;
+}
+.segmento:hover:not(:disabled) {
+  background: var(--mm-primary-faint);
+}
+.segmentoAtivo,
+.segmentoAtivo:hover:not(:disabled) {
+  background: var(--mm-primary);
+  color: #ffffff;
+}
+
+/* Formulários do perfil */
+.linhaForm {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+.rotulo {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--mm-text-secondary);
+}
+.campo,
+.campoCurto {
+  box-sizing: border-box;
+  min-height: 42px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid var(--mm-border-muted);
+  border-radius: 10px;
+  background: var(--mm-card);
+  color: var(--mm-text);
+  font: inherit;
+  font-size: 0.95rem;
+}
+.linhaForm .campo {
+  flex: 1 1 220px;
+}
+.campoCurto {
+  width: 7.5rem;
+  flex: none;
+}
+.campo:focus,
+.campoCurto:focus {
+  outline: none;
+  border-color: var(--mm-primary);
+  box-shadow: 0 0 0 3px var(--mm-primary-soft);
+}
+.coluna {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.nota {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--mm-muted);
+}
+.nota a {
+  color: var(--mm-primary);
+  font-weight: 600;
+}
+.ok {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mm-success);
+}
+.erro {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--mm-danger);
+}
+
+/* ── Uso do plano ────────────────────────────────────────────────── */
+.grade2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.1rem;
+}
+.grade4 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+}
+.plano > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.sobretitulo {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--mm-muted);
+}
+.planoNome {
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+.uso {
+  gap: 0.65rem;
+}
+.usoPerto {
+  border-color: var(--mm-warning-border);
+}
+.usoTopo {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.usoTitulo {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+.usoValor {
+  font-size: 0.85rem;
+  color: var(--mm-text-secondary);
+  white-space: nowrap;
+}
+.usoValor b {
+  font-size: 1.15rem;
+  color: var(--mm-text);
+}
+.barra {
+  height: 10px;
+  border-radius: 5px;
+  background: var(--mm-border);
+  overflow: hidden;
+}
+.barraCheia {
+  height: 100%;
+  background: var(--mm-primary);
+}
+.usoPerto .barraCheia {
+  background: var(--mm-warning);
+}
+.usoNota {
+  font-size: 0.8rem;
+  color: var(--mm-muted);
+}
+.usoAviso {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--mm-warning);
+}
+.area {
+  padding: 0.85rem;
+  border-radius: 10px;
+  background: var(--mm-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.area span {
+  font-size: 0.8rem;
+  color: var(--mm-muted);
+}
+.area b {
+  font-size: 1.05rem;
+}
+
+/* Celular: o menu vira uma faixa no topo */
+@media (max-width: 760px) {
+  .pagina {
+    padding: 1.25rem 1rem 6rem;
+    gap: 1rem;
+  }
+  .menu {
+    max-width: none;
+    flex-basis: 100%;
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .quem,
+  .separador {
+    display: none;
+  }
+  .item {
+    width: auto;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.88rem;
+  }
+  .opcao {
+    gap: 1rem;
+  }
+  .velocidade input {
+    width: 120px;
+  }
+}

@@ -11,7 +11,7 @@ import type {
 } from "@mymemory/shared";
 import { apiGet, apiGetOptional, apiPatchJson } from "../api";
 import Header from "../components/Header";
-import { IconArrowLeft, IconChat, IconPlus, IconSearch, IconUser } from "../components/icons";
+import { IconArrowLeft, IconConversa, IconPlus, IconSearch, IconUser } from "../components/icons";
 import MemoRegisterPanel from "../components/MemoRegisterPanel";
 import RecentMemos from "../components/RecentMemos";
 import PerguntaPage from "./PerguntaPage";
@@ -30,7 +30,7 @@ function getInitialTab(params: URLSearchParams): HomeTab {
 }
 
 function IconPerguntar() {
-  return <IconChat size={17} />;
+  return <IconConversa size={18} />;
 }
 
 function IconBuscar() {
@@ -379,7 +379,7 @@ export default function HomePage() {
         role="tab"
       >
         <IconPerguntar />
-        Perguntar
+        Fale comigo
       </button>
       <button
         type="button"
