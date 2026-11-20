@@ -464,7 +464,7 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 Cria uma lista nova a partir de uma anterior (ex.: a lista de compras da semana passada). A lista anterior fica como está, com as marcas ✓/✗ e a data dela.
 - Pelo botão **⧉ Repetir lista** no cartão da lista (ao lado de ✎ Alterar e ☑ Concluir lista), ou dizendo: "repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior", "copiar a lista do mercado".
 - Sem número, vale a última lista **concluída** da categoria (se nenhuma foi concluída, a mais recente). Com mais de uma categoria de lista, cite o nome (ex.: "lista de compras").
-- A lista nova sai com os mesmos campos, os itens **todos pendentes**, **sem os itens cancelados** (✗), sem as datas da anterior e com a situação Pendente. Abre o cartão de registro novo: confira, tire ou acrescente itens e toque em Salvar registro — nada é gravado antes.
+- A lista nova é a **cópia** da anterior com a **data de hoje** (nos campos de data): mesmos campos, mesmos itens sem as marcas ✓ (ainda a fazer na lista nova), **sem os itens cancelados** (✗) e com a situação Pendente. Abre o cartão de registro novo: confira, tire ou acrescente itens e toque em Salvar registro — nada é gravado antes.
 
 ## Perguntar sobre remarcações e cancelamentos
 Nas categorias atualizáveis, o Fale comigo também responde sobre o que MUDOU, usando o registro de alterações (consulta "Alterações — Agenda", criada sozinha; Seção 17).

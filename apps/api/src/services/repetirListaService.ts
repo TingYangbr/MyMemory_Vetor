@@ -1,8 +1,8 @@
 /**
  * "Repetir lista": prepara uma lista nova a partir de uma lista anterior (ex.: a última lista de
- * compras concluída). A anterior fica como está, com as marcas ✓/✗ e a data dela; a nova sai com
- * os mesmos campos, os itens todos pendentes (os cancelados ficam de fora), sem as datas e com a
- * situação aberta. Nada é gravado aqui: devolve o cartão de registro novo, que o usuário confere e salva.
+ * compras concluída). A anterior fica como está, com as marcas ✓/✗ e a data dela; a nova é a cópia
+ * dela com a data de hoje: mesmos campos, mesmos itens sem as marcas (os cancelados ficam de fora)
+ * e a situação aberta. Nada é gravado aqui: devolve o cartão de registro novo, que o usuário confere e salva.
  */
 import type { ComandoCriacao, MemoContextCategory } from "@mymemory/shared";
 import { estadoDaSituacao, lerItensLista, lerValoresStatus, valorDaSituacao } from "@mymemory/shared";
@@ -47,6 +47,9 @@ function lerDados(json: unknown): Record<string, string> {
     return {};
   }
 }
+
+/** Hoje (horário de Brasília) em AAAA-MM-DD. */
+const hojeIso = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
 
 const dataBr = (d: unknown) => {
   const x = new Date(String(d));
@@ -118,7 +121,7 @@ export async function prepararRepeticaoLista(input: {
       itensNovos += novos.length;
       dados[f.name] = novos.join("\n");
     } else if (f.tipo === "date") {
-      dados[f.name] = ""; // datas da lista anterior não valem para a nova
+      dados[f.name] = hojeIso(); // a lista nova é a cópia da anterior com a data de hoje
     } else {
       dados[f.name] = v;
     }
@@ -138,7 +141,7 @@ export async function prepararRepeticaoLista(input: {
     criacao: {
       mensagem:
         `Preparei uma lista nova a partir da lista #${origem.id}${quando ? ` de ${quando}` : ""}: ` +
-        `${itensNovos === 1 ? "1 item" : `${itensNovos} itens`}, todos pendentes` +
+        `cópia com a data de hoje, ${itensNovos === 1 ? "1 item" : `${itensNovos} itens`}` +
         `${cancelados ? ` (${cancelados === 1 ? "1 cancelado ficou" : `${cancelados} cancelados ficaram`} de fora)` : ""}. ` +
         `A lista anterior continua como está. Confira no cartão e toque em Salvar registro.`,
       groupId: input.groupId,
