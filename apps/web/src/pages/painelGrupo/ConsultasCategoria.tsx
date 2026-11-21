@@ -13,6 +13,7 @@ import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../../api";
 import { IconCheck, IconEdit, IconPlus, IconTrash, IconX } from "../../components/icons";
 import { msgErro } from "./util";
 import s from "./painel.module.css";
+import ExecutarConsultaJanela from "./ExecutarConsultaJanela";
 
 type ParamNovo = Omit<QueryCategoriaParam, "id" | "queryId" | "isActive" | "createdAt" | "updatedAt">;
 
@@ -93,6 +94,8 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
   const [erro, setErro] = useState<string | null>(null);
   const [ok, setOk] = useState<string | null>(null);
   const [voltando, setVoltando] = useState<number | null>(null);
+  /** ▶ Executar: a consulta aberta na janela grande */
+  const [executando, setExecutando] = useState<QueryCategoria | null>(null);
 
   useEffect(() => {
     setEditando(null);
@@ -191,6 +194,9 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
         </div>
       ) : null}
 
+      {executando && groupId != null ? (
+        <ExecutarConsultaJanela query={executando} groupId={groupId} onFechar={() => setExecutando(null)} />
+      ) : null}
       {cat.queries.length === 0 && editando == null ? <p className="mm-muted">Nenhuma query nesta categoria.</p> : null}
 
       {cat.queries.map((q) => (
@@ -208,6 +214,16 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
                 · {q.params.length} parâmetro(s)
               </span>
               <span className={s.sp} />
+              {podeEditar && groupId != null && !q.conexaoPendente ? (
+                <button
+                  type="button"
+                  className={`mm-btn ${s.btnSm}`}
+                  onClick={() => setExecutando(q)}
+                  title="Rodar esta consulta com os filtros que você escolher e ver o resultado"
+                >
+                  ▶ Executar
+                </button>
+              ) : null}
               {podeEditar ? (
                 <>
                   {q.autoEditada ? (

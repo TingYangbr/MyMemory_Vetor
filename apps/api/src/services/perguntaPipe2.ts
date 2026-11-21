@@ -1951,3 +1951,50 @@ function adicionarVariacaoSequencial(task: PlanoQuery, r: QueryExecResultado): v
   });
   r.colunas = r.colunas.flatMap((c) => (medidas.includes(c) ? [c, nomeVar(c)] : [c]));
 }
+
+// ── Executar uma consulta da categoria direto (aba Consultas, botão ▶ Executar) ─────────────────
+
+/**
+ * Roda UMA consulta da categoria com os filtros informados, sem IA: mesmo executor do Fale comigo
+ * (papel restrito, espaço do grupo, conexão de ERP), para o dono testar o que a IA vai receber.
+ */
+export async function executarConsultaDireta(input: {
+  template: QueryDisponivel;
+  valores: Record<string, string>;
+  userId: number;
+  groupId: number | null;
+}): Promise<{ resultado: PerguntaResultadoEstruturado; avisos: string[]; ms: number }> {
+  const t0 = Date.now();
+  const parametros: PlanoParam[] = [];
+  for (const p of input.template.params) {
+      const v = (input.valores[p.nome] ?? "").trim();
+      if (!v) continue;
+      parametros.push({
+        nome: p.nome,
+        termo_usuario: v,
+        valor: ehTipoData(p.tipo) ? (coerceDateParam(v) ?? v) : v,
+        tipo: p.tipo,
+        operador_sugerido: "=",
+        obrigatorio: false,
+        precisa_normalizacao: false,
+      });
+  }
+  const plano: PlanoConsulta = {
+    queries: [{ query_id: input.template.query_id, motivo_uso: "execução manual", prioridade: 1, parametros, agregacao: null }],
+    dados_insuficientes: false,
+    pergunta_para_usuario: null,
+    observacoes: [],
+  };
+  const { agregado, avisos } = await executarConsultasPlano({
+    plano,
+    queriesDisponiveis: [input.template],
+    userId: input.userId,
+    groupId: input.groupId,
+  });
+  const linhas = agregado.linhasCompletas ?? agregado.linhas;
+  return {
+    resultado: { colunas: agregado.colunas, linhas, totalLinhas: Math.max(agregado.totalLinhas, linhas.length) },
+    avisos,
+    ms: Date.now() - t0,
+  };
+}
