@@ -10,6 +10,9 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { copiarCategoriaParaGrupo } from "./memoContextService.js";
 
+/** Mesmo nome, sem diferenciar maiúsculas nem travessão/hífen ("Fin — X" = "Fin - X"); compara com o parâmetro "?". */
+const NOME_IGUAL = (col: string) => `lower(translate(${col}, '—–', '--')) = lower(translate(?, '—–', '--'))`;
+
 async function grupoCatalogo(): Promise<number> {
   const [rows] = await pool.query<RowDataPacket[]>(`SELECT id FROM groups WHERE tipo = 'catalogo' ORDER BY id LIMIT 1`);
   const id = Number(rows[0]?.id);
@@ -31,7 +34,7 @@ export async function listarModelos(groupId: number | null): Promise<CatalogoMod
             c.modelo_versao AS "versao", c.atualizavel, c.situacao_tipo AS "situacaoTipo",
             c.rotulo_concluido AS "rotuloConcluido", c.campo_situacao AS "campoSituacao",
             ${groupId != null
-              ? `(SELECT d.id FROM categories d WHERE d.groupid = ? AND d.isactive = 1 AND lower(d.name) = lower(c.name) LIMIT 1)`
+              ? `(SELECT d.id FROM categories d WHERE d.groupid = ? AND d.isactive = 1 AND lower(translate(d.name, '—–', '--')) = lower(translate(c.name, '—–', '--')) LIMIT 1)`
               : "NULL"} AS "habilitadaId"
      FROM categories c
      WHERE c.groupid = ? AND c.isactive = 1
@@ -95,7 +98,7 @@ export async function publicarModelo(input: {
     return { id: input.categoryId, versao: Number(v[0]?.v ?? 1) };
   }
   const [ant] = await pool.query<RowDataPacket[]>(
-    `SELECT id, modelo_versao AS "versao" FROM categories WHERE groupid = ? AND isactive = 1 AND lower(name) = lower(?) LIMIT 1`,
+    `SELECT id, modelo_versao AS "versao" FROM categories WHERE groupid = ? AND isactive = 1 AND ${NOME_IGUAL("name")} LIMIT 1`,
     [catalogo, String(cat.name)]
   );
   const versao = ant[0] ? Number(ant[0].versao ?? 1) + 1 : 1;

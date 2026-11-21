@@ -1,14 +1,14 @@
 import type { MigrationInterface, QueryRunner } from "typeorm";
 
 /**
- * Controle financeiro — nomes curtos das 3 categorias ("Financeiro — …" → "Fin — …"), que passavam da borda
+ * Controle financeiro — nomes curtos das 3 categorias ("Financeiro — …" → "Fin - …", com hífen), que passavam da borda
  * dos cartões. Renomeia o modelo do catálogo e as cópias já habilitadas nos grupos (as categorias do
  * financeiro não têm memos; a ligação com as consultas é pelo id). Os nomes novos ficam em FIN_CATEGORIAS.
  */
 const TROCAS: [string, string][] = [
-  ["Financeiro — Contas a pagar e receber", "Fin — A pagar e receber"],
-  ["Financeiro — Gastos e lançamentos", "Fin — Gastos e lançamentos"],
-  ["Financeiro — Saldos e investimentos", "Fin — Saldos e investimentos"],
+  ["Financeiro — Contas a pagar e receber", "Fin - A pagar e receber"],
+  ["Financeiro — Gastos e lançamentos", "Fin - Gastos e lançamentos"],
+  ["Financeiro — Saldos e investimentos", "Fin - Saldos e investimentos"],
 ];
 
 export class FinanceiroNomesCurtos1700000000185 implements MigrationInterface {
