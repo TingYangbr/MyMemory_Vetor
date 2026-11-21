@@ -673,6 +673,8 @@ export interface MemoContextCampo {
   normalizedTerms: string | null;
   /** Tipo status: uma linha por valor, "Baixado: pagar, paguei, quitar". */
   verbos?: string | null;
+  /** Ordem da coluna na tabela das respostas: 1, 2…; null = depois, na ordem do campo; -1 = só se a pergunta citar. */
+  ordemExibicao?: number | null;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
   resolucaoNomeAbrev: boolean;
   isActive: number;
@@ -1212,6 +1214,8 @@ export interface PerguntaResultadoEstruturado {
   nome?: string;
   /** Todas as linhas (até 2.000) quando a tela mostra só as primeiras — usadas no PDF da resposta. */
   linhasCompletas?: Record<string, unknown>[];
+  /** Categoria da tabela (para gravar a ordem das colunas arrastadas na resposta). */
+  categoria?: string;
 }
 
 export interface PerguntaResposta {

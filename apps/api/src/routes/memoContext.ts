@@ -286,6 +286,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
+    ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
   });
 
   const patchCampoBody = z.object({
@@ -295,6 +296,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
+    ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
   });
 

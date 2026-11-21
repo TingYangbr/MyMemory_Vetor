@@ -758,6 +758,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [termos, setTermos] = useState(campo?.normalizedTerms ?? "");
   const [verbos, setVerbos] = useState(campo?.verbos ?? "");
   const [nomeErp, setNomeErp] = useState(campo?.resolucaoNomeAbrev ?? false);
+  const [ordemTabela, setOrdemTabela] = useState(campo?.ordemExibicao != null ? String(campo.ordemExibicao) : "");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -774,6 +775,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
         normalizedTerms: termos.trim() || null,
         verbos: tipo === "status" ? verbos.trim() || null : null,
         resolucaoNomeAbrev: nomeErp,
+        ordemExibicao: ordemTabela.trim() === "" ? null : Math.max(-1, Math.min(999, Math.trunc(Number(ordemTabela)) || 0)),
       };
       if (campo) {
         const r = await apiPatchJson<{ renomeado?: { de: string; para: string; memos: number; queries: number } }>(`/api/memo-context/campos/${campo.id}`, corpo);
@@ -867,6 +869,24 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
           <input type="checkbox" checked={nomeErp} onChange={(e) => setNomeErp(e.target.checked)} />
           Procurar o nome oficial no ERP (cliente ou produto pela abreviação)
         </label>
+        <div className={s.row} style={{ marginTop: 10, fontSize: 13.5 }}>
+          <label htmlFor="cp-ordem">Ordem na tabela das respostas:</label>
+          <input
+            id="cp-ordem"
+            className={`mm-field ${s.selectSm}`}
+            type="number"
+            min={-1}
+            max={999}
+            style={{ width: 80 }}
+            value={ordemTabela}
+            onChange={(e) => setOrdemTabela(e.target.value)}
+            placeholder="auto"
+          />
+        </div>
+        <p className={s.help}>
+          1, 2, 3… = posição da coluna (menor primeiro). Vazio = depois das numeradas, na ordem dos campos. -1 = não mostra, a não
+          ser que a pergunta cite o campo. Também dá para arrastar as colunas na própria resposta.
+        </p>
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions}>
           <button type="button" className="mm-btn mm-btn--ghost" onClick={onFechar}>

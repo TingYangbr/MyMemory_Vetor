@@ -99,6 +99,7 @@ import { FinanceiroContasCadastradas1700000000184 } from "./migrations/170000000
 import { FinanceiroNomesCurtos1700000000185 } from "./migrations/1700000000185-FinanceiroNomesCurtos.js";
 import { FinancasPessoaisNomes1700000000186 } from "./migrations/1700000000186-FinancasPessoaisNomes.js";
 import { ListaAbertaPor1700000000187 } from "./migrations/1700000000187-ListaAbertaPor.js";
+import { CampoOrdemExibicao1700000000188 } from "./migrations/1700000000188-CampoOrdemExibicao.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -119,7 +120,7 @@ import donoMemoRoutes from "./routes/donoMemo.js";
 import memoAlteracaoRoutes from "./routes/memoAlteracao.js";
 import memoRelacoesRoutes from "./routes/memoRelacoes.js";
 import catalogoModelosRoutes from "./routes/catalogoModelos.js";
-import consultaExecutarRoutes from "./routes/consultaExecutar.js";
+import consultaExecutarRoutes, { pluginOrdem as ordemColunasRoutes } from "./routes/consultaExecutar.js";
 import adminLlmChamadasRoutes from "./routes/adminLlmChamadas.js";
 import mediaRevisaoRoutes from "./routes/mediaRevisao.js";
 import automacaoImportacaoRoutes from "./routes/automacaoImportacao.js";
@@ -246,6 +247,7 @@ assertMediaStorageEnv();
       FinanceiroNomesCurtos1700000000185,
       FinancasPessoaisNomes1700000000186,
       ListaAbertaPor1700000000187,
+      CampoOrdemExibicao1700000000188,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -324,6 +326,7 @@ await app.register(memoAlteracaoRoutes);
 await app.register(memoRelacoesRoutes);
 await app.register(catalogoModelosRoutes);
 await app.register(consultaExecutarRoutes);
+await app.register(ordemColunasRoutes);
 await app.register(adminLlmChamadasRoutes);
 await app.register(mediaRevisaoRoutes);
 await app.register(automacaoImportacaoRoutes);

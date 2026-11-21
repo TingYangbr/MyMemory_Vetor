@@ -1223,6 +1223,27 @@
   white-space: nowrap;
 }
 
+/* Títulos das colunas: arrastar muda a ordem; duplo clique ordena as linhas */
+.tabelaThArrastavel {
+  cursor: grab;
+  user-select: none;
+}
+
+.tabelaThArrastando {
+  opacity: 0.45;
+}
+
+/* "Gravar esta ordem de colunas?" (some sozinho em 5 s) */
+.ordemOferta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  color: var(--mm-muted);
+  margin: 0.25rem 0 0.4rem;
+}
+
 .tabelaTr:nth-child(even) { background: var(--mm-bg); }
 .tabelaTr:hover { background: color-mix(in srgb, var(--mm-primary) 5%, transparent); }
 

@@ -496,6 +496,8 @@ interface AlteracaoCtxValor {
   aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
   /** Grava um campo do memo (ex.: a lista com o estado de um item mudado), com aviso e Desfazer. */
   alterarCampo: (memoId: number, campo: string, valor: string, aviso: string) => Promise<void>;
+  /** Grupo da tela (para gravar a ordem das colunas arrastadas). */
+  groupId: number | null;
   /** "⧉ Repetir lista": pede ao Perguntar uma lista nova a partir desta (cartão de registro novo). */
   repetirLista: (memoId: number) => void;
 }
@@ -509,6 +511,7 @@ const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   aplicarLocal: () => {},
   alterarCampo: async () => {},
   repetirLista: () => {},
+  groupId: null,
 });
 
 /** Uma mudança mostrada no formato do usuário: lista com o que entra destacado e o que sai riscado. */
@@ -1079,6 +1082,16 @@ function ConteudoCelula({ texto, onExpandir }: { texto: string; onExpandir: (t: 
   return <>{texto.length > 80 ? texto.slice(0, 80) + "…" : texto}</>;
 }
 
+/** Valor para ordenar: número quando der (inclusive "1.234,56"), data ISO como texto, resto sem acento. */
+function valorParaOrdenar(v: unknown): { n: number | null; t: string } {
+  if (v == null || v === "") return { n: null, t: "" };
+  if (typeof v === "number") return { n: v, t: String(v) };
+  const t = String(v).trim();
+  if (/^-?\d+(\.\d+)?$/.test(t)) return { n: Number(t), t };
+  if (/^-?[\d.]+,\d+$/.test(t)) return { n: Number(t.replace(/\./g, "").replace(",", ".")), t };
+  return { n: null, t: t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase() };
+}
+
 function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
@@ -1088,8 +1101,75 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const alteracao = useContext(AlteracaoCtx);
+  // O id vai para a última coluna (com o arquivo); o lápis, para a primeira
+  const temId = dados.colunas.some((c) => c === "id");
+  const inicial = useMemo(() => dados.colunas.filter((c) => c !== "id"), [dados.colunas]);
+  const [ordem, setOrdem] = useState<string[]>(inicial);
+  useEffect(() => setOrdem(inicial), [inicial]);
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  // Ordem das linhas: duplo clique no título (crescente, decrescente, original)
+  const [sortCol, setSortCol] = useState<{ col: string; dir: 1 | -1 } | null>(null);
+  // Depois de arrastar: oferece gravar a ordem na categoria por 5 s
+  const [oferta, setOferta] = useState<{ seg: number; estado: "pergunta" | "gravando" | "ok" | "erro"; msg?: string } | null>(null);
+  useEffect(() => {
+    if (!oferta || oferta.estado !== "pergunta") return;
+    if (oferta.seg <= 0) {
+      setOferta(null);
+      return;
+    }
+    const t = setTimeout(() => setOferta((o) => (o && o.estado === "pergunta" ? { ...o, seg: o.seg - 1 } : o)), 1000);
+    return () => clearTimeout(t);
+  }, [oferta]);
+  useEffect(() => {
+    if (oferta && (oferta.estado === "ok" || oferta.estado === "erro")) {
+      const t = setTimeout(() => setOferta(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [oferta]);
+
+  // "Ver todas": a resposta traz até 2.000 linhas (as mesmas do PDF); a tela começa com as primeiras
+  const [verTodas, setVerTodas] = useState(false);
+  const todas = dados.linhasCompletas ?? [];
+  const base = verTodas && todas.length > dados.linhas.length ? todas : dados.linhas;
+  const linhas = useMemo(() => {
+    if (!sortCol) return base;
+    const col = sortCol.col;
+    return [...base].sort((a, b) => {
+      const x = valorParaOrdenar(a[col]);
+      const y = valorParaOrdenar(b[col]);
+      if (x.t === "" && y.t !== "") return 1; // vazios sempre no fim
+      if (y.t === "" && x.t !== "") return -1;
+      const r = x.n != null && y.n != null ? x.n - y.n : x.t.localeCompare(y.t, "pt-BR", { numeric: true });
+      return r * sortCol.dir;
+    });
+  }, [base, sortCol]);
 
   if (!dados.totalLinhas) return null;
+
+  function soltar(alvo: string) {
+    if (!arrastando || arrastando === alvo) return;
+    const nova = ordem.filter((c) => c !== arrastando);
+    nova.splice(nova.indexOf(alvo), 0, arrastando);
+    setOrdem(nova);
+    setArrastando(null);
+    if (dados.categoria && alteracao.groupId != null && nova.join("|") !== inicial.join("|")) setOferta({ seg: 5, estado: "pergunta" });
+  }
+
+  async function gravarOrdem() {
+    if (!dados.categoria || alteracao.groupId == null) return;
+    setOferta({ seg: 0, estado: "gravando" });
+    try {
+      await apiPostJson("/api/memo-context/ordem-colunas", { groupId: alteracao.groupId, categoria: dados.categoria, colunas: ordem });
+      setOferta({ seg: 0, estado: "ok", msg: `Ordem gravada em ${dados.categoria}.` });
+    } catch (e) {
+      setOferta({ seg: 0, estado: "erro", msg: e instanceof Error ? e.message : "Não foi possível gravar." });
+    }
+  }
+
+  const duploClique = (col: string) =>
+    setSortCol((s) => (!s || s.col !== col ? { col, dir: 1 } : s.dir === 1 ? { col, dir: -1 } : null));
+  const seta = (col: string) => (sortCol?.col === col ? (sortCol.dir === 1 ? " ▲" : " ▼") : "");
+
   return (
     <>
       {expandedCell ? (
@@ -1099,86 +1179,133 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
           </div>
         </div>
       ) : null}
+      {oferta ? (
+        <div className={styles.ordemOferta} role="status">
+          {oferta.estado === "pergunta" ? (
+            <>
+              <span>Gravar esta ordem de colunas em {dados.categoria}?</span>
+              <button type="button" className={styles.refazerBtn} onClick={() => void gravarOrdem()}>
+                Gravar ({oferta.seg})
+              </button>
+            </>
+          ) : (
+            <span>{oferta.estado === "gravando" ? "Gravando…" : oferta.msg}</span>
+          )}
+        </div>
+      ) : null}
       <div className={styles.tabelaWrap}>
         <table className={styles.tabela}>
           <thead>
             <tr>
-              {dados.colunas.map((col) => (
-                <th key={col} className={styles.tabelaTh}>{COLUNA_LABELS[col] ?? col}</th>
+              {temId ? <th className={styles.tabelaTh} aria-label="Alterar" /> : null}
+              {ordem.map((col) => (
+                <th
+                  key={col}
+                  className={`${styles.tabelaTh} ${styles.tabelaThArrastavel}${arrastando === col ? ` ${styles.tabelaThArrastando}` : ""}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setArrastando(col);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    soltar(col);
+                  }}
+                  onDragEnd={() => setArrastando(null)}
+                  onDoubleClick={() => duploClique(col)}
+                  title="Arraste para mudar a ordem; duplo clique ordena as linhas"
+                >
+                  {COLUNA_LABELS[col] ?? col}
+                  {seta(col)}
+                </th>
               ))}
+              {temId ? (
+                <th className={styles.tabelaTh} onDoubleClick={() => duploClique("id")} title="Duplo clique ordena as linhas">
+                  {COLUNA_LABELS["id"] ?? "id"}
+                  {seta("id")}
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {dados.linhas.map((linha, i) => {
+            {linhas.map((linha, i) => {
               const idLinha = linha["id"] != null ? Number(linha["id"]) : null;
               const locais = idLinha != null ? alteracao.locais[idLinha] : undefined;
               const alteravel = idLinha != null && alteracao.alteraveis.has(idLinha);
+              const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
+              const rowUrl = String(linha["mediaFileUrl"] ?? linha["mediafileurl"] ?? "");
+              const rowName = String(linha["attachmentDisplayName"] ?? linha["attachmentdisplayname"] ?? "");
               return (
-              <tr
-                key={i}
-                className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
-                onClick={alteravel ? () => alteracao.abrir(idLinha!) : undefined}
-                title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
-              >
-                {dados.colunas.map((col) => {
-                  const local = valorLocal(locais, col);
-                  const val = local !== undefined ? local : linha[col];
-                  const display = textoCelula(col, val);
-                  const isLong = display.length > 80 && !display.includes("\n");
-                  if (col === "id" && val != null) {
-                    const id = Number(val);
-                    const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
-                    const rowUrl = String(linha["mediaFileUrl"] ?? linha["mediafileurl"] ?? "");
-                    const rowName = String(linha["attachmentDisplayName"] ?? linha["attachmentdisplayname"] ?? "");
+                <tr
+                  key={idLinha ?? i}
+                  className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
+                  onClick={alteravel ? () => alteracao.abrir(idLinha!) : undefined}
+                  title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
+                >
+                  {temId ? <td className={styles.tabelaTd}>{idLinha != null ? <BotaoAlterar memoId={idLinha} /> : null}</td> : null}
+                  {ordem.map((col) => {
+                    const local = valorLocal(locais, col);
+                    const val = local !== undefined ? local : linha[col];
+                    const display = textoCelula(col, val);
+                    const isLong = display.length > 80 && !display.includes("\n");
                     return (
-                      <td key={col} className={styles.tabelaTd}>
+                      <td
+                        key={col}
+                        className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                        onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
+                        title={isLong ? "Clique para ver texto completo" : undefined}
+                      >
+                        <ConteudoCelula texto={display} onExpandir={setExpandedCell} />
+                      </td>
+                    );
+                  })}
+                  {temId ? (
+                    <td className={styles.tabelaTd}>
+                      {idLinha != null ? (
                         <span className={styles.tabelaIdCell}>
                           {onOpenMemoFile ? (
                             <button
                               type="button"
                               className={styles.tableFileBtn}
-                              onClick={(e) => { e.stopPropagation(); onOpenMemoFile(id); }}
-                              disabled={loadingFileId === id}
-                              title={`Abrir arquivo — memo #${id}`}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemoFile(idLinha); }}
+                              disabled={loadingFileId === idLinha}
+                              title={`Abrir arquivo — memo #${idLinha}`}
                             >
-                              {loadingFileId === id ? "…" : <MediaTypeIcon mediaType={rowMt} fileUrl={rowUrl} displayName={rowName} />}
+                              {loadingFileId === idLinha ? "…" : <MediaTypeIcon mediaType={rowMt} fileUrl={rowUrl} displayName={rowName} />}
                             </button>
                           ) : null}
                           {onOpenMemo ? (
                             <button
                               type="button"
                               className={styles.memoIdBtn}
-                              onClick={(e) => { e.stopPropagation(); onOpenMemo(id); }}
-                              disabled={loadingCardId === id}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemo(idLinha); }}
+                              disabled={loadingCardId === idLinha}
                               title="Ver detalhes do memo"
                             >
-                              {loadingCardId === id ? "…" : `#${id}`}
+                              {loadingCardId === idLinha ? "…" : `#${idLinha}`}
                             </button>
                           ) : null}
-                          <BotaoAlterar memoId={id} />
                         </span>
-                      </td>
-                    );
-                  }
-                  return (
-                    <td
-                      key={col}
-                      className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                      onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
-                      title={isLong ? "Clique para ver texto completo" : undefined}
-                    >
-                      <ConteudoCelula texto={display} onExpandir={setExpandedCell} />
+                      ) : null}
                     </td>
-                  );
-                })}
-              </tr>
+                  ) : null}
+                </tr>
               );
             })}
           </tbody>
         </table>
-        {dados.totalLinhas > dados.linhas.length ? (
+        {dados.totalLinhas > base.length ? (
           <p className={styles.tabelaRodape}>
-            Mostrando {dados.linhas.length} de {dados.totalLinhas} registros.
+            Mostrando {base.length} de {dados.totalLinhas} registros.
+            {!verTodas && todas.length > dados.linhas.length ? (
+              <>
+                {" "}
+                <button type="button" className={styles.lerMaisBtn} onClick={() => setVerTodas(true)}>
+                  Ver {todas.length >= dados.totalLinhas ? "todas" : `as ${todas.length} primeiras`}
+                </button>
+              </>
+            ) : null}
           </p>
         ) : null}
       </div>
@@ -2002,8 +2129,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
       alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
       repetirLista: (id: number) => void enviarRef.current?.({ perguntaOverride: `Repetir a lista #${id}` }),
+      groupId: workspaceGroupId ?? null,
     }),
-    [alteraveis, alteracoesLocais, criados]
+    [alteraveis, alteracoesLocais, criados, workspaceGroupId]
   );
 
   async function openMemoCard(id: number) {

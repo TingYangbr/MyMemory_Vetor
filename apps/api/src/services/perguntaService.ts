@@ -32,6 +32,7 @@ import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import { juntarEmListaAberta } from "./listaAbertaService.js";
+import { ordenarColunasDaResposta } from "./colunasRespostaService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -756,7 +757,8 @@ export async function perguntarMemory(input: {
         };
       }
       const saida2 = {
-        resposta: result.resposta,
+        // Colunas na ordem da categoria (ordem na tabela de cada campo; -1 só se a pergunta citar)
+        resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta),
         classificacao,
         apiCost: totalCost + result.apiCost,
         sugestaoAviso,
@@ -795,7 +797,7 @@ export async function perguntarMemory(input: {
       queries: queriesUsadas3,
     };
     const saida3 = {
-      resposta: result.resposta,
+      resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta),
       classificacao,
       apiCost: totalCost + result.apiCost,
       aguardaFase2: result.aguardaFase2,
