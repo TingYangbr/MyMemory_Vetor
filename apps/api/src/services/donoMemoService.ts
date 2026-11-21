@@ -53,7 +53,11 @@ export function resolverMembro(valor: string | null, membros: MembroGrupo[]): { 
   const parecidos = membros.filter((m) => {
     if (!m.name) return false;
     const nm = norm(m.name);
-    return nv.length >= 3 && (nm.includes(nv) || nv.includes(nm));
+    if (nv.length >= 3 && (nm.includes(nv) || nv.includes(nm))) return true;
+    // "Tereza Ting" = "Tereza Clotilde Nogueira Ting": todas as palavras ditas estão no nome do cadastro
+    const pn = nm.split(" ");
+    const pv = nv.split(" ").filter((w) => w.length >= 2);
+    return pv.length >= 2 && pv.every((w) => pn.includes(w));
   });
   if (parecidos.length === 1) return { userId: parecidos[0].id };
   if (parecidos.length > 1) return { motivo: `Mais de um membro parecido com "${v}".` };
@@ -91,6 +95,24 @@ export async function nomeDoUsuario(userId: number): Promise<string> {
   const u = (rows as Record<string, unknown>[])[0];
   const nome = String(u?.name ?? "").trim() || String(u?.email ?? "").trim();
   return nome.normalize("NFD").replace(/\p{Mn}/gu, "");
+}
+
+/**
+ * Nome curto do membro para o campo dono: o primeiro nome ("Tereza"); se outro membro do grupo tiver o mesmo
+ * primeiro nome, primeiro + último ("Tereza Ting"). Sem nome no cadastro, a parte do e-mail antes do @.
+ */
+export async function nomeCurtoDoMembro(userId: number, groupId: number | null): Promise<string> {
+  const completo = await nomeDoUsuario(userId);
+  const palavras = completo.split(/\s+/).filter(Boolean);
+  if (!palavras.length) return completo;
+  if (completo.includes("@")) return completo.split("@")[0]!;
+  const primeiro = palavras[0]!;
+  if (palavras.length === 1 || groupId == null) return primeiro;
+  const membros = await listarMembrosDoGrupo(groupId);
+  const repetido = membros.some(
+    (m) => m.id !== userId && norm(m.name ?? "").split(" ")[0] === norm(primeiro)
+  );
+  return repetido ? `${primeiro} ${palavras[palavras.length - 1]}` : primeiro;
 }
 
 /** Grava o valor num campo do memo (JSON e linha de dadosespecificos, se existir). */
@@ -172,7 +194,7 @@ export async function aplicarDonoPessoal(
   // Catalogar/edição sem dono no texto: o memo é de quem salvou — grava o nome dele no campo dono
   if (!marcarPendente && !(valor ?? "").trim()) {
     const autorId = Number(memo.userId);
-    await preencherCampo(memoId, campo, await nomeDoUsuario(autorId));
+    await preencherCampo(memoId, campo, await nomeCurtoDoMembro(autorId, groupId));
     return { status: "atribuido", userId: autorId };
   }
   const r = resolverMembro(valor, await listarMembrosDoGrupo(groupId));
@@ -181,9 +203,9 @@ export async function aplicarDonoPessoal(
     return { status: "pendente", motivo: r.motivo };
   }
   await pool.query(`UPDATE memos SET criado_por = COALESCE(criado_por, userid), userid = ? WHERE id = ?`, [r.userId, memoId]);
-  // Dono identificado: grava sempre o nome completo do cadastro ("Tereza" → "Tereza Clotilde Nogueira Ting"),
-  // para o mesmo membro não aparecer com dois textos nas respostas e no registro único
-  const canonico = await nomeDoUsuario(r.userId);
+  // Dono identificado: grava sempre o nome curto do membro ("Tereza"; com sobrenome se o primeiro nome repetir
+  // no grupo), para o mesmo membro não aparecer com dois textos nas respostas e no registro único
+  const canonico = await nomeCurtoDoMembro(r.userId, groupId);
   if (canonico && norm(canonico) !== norm(valor ?? "")) await preencherCampo(memoId, campo, canonico);
   if (meta.donoPendente) await gravarPendencia(memoId, meta, null);
   return { status: "atribuido", userId: r.userId };

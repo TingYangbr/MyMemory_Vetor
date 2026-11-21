@@ -10,7 +10,7 @@ import { lerValoresStatus, normalizarDataParaIso } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
-import { listarMembrosDoGrupo, nomeDoUsuario, resolverMembro } from "./donoMemoService.js";
+import { listarMembrosDoGrupo, nomeCurtoDoMembro, resolverMembro } from "./donoMemoService.js";
 
 const norm = (s: unknown) =>
   String(s ?? "")
@@ -57,7 +57,7 @@ export async function atualizarRegistroUnico(input: {
     if (!def || valorCampo(novos, def.name).trim()) continue;
     let padrao = "";
     if (def.tipo === "date") padrao = hojeIso();
-    else if (cat.campoDono && norm(cat.campoDono) === norm(def.name)) padrao = await nomeDoUsuario(input.userId);
+    else if (cat.campoDono && norm(cat.campoDono) === norm(def.name)) padrao = await nomeCurtoDoMembro(input.userId, input.groupId);
     else if (def.tipo === "status") padrao = lerValoresStatus(def.normalizedTerms)[0] ?? "";
     if (padrao) novos[chaveDe(novos, def.name) ?? def.name] = padrao;
   }
