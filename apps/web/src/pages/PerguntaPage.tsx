@@ -361,6 +361,36 @@ interface DadosGrafico {
   unidades?: Record<string, string>;
 }
 
+/**
+ * Chave para ordenar os rótulos do eixo X em ordem crescente: datas em ordem cronológica (2026-11-02, 02/11/2026,
+ * 11/2026, 2026), depois números, depois texto (sem acento, com números "naturais": Lote 2 antes de Lote 10).
+ */
+function chaveRotulo(raw: string): [number, number | string] {
+  const t = raw.trim();
+  let m = /^(\d{4})-(\d{2})(?:-(\d{2}))?/.exec(t);
+  if (m) return [0, Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3] ?? 1))];
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);
+  if (m) return [0, Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1]))];
+  m = /^(\d{1,2})\/(\d{4})$/.exec(t);
+  if (m) return [0, Date.UTC(Number(m[2]), Number(m[1]) - 1, 1)];
+  if (/^\d{4}$/.test(t)) return [0, Date.UTC(Number(t), 0, 1)];
+  const n = numeroDaCelula(t);
+  if (n != null) return [1, n];
+  return [2, t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase()];
+}
+
+function compararRotulos(a: string, b: string): number {
+  const x = chaveRotulo(a);
+  const y = chaveRotulo(b);
+  if (x[0] !== y[0]) return x[0] - y[0];
+  if (typeof x[1] === "number" && typeof y[1] === "number") return x[1] - y[1];
+  return String(x[1]).localeCompare(String(y[1]), "pt-BR", { numeric: true });
+}
+
+/** Pergunta de ranking ("os 10 maiores", "top 5"): o eixo X segue o valor, não a ordem dos rótulos. */
+const ehPerguntaDeRanking = (pergunta: string) =>
+  /\b(maior(es)?|menor(es)?|top\s*\d*|ranking|principais|mais\s+\w+|menos\s+\w+)\b/i.test(semAcento(pergunta));
+
 /** Séries do eixo da direita: unidade % ou, sem unidade configurada, nome com % / perc / pct. */
 function seriesPercentuais(cols: string[], unidades: Record<string, string> | undefined): string[] {
   return cols.filter((c) => (unidades?.[c] ? unidades[c]!.trim() === "%" : ehColunaPercentual(c)));
@@ -411,16 +441,23 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
   for (const linha of todas) {
     const raw = String(linha[labelCol] ?? "");
     const label = formatDateCell(raw) ?? raw;
-    const row = somas.get(label) ?? { label };
+    const row = somas.get(label) ?? { label, _raw: raw };
     for (const col of valueCols) row[col] = Number(row[col] ?? 0) + (numeroDaCelula(linha[col]) ?? 0);
     somas.set(label, row);
   }
   let rows = [...somas.values()];
   const temporal = todas.every((l) => isRotuloTemporal(String(l[labelCol] ?? "")));
+  // Eixo X em ordem crescente (datas em ordem cronológica). Com rótulos demais: as datas mais recentes, ou os
+  // maiores pelo primeiro Y (e esses, em ordem crescente de rótulo)
+  rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   if (rows.length > CHART_MAX_ROTULOS_EIXO_X) {
     rows = temporal
-      ? rows.slice(0, CHART_MAX_ROTULOS_EIXO_X)
-      : rows.sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!])).slice(0, CHART_MAX_ROTULOS_EIXO_X);
+      ? rows.slice(-CHART_MAX_ROTULOS_EIXO_X)
+      : rows
+          .slice()
+          .sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!]))
+          .slice(0, CHART_MAX_ROTULOS_EIXO_X)
+          .sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   }
   return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
 }
@@ -453,7 +490,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
 
   const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
     const rawLabel = String(linha[labelCol] ?? "");
-    const row: Record<string, string | number> = { label: formatDateCell(rawLabel) ?? rawLabel };
+    const row: Record<string, string | number> = { label: formatDateCell(rawLabel) ?? rawLabel, _raw: rawLabel };
     for (const col of valueCols) {
       const v = linha[col];
       row[col] = numeroDaCelula(v) ?? 0;
@@ -461,6 +498,8 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     return row;
   });
   const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
+  // Eixo X em ordem crescente; numa pergunta de ranking ("os 10 maiores") fica a ordem da consulta (pelo valor)
+  if (temporal || !ehPerguntaDeRanking(pergunta)) rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
 }
 
