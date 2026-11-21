@@ -993,6 +993,16 @@ async function renomearCampoNosDados(
   await pool.query(`UPDATE dadosespecificos SET label = ? WHERE id_categoria = ? AND label = ?`, [para, categoryId, de]);
   await pool.query(`UPDATE categories SET campo_dono = ? WHERE id = ? AND campo_dono = ?`, [para, categoryId, de]);
   await pool.query(`UPDATE categories SET campo_situacao = ? WHERE id = ? AND campo_situacao = ?`, [para, categoryId, de]);
+  // Lista aberta por <campo> e registro único por <campos, …> guardam o nome do campo
+  await pool.query(`UPDATE categories SET lista_aberta_por = ? WHERE id = ? AND lista_aberta_por = ?`, [para, categoryId, de]);
+  const [ru] = await pool.query<RowDataPacket[]>(`SELECT registro_unico_por AS "r" FROM categories WHERE id = ?`, [categoryId]);
+  const chaves = String(ru[0]?.r ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+  if (chaves.includes(de)) {
+    await pool.query(`UPDATE categories SET registro_unico_por = ? WHERE id = ?`, [
+      chaves.map((x) => (x === de ? para : x)).join(", "),
+      categoryId,
+    ]);
+  }
   // Regra de lembrete: campos escolhidos e variáveis {campo} do texto da mensagem
   for (const col of ["campo_data", "campo_horario", "campo_antecedencia", "campo_destinatario", "campo_lembrete"]) {
     await pool.query(`UPDATE lembrete_regras SET ${col} = ? WHERE categoryid = ? AND ${col} = ?`, [para, categoryId, de]);
