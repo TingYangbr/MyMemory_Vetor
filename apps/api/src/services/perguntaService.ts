@@ -30,6 +30,7 @@ import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
+import { melhorCategoriaAlternativa } from "./refazerService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -270,6 +271,10 @@ export async function perguntarMemory(input: {
   thresholdMin?: number;
   /** Busca nos memos desce o limiar sozinha até achar o primeiro memo (botão "Buscar nos memos"). */
   ampliarAteAchar?: boolean;
+  /** ↺ Refazer de um toque: o sistema escolhe outra categoria (ou a busca nos memos). */
+  refazer?: boolean;
+  /** Categorias da resposta anterior, que o Refazer não repete. */
+  excluirCategorias?: string[];
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
@@ -299,6 +304,22 @@ export async function perguntarMemory(input: {
   const efetivoPerfil = input.perfil?.efetivo;
   const liberadasPerfil = efetivoPerfil && !efetivoPerfil.todas ? new Set(efetivoPerfil.categoriasPermitidas) : null;
   const categoriasVisiveis = liberadasPerfil ? input.categories.filter((c) => liberadasPerfil.has(c.name)) : input.categories;
+
+  // ↺ Refazer de um toque: outra categoria estruturada que case com as palavras da pergunta (sem IA);
+  // se nenhuma passar do limiar, busca nos textos dos memos (como era). A resposta diz o que foi tentado.
+  if (input.refazer) {
+    const alt = melhorCategoriaAlternativa(input.pergunta, categoriasVisiveis, input.excluirCategorias ?? []);
+    const r = await perguntarMemory({
+      ...input,
+      refazer: false,
+      excluirCategorias: undefined,
+      forceAlvo: "dados",
+      forcePipe: alt ? "estruturada" : "semantica",
+      forceCategories: alt ? [alt.name] : [],
+      ampliarAteAchar: alt ? input.ampliarAteAchar : true,
+    });
+    return { ...r, resposta: { ...r.resposta, refeitoCom: alt ? alt.name : "textos dos memos" } };
+  }
 
   // Perguntas sobre os próprios assuntos ("quais assuntos posso usar?", "como uso a Agenda?"):
   // respondidas por regra, sem classificar nem buscar nos memos.

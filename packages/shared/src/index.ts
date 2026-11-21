@@ -1221,6 +1221,8 @@ export interface PerguntaResposta {
   dados_estruturados?: PerguntaResultadoEstruturado | PerguntaResultadoEstruturado[] | null;
   /** Respondida como dúvida de uso (pelo conhecimento): a tela oferece buscar nos registros. */
   alvo?: PerguntaAlvo;
+  /** ↺ Refazer de um toque: com o que a pergunta foi refeita (nome da categoria ou "textos dos memos"). */
+  refeitoCom?: string;
 }
 
 export interface PerguntaFiltros {
@@ -1241,6 +1243,10 @@ export interface PerguntaRequest {
   forceCategories?: string[];
   /** Força o alvo: "dados" ignora a resposta pelo conhecimento; "uso_do_sistema" busca só no conhecimento. */
   forceAlvo?: PerguntaAlvo;
+  /** ↺ Refazer de um toque (o sistema escolhe outra categoria ou a busca nos memos). */
+  refazer?: boolean;
+  /** Categorias da resposta anterior, que o Refazer não repete. */
+  excluirCategorias?: string[];
 }
 
 export interface PerguntaCardHistorico {
