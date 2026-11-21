@@ -1761,6 +1761,20 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
+  /**
+   * ↺ Refazer: todas as categorias que já responderam a esta mesma pergunta nesta tela (a original e as dos
+   * refazer anteriores). Sem isso, o segundo Refazer voltava para a categoria errada do começo.
+   */
+  function categoriasJaTentadas(pergunta: string): string[] {
+    const alvo = pergunta.trim().toLowerCase();
+    const nomes = new Set<string>();
+    for (const x of respostas) {
+      if (x.perguntaTexto.trim().toLowerCase() !== alvo) continue;
+      for (const c of x.classificacao.categorias) nomes.add(c);
+    }
+    return [...nomes];
+  }
+
   async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[] }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
@@ -3117,7 +3131,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           className={styles.refazerBtn}
                           disabled={busy}
                           onClick={() =>
-                            void enviar({ refazer: true, excluirCategorias: r.classificacao.categorias, perguntaOverride: r.perguntaTexto })
+                            void enviar({ refazer: true, excluirCategorias: categoriasJaTentadas(r.perguntaTexto), perguntaOverride: r.perguntaTexto })
                           }
                           title="Não era isso? Refaz a pergunta com outra categoria ou nos textos dos memos"
                         >
