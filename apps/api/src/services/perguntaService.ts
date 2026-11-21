@@ -533,6 +533,24 @@ export async function perguntarMemory(input: {
     const liberadas = efetivo && !efetivo.todas ? new Set(efetivo.categoriasPermitidas) : null;
     const cats = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
     if (classificacao.acao === "criar") {
+      // Categoria só de consulta (sem campos, com consultas — ex.: Finanças Pessoais, ERP): não guarda memo.
+      // Antes virava um memo que as consultas nunca leem ("gravou, mas não aparece"). Responde direto.
+      const soConsulta = classificacao.categorias
+        .map((n) => cats.find((c) => c.isActive === 1 && c.name === n))
+        .find((c) => c && !(c.campos ?? []).some((f) => f.isActive === 1) && (c.queries ?? []).some((q) => q.isActive === 1));
+      if (soConsulta) {
+        const ehFinancas = /^finan/i.test(soConsulta.name);
+        return {
+          resposta: respostaComando(
+            ehFinancas
+              ? `Não gravei. Lançar conta a pagar ou a receber, pagamento ou gasto pelo Fale comigo ainda não existe. Cadastre em "Contas a pagar e receber" (menu); depois as perguntas sobre ${soConsulta.name} já trazem o lançamento.`
+              : `Não gravei. ${soConsulta.name} só consulta dados (não guarda registros). Cadastre no sistema de origem; depois as perguntas já trazem o dado.`,
+            "Categoria só de consulta: nada foi gravado."
+          ),
+          classificacao,
+          apiCost: totalCost,
+        };
+      }
       // Mesmo processamento do Catalogar; nada é gravado até o usuário salvar no cartão.
       // O custo do processamento vai no memo (como no Catalogar), não na pergunta.
       const criacao = await withSpan("Registro novo", () => prepararCriacao({
