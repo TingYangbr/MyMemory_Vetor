@@ -537,7 +537,13 @@ export async function perguntarMemory(input: {
       // Antes virava um memo que as consultas nunca leem ("gravou, mas não aparece"). Responde direto.
       const soConsulta = classificacao.categorias
         .map((n) => cats.find((c) => c.isActive === 1 && c.name === n))
-        .find((c) => c && !(c.campos ?? []).some((f) => f.isActive === 1) && (c.queries ?? []).some((q) => q.isActive === 1));
+        .find(
+          (c) =>
+            c &&
+            // O campo Situação que sobrou de quando a categoria era "atualizável" não conta
+            !(c.campos ?? []).some((f) => f.isActive === 1 && !/^situa/i.test(f.name) && f.name !== c.campoSituacao) &&
+            (c.queries ?? []).some((q) => q.isActive === 1)
+        );
       if (soConsulta) {
         const ehFinancas = /^finan/i.test(soConsulta.name);
         return {
