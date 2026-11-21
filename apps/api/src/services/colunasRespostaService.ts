@@ -23,26 +23,36 @@ function graficoPelaCategoria(
   campos: MemoContextCategory["campos"],
   colunas: string[],
   citada: (nome: string) => boolean
-): { grafico?: { x?: string; y: string[]; y2?: string[] } } {
-  if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y" || f.papelGrafico === "P")) return {};
+): { grafico?: { x?: string; y: string[] } } {
+  if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y")) return {};
   const colDe = (nome: string) => colunas.find((c) => c.toLowerCase() === toParamName(nome).toLowerCase());
   let x: string | undefined;
   const y: string[] = [];
-  const y2: string[] = [];
   for (const f of campos) {
     const col = colDe(f.name);
     if (!col) continue;
     if (f.papelGrafico === "X" && !x) x = col;
     else if (f.papelGrafico === "Y") y.push(col);
-    else if (f.papelGrafico === "P") y2.push(col);
   }
   for (const f of campos) {
     const col = colDe(f.name);
-    if (!col || f.papelGrafico || !citada(f.name) || col === x || y.includes(col) || y2.includes(col)) continue;
+    if (!col || f.papelGrafico || !citada(f.name) || col === x || y.includes(col)) continue;
     if (f.tipo === "number") y.push(col);
     else if (!x) x = col;
   }
-  return y.length || y2.length ? { grafico: { ...(x ? { x } : {}), y, ...(y2.length ? { y2 } : {}) } } : {};
+  return y.length ? { grafico: { ...(x ? { x } : {}), y } } : {};
+}
+
+/** Unidade de cada coluna que é campo com unidade (kg, %, cm…). */
+function unidadesDasColunas(campos: MemoContextCategory["campos"], colunas: string[]): { unidades?: Record<string, string> } {
+  const out: Record<string, string> = {};
+  for (const f of campos) {
+    const u = f.unidade?.trim();
+    if (!u) continue;
+    const col = colunas.find((c) => c.toLowerCase() === toParamName(f.name).toLowerCase());
+    if (col) out[col] = u;
+  }
+  return Object.keys(out).length ? { unidades: out } : {};
 }
 
 function ordenarUm(
@@ -80,6 +90,7 @@ function ordenarUm(
     colunas: ordenadas,
     ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}),
     ...graficoPelaCategoria(campos, chavesLinha.length ? chavesLinha : dados.colunas, citada),
+    ...unidadesDasColunas(campos, chavesLinha.length ? chavesLinha : dados.colunas),
   };
 }
 

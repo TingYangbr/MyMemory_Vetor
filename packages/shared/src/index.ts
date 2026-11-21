@@ -678,7 +678,9 @@ export interface MemoContextCampo {
   /** Ordem da coluna na tabela das respostas: 1, 2…; null = depois, na ordem do campo; -1 = só se a pergunta citar. */
   ordemExibicao?: number | null;
   /** Papel no gráfico das respostas: X = rótulos, Y = valor (barra; vários Y = várias cores); null = só se a pergunta citar. */
-  papelGrafico?: "X" | "Y" | "P" | null;
+  papelGrafico?: "X" | "Y" | null;
+  /** Unidade do valor (kg, %, cm, R$…): título da coluna e legenda do gráfico; % vai para o eixo da direita. */
+  unidade?: string | null;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
   resolucaoNomeAbrev: boolean;
   isActive: number;
@@ -1221,7 +1223,9 @@ export interface PerguntaResultadoEstruturado {
   /** Categoria da tabela (para gravar a ordem das colunas arrastadas na resposta). */
   categoria?: string;
   /** Gráfico pela categoria (papel de cada campo): coluna de rótulos (x) e colunas de valor (y; uma cor cada). */
-  grafico?: { x?: string; y: string[]; y2?: string[] };
+  grafico?: { x?: string; y: string[] };
+  /** Unidade de cada coluna que é campo com unidade (título da tabela, legenda e eixos do gráfico). */
+  unidades?: Record<string, string>;
 }
 
 export interface PerguntaResposta {
