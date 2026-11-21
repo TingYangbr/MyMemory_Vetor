@@ -94,6 +94,15 @@ function normalizeTtsText(text: string): string {
 }
 
 /** Resposta longa: mais de ~6 linhas na tela recolhe com "Ler mais". */
+/** Acima disto, o texto de uma resposta com tabela fica recolhido em 2 linhas. */
+const TEXTO_RESUMO_COM_TABELA = 140;
+
+/** A resposta traz tabela (ou gráfico) com linhas abaixo do texto? */
+function temTabelaNaResposta(resposta: { dados_estruturados?: unknown }): boolean {
+  const de = resposta.dados_estruturados as { totalLinhas?: number; linhas?: unknown[] } | { totalLinhas?: number; linhas?: unknown[] }[] | null | undefined;
+  return (de ? (Array.isArray(de) ? de : [de]) : []).some((d) => (d.totalLinhas ?? d.linhas?.length ?? 0) > 0);
+}
+
 function textoLongo(texto: string): boolean {
   return texto.length > 520 || texto.split("\n").length > 7;
 }
@@ -3116,17 +3125,24 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ) : null}
                   {r.comando || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
-                    const recolhido = textoLongo(texto) && !expandidos.has(r);
+                    // Com tabela logo abaixo, o texto só repete o que ela mostra: fica em 2 linhas com "Mais…"
+                    const temTabela = temTabelaNaResposta(r.resposta);
+                    const longo = temTabela ? texto.length > TEXTO_RESUMO_COM_TABELA : textoLongo(texto);
+                    const recolhido = longo && !expandidos.has(r);
                     return (
                       <div className={styles.respostaTextoWrap}>
-                        <p className={`${styles.cardRespostaText} ${recolhido ? styles.cardRespostaTextRecolhido : ""}`}>
+                        <p
+                          className={`${styles.cardRespostaText} ${
+                            recolhido ? (temTabela ? styles.cardRespostaTextResumo : styles.cardRespostaTextRecolhido) : ""
+                          }`}
+                        >
                           {texto}
                           {recolhido ? null : <BotoesAlterarResposta resposta={r.resposta} />}
                         </p>
-                        {textoLongo(texto) ? (
+                        {longo ? (
                           <div className={styles.lerMaisRow}>
                             <button type="button" className={styles.lerMaisBtn} onClick={() => alternarExpandido(r)} aria-expanded={!recolhido}>
-                              {recolhido ? "Ler mais" : "Ler menos"}
+                              {recolhido ? (temTabela ? "Mais…" : "Ler mais") : "Ler menos"}
                             </button>
                             {recolhido ? <BotoesAlterarResposta resposta={r.resposta} /> : null}
                           </div>

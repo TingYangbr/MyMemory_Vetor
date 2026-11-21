@@ -759,6 +759,15 @@
 
 .respostaTextoWrap { display: flex; flex-direction: column; gap: 0.25rem; }
 
+/* Resposta com tabela: o texto vira um resumo de 2 linhas (a tabela abaixo traz os dados) */
+.cardRespostaTextResumo {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}
+
 .cardRespostaTextRecolhido {
   display: -webkit-box;
   -webkit-box-orient: vertical;
