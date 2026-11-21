@@ -1761,7 +1761,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema" }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[] }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1797,6 +1797,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
       if (opts?.ampliarAteAchar) body.ampliarAteAchar = true;
       if (opts?.forceAlvo) body.forceAlvo = opts.forceAlvo;
+      if (opts?.refazer) {
+        body.refazer = true;
+        body.excluirCategorias = opts.excluirCategorias ?? [];
+      }
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
         method: "POST",
@@ -3105,15 +3109,31 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.refazerBtn}
-                        disabled={busy}
-                        onClick={() => setRefazerIdx(i)}
-                        title="Refazer com outro pipe"
-                      >
-                        ↺ Refazer
-                      </button>
+                      // Um toque: o sistema tenta outra categoria parecida com a pergunta ou, se não houver, os textos dos memos.
+                      // O "⋯" abre as opções de sempre (Semântico, Estruturado, Híbrido, No manual).
+                      <span className={styles.ampliarWrap}>
+                        <button
+                          type="button"
+                          className={styles.refazerBtn}
+                          disabled={busy}
+                          onClick={() =>
+                            void enviar({ refazer: true, excluirCategorias: r.classificacao.categorias, perguntaOverride: r.perguntaTexto })
+                          }
+                          title="Não era isso? Refaz a pergunta com outra categoria ou nos textos dos memos"
+                        >
+                          ↺ Refazer
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.refazerBtn}
+                          disabled={busy}
+                          onClick={() => setRefazerIdx(i)}
+                          title="Mais opções: escolher Semântico, Estruturado ou Híbrido"
+                          aria-label="Mais opções de refazer"
+                        >
+                          ⋯
+                        </button>
+                      </span>
                     )}
                   </div>
                   </div>
@@ -3152,6 +3172,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   })()}
                   <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
+                  {r.resposta.refeitoCom ? <p className={styles.alvoUsoNota}>↺ Refeito com: {r.resposta.refeitoCom}</p> : null}
                   {r.resposta.alvo === "uso_do_sistema" ? (
                     <div className={styles.ampliarWrap}>
                       <span className={styles.alvoUsoNota}>Respondi como dúvida de uso.</span>

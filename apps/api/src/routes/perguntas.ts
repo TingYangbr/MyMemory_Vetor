@@ -44,6 +44,8 @@ const perguntaBodySchema = z.object({
   forceCategories: z.array(z.string()).optional(),
   /** "dados": não responde pelo manual; "uso_do_sistema": busca só no conhecimento importado. */
   forceAlvo: z.enum(["dados", "uso_do_sistema"]).optional(),
+  refazer: z.boolean().optional(),
+  excluirCategorias: z.array(z.string().max(200)).max(20).optional(),
   /** Tela/filtros/seleção de onde a pergunta partiu — usado por integrações externas (Softing-erp). */
   contextoTela: z.string().max(4000).optional(),
 });
@@ -170,6 +172,8 @@ const plugin: FastifyPluginAsync = async (app) => {
           thresholdMin: thresholds.min,
           ampliarAteAchar: parsed.data.ampliarAteAchar === true,
           forceAlvo: parsed.data.forceAlvo,
+          refazer: parsed.data.refazer === true,
+          excluirCategorias: parsed.data.excluirCategorias,
           contextoTela: parsed.data.contextoTela,
           perfil,
           // Comandos de alteração só pela tela do usuário, nunca por chave de integração (ERP)
