@@ -388,6 +388,12 @@ DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento
 - **Arrastar colunas** (computador): arraste o título para outra posição. Aparece "Gravar esta ordem de colunas em <categoria>? Gravar (5)" por 5 segundos; sem tocar em Gravar, a nova ordem vale só nesta resposta. Gravar exige ser dono do grupo e a categoria ser do grupo (não global).
 - **Duplo clique no título** ordena as linhas: crescente, decrescente e volta à original (números, datas e texto; vazios no fim).
 - **Ver todas:** a tabela começa com as primeiras linhas; o botão no rodapé mostra todas (até 2.000, as mesmas do PDF).
+## Dias sem registro (campo de data)
+No campo do tipo data, **Mostrar dias sem registro**: a tabela e o gráfico das respostas passam a ter uma linha para cada dia, também os dias sem memo (vazios), do início ao fim do período pedido na pergunta ("medições de novembro" = 01 a 30/11) ou, sem período, do primeiro ao último dia encontrado. As linhas ficam em ordem crescente de data.
+- Os dias são gerados pelo sistema na hora (não precisa de tabela de calendário). Período maior que 400 dias fica só com os dias que têm registro.
+- No gráfico, a linha do tempo aceita até 62 dias; passando disso, ficam os mais recentes.
+- Na aba Campos aparece a etiqueta "todos os dias".
+
 ## Gráfico das respostas: papel de cada campo
 Na edição do campo, **Papel no gráfico**:
 | Papel | No gráfico |

@@ -420,6 +420,8 @@ function isRotuloTemporal(raw: string): boolean {
  * primeira coluna é a categoria — convenção comum em queries agregadas, onde o group_by vem primeiro no SELECT.
  */
 const CHART_MAX_ROTULOS_EIXO_X = 20;
+/** Linha do tempo (datas): até ~2 meses de dias no eixo X; passando disso, ficam os mais recentes. */
+const CHART_MAX_ROTULOS_TEMPORAL = 62;
 
 /**
  * Gráfico pelos papéis dos campos da categoria (X = rótulos, Y = valores; vários Y = várias cores).
@@ -450,9 +452,9 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
   // Eixo X em ordem crescente (datas em ordem cronológica). Com rótulos demais: as datas mais recentes, ou os
   // maiores pelo primeiro Y (e esses, em ordem crescente de rótulo)
   rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
-  if (rows.length > CHART_MAX_ROTULOS_EIXO_X) {
+  if (rows.length > (temporal ? CHART_MAX_ROTULOS_TEMPORAL : CHART_MAX_ROTULOS_EIXO_X)) {
     rows = temporal
-      ? rows.slice(-CHART_MAX_ROTULOS_EIXO_X)
+      ? rows.slice(-CHART_MAX_ROTULOS_TEMPORAL)
       : rows
           .slice()
           .sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!]))
@@ -484,11 +486,13 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   valueCols = escolherSeries(valueCols.filter((col) => !isColunaIdentificador(col)), pergunta);
   if (valueCols.length === 0) return null;
 
-  // Mais de 20 rótulos distintos no eixo X fica ilegível — mostra só a tabela
+  // Mais de 20 rótulos distintos no eixo X fica ilegível — mostra só a tabela. Datas (linha do tempo, inclusive
+  // com os dias sem registro) aceitam até 2 meses de dias, e ficam os mais recentes.
+  const temporalAntes = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
   const rotulos = new Set(dados.linhas.map((l) => String(l[labelCol!] ?? "")));
-  if (rotulos.size > CHART_MAX_ROTULOS_EIXO_X) return null;
+  if (rotulos.size > (temporalAntes ? CHART_MAX_ROTULOS_TEMPORAL : CHART_MAX_ROTULOS_EIXO_X) && !temporalAntes) return null;
 
-  const rows = dados.linhas.slice(0, CHART_MAX_BARRAS).map((linha) => {
+  const rows = (temporalAntes ? dados.linhas : dados.linhas.slice(0, CHART_MAX_BARRAS)).map((linha) => {
     const rawLabel = String(linha[labelCol] ?? "");
     const row: Record<string, string | number> = { label: formatDateCell(rawLabel) ?? rawLabel, _raw: rawLabel };
     for (const col of valueCols) {
@@ -500,7 +504,13 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
   // Eixo X em ordem crescente; numa pergunta de ranking ("os 10 maiores") fica a ordem da consulta (pelo valor)
   if (temporal || !ehPerguntaDeRanking(pergunta)) rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
-  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
+  return {
+    valueCols,
+    rows: temporal ? rows.slice(-CHART_MAX_ROTULOS_TEMPORAL) : rows,
+    temporal,
+    direita: seriesPercentuais(valueCols, dados.unidades),
+    unidades: dados.unidades,
+  };
 }
 
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
@@ -532,7 +542,7 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
           {grade}
-          <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
+          <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={dados.rows.length > 20 ? "preserveStartEnd" : 0} angle={-25} textAnchor="end" height={50} />
           <YAxis
             yAxisId="esq"
             tick={{ fontSize: 11 }}
