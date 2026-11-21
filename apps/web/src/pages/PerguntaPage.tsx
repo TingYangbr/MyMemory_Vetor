@@ -628,14 +628,25 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   if (!props.dados.totalLinhas) return null;
   if (colLista && !verTabela) return <VisaoLista dados={props.dados} colLista={colLista} pergunta={props.pergunta ?? ""} onVerTabela={() => setVerTabela(true)} />;
   if (!grafico) return <TabelaEstruturada {...props} />;
+  const graficoEl = (
+    <div className={styles.chartWrap}>
+      <GraficoBarrasEstruturado dados={grafico} />
+    </div>
+  );
+  const tabelaEl = (
+    <div className={styles.tabelaScrollItem}>
+      <TabelaEstruturada {...props} />
+    </div>
+  );
+  // Gráfico pequeno (até 5 barras no eixo X): lado a lado com a tabela, se a tela couber (no celular empilha).
+  // Senão, um embaixo do outro, primeiro o que ocupa menos: barras em pé (linha do tempo) = gráfico e depois a
+  // tabela; barras deitadas (ranking, que crescem para baixo) = tabela e depois o gráfico.
+  const ladoALado = grafico.rows.length <= 5;
+  const graficoPrimeiro = grafico.temporal || ladoALado;
   return (
-    <div className={styles.chartTableRow}>
-      <div className={styles.chartWrap}>
-        <GraficoBarrasEstruturado dados={grafico} />
-      </div>
-      <div className={styles.tabelaScrollItem}>
-        <TabelaEstruturada {...props} />
-      </div>
+    <div className={ladoALado ? styles.chartTableRow : styles.chartTableStack}>
+      {graficoPrimeiro ? graficoEl : tabelaEl}
+      {graficoPrimeiro ? tabelaEl : graficoEl}
     </div>
   );
 }
