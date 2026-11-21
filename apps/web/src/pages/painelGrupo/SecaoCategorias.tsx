@@ -666,6 +666,24 @@ function CamposCategoria({ cat, podeEditar, recarregar }: { cat: MemoContextCate
                   nome do ERP
                 </span>
               ) : null}
+              {c.ordemExibicao != null ? (
+                <span
+                  className={`${s.tag}${c.ordemExibicao === -1 ? ` ${s.tagWarn}` : ""}`}
+                  style={{ marginLeft: 4 }}
+                  title={c.ordemExibicao === -1 ? "Não aparece na tabela, a não ser que a pergunta cite o campo" : "Posição da coluna na tabela das respostas"}
+                >
+                  {c.ordemExibicao === -1 ? "Oculto" : `Ordem: ${c.ordemExibicao}`}
+                </span>
+              ) : null}
+              {c.papelGrafico ? (
+                <span
+                  className={`${s.tag} ${s.tagOk}`}
+                  style={{ marginLeft: 4 }}
+                  title={c.papelGrafico === "X" ? "Gráfico: rótulos (eixo das categorias)" : "Gráfico: valor (tamanho da barra)"}
+                >
+                  {c.papelGrafico}
+                </span>
+              ) : null}
             </b>
             {c.description ? <small>{c.description}</small> : null}
             {c.normalizedTerms ? <small>Valores: {c.normalizedTerms}</small> : null}
