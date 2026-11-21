@@ -47,12 +47,52 @@ export default function ExecutarConsultaJanela({ query, groupId, onFechar }: { q
   const [filtrosCol, setFiltrosCol] = useState<Record<string, string>>({});
   const [max, setMax] = useState(false);
   const [copiado, setCopiado] = useState(false);
+  /** Resultado sem filtros (roda ao abrir): dá o total do título e os valores sugeridos nos filtros */
+  const [base, setBase] = useState<Resposta | null>(null);
 
   useEffect(() => {
     const esc = (e: KeyboardEvent) => e.key === "Escape" && onFechar();
     window.addEventListener("keydown", esc);
     return () => window.removeEventListener("keydown", esc);
   }, [onFechar]);
+
+  // Ao abrir: roda sem filtros (total no título, valores para sugerir e a tabela inicial)
+  useEffect(() => {
+    let vivo = true;
+    setRodando(true);
+    apiPostJson<Resposta>(`/api/consultas-categoria/${query.id}/executar`, { groupId, valores: {} })
+      .then((r) => {
+        if (!vivo) return;
+        setBase(r);
+        setRes(r);
+      })
+      .catch((e) => vivo && setErro(msgErro(e, "Erro ao executar a consulta.")))
+      .finally(() => vivo && setRodando(false));
+    return () => {
+      vivo = false;
+    };
+  }, [query.id, groupId]);
+
+  /** Valores de cada filtro de texto, tirados da coluna de mesmo nome no resultado sem filtros. */
+  const sugestoes = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    if (!base) return out;
+    const norm = (t: string) => semAcento(t).replace(/[^a-z0-9]/g, "");
+    for (const p of params) {
+      if (p.tipo === "date" || p.tipo === "number") continue;
+      const alvo = norm(p.nome.replace(/_(in|ini|fin)$/i, ""));
+      const col = base.resultado.colunas.find((c) => norm(c) === alvo);
+      if (!col) continue;
+      const vals = new Set<string>();
+      for (const l of base.resultado.linhas) {
+        const v = textoCelula(l[col]).trim();
+        if (v) vals.add(v);
+        if (vals.size >= 200) break;
+      }
+      out[p.nome] = [...vals].sort((a, b) => a.localeCompare(b, "pt-BR"));
+    }
+    return out;
+  }, [base, params]);
 
   async function executar() {
     setRodando(true);
@@ -91,7 +131,12 @@ export default function ExecutarConsultaJanela({ query, groupId, onFechar }: { q
     <div className={s.fundo} role="presentation" onClick={(e) => e.target === e.currentTarget && onFechar()}>
       <div className={`${s.janela} ${max ? s.max : ""}`} role="dialog" aria-modal="true" aria-label={`Executar ${query.nome}`}>
         <div className={s.topo}>
-          <strong className={s.titulo}>▶ {query.nome}</strong>
+          <strong className={s.titulo}>
+            ▶ {query.nome}{" "}
+            <span className={s.total} title="Registros sem nenhum filtro">
+              ({base ? base.resultado.totalLinhas : "…"})
+            </span>
+          </strong>
           <button type="button" className={s.icone} onClick={() => setMax((m) => !m)} title={max ? "Restaurar o tamanho" : "Maximizar"}>
             {max ? "🗗" : "⛶"}
           </button>
@@ -110,10 +155,19 @@ export default function ExecutarConsultaJanela({ query, groupId, onFechar }: { q
                 <input
                   className="mm-field"
                   type={p.tipo === "date" ? "date" : p.tipo === "number" ? "number" : "text"}
+                  list={sugestoes[p.nome]?.length ? `sug-${query.id}-${p.nome}` : undefined}
+                  placeholder={sugestoes[p.nome]?.length ? `${sugestoes[p.nome]!.length} valores — digite ou escolha` : ""}
                   value={valores[p.nome] ?? ""}
                   onChange={(e) => setValores((v) => ({ ...v, [p.nome]: e.target.value }))}
                   onKeyDown={(e) => e.key === "Enter" && void executar()}
                 />
+                {sugestoes[p.nome]?.length ? (
+                  <datalist id={`sug-${query.id}-${p.nome}`}>
+                    {sugestoes[p.nome]!.map((v) => (
+                      <option key={v} value={v} />
+                    ))}
+                  </datalist>
+                ) : null}
               </label>
             ))
           ) : (
