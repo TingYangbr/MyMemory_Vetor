@@ -275,6 +275,7 @@ export async function loadMemoContextStructure(
             atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
             campo_encerra_data AS "campoEncerraData",
             situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido",
+            lista_aberta_por AS "listaAbertaPor",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -442,6 +443,7 @@ export async function loadMemoContextStructure(
     campoEncerraData: Number(r.atualizavel ?? 0) === 1 ? ((r.campoEncerraData as string | null) ?? null) : null,
     situacaoTipo: tipoSituacao(r.situacaoTipo as string | null),
     rotuloConcluido: (r.rotuloConcluido as string | null) ?? null,
+    listaAbertaPor: (r.listaAbertaPor as string | null) ?? null,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -646,6 +648,7 @@ export async function updateCategory(
     campoEncerraData?: string | null;
     situacaoTipo?: "afazer" | "registro";
     rotuloConcluido?: string | null;
+    listaAbertaPor?: string | null;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -705,6 +708,10 @@ export async function updateCategory(
   if (patch.rotuloConcluido !== undefined) {
     sets.push("rotulo_concluido = ?");
     vals.push(patch.rotuloConcluido?.trim().slice(0, 40) || null);
+  }
+  if (patch.listaAbertaPor !== undefined) {
+    sets.push("lista_aberta_por = ?");
+    vals.push(patch.listaAbertaPor?.trim().slice(0, 120) || null);
   }
   if (patch.campoEncerraData !== undefined) {
     sets.push("campo_encerra_data = ?");
@@ -1351,7 +1358,7 @@ export async function copiarCategoriaParaGrupo(
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
             campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
             confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
-            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido"
+            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor"
      FROM categories WHERE id = ? AND isactive = 1 LIMIT 1`,
     [categoryId]
   );
@@ -1377,8 +1384,9 @@ export async function copiarCategoriaParaGrupo(
     await conn.beginTransaction();
     const [ins] = await conn.query<{ id: number }[]>(
       `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
-         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido)
-       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido,
+         lista_aberta_por)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [
         targetGroupId,
         cat.mediaType ?? null,
@@ -1394,6 +1402,7 @@ export async function copiarCategoriaParaGrupo(
         cat.campoEncerraData ?? null,
         tipoSituacao(cat.situacaoTipo as string | null),
         cat.rotuloConcluido ?? null,
+        cat.listaAbertaPor ?? null,
       ]
     );
     novoId = Number(ins[0]?.id);

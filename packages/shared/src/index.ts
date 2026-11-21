@@ -635,6 +635,8 @@ export interface MemoContextCategory {
   situacaoTipo?: "afazer" | "registro";
   /** Nome do Concluído na tela desta categoria (Comprado, Pago, Realizado); null = "Concluído". */
   rotuloConcluido?: string | null;
+  /** Lista aberta única: null = cada registro cria lista nova; "*" = uma lista aberta só; nome de campo = uma por valor dele. */
+  listaAbertaPor?: string | null;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */

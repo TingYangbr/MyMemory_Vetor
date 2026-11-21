@@ -31,6 +31,7 @@ import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
+import { juntarEmListaAberta } from "./listaAbertaService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -526,6 +527,28 @@ export async function perguntarMemory(input: {
         categories: cats,
         classificacao,
       }));
+      // Lista aberta única (ex.: uma Lista de compras aberta por Tipo): os itens entram na lista aberta
+      const junta = await juntarEmListaAberta({
+        criacao,
+        categories: cats,
+        userId: input.userId,
+        isAdmin: input.isAdmin,
+        groupId: input.groupId,
+      });
+      if (junta) {
+        return {
+          resposta: {
+            resposta: junta.mensagem,
+            tipo_resposta: classificacao.pipe,
+            dados_usados: [{ memo_id: junta.memoId, trecho_usado: junta.resumo, mediatext: junta.resumo }],
+            limitacoes: [],
+            confianca_estimada: 1,
+          },
+          classificacao: { ...classificacao, acao: "alterar" },
+          apiCost: totalCost,
+          comando: junta.comando,
+        };
+      }
       return {
         resposta: respostaComando(
           `${criacao.mensagem} Nada foi gravado ainda. Se era uma pergunta, use ↺ Refazer.`,

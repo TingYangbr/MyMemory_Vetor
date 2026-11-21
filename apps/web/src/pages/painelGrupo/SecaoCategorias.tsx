@@ -921,6 +921,7 @@ function EditarCategoriaModal({
   const [campoEncerraData, setCampoEncerraData] = useState(cat.campoEncerraData ?? "");
   const [situacaoTipo, setSituacaoTipo] = useState<"afazer" | "registro">(cat.situacaoTipo === "registro" ? "registro" : "afazer");
   const [rotuloConcluido, setRotuloConcluido] = useState(cat.rotuloConcluido ?? "");
+  const [listaAbertaPor, setListaAbertaPor] = useState(cat.listaAbertaPor ?? "");
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -942,6 +943,7 @@ function EditarCategoriaModal({
         confirmarAlteracao: atualizavel && confirmarAlteracao,
         campoEncerraData: atualizavel ? campoEncerraData || null : null,
         ...(atualizavel ? { situacaoTipo, rotuloConcluido: situacaoTipo === "afazer" ? rotuloConcluido.trim() || null : null } : {}),
+        listaAbertaPor: atualizavel && campos.some((c) => c.tipo === "lista") ? listaAbertaPor || null : null,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -1053,6 +1055,31 @@ function EditarCategoriaModal({
                   onChange={(e) => setRotuloConcluido(e.target.value)}
                   placeholder="Concluído (ex.: Comprado, Pago, Realizado)"
                 />
+              </div>
+            ) : null}
+            {campos.some((c) => c.tipo === "lista") ? (
+              // Lista aberta única: registrar itens acrescenta na lista aberta (em vez de criar outra)
+              <div className={s.row} style={{ marginTop: 8 }}>
+                <label htmlFor="ec-listaaberta" className="mm-muted" style={{ fontSize: 12.5 }}>
+                  Lista aberta:
+                </label>
+                <select
+                  id="ec-listaaberta"
+                  className={`mm-field ${s.selectSm}`}
+                  value={listaAbertaPor}
+                  onChange={(e) => setListaAbertaPor(e.target.value)}
+                  title="Com lista aberta, registrar itens acrescenta na lista que ainda não foi concluída nem cancelada"
+                >
+                  <option value="">cada registro cria uma lista nova</option>
+                  <option value="*">uma lista aberta só</option>
+                  {campos
+                    .filter((c) => c.tipo !== "lista" && c.tipo !== "date" && c.tipo !== "number" && c.name !== cat.campoSituacao)
+                    .map((c) => (
+                      <option key={c.id} value={c.name}>
+                        uma lista aberta por {c.name}
+                      </option>
+                    ))}
+                </select>
               </div>
             ) : null}
           </div>

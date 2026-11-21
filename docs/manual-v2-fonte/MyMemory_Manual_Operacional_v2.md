@@ -463,6 +463,17 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
 - Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
 - A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
+## Lista aberta única (ex.: uma Lista de compras por Tipo)
+Na edição da categoria atualizável com campo do tipo lista, a opção **Lista aberta** define o que acontece ao registrar itens pelo Fale comigo:
+| Opção | Ao registrar "comprar leite e pão" |
+|---|---|
+| cada registro cria uma lista nova | Cria outra lista (como era) |
+| uma lista aberta só | Se houver uma lista aberta (nem concluída nem cancelada), os itens entram nela |
+| uma lista aberta por <campo> (ex.: Tipo) | Entram na lista aberta do mesmo Tipo (Mercado, Farmácia…); sem lista aberta daquele Tipo, cria uma nova |
+- A data não entra na chave: a lista continua a mesma até ser concluída ou cancelada; depois disso, o próximo registro abre outra.
+- Os itens entram com confirmação (cartão de alteração, com Desfazer). Item que já está na lista não é repetido; item já comprado volta a pendente.
+- Vale para o que é dito ou digitado no Fale comigo; o Catalogar continua criando um memo novo.
+
 ## Repetir uma lista
 Cria uma lista nova a partir de uma anterior (ex.: a lista de compras da semana passada). A lista anterior fica como está, com as marcas ✓/✗ e a data dela.
 - Pelo botão **⧉ Repetir lista** no cartão da lista (ao lado de ✎ Alterar e ☑ Concluir lista), ou dizendo: "repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior", "copiar a lista do mercado".
