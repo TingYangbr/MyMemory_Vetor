@@ -980,6 +980,9 @@ function EditarCategoriaModal({
   const [situacaoTipo, setSituacaoTipo] = useState<"afazer" | "registro">(cat.situacaoTipo === "registro" ? "registro" : "afazer");
   const [rotuloConcluido, setRotuloConcluido] = useState(cat.rotuloConcluido ?? "");
   const [listaAbertaPor, setListaAbertaPor] = useState(cat.listaAbertaPor ?? "");
+  const [registroUnico, setRegistroUnico] = useState<string[]>(
+    (cat.registroUnicoPor ?? "").split(",").map((x) => x.trim()).filter(Boolean)
+  );
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -1002,6 +1005,7 @@ function EditarCategoriaModal({
         campoEncerraData: atualizavel ? campoEncerraData || null : null,
         ...(atualizavel ? { situacaoTipo, rotuloConcluido: situacaoTipo === "afazer" ? rotuloConcluido.trim() || null : null } : {}),
         listaAbertaPor: atualizavel && campos.some((c) => c.tipo === "lista") ? listaAbertaPor || null : null,
+        registroUnicoPor: registroUnico.length ? registroUnico.join(", ") : null,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -1140,6 +1144,30 @@ function EditarCategoriaModal({
                 </select>
               </div>
             ) : null}
+          </div>
+        ) : null}
+        {campos.some((c) => c.tipo !== "lista") ? (
+          // Registro único: a mesma chave (ex.: Dono + Data + Período) atualiza o memo que já existe
+          <div style={{ padding: "0 0 10px 16px" }}>
+            <span className="mm-muted" style={{ fontSize: 12.5 }}>
+              Registro único por (registrar de novo com os mesmos valores atualiza o memo, em vez de criar outro):
+            </span>
+            <div className={s.row} style={{ flexWrap: "wrap", gap: "4px 14px", marginTop: 4 }}>
+              {campos
+                .filter((c) => c.tipo !== "lista" && c.name !== cat.campoSituacao)
+                .map((c) => (
+                  <label key={c.id} style={{ fontSize: 13, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    <input
+                      type="checkbox"
+                      checked={registroUnico.includes(c.name)}
+                      onChange={(e) =>
+                        setRegistroUnico((r) => (e.target.checked ? [...r, c.name] : r.filter((x) => x !== c.name)))
+                      }
+                    />
+                    {c.name}
+                  </label>
+                ))}
+            </div>
           </div>
         ) : null}
         {atualizavel ? (

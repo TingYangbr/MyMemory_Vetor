@@ -197,6 +197,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     situacaoTipo: z.enum(["afazer", "registro"]).optional(),
     rotuloConcluido: z.string().max(40).nullable().optional(),
     listaAbertaPor: z.string().max(120).nullable().optional(),
+    registroUnicoPor: z.string().max(500).nullable().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -239,6 +240,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.situacaoTipo !== undefined ? { situacaoTipo: parsed.data.situacaoTipo } : {}),
         ...(parsed.data.rotuloConcluido !== undefined ? { rotuloConcluido: parsed.data.rotuloConcluido } : {}),
         ...(parsed.data.listaAbertaPor !== undefined ? { listaAbertaPor: parsed.data.listaAbertaPor } : {}),
+        ...(parsed.data.registroUnicoPor !== undefined ? { registroUnicoPor: parsed.data.registroUnicoPor } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });

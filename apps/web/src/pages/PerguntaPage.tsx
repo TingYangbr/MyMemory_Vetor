@@ -247,6 +247,16 @@ function formatDateCell(val: string): string | null {
   return Number.isNaN(d.getTime()) ? `${dia}/${mesNum}/${ano}` : d.toLocaleDateString("pt-BR");
 }
 
+const DIAS_SEMANA_CURTO = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
+/** "25/11/2026" → "25/11/2026 (qua)". Só datas com dia (mês/ano fica como está); calculado da data, sem fuso. */
+function comDiaDaSemana(data: string): string {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(data);
+  if (!m) return data;
+  const d = new Date(Date.UTC(Number(m[3]), Number(m[2]) - 1, Number(m[1])));
+  return Number.isNaN(d.getTime()) ? data : `${data} (${DIAS_SEMANA_CURTO[d.getUTCDay()]})`;
+}
+
 /** 1ª série na cor da marca; as demais bem distintas entre si. */
 const CHART_BAR_COLORS = ["#0d9488", "#f59e0b", "#6366f1", "#e11d48", "#0ea5e9"];
 const CHART_MAX_BARRAS = 25;
@@ -260,7 +270,7 @@ function textoCelula(col: string, val: unknown): string {
   if (val == null) return "—";
   if (typeof val === "string") {
     const data = formatDateCell(val);
-    if (data) return data;
+    if (data) return comDiaDaSemana(data);
   }
   if (typeof val === "number" || (typeof val === "string" && val !== "" && !isNaN(Number(val)))) {
     const num = typeof val === "number" ? val : Number(val);

@@ -492,6 +492,14 @@ Na edição da categoria atualizável com campo do tipo lista, a opção **Lista
 - Tipo não dito ("comprar leite") = o **primeiro valor padronizado** do campo (ex.: Mercado). Sem lista aberta desse Tipo, a lista nova já sai com ele.
 - Vale para o que é dito ou digitado no Fale comigo; o Catalogar continua criando um memo novo.
 
+## Registro único (ex.: Antropometria por Dono + Data + Período)
+Na edição da categoria, **Registro único por**: marque os campos que formam a chave. Ao registrar pelo Fale comigo:
+- **Não existe** memo com os mesmos valores nesses campos: cria o memo, como sempre.
+- **Já existe:** atualiza esse memo com os valores ditos agora, sem criar outro ("Atualizei Antropometria #8461 (Tereza · 2026-11-20 · Manhã): Peso: 81,0 → 80,6"), com ↶ Desfazer. Valor não dito agora não apaga o que já estava.
+- Padrões da chave quando não ditos: data = hoje; dono (categoria Pessoal) = quem registra; campo Status = o primeiro valor (ex.: Período: Manhã, Noite → Manhã).
+- Independe da **Lista aberta** das listas de compras, que continua acrescentando itens na lista aberta do Tipo.
+- Vale para o Fale comigo; o Catalogar continua criando um memo novo.
+
 ## Repetir uma lista
 Cria uma lista nova a partir de uma anterior (ex.: a lista de compras da semana passada). A lista anterior fica como está, com as marcas ✓/✗ e a data dela.
 - Pelo botão **⧉ Repetir lista** no cartão da lista (ao lado de ✎ Alterar e ☑ Concluir lista), ou dizendo: "repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior", "copiar a lista do mercado".
