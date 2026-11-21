@@ -471,7 +471,8 @@ Na edição da categoria atualizável com campo do tipo lista, a opção **Lista
 | uma lista aberta só | Se houver uma lista aberta (nem concluída nem cancelada), os itens entram nela |
 | uma lista aberta por <campo> (ex.: Tipo) | Entram na lista aberta do mesmo Tipo (Mercado, Farmácia…); sem lista aberta daquele Tipo, cria uma nova |
 - A data não entra na chave: a lista continua a mesma até ser concluída ou cancelada; depois disso, o próximo registro abre outra.
-- Os itens entram com confirmação (cartão de alteração, com Desfazer). Item que já está na lista não é repetido; item já comprado volta a pendente.
+- Os itens entram direto, sem perguntar ("Acrescentei na lista aberta de Mercado…"), com ↶ Desfazer. Item que já está na lista não é repetido (a resposta avisa); item já comprado volta a pendente.
+- Tipo não dito ("comprar leite") = o **primeiro valor padronizado** do campo (ex.: Mercado). Sem lista aberta desse Tipo, a lista nova já sai com ele.
 - Vale para o que é dito ou digitado no Fale comigo; o Catalogar continua criando um memo novo.
 
 ## Repetir uma lista

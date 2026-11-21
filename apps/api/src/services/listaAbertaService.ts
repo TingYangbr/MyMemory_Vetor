@@ -1,7 +1,8 @@
 /**
  * Lista aberta única (categories.lista_aberta_por): ao registrar itens numa categoria de lista, se já existe
  * uma lista ABERTA (nem concluída nem cancelada) com o mesmo valor do campo-chave (ex.: Tipo = Mercado), os
- * itens entram nela — o usuário confirma no cartão de alteração — em vez de nascer outra lista.
+ * itens entram nela direto (com Desfazer), em vez de nascer outra lista. Campo-chave não dito = o primeiro
+ * valor padronizado do campo (ex.: Mercado); sem lista aberta, o registro novo já sai com esse valor.
  * Sem data na chave: a lista continua a mesma até ser concluída ou cancelada.
  */
 import type { ComandoAlteracao, ComandoCriacao, MemoContextCategory } from "@mymemory/shared";
@@ -9,7 +10,7 @@ import { estadoDaSituacao, lerItensLista } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { aplicarOperacoesLista, textoMudanca } from "./comandoAlteracaoService.js";
-import { filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
+import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
 
 const norm = (s: unknown) =>
   String(s ?? "")
@@ -59,6 +60,20 @@ export async function juntarEmListaAberta(input: {
   }
   if (!Object.keys(itensNovos).length) return null; // sem itens: é outro tipo de registro, segue normal
 
+  // Campo-chave não dito ("comprar leite") = o primeiro valor padronizado do campo (ex.: Mercado);
+  // o registro novo (se não houver lista aberta) também sai com ele
+  if (chave !== "*" && !valorCampo(novos, chave).trim()) {
+    const def = (cat.campos ?? []).find((f) => f.isActive === 1 && norm(f.name) === norm(chave));
+    const padrao = String(def?.normalizedTerms ?? "")
+      .split(/[,\n]/)
+      .map((t) => t.split(":")[0]!.trim())
+      .find(Boolean);
+    if (padrao) {
+      const k = Object.keys(novos).find((x) => norm(x) === norm(chave)) ?? def?.name ?? chave;
+      novos[k] = padrao;
+      input.criacao.processado.dadosEspecificosJson = JSON.stringify(novos);
+    }
+  }
   const valorChave = chave === "*" ? "" : norm(valorCampo(novos, chave));
   const escopo = input.groupId != null ? `m.groupid = ?` : `m.groupid IS NULL AND m.userid = ?`;
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -96,11 +111,27 @@ export async function juntarEmListaAberta(input: {
     const msg = `Esses itens já estão na lista ${qual} (${cat.name} #${id}).`;
     return { comando: { status: "nao_encontrado", mensagem: msg }, mensagem: msg, memoId: id, resumo };
   }
-  const msg = `Já existe uma lista ${qual} (${cat.name} #${id}): acrescento nela? ${mudancas.map((m) => m.texto).join("; ")}.`;
+  // Grava direto na lista aberta (a alteração fica no histórico, com Desfazer)
+  let r;
+  try {
+    r = await alterarMemo({ memoId: id, userId: input.userId, isAdmin: input.isAdmin, campos: propostos, origem: "comando" });
+  } catch (e) {
+    // Gravação recusada: devolve a proposta para a pessoa confirmar no cartão
+    console.warn("[listaAberta] gravar:", e instanceof Error ? e.message : e);
+    const msgConf = `Não consegui gravar direto na lista ${qual} (${cat.name} #${id}). Confira e salve: ${mudancas.map((m) => m.texto).join("; ")}.`;
+    return {
+      comando: { status: "confirmar", mensagem: msgConf, memoId: id, candidatos: [{ memoId: id, categoria: cat.name, resumo, propostos, mudancas }] },
+      mensagem: msgConf,
+      memoId: id,
+      resumo,
+    };
+  }
+  const msg = `Acrescentei na lista ${qual} (${cat.name} #${id}): ${mudancas.map((m) => m.texto).join("; ")}.`;
   return {
     comando: {
-      status: "confirmar",
+      status: "alterado",
       mensagem: msg,
+      lote: r.lote,
       memoId: id,
       candidatos: [{ memoId: id, categoria: cat.name, resumo, propostos, mudancas }],
     },
