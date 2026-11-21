@@ -49,6 +49,11 @@
   overflow-wrap: anywhere;
 }
 
+.total {
+  font-weight: 500;
+  color: var(--mm-muted);
+}
+
 .icone {
   background: none;
   border: 1px solid var(--mm-border);
