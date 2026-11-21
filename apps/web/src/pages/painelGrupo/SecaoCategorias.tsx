@@ -689,6 +689,11 @@ function CamposCategoria({ cat, podeEditar, recarregar }: { cat: MemoContextCate
                   {c.unidade}
                 </span>
               ) : null}
+              {c.completarDatas ? (
+                <span className={s.tag} style={{ marginLeft: 4 }} title="A tabela e o gráfico mostram também os dias sem registro">
+                  todos os dias
+                </span>
+              ) : null}
             </b>
             {c.description ? <small>{c.description}</small> : null}
             {c.normalizedTerms ? <small>Valores: {c.normalizedTerms}</small> : null}
@@ -784,6 +789,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [ordemTabela, setOrdemTabela] = useState(campo?.ordemExibicao != null ? String(campo.ordemExibicao) : "");
   const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y">(campo?.papelGrafico ?? "");
   const [unidade, setUnidade] = useState(campo?.unidade ?? "");
+  const [completarDatas, setCompletarDatas] = useState(!!campo?.completarDatas);
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -803,6 +809,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
         ordemExibicao: ordemTabela.trim() === "" ? null : Math.max(-1, Math.min(999, Math.trunc(Number(ordemTabela)) || 0)),
         papelGrafico: papelGrafico || null,
         unidade: unidade.trim() || null,
+        completarDatas: tipo === "date" && completarDatas,
       };
       if (campo) {
         const r = await apiPatchJson<{ renomeado?: { de: string; para: string; memos: number; queries: number } }>(`/api/memo-context/campos/${campo.id}`, corpo);
@@ -949,6 +956,12 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
           Aparece no título da coluna (Peso (kg)) e na legenda do gráfico. No gráfico, os valores em % ficam no eixo da direita e as
           demais unidades no da esquerda.
         </p>
+        {tipo === "date" ? (
+          <label className={s.row} style={{ marginTop: 10, fontSize: 13.5 }}>
+            <input type="checkbox" checked={completarDatas} onChange={(e) => setCompletarDatas(e.target.checked)} />
+            Mostrar dias sem registro (na tabela e no gráfico das respostas)
+          </label>
+        ) : null}
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions}>
           <button type="button" className="mm-btn mm-btn--ghost" onClick={onFechar}>
