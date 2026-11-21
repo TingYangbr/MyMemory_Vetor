@@ -645,11 +645,15 @@
   gap: 8px;
 }
 
+/* Nome longo quebra a linha (até 2) em vez de passar da borda; "Cadastro_Cliente_Analise_Credito" quebra no meio */
 .catTop b {
   font-size: 14.5px;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .catDesc {

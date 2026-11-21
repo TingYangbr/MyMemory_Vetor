@@ -492,9 +492,9 @@ function ModelosProntosModal({
         <div style={{ display: "grid", gap: 12, maxHeight: "65vh", overflowY: "auto" }}>
           {modelos?.map((m) => (
             <div key={m.id} className={s.card} style={{ cursor: "default" }}>
-              <div className={s.row} style={{ alignItems: "center", gap: 8 }}>
-                <b style={{ fontSize: 15 }}>{m.nome}</b>
-                <span className={s.sp} />
+              {/* Nome à esquerda (quebra a linha se for longo); os botões ficam sempre juntos à direita */}
+              <div className={s.row} style={{ alignItems: "center", gap: 8, flexWrap: "nowrap" }}>
+                <b style={{ fontSize: 15, flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere" }}>{m.nome}</b>
                 {m.habilitadaId != null ? (
                   <span className={s.tag}>✓ já neste grupo</span>
                 ) : (
