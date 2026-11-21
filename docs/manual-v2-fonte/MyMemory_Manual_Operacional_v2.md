@@ -388,6 +388,17 @@ DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento
 - **Arrastar colunas** (computador): arraste o título para outra posição. Aparece "Gravar esta ordem de colunas em <categoria>? Gravar (5)" por 5 segundos; sem tocar em Gravar, a nova ordem vale só nesta resposta. Gravar exige ser dono do grupo e a categoria ser do grupo (não global).
 - **Duplo clique no título** ordena as linhas: crescente, decrescente e volta à original (números, datas e texto; vazios no fim).
 - **Ver todas:** a tabela começa com as primeiras linhas; o botão no rodapé mostra todas (até 2.000, as mesmas do PDF).
+## Gráfico das respostas: papel de cada campo
+Na edição do campo, **Papel no gráfico**:
+| Papel | No gráfico |
+|---|---|
+| **X** | Rótulos: eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada) — ex.: Cliente, Mês, Produto |
+| **Y** | Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática) |
+| vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
+- Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
+- Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).
+- Categoria sem nenhum papel definido continua escolhendo sozinha, como antes; a barra em pé é usada para datas e meses, e a deitada para os demais rótulos.
+
 ## Ordenação
 "Ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor" e "mais recentes primeiro" são aplicados no próprio banco de dados: a tabela e o PDF já chegam na ordem pedida.
 - Exemplo: "Listar faturamento por produto de abril de 2026, incluir abrev do cliente e ordenar por abrev cliente de A a Z".

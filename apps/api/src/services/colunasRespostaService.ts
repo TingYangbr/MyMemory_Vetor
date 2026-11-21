@@ -14,6 +14,35 @@ const TECNICAS = new Set(["mediatype", "mediafileurl", "attachmentdisplayname", 
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+/**
+ * Gráfico pelo papel de cada campo: X = rótulos, Y = valores (vários Y = várias cores, automático).
+ * Campo sem papel só entra se a pergunta o citar (como Y; ou como X, se ainda não houver X).
+ * Sem nenhum papel na categoria: nada aqui (a tela escolhe sozinha, como antes).
+ */
+function graficoPelaCategoria(
+  campos: MemoContextCategory["campos"],
+  colunas: string[],
+  citada: (nome: string) => boolean
+): { grafico?: { x?: string; y: string[] } } {
+  if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y")) return {};
+  const colDe = (nome: string) => colunas.find((c) => c.toLowerCase() === toParamName(nome).toLowerCase());
+  let x: string | undefined;
+  const y: string[] = [];
+  for (const f of campos) {
+    const col = colDe(f.name);
+    if (!col) continue;
+    if (f.papelGrafico === "X" && !x) x = col;
+    else if (f.papelGrafico === "Y") y.push(col);
+  }
+  for (const f of campos) {
+    const col = colDe(f.name);
+    if (!col || f.papelGrafico || !citada(f.name) || col === x || y.includes(col)) continue;
+    if (f.tipo === "number") y.push(col);
+    else if (!x) x = col;
+  }
+  return y.length ? { grafico: { ...(x ? { x } : {}), y } } : {};
+}
+
 function ordenarUm(
   dados: PerguntaResultadoEstruturado,
   cats: MemoContextCategory[],
@@ -44,7 +73,12 @@ function ordenarUm(
     .map((c, i) => ({ c, k: chave(c, i) }))
     .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1])
     .map((x) => x.c);
-  return { ...dados, colunas: ordenadas, ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}) };
+  return {
+    ...dados,
+    colunas: ordenadas,
+    ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}),
+    ...graficoPelaCategoria(campos, chavesLinha.length ? chavesLinha : dados.colunas, citada),
+  };
 }
 
 /** Aplica a ordem da categoria às tabelas da resposta (uma ou várias). */

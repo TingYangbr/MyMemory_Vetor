@@ -353,7 +353,43 @@ function isRotuloTemporal(raw: string): boolean {
  */
 const CHART_MAX_ROTULOS_EIXO_X = 20;
 
+/**
+ * Gráfico pelos papéis dos campos da categoria (X = rótulos, Y = valores; vários Y = várias cores).
+ * Linhas com o mesmo rótulo são somadas (ex.: várias contas do mesmo cliente). Com mais rótulos do que cabem,
+ * fica com os maiores pelo primeiro Y (ranking) ou, se forem datas, com os primeiros.
+ */
+function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
+  const g = dados.grafico;
+  if (!g?.y.length) return null;
+  const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
+  const valueCols = g.y.filter((col) => {
+    const vals = todas.map((l) => l[col]).filter((v) => v != null && v !== "");
+    return vals.length > 0 && vals.every(isNumericCellValue);
+  });
+  if (!valueCols.length) return null;
+  const labelCol = g.x ?? dados.colunas.find((c) => c.toLowerCase() !== "id" && !valueCols.includes(c));
+  if (!labelCol) return null;
+  const somas = new Map<string, Record<string, string | number>>();
+  for (const linha of todas) {
+    const raw = String(linha[labelCol] ?? "");
+    const label = formatDateCell(raw) ?? raw;
+    const row = somas.get(label) ?? { label };
+    for (const col of valueCols) row[col] = Number(row[col] ?? 0) + Number(linha[col] ?? 0);
+    somas.set(label, row);
+  }
+  let rows = [...somas.values()];
+  const temporal = todas.every((l) => isRotuloTemporal(String(l[labelCol] ?? "")));
+  if (rows.length > CHART_MAX_ROTULOS_EIXO_X) {
+    rows = temporal
+      ? rows.slice(0, CHART_MAX_ROTULOS_EIXO_X)
+      : rows.sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!])).slice(0, CHART_MAX_ROTULOS_EIXO_X);
+  }
+  return { valueCols, rows, temporal };
+}
+
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
+  // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
+  if (dados.grafico?.y.length) return graficoPelosPapeis(dados);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
