@@ -25,28 +25,38 @@ function palavrasDaPergunta(pergunta: string): string[] {
   return [...new Set(norm(pergunta).split(" ").filter((w) => w.length >= 3 && !PARADAS.has(w)).map(raiz))];
 }
 
-/** Quantas palavras (raízes) da pergunta aparecem no texto da categoria. */
-export function pontuarCategoria(pergunta: string, cat: MemoContextCategory): number {
+/** Consultas ativas da categoria que ainda não responderam (as de nome já usado ficam de fora). */
+export function consultasRestantes(cat: MemoContextCategory, excluirConsultas: string[] = []) {
+  const usadas = new Set(excluirConsultas.map(norm));
+  return (cat.queries ?? []).filter((q) => q.isActive === 1 && !usadas.has(norm(q.nome)));
+}
+
+/** Quantas palavras (raízes) da pergunta aparecem no texto da categoria (só com as consultas ainda não usadas). */
+export function pontuarCategoria(pergunta: string, cat: MemoContextCategory, excluirConsultas: string[] = []): number {
   const texto = norm(
-    [cat.name, cat.description ?? "", ...(cat.queries ?? []).filter((q) => q.isActive === 1).map((q) => `${q.nome} ${q.descricao ?? ""}`)].join(" ")
+    [cat.name, cat.description ?? "", ...consultasRestantes(cat, excluirConsultas).map((q) => `${q.nome} ${q.descricao ?? ""}`)].join(" ")
   );
   const raizesTexto = new Set(texto.split(" ").filter(Boolean).map(raiz));
   return palavrasDaPergunta(pergunta).filter((r) => raizesTexto.has(r)).length;
 }
 
-/** Melhor categoria estruturada fora das excluídas, se passar do limiar; senão null. */
+/**
+ * Melhor categoria estruturada fora das excluídas, se passar do limiar; senão null. Categoria cujas consultas
+ * já responderam (ex.: "Contas cadastradas", que existe nas duas de finanças) não conta: daria a mesma resposta.
+ */
 export function melhorCategoriaAlternativa(
   pergunta: string,
   categories: MemoContextCategory[],
-  excluir: string[]
+  excluir: string[],
+  excluirConsultas: string[] = []
 ): MemoContextCategory | null {
   const fora = new Set(excluir.map(norm));
   let melhor: MemoContextCategory | null = null;
   let pontos = 0;
   for (const c of categories) {
     if (c.isActive !== 1 || fora.has(norm(c.name))) continue;
-    if (!(c.queries ?? []).some((q) => q.isActive === 1)) continue; // só categoria com consulta (estruturada)
-    const p = pontuarCategoria(pergunta, c);
+    if (!consultasRestantes(c, excluirConsultas).length) continue; // só categoria com consulta nova (estruturada)
+    const p = pontuarCategoria(pergunta, c, excluirConsultas);
     if (p > pontos) {
       pontos = p;
       melhor = c;

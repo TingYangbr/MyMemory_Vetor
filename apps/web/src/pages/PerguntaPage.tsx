@@ -1765,6 +1765,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
    * ↺ Refazer: todas as categorias que já responderam a esta mesma pergunta nesta tela (a original e as dos
    * refazer anteriores). Sem isso, o segundo Refazer voltava para a categoria errada do começo.
    */
+  /** Consultas que já responderam a esta mesma pergunta (o Refazer não tenta categoria que só teria essas). */
+  function consultasJaUsadas(pergunta: string): string[] {
+    const alvo = pergunta.trim().toLowerCase();
+    const nomes = new Set<string>();
+    for (const x of respostas) {
+      if (x.perguntaTexto.trim().toLowerCase() !== alvo) continue;
+      for (const q of x.avisoSnapshot?.queries ?? []) nomes.add(q.nome);
+    }
+    return [...nomes];
+  }
+
   function categoriasJaTentadas(pergunta: string): string[] {
     const alvo = pergunta.trim().toLowerCase();
     const nomes = new Set<string>();
@@ -1775,7 +1786,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     return [...nomes];
   }
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[] }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[]; excluirConsultas?: string[] }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1814,6 +1825,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.refazer) {
         body.refazer = true;
         body.excluirCategorias = opts.excluirCategorias ?? [];
+        body.excluirConsultas = opts.excluirConsultas ?? [];
       }
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
@@ -3131,7 +3143,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           className={styles.refazerBtn}
                           disabled={busy}
                           onClick={() =>
-                            void enviar({ refazer: true, excluirCategorias: categoriasJaTentadas(r.perguntaTexto), perguntaOverride: r.perguntaTexto })
+                            void enviar({
+                              refazer: true,
+                              excluirCategorias: categoriasJaTentadas(r.perguntaTexto),
+                              excluirConsultas: consultasJaUsadas(r.perguntaTexto),
+                              perguntaOverride: r.perguntaTexto,
+                            })
                           }
                           title="Não era isso? Refaz a pergunta com outra categoria ou nos textos dos memos"
                         >

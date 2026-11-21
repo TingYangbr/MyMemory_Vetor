@@ -1247,6 +1247,8 @@ export interface PerguntaRequest {
   refazer?: boolean;
   /** Categorias da resposta anterior, que o Refazer não repete. */
   excluirCategorias?: string[];
+  /** Consultas (nomes) que já responderam a esta pergunta. */
+  excluirConsultas?: string[];
 }
 
 export interface PerguntaCardHistorico {

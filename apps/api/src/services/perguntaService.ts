@@ -30,7 +30,7 @@ import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
-import { melhorCategoriaAlternativa } from "./refazerService.js";
+import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -275,6 +275,8 @@ export async function perguntarMemory(input: {
   refazer?: boolean;
   /** Categorias da resposta anterior, que o Refazer não repete. */
   excluirCategorias?: string[];
+  /** Consultas (nomes) que já responderam: categoria que só teria essas não é tentada. */
+  excluirConsultas?: string[];
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
@@ -308,11 +310,17 @@ export async function perguntarMemory(input: {
   // ↺ Refazer de um toque: outra categoria estruturada que case com as palavras da pergunta (sem IA);
   // se nenhuma passar do limiar, busca nos textos dos memos (como era). A resposta diz o que foi tentado.
   if (input.refazer) {
-    const alt = melhorCategoriaAlternativa(input.pergunta, categoriasVisiveis, input.excluirCategorias ?? []);
+    const exclConsultas = input.excluirConsultas ?? [];
+    const alt = melhorCategoriaAlternativa(input.pergunta, categoriasVisiveis, input.excluirCategorias ?? [], exclConsultas);
     const r = await perguntarMemory({
       ...input,
+      // Na categoria escolhida ficam só as consultas que ainda não responderam a esta pergunta
+      categories: alt
+        ? input.categories.map((c) => (c.name === alt.name ? { ...c, queries: consultasRestantes(c, exclConsultas) } : c))
+        : input.categories,
       refazer: false,
       excluirCategorias: undefined,
+      excluirConsultas: undefined,
       forceAlvo: "dados",
       forcePipe: alt ? "estruturada" : "semantica",
       forceCategories: alt ? [alt.name] : [],
