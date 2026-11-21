@@ -1166,9 +1166,26 @@
   display: flex;
   align-items: stretch;
   gap: 0.75rem;
-  overflow-x: auto;
   margin-top: 0.25rem;
-  scroll-snap-type: x proximity;
+}
+
+/* Gráfico grande: um embaixo do outro, cada um com a largura toda */
+.chartTableStack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.chartTableStack .chartWrap {
+  flex: none;
+  max-width: none;
+  min-width: 0;
+}
+
+.chartTableStack .tabelaScrollItem {
+  flex: none;
+  min-width: 0;
 }
 
 .chartWrap {
@@ -1192,10 +1209,16 @@
   margin-top: 0;
 }
 
+/* Celular: sempre um embaixo do outro (antes a tabela ficava escondida à direita, só aparecia arrastando) */
 @media (max-width: 720px) {
+  .chartTableRow {
+    flex-direction: column;
+  }
   .chartWrap,
   .tabelaScrollItem {
-    flex: 0 0 100%;
+    flex: none;
+    min-width: 0;
+    max-width: none;
   }
 }
 
