@@ -96,6 +96,7 @@ import { FinanceiroMoedas1700000000181 } from "./migrations/1700000000181-Financ
 import { FinanceiroConsultas1700000000182 } from "./migrations/1700000000182-FinanceiroConsultas.js";
 import { FinanceiroMercado1700000000183 } from "./migrations/1700000000183-FinanceiroMercado.js";
 import { FinanceiroContasCadastradas1700000000184 } from "./migrations/1700000000184-FinanceiroContasCadastradas.js";
+import { FinanceiroNomesCurtos1700000000185 } from "./migrations/1700000000185-FinanceiroNomesCurtos.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -239,6 +240,7 @@ assertMediaStorageEnv();
       FinanceiroConsultas1700000000182,
       FinanceiroMercado1700000000183,
       FinanceiroContasCadastradas1700000000184,
+      FinanceiroNomesCurtos1700000000185,
     ],
   });
   const ds = await AppDataSource.initialize();

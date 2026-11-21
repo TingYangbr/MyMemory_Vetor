@@ -85,7 +85,7 @@ const ORIGEM = "Dados da tela Contas a pagar e receber (controle financeiro), n�
 
 export const FIN_CATEGORIAS: FinCategoriaDef[] = [
   {
-    nome: "Financeiro — Contas a pagar e receber",
+    nome: "Fin - A pagar e receber",
     descricao:
       ORIGEM +
       "O FUTURO e os compromissos: contas a pagar e a receber, vencimentos, o que vence hoje/esta semana/no mês, contas atrasadas, " +
@@ -96,7 +96,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
     consultas: ["Financeiro — Contas a pagar e receber", "Financeiro — Fluxo de caixa"],
   },
   {
-    nome: "Financeiro — Gastos e lançamentos",
+    nome: "Fin - Gastos e lançamentos",
     descricao:
       ORIGEM +
       "O PASSADO: quanto gastei ou recebi, gastos por grupo (alimentação, moradia, transporte…), receitas, quanto sobrou ou faltou no mês, " +
@@ -106,7 +106,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
     consultas: ["Financeiro — Gastos e receitas", "Financeiro — Resultado", "Financeiro — Entradas e saídas", "Financeiro — Lançamentos", "Financeiro — Contas cadastradas"],
   },
   {
-    nome: "Financeiro — Saldos e investimentos",
+    nome: "Fin - Saldos e investimentos",
     descricao:
       ORIGEM +
       "A POSIÇÃO de hoje (ou de uma data): saldo de banco e de corretora, quanto tenho, quanto devo no cartão de crédito, " +
