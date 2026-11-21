@@ -382,6 +382,12 @@ A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o
 - Maiores e menores ("os 3 produtos mais faturados") também são calculados pelo sistema sobre todas as linhas. A IA só cita destaques quando a pergunta pede ranking, maiores ou menores.
 - A tabela mostra só as colunas que a pergunta pede: o item (ex.: código e descrição do produto) e a medida (ex.: valor faturado). Para ver outras, peça na pergunta: "incluir o cliente", "com o número da nota".
 DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento") para que os destaques venham no texto.
+## Colunas e linhas da tabela
+- **Ordem das colunas pela categoria:** cada campo tem **Ordem na tabela** (edição do campo). 1, 2, 3… aparecem primeiro, nessa ordem; vazio vem depois, na ordem dos campos; colunas que não são campo (texto, data de registro) por último; **-1 não aparece**, a não ser que a pergunta cite o campo. Com alguma ordem definida na categoria, a tabela mostra todas as colunas da consulta (menos as técnicas), e não só as que a IA escolheu.
+- **Lápis (✎) sempre na primeira coluna; #id e o ícone do arquivo original sempre na última.**
+- **Arrastar colunas** (computador): arraste o título para outra posição. Aparece "Gravar esta ordem de colunas em <categoria>? Gravar (5)" por 5 segundos; sem tocar em Gravar, a nova ordem vale só nesta resposta. Gravar exige ser dono do grupo e a categoria ser do grupo (não global).
+- **Duplo clique no título** ordena as linhas: crescente, decrescente e volta à original (números, datas e texto; vazios no fim).
+- **Ver todas:** a tabela começa com as primeiras linhas; o botão no rodapé mostra todas (até 2.000, as mesmas do PDF).
 ## Ordenação
 "Ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor" e "mais recentes primeiro" são aplicados no próprio banco de dados: a tabela e o PDF já chegam na ordem pedida.
 - Exemplo: "Listar faturamento por produto de abril de 2026, incluir abrev do cliente e ordenar por abrev cliente de A a Z".
