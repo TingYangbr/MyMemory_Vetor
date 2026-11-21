@@ -32,6 +32,7 @@ import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import { juntarEmListaAberta } from "./listaAbertaService.js";
+import { atualizarRegistroUnico } from "./registroUnicoService.js";
 import { ordenarColunasDaResposta } from "./colunasRespostaService.js";
 import {
   descricaoConfiguracao,
@@ -529,13 +530,22 @@ export async function perguntarMemory(input: {
         classificacao,
       }));
       // Lista aberta única (ex.: uma Lista de compras aberta por Tipo): os itens entram na lista aberta
-      const junta = await juntarEmListaAberta({
-        criacao,
-        categories: cats,
-        userId: input.userId,
-        isAdmin: input.isAdmin,
-        groupId: input.groupId,
-      });
+      const junta =
+        (await juntarEmListaAberta({
+          criacao,
+          categories: cats,
+          userId: input.userId,
+          isAdmin: input.isAdmin,
+          groupId: input.groupId,
+        })) ??
+        // Registro único (ex.: Antropometria por Dono + Data + Período): a mesma chave atualiza o memo
+        (await atualizarRegistroUnico({
+          criacao,
+          categories: cats,
+          userId: input.userId,
+          isAdmin: input.isAdmin,
+          groupId: input.groupId,
+        }));
       if (junta) {
         return {
           resposta: {

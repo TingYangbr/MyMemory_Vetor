@@ -46,7 +46,8 @@ const plugin: FastifyPluginAsync = async (app) => {
                   meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
                   campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
                   confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
-                  situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor"
+                  situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor",
+                  registro_unico_por AS "registroUnicoPor"
            FROM categories
            WHERE id = ? AND isactive = 1 AND groupid IS NULL
            LIMIT 1`,
@@ -59,8 +60,8 @@ const plugin: FastifyPluginAsync = async (app) => {
         const [newCatRows] = await conn.query<{ id: number }[]>(
           `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
              campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido,
-             lista_aberta_por)
-           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+             lista_aberta_por, registro_unico_por)
+           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
           [
             targetGroupId,
             cat.mediaType ?? null,
@@ -77,6 +78,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             cat.situacaoTipo === "registro" ? "registro" : "afazer",
             cat.rotuloConcluido ?? null,
             cat.listaAbertaPor ?? null,
+            cat.registroUnicoPor ?? null,
           ]
         );
         const newCatId = Number(newCatRows[0]?.id);
