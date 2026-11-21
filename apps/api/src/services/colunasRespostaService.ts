@@ -23,24 +23,26 @@ function graficoPelaCategoria(
   campos: MemoContextCategory["campos"],
   colunas: string[],
   citada: (nome: string) => boolean
-): { grafico?: { x?: string; y: string[] } } {
-  if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y")) return {};
+): { grafico?: { x?: string; y: string[]; y2?: string[] } } {
+  if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y" || f.papelGrafico === "P")) return {};
   const colDe = (nome: string) => colunas.find((c) => c.toLowerCase() === toParamName(nome).toLowerCase());
   let x: string | undefined;
   const y: string[] = [];
+  const y2: string[] = [];
   for (const f of campos) {
     const col = colDe(f.name);
     if (!col) continue;
     if (f.papelGrafico === "X" && !x) x = col;
     else if (f.papelGrafico === "Y") y.push(col);
+    else if (f.papelGrafico === "P") y2.push(col);
   }
   for (const f of campos) {
     const col = colDe(f.name);
-    if (!col || f.papelGrafico || !citada(f.name) || col === x || y.includes(col)) continue;
+    if (!col || f.papelGrafico || !citada(f.name) || col === x || y.includes(col) || y2.includes(col)) continue;
     if (f.tipo === "number") y.push(col);
     else if (!x) x = col;
   }
-  return y.length ? { grafico: { ...(x ? { x } : {}), y } } : {};
+  return y.length || y2.length ? { grafico: { ...(x ? { x } : {}), y, ...(y2.length ? { y2 } : {}) } } : {};
 }
 
 function ordenarUm(

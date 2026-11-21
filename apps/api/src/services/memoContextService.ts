@@ -375,7 +375,7 @@ export async function loadMemoContextStructure(
         normalizedTerms: (r.normalizedTerms as string) ?? null,
         verbos: (r.verbos as string | null) ?? null,
         ordemExibicao: r.ordemExibicao == null ? null : Number(r.ordemExibicao),
-        papelGrafico: r.papelGrafico === "X" || r.papelGrafico === "Y" ? r.papelGrafico : null,
+        papelGrafico: r.papelGrafico === "X" || r.papelGrafico === "Y" || r.papelGrafico === "P" ? r.papelGrafico : null,
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
@@ -860,7 +860,7 @@ const TIPOS_CAMPO = ["text", "date", "number", "lista", "status"];
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null }
+  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | "P" | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
   const tipo = input.tipo && TIPOS_CAMPO.includes(input.tipo) ? input.tipo : "text";
@@ -875,7 +875,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null; isActive?: number }
+  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | "P" | null; isActive?: number }
 ): Promise<{ renomeado?: { de: string; para: string; memos: number; queries: number } }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(

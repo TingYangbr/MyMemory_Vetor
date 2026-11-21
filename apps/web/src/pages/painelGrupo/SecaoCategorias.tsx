@@ -777,7 +777,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [verbos, setVerbos] = useState(campo?.verbos ?? "");
   const [nomeErp, setNomeErp] = useState(campo?.resolucaoNomeAbrev ?? false);
   const [ordemTabela, setOrdemTabela] = useState(campo?.ordemExibicao != null ? String(campo.ordemExibicao) : "");
-  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y">(campo?.papelGrafico ?? "");
+  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y" | "P">(campo?.papelGrafico ?? "");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -913,11 +913,12 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
             id="cp-grafico"
             className={`mm-field ${s.selectSm}`}
             value={papelGrafico}
-            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y")}
+            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y" | "P")}
           >
             <option value="">— (só se a pergunta citar)</option>
             <option value="X">X — rótulos (cliente, mês, produto…)</option>
-            <option value="Y">Y — valor (tamanho da barra)</option>
+            <option value="Y">Y — valor (eixo da esquerda)</option>
+            <option value="P">Y % — valor em % (eixo da direita)</option>
           </select>
         </div>
         <p className={s.help}>
