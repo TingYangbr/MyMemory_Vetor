@@ -46,7 +46,7 @@ const plugin: FastifyPluginAsync = async (app) => {
                   meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
                   campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
                   confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
-                  situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido"
+                  situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor"
            FROM categories
            WHERE id = ? AND isactive = 1 AND groupid IS NULL
            LIMIT 1`,
@@ -58,8 +58,9 @@ const plugin: FastifyPluginAsync = async (app) => {
         // Clona categoria com o grupo destino
         const [newCatRows] = await conn.query<{ id: number }[]>(
           `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
-             campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido)
-           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+             campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido,
+             lista_aberta_por)
+           VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
           [
             targetGroupId,
             cat.mediaType ?? null,
@@ -75,6 +76,7 @@ const plugin: FastifyPluginAsync = async (app) => {
             cat.campoEncerraData ?? null,
             cat.situacaoTipo === "registro" ? "registro" : "afazer",
             cat.rotuloConcluido ?? null,
+            cat.listaAbertaPor ?? null,
           ]
         );
         const newCatId = Number(newCatRows[0]?.id);
@@ -94,15 +96,16 @@ const plugin: FastifyPluginAsync = async (app) => {
 
         // Clona campos
         const [campoRows] = await conn.query<RowDataPacket[]>(
-          `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev"
+          `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev",
+                  ordem_exibicao AS "ordemExibicao", papel_grafico AS "papelGrafico"
            FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
           [catId]
         );
         for (const campo of campoRows) {
           await conn.query(
-            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive)
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, campo.verbos ?? null, Number(campo.resolucaoNomeAbrev ?? 0)]
+            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, ordem_exibicao, papel_grafico, isactive)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, campo.verbos ?? null, Number(campo.resolucaoNomeAbrev ?? 0), campo.ordemExibicao ?? null, campo.papelGrafico ?? null]
           );
         }
 
