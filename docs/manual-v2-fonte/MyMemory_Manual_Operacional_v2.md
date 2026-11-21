@@ -394,7 +394,7 @@ Na edição do campo, **Papel no gráfico**:
 |---|---|
 | **X** | Rótulos: eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada) — ex.: Cliente, Mês, Produto |
 | **Y** | Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática) |
-| **Y %** | Valor em %, no **eixo da direita** (na barra deitada, no eixo de cima) — ex.: Gordura corporal %. Com Y e Y % no mesmo gráfico aparecem dois eixos; sem papel definido, coluna com "%" ou "perc" no nome vai para a direita sozinha |
+| **Unidade** (caixa ao lado) | kg, %, cm, R$… — aparece no título da coluna ("Peso (kg)") e na legenda. No gráfico, **% fica no eixo da direita** e as demais unidades juntas no da esquerda, com elas no título do eixo ("kg · cm"). Sem unidade configurada, coluna com "%" ou "perc" no nome vai para a direita |
 | vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
 - Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
 - Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).

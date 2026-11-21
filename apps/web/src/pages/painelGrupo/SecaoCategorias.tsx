@@ -684,6 +684,11 @@ function CamposCategoria({ cat, podeEditar, recarregar }: { cat: MemoContextCate
                   {c.papelGrafico}
                 </span>
               ) : null}
+              {c.unidade ? (
+                <span className={s.tag} style={{ marginLeft: 4 }} title="Unidade">
+                  {c.unidade}
+                </span>
+              ) : null}
             </b>
             {c.description ? <small>{c.description}</small> : null}
             {c.normalizedTerms ? <small>Valores: {c.normalizedTerms}</small> : null}
@@ -777,7 +782,8 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [verbos, setVerbos] = useState(campo?.verbos ?? "");
   const [nomeErp, setNomeErp] = useState(campo?.resolucaoNomeAbrev ?? false);
   const [ordemTabela, setOrdemTabela] = useState(campo?.ordemExibicao != null ? String(campo.ordemExibicao) : "");
-  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y" | "P">(campo?.papelGrafico ?? "");
+  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y">(campo?.papelGrafico ?? "");
+  const [unidade, setUnidade] = useState(campo?.unidade ?? "");
   const [busy, setBusy] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -796,6 +802,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
         resolucaoNomeAbrev: nomeErp,
         ordemExibicao: ordemTabela.trim() === "" ? null : Math.max(-1, Math.min(999, Math.trunc(Number(ordemTabela)) || 0)),
         papelGrafico: papelGrafico || null,
+        unidade: unidade.trim() || null,
       };
       if (campo) {
         const r = await apiPatchJson<{ renomeado?: { de: string; para: string; memos: number; queries: number } }>(`/api/memo-context/campos/${campo.id}`, corpo);
@@ -913,18 +920,34 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
             id="cp-grafico"
             className={`mm-field ${s.selectSm}`}
             value={papelGrafico}
-            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y" | "P")}
+            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y")}
           >
             <option value="">— (só se a pergunta citar)</option>
             <option value="X">X — rótulos (cliente, mês, produto…)</option>
             <option value="Y">Y — valor (eixo da esquerda)</option>
-            <option value="P">Y % — valor em % (eixo da direita)</option>
+
           </select>
         </div>
         <p className={s.help}>
           X fica no eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada); Y é o tamanho da barra. Com mais de
           um Y, cada um vira uma barra de cor diferente. Sem papel, o campo não entra no gráfico, a não ser que a pergunta o cite.
           Categoria sem nenhum papel definido escolhe sozinha, como antes.
+        </p>
+        <div className={s.row} style={{ marginTop: 10, fontSize: 13.5 }}>
+          <label htmlFor="cp-unidade">Unidade:</label>
+          <input
+            id="cp-unidade"
+            className={`mm-field ${s.selectSm}`}
+            style={{ width: 90 }}
+            maxLength={20}
+            value={unidade}
+            onChange={(e) => setUnidade(e.target.value)}
+            placeholder="kg, %, cm, R$"
+          />
+        </div>
+        <p className={s.help}>
+          Aparece no título da coluna (Peso (kg)) e na legenda do gráfico. No gráfico, os valores em % ficam no eixo da direita e as
+          demais unidades no da esquerda.
         </p>
         {erro ? <p className={s.msgErr}>{erro}</p> : null}
         <div className={s.actions}>

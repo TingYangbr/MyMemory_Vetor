@@ -99,15 +99,15 @@ const plugin: FastifyPluginAsync = async (app) => {
         // Clona campos
         const [campoRows] = await conn.query<RowDataPacket[]>(
           `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev",
-                  ordem_exibicao AS "ordemExibicao", papel_grafico AS "papelGrafico"
+                  ordem_exibicao AS "ordemExibicao", papel_grafico AS "papelGrafico", unidade
            FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
           [catId]
         );
         for (const campo of campoRows) {
           await conn.query(
-            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, ordem_exibicao, papel_grafico, isactive)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, campo.verbos ?? null, Number(campo.resolucaoNomeAbrev ?? 0), campo.ordemExibicao ?? null, campo.papelGrafico ?? null]
+            `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, ordem_exibicao, papel_grafico, unidade, isactive)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+            [newCatId, campo.name, campo.description ?? null, campo.tipo ?? "text", campo.normalizedTerms ?? null, campo.verbos ?? null, Number(campo.resolucaoNomeAbrev ?? 0), campo.ordemExibicao ?? null, campo.papelGrafico ?? null, campo.unidade ?? null]
           );
         }
 

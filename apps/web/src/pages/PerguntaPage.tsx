@@ -357,6 +357,13 @@ interface DadosGrafico {
   temporal: boolean;
   /** Séries em % no eixo da direita (as demais, em unidade, no da esquerda). */
   direita?: string[];
+  /** Unidade de cada série (kg, %, cm…), da configuração dos campos. */
+  unidades?: Record<string, string>;
+}
+
+/** Séries do eixo da direita: unidade % ou, sem unidade configurada, nome com % / perc / pct. */
+function seriesPercentuais(cols: string[], unidades: Record<string, string> | undefined): string[] {
+  return cols.filter((c) => (unidades?.[c] ? unidades[c]!.trim() === "%" : ehColunaPercentual(c)));
 }
 
 /** Coluna em %: pelo nome ("Taxa %", "perc_", "pct") — vai para o eixo da direita na escolha automática. */
@@ -391,9 +398,9 @@ const CHART_MAX_ROTULOS_EIXO_X = 20;
  */
 function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
   const g = dados.grafico;
-  if (!g || !(g.y.length || g.y2?.length)) return null;
+  if (!g?.y.length) return null;
   const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
-  const valueCols = [...g.y, ...(g.y2 ?? [])].filter((col) => {
+  const valueCols = g.y.filter((col) => {
     const vals = todas.map((l) => l[col]).filter((v) => v != null && v !== "");
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
@@ -415,12 +422,12 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
       ? rows.slice(0, CHART_MAX_ROTULOS_EIXO_X)
       : rows.sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!])).slice(0, CHART_MAX_ROTULOS_EIXO_X);
   }
-  return { valueCols, rows, temporal, direita: valueCols.filter((c) => g.y2?.includes(c)) };
+  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
 }
 
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
   // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
-  if (dados.grafico && (dados.grafico.y.length || dados.grafico.y2?.length)) return graficoPelosPapeis(dados);
+  if (dados.grafico?.y.length) return graficoPelosPapeis(dados);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
@@ -454,7 +461,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     return row;
   });
   const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
-  return { valueCols, rows, temporal, direita: valueCols.filter(ehColunaPercentual) };
+  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
 }
 
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
@@ -471,7 +478,15 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const soPercent = direita.size > 0 && !doisEixos;
   const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
   const eixoDe = (col: string) => (doisEixos && direita.has(col) ? "dir" : "esq");
-  const nomeSerie = (col: string) => `${COLUNA_LABELS[col] ?? col}${doisEixos && direita.has(col) ? " (%)" : ""}`;
+  // Unidade na legenda ("Peso (kg)"); sem unidade configurada, as séries da direita levam "(%)"
+  const unidadeDe = (col: string) => dados.unidades?.[col]?.trim() || (direita.has(col) ? "%" : "");
+  const nomeSerie = (col: string) => {
+    const u = unidadeDe(col);
+    return `${COLUNA_LABELS[col] ?? col}${u ? ` (${u})` : ""}`;
+  };
+  // Títulos dos eixos: as unidades de cada lado ("kg · cm" à esquerda, "%" à direita)
+  const tituloEsq = [...new Set(dados.valueCols.filter((c) => !doisEixos || !direita.has(c)).map(unidadeDe).filter(Boolean))].join(" · ");
+  const tituloDir = doisEixos ? "%" : "";
 
   if (dados.temporal) {
     return (
@@ -479,8 +494,23 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
         <BarChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
           {grade}
           <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
-          <YAxis yAxisId="esq" tick={{ fontSize: 11 }} width={60} tickFormatter={soPercent ? pct : compacto} />
-          {doisEixos ? <YAxis yAxisId="dir" orientation="right" tick={{ fontSize: 11 }} width={48} tickFormatter={pct} /> : null}
+          <YAxis
+            yAxisId="esq"
+            tick={{ fontSize: 11 }}
+            width={60}
+            tickFormatter={soPercent ? pct : compacto}
+            label={tituloEsq && !soPercent ? { value: tituloEsq, angle: -90, position: "insideLeft", fontSize: 11 } : undefined}
+          />
+          {doisEixos ? (
+            <YAxis
+              yAxisId="dir"
+              orientation="right"
+              tick={{ fontSize: 11 }}
+              width={48}
+              tickFormatter={pct}
+              label={{ value: tituloDir, angle: 90, position: "insideRight", fontSize: 11 }}
+            />
+          ) : null}
           {tooltip}
           {legenda}
           {dados.valueCols.map((col, idx) => (
@@ -500,7 +530,13 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
     <ResponsiveContainer width="100%" height={altura}>
       <BarChart data={dados.rows} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 4 }} barCategoryGap="22%">
         {grade}
-        <XAxis xAxisId="esq" type="number" tick={{ fontSize: 11 }} tickFormatter={soPercent ? pct : compacto} />
+        <XAxis
+          xAxisId="esq"
+          type="number"
+          tick={{ fontSize: 11 }}
+          tickFormatter={soPercent ? pct : compacto}
+          label={tituloEsq && !soPercent ? { value: tituloEsq, position: "insideBottomRight", fontSize: 11 } : undefined}
+        />
         {doisEixos ? <XAxis xAxisId="dir" type="number" orientation="top" tick={{ fontSize: 11 }} tickFormatter={pct} /> : null}
         <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={larguraRotulo} interval={0} tickFormatter={corta} />
         {tooltip}
@@ -1294,6 +1330,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                   title="Arraste para mudar a ordem; duplo clique ordena as linhas"
                 >
                   {COLUNA_LABELS[col] ?? col}
+                  {dados.unidades?.[col] ? ` (${dados.unidades[col]})` : ""}
                   {seta(col)}
                 </th>
               ))}
