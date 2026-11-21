@@ -327,10 +327,26 @@ function escolherSeries(cols: string[], pergunta: string): string[] {
     .map((x) => x.col);
 }
 
+/**
+ * Número de uma célula, aceitando o jeito brasileiro: "81,9", "1.234,56", "78,5 kg", "45%".
+ * null quando não é número. Os campos de memo vêm como texto (o que a IA extraiu), quase sempre com vírgula.
+ */
+function numeroDaCelula(v: unknown): number | null {
+  if (v == null) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v !== "string") return null;
+  let t = v.trim().replace(/\s*(kg|g|cm|m|%|r\$)\s*$/i, "").replace(/^r\$\s*/i, "").trim();
+  if (!t) return null;
+  if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(t)) t = t.replace(/\./g, "").replace(",", ".");
+  else if (/^-?\d+,\d+$/.test(t)) t = t.replace(",", ".");
+  const n = Number(t);
+  return /^-?\d+(\.\d+)?$/.test(t) && Number.isFinite(n) ? n : null;
+}
+
 function isNumericCellValue(v: unknown): boolean {
   if (v == null) return false;
   if (typeof v === "number") return Number.isFinite(v);
-  if (typeof v === "string" && v.trim() !== "") return !isNaN(Number(v));
+  if (typeof v === "string" && v.trim() !== "") return numeroDaCelula(v) != null;
   return false;
 }
 
@@ -384,7 +400,7 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
     const raw = String(linha[labelCol] ?? "");
     const label = formatDateCell(raw) ?? raw;
     const row = somas.get(label) ?? { label };
-    for (const col of valueCols) row[col] = Number(row[col] ?? 0) + Number(linha[col] ?? 0);
+    for (const col of valueCols) row[col] = Number(row[col] ?? 0) + (numeroDaCelula(linha[col]) ?? 0);
     somas.set(label, row);
   }
   let rows = [...somas.values()];
@@ -428,7 +444,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     const row: Record<string, string | number> = { label: formatDateCell(rawLabel) ?? rawLabel };
     for (const col of valueCols) {
       const v = linha[col];
-      row[col] = v == null ? 0 : typeof v === "number" ? v : Number(v);
+      row[col] = numeroDaCelula(v) ?? 0;
     }
     return row;
   });
