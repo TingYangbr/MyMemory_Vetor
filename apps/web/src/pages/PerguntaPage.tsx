@@ -94,6 +94,15 @@ function normalizeTtsText(text: string): string {
 }
 
 /** Resposta longa: mais de ~6 linhas na tela recolhe com "Ler mais". */
+/** Acima disto, o texto de uma resposta com tabela fica recolhido em 2 linhas. */
+const TEXTO_RESUMO_COM_TABELA = 140;
+
+/** A resposta traz tabela (ou gráfico) com linhas abaixo do texto? */
+function temTabelaNaResposta(resposta: { dados_estruturados?: unknown }): boolean {
+  const de = resposta.dados_estruturados as { totalLinhas?: number; linhas?: unknown[] } | { totalLinhas?: number; linhas?: unknown[] }[] | null | undefined;
+  return (de ? (Array.isArray(de) ? de : [de]) : []).some((d) => (d.totalLinhas ?? d.linhas?.length ?? 0) > 0);
+}
+
 function textoLongo(texto: string): boolean {
   return texto.length > 520 || texto.split("\n").length > 7;
 }
@@ -1752,7 +1761,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ready, me]);
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema" }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[] }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1788,6 +1797,10 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.forceCategories) body.forceCategories = opts.forceCategories;
       if (opts?.ampliarAteAchar) body.ampliarAteAchar = true;
       if (opts?.forceAlvo) body.forceAlvo = opts.forceAlvo;
+      if (opts?.refazer) {
+        body.refazer = true;
+        body.excluirCategorias = opts.excluirCategorias ?? [];
+      }
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
         method: "POST",
@@ -3096,15 +3109,31 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         </button>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className={styles.refazerBtn}
-                        disabled={busy}
-                        onClick={() => setRefazerIdx(i)}
-                        title="Refazer com outro pipe"
-                      >
-                        ↺ Refazer
-                      </button>
+                      // Um toque: o sistema tenta outra categoria parecida com a pergunta ou, se não houver, os textos dos memos.
+                      // O "⋯" abre as opções de sempre (Semântico, Estruturado, Híbrido, No manual).
+                      <span className={styles.ampliarWrap}>
+                        <button
+                          type="button"
+                          className={styles.refazerBtn}
+                          disabled={busy}
+                          onClick={() =>
+                            void enviar({ refazer: true, excluirCategorias: r.classificacao.categorias, perguntaOverride: r.perguntaTexto })
+                          }
+                          title="Não era isso? Refaz a pergunta com outra categoria ou nos textos dos memos"
+                        >
+                          ↺ Refazer
+                        </button>
+                        <button
+                          type="button"
+                          className={styles.refazerBtn}
+                          disabled={busy}
+                          onClick={() => setRefazerIdx(i)}
+                          title="Mais opções: escolher Semântico, Estruturado ou Híbrido"
+                          aria-label="Mais opções de refazer"
+                        >
+                          ⋯
+                        </button>
+                      </span>
                     )}
                   </div>
                   </div>
@@ -3116,17 +3145,24 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   ) : null}
                   {r.comando || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
-                    const recolhido = textoLongo(texto) && !expandidos.has(r);
+                    // Com tabela logo abaixo, o texto só repete o que ela mostra: fica em 2 linhas com "Mais…"
+                    const temTabela = temTabelaNaResposta(r.resposta);
+                    const longo = temTabela ? texto.length > TEXTO_RESUMO_COM_TABELA : textoLongo(texto);
+                    const recolhido = longo && !expandidos.has(r);
                     return (
                       <div className={styles.respostaTextoWrap}>
-                        <p className={`${styles.cardRespostaText} ${recolhido ? styles.cardRespostaTextRecolhido : ""}`}>
+                        <p
+                          className={`${styles.cardRespostaText} ${
+                            recolhido ? (temTabela ? styles.cardRespostaTextResumo : styles.cardRespostaTextRecolhido) : ""
+                          }`}
+                        >
                           {texto}
                           {recolhido ? null : <BotoesAlterarResposta resposta={r.resposta} />}
                         </p>
-                        {textoLongo(texto) ? (
+                        {longo ? (
                           <div className={styles.lerMaisRow}>
                             <button type="button" className={styles.lerMaisBtn} onClick={() => alternarExpandido(r)} aria-expanded={!recolhido}>
-                              {recolhido ? "Ler mais" : "Ler menos"}
+                              {recolhido ? (temTabela ? "Mais…" : "Ler mais") : "Ler menos"}
                             </button>
                             {recolhido ? <BotoesAlterarResposta resposta={r.resposta} /> : null}
                           </div>
@@ -3136,6 +3172,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   })()}
                   <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
+                  {r.resposta.refeitoCom ? <p className={styles.alvoUsoNota}>↺ Refeito com: {r.resposta.refeitoCom}</p> : null}
                   {r.resposta.alvo === "uso_do_sistema" ? (
                     <div className={styles.ampliarWrap}>
                       <span className={styles.alvoUsoNota}>Respondi como dúvida de uso.</span>
