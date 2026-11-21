@@ -635,6 +635,8 @@ export interface MemoContextCategory {
   situacaoTipo?: "afazer" | "registro";
   /** Nome do Concluído na tela desta categoria (Comprado, Pago, Realizado); null = "Concluído". */
   rotuloConcluido?: string | null;
+  /** Lista aberta única: null = cada registro cria lista nova; "*" = uma lista aberta só; nome de campo = uma por valor dele. */
+  listaAbertaPor?: string | null;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */
@@ -671,6 +673,10 @@ export interface MemoContextCampo {
   normalizedTerms: string | null;
   /** Tipo status: uma linha por valor, "Baixado: pagar, paguei, quitar". */
   verbos?: string | null;
+  /** Ordem da coluna na tabela das respostas: 1, 2…; null = depois, na ordem do campo; -1 = só se a pergunta citar. */
+  ordemExibicao?: number | null;
+  /** Papel no gráfico das respostas: X = rótulos, Y = valor (barra; vários Y = várias cores); null = só se a pergunta citar. */
+  papelGrafico?: "X" | "Y" | null;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
   resolucaoNomeAbrev: boolean;
   isActive: number;
@@ -1210,6 +1216,10 @@ export interface PerguntaResultadoEstruturado {
   nome?: string;
   /** Todas as linhas (até 2.000) quando a tela mostra só as primeiras — usadas no PDF da resposta. */
   linhasCompletas?: Record<string, unknown>[];
+  /** Categoria da tabela (para gravar a ordem das colunas arrastadas na resposta). */
+  categoria?: string;
+  /** Gráfico pela categoria (papel de cada campo): coluna de rótulos (x) e colunas de valor (y; uma cor cada). */
+  grafico?: { x?: string; y: string[] };
 }
 
 export interface PerguntaResposta {
@@ -1247,6 +1257,8 @@ export interface PerguntaRequest {
   refazer?: boolean;
   /** Categorias da resposta anterior, que o Refazer não repete. */
   excluirCategorias?: string[];
+  /** Consultas (nomes) que já responderam a esta pergunta. */
+  excluirConsultas?: string[];
 }
 
 export interface PerguntaCardHistorico {

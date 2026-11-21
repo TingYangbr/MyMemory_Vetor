@@ -190,7 +190,7 @@ export function notasOperacoesLista(atual: string, ops: Record<string, unknown>)
  * A mudança dita para a pessoa. Em campo do tipo lista não repete a lista inteira (antes → depois
  * ficava parecendo itens repetidos): diz só o que entrou e o que saiu.
  */
-function textoMudanca(campo: string, antes: string, depois: string, tipo: string): string {
+export function textoMudanca(campo: string, antes: string, depois: string, tipo: string): string {
   if (tipo !== "lista") return `${campo}: ${antes || "(vazio)"} → ${depois || "(vazio)"}`;
   const a = lerItensLista(antes);
   const d = lerItensLista(depois);

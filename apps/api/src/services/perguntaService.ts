@@ -30,7 +30,9 @@ import { listarMembrosDoGrupo } from "./donoMemoService.js";
 import { executarComandoAlteracao } from "./comandoAlteracaoService.js";
 import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
-import { melhorCategoriaAlternativa } from "./refazerService.js";
+import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
+import { juntarEmListaAberta } from "./listaAbertaService.js";
+import { ordenarColunasDaResposta } from "./colunasRespostaService.js";
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -275,6 +277,8 @@ export async function perguntarMemory(input: {
   refazer?: boolean;
   /** Categorias da resposta anterior, que o Refazer não repete. */
   excluirCategorias?: string[];
+  /** Consultas (nomes) que já responderam: categoria que só teria essas não é tentada. */
+  excluirConsultas?: string[];
   /** Tela/filtros/seleção de onde a pergunta partiu (integrações externas, ex. Softing-erp). */
   contextoTela?: string;
   /** Perfil de acesso do grupo (só quando ele ligou os perfis). Ausente = comportamento de sempre. */
@@ -308,11 +312,17 @@ export async function perguntarMemory(input: {
   // ↺ Refazer de um toque: outra categoria estruturada que case com as palavras da pergunta (sem IA);
   // se nenhuma passar do limiar, busca nos textos dos memos (como era). A resposta diz o que foi tentado.
   if (input.refazer) {
-    const alt = melhorCategoriaAlternativa(input.pergunta, categoriasVisiveis, input.excluirCategorias ?? []);
+    const exclConsultas = input.excluirConsultas ?? [];
+    const alt = melhorCategoriaAlternativa(input.pergunta, categoriasVisiveis, input.excluirCategorias ?? [], exclConsultas);
     const r = await perguntarMemory({
       ...input,
+      // Na categoria escolhida ficam só as consultas que ainda não responderam a esta pergunta
+      categories: alt
+        ? input.categories.map((c) => (c.name === alt.name ? { ...c, queries: consultasRestantes(c, exclConsultas) } : c))
+        : input.categories,
       refazer: false,
       excluirCategorias: undefined,
+      excluirConsultas: undefined,
       forceAlvo: "dados",
       forcePipe: alt ? "estruturada" : "semantica",
       forceCategories: alt ? [alt.name] : [],
@@ -518,6 +528,28 @@ export async function perguntarMemory(input: {
         categories: cats,
         classificacao,
       }));
+      // Lista aberta única (ex.: uma Lista de compras aberta por Tipo): os itens entram na lista aberta
+      const junta = await juntarEmListaAberta({
+        criacao,
+        categories: cats,
+        userId: input.userId,
+        isAdmin: input.isAdmin,
+        groupId: input.groupId,
+      });
+      if (junta) {
+        return {
+          resposta: {
+            resposta: junta.mensagem,
+            tipo_resposta: classificacao.pipe,
+            dados_usados: [{ memo_id: junta.memoId, trecho_usado: junta.resumo, mediatext: junta.resumo }],
+            limitacoes: [],
+            confianca_estimada: 1,
+          },
+          classificacao: { ...classificacao, acao: "alterar" },
+          apiCost: totalCost,
+          comando: junta.comando,
+        };
+      }
       return {
         resposta: respostaComando(
           `${criacao.mensagem} Nada foi gravado ainda. Se era uma pergunta, use ↺ Refazer.`,
@@ -725,7 +757,8 @@ export async function perguntarMemory(input: {
         };
       }
       const saida2 = {
-        resposta: result.resposta,
+        // Colunas na ordem da categoria (ordem na tabela de cada campo; -1 só se a pergunta citar)
+        resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta),
         classificacao,
         apiCost: totalCost + result.apiCost,
         sugestaoAviso,
@@ -764,7 +797,7 @@ export async function perguntarMemory(input: {
       queries: queriesUsadas3,
     };
     const saida3 = {
-      resposta: result.resposta,
+      resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta),
       classificacao,
       apiCost: totalCost + result.apiCost,
       aguardaFase2: result.aguardaFase2,
