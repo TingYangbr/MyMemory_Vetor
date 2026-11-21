@@ -3170,7 +3170,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                         <button
                           type="button"
                           className={`${styles.acaoBtn} ${detalhesAbertos.has(r) ? styles.acaoBtnOn : ""}`}
-                          onClick={() => alternarDetalhes(r)}
+                          onClick={() => {
+                            // O painel fica no fim do cartão: ao abrir, rola até ele (num cartão longo parecia não abrir)
+                            const abrir = !detalhesAbertos.has(r);
+                            alternarDetalhes(r);
+                            if (abrir) {
+                              setTimeout(
+                                () => document.getElementById(`detalhes-tecnicos-${i}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" }),
+                                60
+                              );
+                            }
+                          }}
                           aria-pressed={detalhesAbertos.has(r)}
                           aria-label="Detalhes técnicos"
                           title="Detalhes técnicos"
@@ -3447,7 +3457,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     </details>
                   ) : null}
                   {detalhesAbertos.has(r) ? (
-                    <div className={styles.detalhesTecnicos}>
+                    <div id={`detalhes-tecnicos-${i}`} className={styles.detalhesTecnicos}>
                       <p className={styles.detalhesTitulo}>Detalhes técnicos</p>
                       {me?.showApiCost !== false && r.apiCost > 0 ? (
                         <p className={styles.apiCostLine}>
