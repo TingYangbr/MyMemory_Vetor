@@ -33,7 +33,21 @@ import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaServ
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import { juntarEmListaAberta } from "./listaAbertaService.js";
 import { atualizarRegistroUnico } from "./registroUnicoService.js";
-import { ordenarColunasDaResposta } from "./colunasRespostaService.js";
+import { ordenarColunasDaResposta, type LimitesDatas } from "./colunasRespostaService.js";
+
+/** Período pedido para cada coluna de data (parâmetros data_x_ini / data_x_fin do plano executado). */
+function limitesDoPlano(plano: { queries: { parametros: { nome: string; valor: unknown }[] }[] } | undefined): LimitesDatas {
+  const out: LimitesDatas = {};
+  for (const q of plano?.queries ?? []) {
+    for (const p of q.parametros) {
+      const m = /^(.*)_(ini|fin)$/i.exec(p.nome);
+      if (!m || typeof p.valor !== "string" || !p.valor.trim()) continue;
+      const col = m[1]!.toLowerCase();
+      out[col] = { ...out[col], [m[2]!.toLowerCase() === "ini" ? "ini" : "fim"]: p.valor };
+    }
+  }
+  return out;
+}
 import {
   descricaoConfiguracao,
   detectarPerguntaSobreAssuntos,
@@ -768,7 +782,7 @@ export async function perguntarMemory(input: {
       }
       const saida2 = {
         // Colunas na ordem da categoria (ordem na tabela de cada campo; -1 só se a pergunta citar)
-        resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta),
+        resposta: ordenarColunasDaResposta(result.resposta, input.categories.filter((c) => c.isActive === 1 && classificacao.categorias.includes(c.name)), input.pergunta, limitesDoPlano(result.planoExecutado)),
         classificacao,
         apiCost: totalCost + result.apiCost,
         sugestaoAviso,

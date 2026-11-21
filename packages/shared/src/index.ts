@@ -681,6 +681,8 @@ export interface MemoContextCampo {
   papelGrafico?: "X" | "Y" | null;
   /** Unidade do valor (kg, %, cm, R$…): título da coluna e legenda do gráfico; % vai para o eixo da direita. */
   unidade?: string | null;
+  /** Campo de data: a tabela e o gráfico das respostas mostram também os dias sem registro. */
+  completarDatas?: boolean;
   /** Se true, o valor extraído pelo LLM é resolvido via view Nome_vs_Abrev do ERP (retorna Nome_Fantasia). */
   resolucaoNomeAbrev: boolean;
   isActive: number;
