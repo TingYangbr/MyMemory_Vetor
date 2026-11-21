@@ -275,6 +275,7 @@ export async function loadMemoContextStructure(
             atualizavel, campo_situacao AS "campoSituacao", confirmar_alteracao AS "confirmarAlteracao",
             campo_encerra_data AS "campoEncerraData",
             situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido",
+            lista_aberta_por AS "listaAbertaPor",
             revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
@@ -300,7 +301,7 @@ export async function loadMemoContextStructure(
   let campoRows: RowDataPacket[] = [];
   try {
     const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryId, name, description, tipo, normalizedTerms, verbos, resolucaoNomeAbrev, isActive, createdAt, updatedAt
+      `SELECT id, categoryId, name, description, tipo, normalizedTerms, verbos, resolucaoNomeAbrev, ordem_exibicao AS "ordemExibicao", papel_grafico AS "papelGrafico", isActive, createdAt, updatedAt
        FROM categorycampos WHERE categoryId IN (${placeholders}) AND isActive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -373,6 +374,8 @@ export async function loadMemoContextStructure(
         tipo: ((r.tipo as string) || "text") as import("@mymemory/shared").MemoContextCampoTipo,
         normalizedTerms: (r.normalizedTerms as string) ?? null,
         verbos: (r.verbos as string | null) ?? null,
+        ordemExibicao: r.ordemExibicao == null ? null : Number(r.ordemExibicao),
+        papelGrafico: r.papelGrafico === "X" || r.papelGrafico === "Y" ? r.papelGrafico : null,
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
         isActive: r.isActive as number,
         createdAt: ts(r.createdAt),
@@ -442,6 +445,7 @@ export async function loadMemoContextStructure(
     campoEncerraData: Number(r.atualizavel ?? 0) === 1 ? ((r.campoEncerraData as string | null) ?? null) : null,
     situacaoTipo: tipoSituacao(r.situacaoTipo as string | null),
     rotuloConcluido: (r.rotuloConcluido as string | null) ?? null,
+    listaAbertaPor: (r.listaAbertaPor as string | null) ?? null,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -646,6 +650,7 @@ export async function updateCategory(
     campoEncerraData?: string | null;
     situacaoTipo?: "afazer" | "registro";
     rotuloConcluido?: string | null;
+    listaAbertaPor?: string | null;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -705,6 +710,10 @@ export async function updateCategory(
   if (patch.rotuloConcluido !== undefined) {
     sets.push("rotulo_concluido = ?");
     vals.push(patch.rotuloConcluido?.trim().slice(0, 40) || null);
+  }
+  if (patch.listaAbertaPor !== undefined) {
+    sets.push("lista_aberta_por = ?");
+    vals.push(patch.listaAbertaPor?.trim().slice(0, 120) || null);
   }
   if (patch.campoEncerraData !== undefined) {
     sets.push("campo_encerra_data = ?");
@@ -845,13 +854,13 @@ const TIPOS_CAMPO = ["text", "date", "number", "lista", "status"];
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean }
+  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
   const tipo = input.tipo && TIPOS_CAMPO.includes(input.tipo) ? input.tipo : "text";
   const [rows] = await pool.query<{ id: number }[]>(
-    `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive) VALUES (?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
-    [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.verbos?.trim() || null, input.resolucaoNomeAbrev ? 1 : 0]
+    `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, ordem_exibicao, papel_grafico, isactive) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1) RETURNING id`,
+    [categoryId, input.name.trim(), input.description?.trim() ?? null, tipo, input.normalizedTerms?.trim() ?? null, input.verbos?.trim() || null, input.resolucaoNomeAbrev ? 1 : 0, input.ordemExibicao ?? null, input.papelGrafico ?? null]
   );
   await sincronizarQueryPadrao(categoryId);
   return rows[0].id;
@@ -860,7 +869,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; isActive?: number }
+  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null; isActive?: number }
 ): Promise<{ renomeado?: { de: string; para: string; memos: number; queries: number } }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -892,6 +901,14 @@ export async function updateCampo(
   if (patch.verbos !== undefined) {
     sets.push("verbos = ?");
     vals.push(patch.verbos?.trim() || null);
+  }
+  if (patch.ordemExibicao !== undefined) {
+    sets.push("ordem_exibicao = ?");
+    vals.push(patch.ordemExibicao);
+  }
+  if (patch.papelGrafico !== undefined) {
+    sets.push("papel_grafico = ?");
+    vals.push(patch.papelGrafico);
   }
   if (patch.resolucaoNomeAbrev !== undefined) {
     sets.push("resolucaoNomeAbrev = ?");
@@ -1351,7 +1368,7 @@ export async function copiarCategoriaParaGrupo(
             meus_por_padrao AS "meusPorPadrao", campo_dono AS "campoDono", atualizavel,
             campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
             confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
-            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido"
+            situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor"
      FROM categories WHERE id = ? AND isactive = 1 LIMIT 1`,
     [categoryId]
   );
@@ -1377,8 +1394,9 @@ export async function copiarCategoriaParaGrupo(
     await conn.beginTransaction();
     const [ins] = await conn.query<{ id: number }[]>(
       `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
-         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido)
-       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido,
+         lista_aberta_por)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [
         targetGroupId,
         cat.mediaType ?? null,
@@ -1394,6 +1412,7 @@ export async function copiarCategoriaParaGrupo(
         cat.campoEncerraData ?? null,
         tipoSituacao(cat.situacaoTipo as string | null),
         cat.rotuloConcluido ?? null,
+        cat.listaAbertaPor ?? null,
       ]
     );
     novoId = Number(ins[0]?.id);
@@ -1412,15 +1431,16 @@ export async function copiarCategoriaParaGrupo(
     }
 
     const [campos] = await conn.query<RowDataPacket[]>(
-      `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev"
+      `SELECT name, description, tipo, normalizedterms AS "normalizedTerms", verbos, resolucaonomeabrev AS "resolucaoNomeAbrev",
+              ordem_exibicao AS "ordemExibicao", papel_grafico AS "papelGrafico"
        FROM categorycampos WHERE categoryid = ? AND isactive = 1 ORDER BY id ASC`,
       [categoryId]
     );
     for (const c of campos) {
       await conn.query(
-        `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, isactive)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
-        [novoId, c.name, c.description ?? null, c.tipo ?? "text", c.normalizedTerms ?? null, c.verbos ?? null, Number(c.resolucaoNomeAbrev ?? 0)]
+        `INSERT INTO categorycampos (categoryid, name, description, tipo, normalizedterms, verbos, resolucaoNomeAbrev, ordem_exibicao, papel_grafico, isactive)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [novoId, c.name, c.description ?? null, c.tipo ?? "text", c.normalizedTerms ?? null, c.verbos ?? null, Number(c.resolucaoNomeAbrev ?? 0), c.ordemExibicao ?? null, c.papelGrafico ?? null]
       );
     }
 

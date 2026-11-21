@@ -196,6 +196,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     campoEncerraData: z.string().max(255).nullable().optional(),
     situacaoTipo: z.enum(["afazer", "registro"]).optional(),
     rotuloConcluido: z.string().max(40).nullable().optional(),
+    listaAbertaPor: z.string().max(120).nullable().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -237,6 +238,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.campoEncerraData !== undefined ? { campoEncerraData: parsed.data.campoEncerraData } : {}),
         ...(parsed.data.situacaoTipo !== undefined ? { situacaoTipo: parsed.data.situacaoTipo } : {}),
         ...(parsed.data.rotuloConcluido !== undefined ? { rotuloConcluido: parsed.data.rotuloConcluido } : {}),
+        ...(parsed.data.listaAbertaPor !== undefined ? { listaAbertaPor: parsed.data.listaAbertaPor } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });
@@ -284,6 +286,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
+    ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
+    papelGrafico: z.enum(["X", "Y"]).nullable().optional(),
   });
 
   const patchCampoBody = z.object({
@@ -293,6 +297,8 @@ const plugin: FastifyPluginAsync = async (app) => {
     normalizedTerms: z.string().max(4_000).nullable().optional(),
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
+    ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
+    papelGrafico: z.enum(["X", "Y"]).nullable().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
   });
 

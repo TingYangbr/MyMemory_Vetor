@@ -448,9 +448,9 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
 | Categoria | Pergunta sobre | Consultas |
 | --- | --- | --- |
-| Fin - A pagar e receber | o futuro | Agenda (vencimentos, atrasados, pagos, com a previsão das recorrentes); Fluxo de caixa previsto por mês |
-| Fin - Gastos e lançamentos | o passado | Gastos e receitas por grupo (competência); Resultado por mês; Entradas e saídas por conta (caixa); Lançamentos (extrato) |
-| Fin - Saldos e investimentos | a posição | Saldos das contas (inclui moeda e valor de hoje); Posição de investimentos |
+| Finanças Pessoais - A pagar e receber | o futuro | Agenda (vencimentos, atrasados, pagos, com a previsão das recorrentes); Fluxo de caixa previsto por mês |
+| Finanças Pessoais - Gastos e lançamentos | o passado | Gastos e receitas por grupo (competência); Resultado por mês; Entradas e saídas por conta (caixa); Lançamentos (extrato) |
+| Finanças Pessoais - Saldos e investimentos | a posição | Saldos das contas (inclui moeda e valor de hoje); Posição de investimentos |
 
 - **Onde ficam:** no Catálogo de modelos (Categorias Modelos). O dono habilita num grupo; a cópia leva as consultas. No espaço Pessoal valem as categorias dos grupos de que a pessoa participa, e as consultas leem os dados do espaço em que a pergunta foi feita.
 - **Motor em SQL:** função `fin_agenda(de, ate)`, igual à agenda da tela (comparada nos testes: mesmo resultado em 4 períodos, incluindo dia 31, 29/02, quinzenal, exceções e pagos).

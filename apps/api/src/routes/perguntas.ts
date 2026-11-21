@@ -46,6 +46,7 @@ const perguntaBodySchema = z.object({
   forceAlvo: z.enum(["dados", "uso_do_sistema"]).optional(),
   refazer: z.boolean().optional(),
   excluirCategorias: z.array(z.string().max(200)).max(20).optional(),
+  excluirConsultas: z.array(z.string().max(300)).max(40).optional(),
   /** Tela/filtros/seleção de onde a pergunta partiu — usado por integrações externas (Softing-erp). */
   contextoTela: z.string().max(4000).optional(),
 });
@@ -174,6 +175,7 @@ const plugin: FastifyPluginAsync = async (app) => {
           forceAlvo: parsed.data.forceAlvo,
           refazer: parsed.data.refazer === true,
           excluirCategorias: parsed.data.excluirCategorias,
+          excluirConsultas: parsed.data.excluirConsultas,
           contextoTela: parsed.data.contextoTela,
           perfil,
           // Comandos de alteração só pela tela do usuário, nunca por chave de integração (ERP)

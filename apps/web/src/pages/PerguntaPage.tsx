@@ -353,7 +353,43 @@ function isRotuloTemporal(raw: string): boolean {
  */
 const CHART_MAX_ROTULOS_EIXO_X = 20;
 
+/**
+ * Gráfico pelos papéis dos campos da categoria (X = rótulos, Y = valores; vários Y = várias cores).
+ * Linhas com o mesmo rótulo são somadas (ex.: várias contas do mesmo cliente). Com mais rótulos do que cabem,
+ * fica com os maiores pelo primeiro Y (ranking) ou, se forem datas, com os primeiros.
+ */
+function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
+  const g = dados.grafico;
+  if (!g?.y.length) return null;
+  const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
+  const valueCols = g.y.filter((col) => {
+    const vals = todas.map((l) => l[col]).filter((v) => v != null && v !== "");
+    return vals.length > 0 && vals.every(isNumericCellValue);
+  });
+  if (!valueCols.length) return null;
+  const labelCol = g.x ?? dados.colunas.find((c) => c.toLowerCase() !== "id" && !valueCols.includes(c));
+  if (!labelCol) return null;
+  const somas = new Map<string, Record<string, string | number>>();
+  for (const linha of todas) {
+    const raw = String(linha[labelCol] ?? "");
+    const label = formatDateCell(raw) ?? raw;
+    const row = somas.get(label) ?? { label };
+    for (const col of valueCols) row[col] = Number(row[col] ?? 0) + Number(linha[col] ?? 0);
+    somas.set(label, row);
+  }
+  let rows = [...somas.values()];
+  const temporal = todas.every((l) => isRotuloTemporal(String(l[labelCol] ?? "")));
+  if (rows.length > CHART_MAX_ROTULOS_EIXO_X) {
+    rows = temporal
+      ? rows.slice(0, CHART_MAX_ROTULOS_EIXO_X)
+      : rows.sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!])).slice(0, CHART_MAX_ROTULOS_EIXO_X);
+  }
+  return { valueCols, rows, temporal };
+}
+
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
+  // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
+  if (dados.grafico?.y.length) return graficoPelosPapeis(dados);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
@@ -496,6 +532,8 @@ interface AlteracaoCtxValor {
   aplicarLocal: (memoId: number, r: MemoAlteracaoResponse) => void;
   /** Grava um campo do memo (ex.: a lista com o estado de um item mudado), com aviso e Desfazer. */
   alterarCampo: (memoId: number, campo: string, valor: string, aviso: string) => Promise<void>;
+  /** Grupo da tela (para gravar a ordem das colunas arrastadas). */
+  groupId: number | null;
   /** "⧉ Repetir lista": pede ao Perguntar uma lista nova a partir desta (cartão de registro novo). */
   repetirLista: (memoId: number) => void;
 }
@@ -509,6 +547,7 @@ const AlteracaoCtx = createContext<AlteracaoCtxValor>({
   aplicarLocal: () => {},
   alterarCampo: async () => {},
   repetirLista: () => {},
+  groupId: null,
 });
 
 /** Uma mudança mostrada no formato do usuário: lista com o que entra destacado e o que sai riscado. */
@@ -1079,6 +1118,16 @@ function ConteudoCelula({ texto, onExpandir }: { texto: string; onExpandir: (t: 
   return <>{texto.length > 80 ? texto.slice(0, 80) + "…" : texto}</>;
 }
 
+/** Valor para ordenar: número quando der (inclusive "1.234,56"), data ISO como texto, resto sem acento. */
+function valorParaOrdenar(v: unknown): { n: number | null; t: string } {
+  if (v == null || v === "") return { n: null, t: "" };
+  if (typeof v === "number") return { n: v, t: String(v) };
+  const t = String(v).trim();
+  if (/^-?\d+(\.\d+)?$/.test(t)) return { n: Number(t), t };
+  if (/^-?[\d.]+,\d+$/.test(t)) return { n: Number(t.replace(/\./g, "").replace(",", ".")), t };
+  return { n: null, t: t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase() };
+}
+
 function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
@@ -1088,8 +1137,75 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const alteracao = useContext(AlteracaoCtx);
+  // O id vai para a última coluna (com o arquivo); o lápis, para a primeira
+  const temId = dados.colunas.some((c) => c === "id");
+  const inicial = useMemo(() => dados.colunas.filter((c) => c !== "id"), [dados.colunas]);
+  const [ordem, setOrdem] = useState<string[]>(inicial);
+  useEffect(() => setOrdem(inicial), [inicial]);
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  // Ordem das linhas: duplo clique no título (crescente, decrescente, original)
+  const [sortCol, setSortCol] = useState<{ col: string; dir: 1 | -1 } | null>(null);
+  // Depois de arrastar: oferece gravar a ordem na categoria por 5 s
+  const [oferta, setOferta] = useState<{ seg: number; estado: "pergunta" | "gravando" | "ok" | "erro"; msg?: string } | null>(null);
+  useEffect(() => {
+    if (!oferta || oferta.estado !== "pergunta") return;
+    if (oferta.seg <= 0) {
+      setOferta(null);
+      return;
+    }
+    const t = setTimeout(() => setOferta((o) => (o && o.estado === "pergunta" ? { ...o, seg: o.seg - 1 } : o)), 1000);
+    return () => clearTimeout(t);
+  }, [oferta]);
+  useEffect(() => {
+    if (oferta && (oferta.estado === "ok" || oferta.estado === "erro")) {
+      const t = setTimeout(() => setOferta(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [oferta]);
+
+  // "Ver todas": a resposta traz até 2.000 linhas (as mesmas do PDF); a tela começa com as primeiras
+  const [verTodas, setVerTodas] = useState(false);
+  const todas = dados.linhasCompletas ?? [];
+  const base = verTodas && todas.length > dados.linhas.length ? todas : dados.linhas;
+  const linhas = useMemo(() => {
+    if (!sortCol) return base;
+    const col = sortCol.col;
+    return [...base].sort((a, b) => {
+      const x = valorParaOrdenar(a[col]);
+      const y = valorParaOrdenar(b[col]);
+      if (x.t === "" && y.t !== "") return 1; // vazios sempre no fim
+      if (y.t === "" && x.t !== "") return -1;
+      const r = x.n != null && y.n != null ? x.n - y.n : x.t.localeCompare(y.t, "pt-BR", { numeric: true });
+      return r * sortCol.dir;
+    });
+  }, [base, sortCol]);
 
   if (!dados.totalLinhas) return null;
+
+  function soltar(alvo: string) {
+    if (!arrastando || arrastando === alvo) return;
+    const nova = ordem.filter((c) => c !== arrastando);
+    nova.splice(nova.indexOf(alvo), 0, arrastando);
+    setOrdem(nova);
+    setArrastando(null);
+    if (dados.categoria && alteracao.groupId != null && nova.join("|") !== inicial.join("|")) setOferta({ seg: 5, estado: "pergunta" });
+  }
+
+  async function gravarOrdem() {
+    if (!dados.categoria || alteracao.groupId == null) return;
+    setOferta({ seg: 0, estado: "gravando" });
+    try {
+      await apiPostJson("/api/memo-context/ordem-colunas", { groupId: alteracao.groupId, categoria: dados.categoria, colunas: ordem });
+      setOferta({ seg: 0, estado: "ok", msg: `Ordem gravada em ${dados.categoria}.` });
+    } catch (e) {
+      setOferta({ seg: 0, estado: "erro", msg: e instanceof Error ? e.message : "Não foi possível gravar." });
+    }
+  }
+
+  const duploClique = (col: string) =>
+    setSortCol((s) => (!s || s.col !== col ? { col, dir: 1 } : s.dir === 1 ? { col, dir: -1 } : null));
+  const seta = (col: string) => (sortCol?.col === col ? (sortCol.dir === 1 ? " ▲" : " ▼") : "");
+
   return (
     <>
       {expandedCell ? (
@@ -1099,86 +1215,133 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
           </div>
         </div>
       ) : null}
+      {oferta ? (
+        <div className={styles.ordemOferta} role="status">
+          {oferta.estado === "pergunta" ? (
+            <>
+              <span>Gravar esta ordem de colunas em {dados.categoria}?</span>
+              <button type="button" className={styles.refazerBtn} onClick={() => void gravarOrdem()}>
+                Gravar ({oferta.seg})
+              </button>
+            </>
+          ) : (
+            <span>{oferta.estado === "gravando" ? "Gravando…" : oferta.msg}</span>
+          )}
+        </div>
+      ) : null}
       <div className={styles.tabelaWrap}>
         <table className={styles.tabela}>
           <thead>
             <tr>
-              {dados.colunas.map((col) => (
-                <th key={col} className={styles.tabelaTh}>{COLUNA_LABELS[col] ?? col}</th>
+              {temId ? <th className={styles.tabelaTh} aria-label="Alterar" /> : null}
+              {ordem.map((col) => (
+                <th
+                  key={col}
+                  className={`${styles.tabelaTh} ${styles.tabelaThArrastavel}${arrastando === col ? ` ${styles.tabelaThArrastando}` : ""}`}
+                  draggable
+                  onDragStart={(e) => {
+                    setArrastando(col);
+                    e.dataTransfer.effectAllowed = "move";
+                  }}
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    soltar(col);
+                  }}
+                  onDragEnd={() => setArrastando(null)}
+                  onDoubleClick={() => duploClique(col)}
+                  title="Arraste para mudar a ordem; duplo clique ordena as linhas"
+                >
+                  {COLUNA_LABELS[col] ?? col}
+                  {seta(col)}
+                </th>
               ))}
+              {temId ? (
+                <th className={styles.tabelaTh} onDoubleClick={() => duploClique("id")} title="Duplo clique ordena as linhas">
+                  {COLUNA_LABELS["id"] ?? "id"}
+                  {seta("id")}
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
-            {dados.linhas.map((linha, i) => {
+            {linhas.map((linha, i) => {
               const idLinha = linha["id"] != null ? Number(linha["id"]) : null;
               const locais = idLinha != null ? alteracao.locais[idLinha] : undefined;
               const alteravel = idLinha != null && alteracao.alteraveis.has(idLinha);
+              const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
+              const rowUrl = String(linha["mediaFileUrl"] ?? linha["mediafileurl"] ?? "");
+              const rowName = String(linha["attachmentDisplayName"] ?? linha["attachmentdisplayname"] ?? "");
               return (
-              <tr
-                key={i}
-                className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
-                onClick={alteravel ? () => alteracao.abrir(idLinha!) : undefined}
-                title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
-              >
-                {dados.colunas.map((col) => {
-                  const local = valorLocal(locais, col);
-                  const val = local !== undefined ? local : linha[col];
-                  const display = textoCelula(col, val);
-                  const isLong = display.length > 80 && !display.includes("\n");
-                  if (col === "id" && val != null) {
-                    const id = Number(val);
-                    const rowMt = String(linha["mediaType"] ?? linha["mediatype"] ?? "");
-                    const rowUrl = String(linha["mediaFileUrl"] ?? linha["mediafileurl"] ?? "");
-                    const rowName = String(linha["attachmentDisplayName"] ?? linha["attachmentdisplayname"] ?? "");
+                <tr
+                  key={idLinha ?? i}
+                  className={`${styles.tabelaTr}${alteravel ? ` ${styles.tabelaTrAlteravel}` : ""}${linhaEncerrada(locais) ? ` ${styles.tabelaTrEncerrada}` : ""}`}
+                  onClick={alteravel ? () => alteracao.abrir(idLinha!) : undefined}
+                  title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
+                >
+                  {temId ? <td className={styles.tabelaTd}>{idLinha != null ? <BotaoAlterar memoId={idLinha} /> : null}</td> : null}
+                  {ordem.map((col) => {
+                    const local = valorLocal(locais, col);
+                    const val = local !== undefined ? local : linha[col];
+                    const display = textoCelula(col, val);
+                    const isLong = display.length > 80 && !display.includes("\n");
                     return (
-                      <td key={col} className={styles.tabelaTd}>
+                      <td
+                        key={col}
+                        className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
+                        onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
+                        title={isLong ? "Clique para ver texto completo" : undefined}
+                      >
+                        <ConteudoCelula texto={display} onExpandir={setExpandedCell} />
+                      </td>
+                    );
+                  })}
+                  {temId ? (
+                    <td className={styles.tabelaTd}>
+                      {idLinha != null ? (
                         <span className={styles.tabelaIdCell}>
                           {onOpenMemoFile ? (
                             <button
                               type="button"
                               className={styles.tableFileBtn}
-                              onClick={(e) => { e.stopPropagation(); onOpenMemoFile(id); }}
-                              disabled={loadingFileId === id}
-                              title={`Abrir arquivo — memo #${id}`}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemoFile(idLinha); }}
+                              disabled={loadingFileId === idLinha}
+                              title={`Abrir arquivo — memo #${idLinha}`}
                             >
-                              {loadingFileId === id ? "…" : <MediaTypeIcon mediaType={rowMt} fileUrl={rowUrl} displayName={rowName} />}
+                              {loadingFileId === idLinha ? "…" : <MediaTypeIcon mediaType={rowMt} fileUrl={rowUrl} displayName={rowName} />}
                             </button>
                           ) : null}
                           {onOpenMemo ? (
                             <button
                               type="button"
                               className={styles.memoIdBtn}
-                              onClick={(e) => { e.stopPropagation(); onOpenMemo(id); }}
-                              disabled={loadingCardId === id}
+                              onClick={(e) => { e.stopPropagation(); onOpenMemo(idLinha); }}
+                              disabled={loadingCardId === idLinha}
                               title="Ver detalhes do memo"
                             >
-                              {loadingCardId === id ? "…" : `#${id}`}
+                              {loadingCardId === idLinha ? "…" : `#${idLinha}`}
                             </button>
                           ) : null}
-                          <BotaoAlterar memoId={id} />
                         </span>
-                      </td>
-                    );
-                  }
-                  return (
-                    <td
-                      key={col}
-                      className={`${styles.tabelaTd}${isLong ? ` ${styles.tabelaTdExpandable}` : ""}`}
-                      onClick={isLong ? (e) => { e.stopPropagation(); setExpandedCell(display); } : undefined}
-                      title={isLong ? "Clique para ver texto completo" : undefined}
-                    >
-                      <ConteudoCelula texto={display} onExpandir={setExpandedCell} />
+                      ) : null}
                     </td>
-                  );
-                })}
-              </tr>
+                  ) : null}
+                </tr>
               );
             })}
           </tbody>
         </table>
-        {dados.totalLinhas > dados.linhas.length ? (
+        {dados.totalLinhas > base.length ? (
           <p className={styles.tabelaRodape}>
-            Mostrando {dados.linhas.length} de {dados.totalLinhas} registros.
+            Mostrando {base.length} de {dados.totalLinhas} registros.
+            {!verTodas && todas.length > dados.linhas.length ? (
+              <>
+                {" "}
+                <button type="button" className={styles.lerMaisBtn} onClick={() => setVerTodas(true)}>
+                  Ver {todas.length >= dados.totalLinhas ? "todas" : `as ${todas.length} primeiras`}
+                </button>
+              </>
+            ) : null}
           </p>
         ) : null}
       </div>
@@ -1765,6 +1928,17 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
    * ↺ Refazer: todas as categorias que já responderam a esta mesma pergunta nesta tela (a original e as dos
    * refazer anteriores). Sem isso, o segundo Refazer voltava para a categoria errada do começo.
    */
+  /** Consultas que já responderam a esta mesma pergunta (o Refazer não tenta categoria que só teria essas). */
+  function consultasJaUsadas(pergunta: string): string[] {
+    const alvo = pergunta.trim().toLowerCase();
+    const nomes = new Set<string>();
+    for (const x of respostas) {
+      if (x.perguntaTexto.trim().toLowerCase() !== alvo) continue;
+      for (const q of x.avisoSnapshot?.queries ?? []) nomes.add(q.nome);
+    }
+    return [...nomes];
+  }
+
   function categoriasJaTentadas(pergunta: string): string[] {
     const alvo = pergunta.trim().toLowerCase();
     const nomes = new Set<string>();
@@ -1775,7 +1949,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
     return [...nomes];
   }
 
-  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[] }) {
+  async function enviar(opts?: { forcePipe?: "semantica" | "estruturada" | "hibrida"; perguntaOverride?: string; thresholdOverride?: number; forceCategories?: string[]; ampliarAteAchar?: boolean; forceAlvo?: "dados" | "uso_do_sistema"; refazer?: boolean; excluirCategorias?: string[]; excluirConsultas?: string[] }) {
     stopListening();
     const q = (opts?.perguntaOverride ?? pergunta).trim();
     if (!q || busy) return;
@@ -1814,6 +1988,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (opts?.refazer) {
         body.refazer = true;
         body.excluirCategorias = opts.excluirCategorias ?? [];
+        body.excluirConsultas = opts.excluirConsultas ?? [];
       }
 
       const response = await fetch(`${apiBase}/api/perguntas`, {
@@ -1990,8 +2165,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       aplicarLocal: (id: number, r: MemoAlteracaoResponse) => aplicarAlteracaoLocal(id, r),
       alterarCampo: (id: number, campo: string, valor: string, aviso: string) => alterarCampoDireto(id, campo, valor, aviso),
       repetirLista: (id: number) => void enviarRef.current?.({ perguntaOverride: `Repetir a lista #${id}` }),
+      groupId: workspaceGroupId ?? null,
     }),
-    [alteraveis, alteracoesLocais, criados]
+    [alteraveis, alteracoesLocais, criados, workspaceGroupId]
   );
 
   async function openMemoCard(id: number) {
@@ -3131,7 +3307,12 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                           className={styles.refazerBtn}
                           disabled={busy}
                           onClick={() =>
-                            void enviar({ refazer: true, excluirCategorias: categoriasJaTentadas(r.perguntaTexto), perguntaOverride: r.perguntaTexto })
+                            void enviar({
+                              refazer: true,
+                              excluirCategorias: categoriasJaTentadas(r.perguntaTexto),
+                              excluirConsultas: consultasJaUsadas(r.perguntaTexto),
+                              perguntaOverride: r.perguntaTexto,
+                            })
                           }
                           title="Não era isso? Refaz a pergunta com outra categoria ou nos textos dos memos"
                         >

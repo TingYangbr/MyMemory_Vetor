@@ -382,6 +382,23 @@ A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o
 - Maiores e menores ("os 3 produtos mais faturados") também são calculados pelo sistema sobre todas as linhas. A IA só cita destaques quando a pergunta pede ranking, maiores ou menores.
 - A tabela mostra só as colunas que a pergunta pede: o item (ex.: código e descrição do produto) e a medida (ex.: valor faturado). Para ver outras, peça na pergunta: "incluir o cliente", "com o número da nota".
 DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento") para que os destaques venham no texto.
+## Colunas e linhas da tabela
+- **Ordem das colunas pela categoria:** cada campo tem **Ordem na tabela** (edição do campo). 1, 2, 3… aparecem primeiro, nessa ordem; vazio vem depois, na ordem dos campos; colunas que não são campo (texto, data de registro) por último; **-1 não aparece**, a não ser que a pergunta cite o campo. Com alguma ordem definida na categoria, a tabela mostra todas as colunas da consulta (menos as técnicas), e não só as que a IA escolheu.
+- **Lápis (✎) sempre na primeira coluna; #id e o ícone do arquivo original sempre na última.**
+- **Arrastar colunas** (computador): arraste o título para outra posição. Aparece "Gravar esta ordem de colunas em <categoria>? Gravar (5)" por 5 segundos; sem tocar em Gravar, a nova ordem vale só nesta resposta. Gravar exige ser dono do grupo e a categoria ser do grupo (não global).
+- **Duplo clique no título** ordena as linhas: crescente, decrescente e volta à original (números, datas e texto; vazios no fim).
+- **Ver todas:** a tabela começa com as primeiras linhas; o botão no rodapé mostra todas (até 2.000, as mesmas do PDF).
+## Gráfico das respostas: papel de cada campo
+Na edição do campo, **Papel no gráfico**:
+| Papel | No gráfico |
+|---|---|
+| **X** | Rótulos: eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada) — ex.: Cliente, Mês, Produto |
+| **Y** | Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática) |
+| vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
+- Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
+- Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).
+- Categoria sem nenhum papel definido continua escolhendo sozinha, como antes; a barra em pé é usada para datas e meses, e a deitada para os demais rótulos.
+
 ## Ordenação
 "Ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor" e "mais recentes primeiro" são aplicados no próprio banco de dados: a tabela e o PDF já chegam na ordem pedida.
 - Exemplo: "Listar faturamento por produto de abril de 2026, incluir abrev do cliente e ordenar por abrev cliente de A a Z".
@@ -463,6 +480,18 @@ Em categorias marcadas como Atualizável (ex.: Agenda), a resposta mostra um ✎
 - Depois de salvar, a IA reescreve o resumo do memo com os valores novos e o vetor do memo é refeito (busca semântica). O texto original do memo nunca é alterado.
 - Cada alteração fica registrada (quem, quando, antes e depois); o ↶ Desfazer usa esse registro. O registro aparece na caixa Histórico da tela Editar memo (Seção 10).
 - A data é conferida antes de salvar. Se ela já passou há mais de 30 dias, fica a mais de 2 anos ou não parece uma data, aparece um aviso (ex.: "⚠ Data: 16/11/2016 já passou (há 10 anos).") e o botão vira "Salvar mesmo assim". Confira o ano: um ano errado tira o memo das perguntas da semana.
+## Lista aberta única (ex.: uma Lista de compras por Tipo)
+Na edição da categoria atualizável com campo do tipo lista, a opção **Lista aberta** define o que acontece ao registrar itens pelo Fale comigo:
+| Opção | Ao registrar "comprar leite e pão" |
+|---|---|
+| cada registro cria uma lista nova | Cria outra lista (como era) |
+| uma lista aberta só | Se houver uma lista aberta (nem concluída nem cancelada), os itens entram nela |
+| uma lista aberta por <campo> (ex.: Tipo) | Entram na lista aberta do mesmo Tipo (Mercado, Farmácia…); sem lista aberta daquele Tipo, cria uma nova |
+- A data não entra na chave: a lista continua a mesma até ser concluída ou cancelada; depois disso, o próximo registro abre outra.
+- Os itens entram direto, sem perguntar ("Acrescentei na lista aberta de Mercado…"), com ↶ Desfazer. Item que já está na lista não é repetido (a resposta avisa); item já comprado volta a pendente.
+- Tipo não dito ("comprar leite") = o **primeiro valor padronizado** do campo (ex.: Mercado). Sem lista aberta desse Tipo, a lista nova já sai com ele.
+- Vale para o que é dito ou digitado no Fale comigo; o Catalogar continua criando um memo novo.
+
 ## Repetir uma lista
 Cria uma lista nova a partir de uma anterior (ex.: a lista de compras da semana passada). A lista anterior fica como está, com as marcas ✓/✗ e a data dela.
 - Pelo botão **⧉ Repetir lista** no cartão da lista (ao lado de ✎ Alterar e ☑ Concluir lista), ou dizendo: "repete a última lista de compras", "repetir a lista #8446", "nova lista igual à anterior", "copiar a lista do mercado".
