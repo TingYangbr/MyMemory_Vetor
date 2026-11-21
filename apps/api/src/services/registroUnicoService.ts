@@ -10,7 +10,7 @@ import { lerValoresStatus, normalizarDataParaIso } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
-import { nomeDoUsuario } from "./donoMemoService.js";
+import { listarMembrosDoGrupo, nomeCurtoDoMembro, resolverMembro } from "./donoMemoService.js";
 
 const norm = (s: unknown) =>
   String(s ?? "")
@@ -57,15 +57,22 @@ export async function atualizarRegistroUnico(input: {
     if (!def || valorCampo(novos, def.name).trim()) continue;
     let padrao = "";
     if (def.tipo === "date") padrao = hojeIso();
-    else if (cat.campoDono && norm(cat.campoDono) === norm(def.name)) padrao = await nomeDoUsuario(input.userId);
+    else if (cat.campoDono && norm(cat.campoDono) === norm(def.name)) padrao = await nomeCurtoDoMembro(input.userId, input.groupId);
     else if (def.tipo === "status") padrao = lerValoresStatus(def.normalizedTerms)[0] ?? "";
     if (padrao) novos[chaveDe(novos, def.name) ?? def.name] = padrao;
   }
   input.criacao.processado.dadosEspecificosJson = JSON.stringify(novos);
 
+  // Dono: compara pela pessoa ("Tereza" = "Tereza Clotilde Nogueira Ting"), não pelo texto
+  const membros = input.groupId != null && cat.campoDono ? await listarMembrosDoGrupo(input.groupId) : [];
   const comparavel = (nome: string, v: string) => {
     const def = campos.find((f) => norm(f.name) === norm(nome));
-    return def?.tipo === "date" ? normalizarDataParaIso(v) ?? norm(v) : norm(v);
+    if (def?.tipo === "date") return normalizarDataParaIso(v) ?? norm(v);
+    if (cat.campoDono && norm(cat.campoDono) === norm(nome) && membros.length) {
+      const r = resolverMembro(v, membros);
+      if ("userId" in r) return `membro:${r.userId}`;
+    }
+    return norm(v);
   };
   const alvo: Record<string, string> = {};
   for (const nome of chaves) {
