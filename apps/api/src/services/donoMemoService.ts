@@ -86,7 +86,7 @@ async function gravarPendencia(memoId: number, meta: Record<string, unknown>, pe
 }
 
 /** Nome do cadastro (sem acento, como os valores dos memos); sem nome, o e-mail. */
-async function nomeDoUsuario(userId: number): Promise<string> {
+export async function nomeDoUsuario(userId: number): Promise<string> {
   const [rows] = await pool.query<RowDataPacket[]>(`SELECT name, email FROM users WHERE id = ? LIMIT 1`, [userId]);
   const u = (rows as Record<string, unknown>[])[0];
   const nome = String(u?.name ?? "").trim() || String(u?.email ?? "").trim();

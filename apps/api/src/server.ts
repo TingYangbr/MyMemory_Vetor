@@ -101,6 +101,7 @@ import { FinancasPessoaisNomes1700000000186 } from "./migrations/1700000000186-F
 import { ListaAbertaPor1700000000187 } from "./migrations/1700000000187-ListaAbertaPor.js";
 import { CampoOrdemExibicao1700000000188 } from "./migrations/1700000000188-CampoOrdemExibicao.js";
 import { CampoPapelGrafico1700000000189 } from "./migrations/1700000000189-CampoPapelGrafico.js";
+import { RegistroUnicoPor1700000000190 } from "./migrations/1700000000190-RegistroUnicoPor.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -250,6 +251,7 @@ assertMediaStorageEnv();
       ListaAbertaPor1700000000187,
       CampoOrdemExibicao1700000000188,
       CampoPapelGrafico1700000000189,
+      RegistroUnicoPor1700000000190,
     ],
   });
   const ds = await AppDataSource.initialize();
