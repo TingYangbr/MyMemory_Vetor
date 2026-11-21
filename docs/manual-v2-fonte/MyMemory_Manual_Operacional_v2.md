@@ -394,6 +394,7 @@ Na edição do campo, **Papel no gráfico**:
 |---|---|
 | **X** | Rótulos: eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada) — ex.: Cliente, Mês, Produto |
 | **Y** | Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática) |
+| **Y %** | Valor em %, no **eixo da direita** (na barra deitada, no eixo de cima) — ex.: Gordura corporal %. Com Y e Y % no mesmo gráfico aparecem dois eixos; sem papel definido, coluna com "%" ou "perc" no nome vai para a direita sozinha |
 | vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
 - Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
 - Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).
@@ -497,6 +498,7 @@ Na edição da categoria, **Registro único por**: marque os campos que formam a
 - **Não existe** memo com os mesmos valores nesses campos: cria o memo, como sempre.
 - **Já existe:** atualiza esse memo com os valores ditos agora, sem criar outro ("Atualizei Antropometria #8461 (Tereza · 2026-11-20 · Manhã): Peso: 81,0 → 80,6"), com ↶ Desfazer. Valor não dito agora não apaga o que já estava.
 - Padrões da chave quando não ditos: data = hoje; dono (categoria Pessoal) = quem registra; campo Status = o primeiro valor (ex.: Período: Manhã, Noite → Manhã).
+- O dono é comparado pela pessoa, não pelo texto ("Tereza" = "Tereza Clotilde Nogueira Ting"). Ao gravar, o campo dono identificado recebe sempre o nome completo do cadastro.
 - Independe da **Lista aberta** das listas de compras, que continua acrescentando itens na lista aberta do Tipo.
 - Vale para o Fale comigo; o Catalogar continua criando um memo novo.
 

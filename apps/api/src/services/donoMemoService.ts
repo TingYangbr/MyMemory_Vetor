@@ -181,6 +181,10 @@ export async function aplicarDonoPessoal(
     return { status: "pendente", motivo: r.motivo };
   }
   await pool.query(`UPDATE memos SET criado_por = COALESCE(criado_por, userid), userid = ? WHERE id = ?`, [r.userId, memoId]);
+  // Dono identificado: grava sempre o nome completo do cadastro ("Tereza" → "Tereza Clotilde Nogueira Ting"),
+  // para o mesmo membro não aparecer com dois textos nas respostas e no registro único
+  const canonico = await nomeDoUsuario(r.userId);
+  if (canonico && norm(canonico) !== norm(valor ?? "")) await preencherCampo(memoId, campo, canonico);
   if (meta.donoPendente) await gravarPendencia(memoId, meta, null);
   return { status: "atribuido", userId: r.userId };
 }

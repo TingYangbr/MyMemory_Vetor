@@ -10,7 +10,7 @@ import { lerValoresStatus, normalizarDataParaIso } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
-import { nomeDoUsuario } from "./donoMemoService.js";
+import { listarMembrosDoGrupo, nomeDoUsuario, resolverMembro } from "./donoMemoService.js";
 
 const norm = (s: unknown) =>
   String(s ?? "")
@@ -63,9 +63,16 @@ export async function atualizarRegistroUnico(input: {
   }
   input.criacao.processado.dadosEspecificosJson = JSON.stringify(novos);
 
+  // Dono: compara pela pessoa ("Tereza" = "Tereza Clotilde Nogueira Ting"), não pelo texto
+  const membros = input.groupId != null && cat.campoDono ? await listarMembrosDoGrupo(input.groupId) : [];
   const comparavel = (nome: string, v: string) => {
     const def = campos.find((f) => norm(f.name) === norm(nome));
-    return def?.tipo === "date" ? normalizarDataParaIso(v) ?? norm(v) : norm(v);
+    if (def?.tipo === "date") return normalizarDataParaIso(v) ?? norm(v);
+    if (cat.campoDono && norm(cat.campoDono) === norm(nome) && membros.length) {
+      const r = resolverMembro(v, membros);
+      if ("userId" in r) return `membro:${r.userId}`;
+    }
+    return norm(v);
   };
   const alvo: Record<string, string> = {};
   for (const nome of chaves) {

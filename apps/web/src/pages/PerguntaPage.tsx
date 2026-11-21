@@ -355,7 +355,12 @@ interface DadosGrafico {
   rows: Array<Record<string, string | number>>;
   /** Rótulos são datas, meses ou anos: barras em pé (linha do tempo). Senão, barras deitadas (ranking). */
   temporal: boolean;
+  /** Séries em % no eixo da direita (as demais, em unidade, no da esquerda). */
+  direita?: string[];
 }
+
+/** Coluna em %: pelo nome ("Taxa %", "perc_", "pct") — vai para o eixo da direita na escolha automática. */
+const ehColunaPercentual = (col: string) => /%|(^|_)(perc|pct|percent)/i.test(col);
 
 const MESES_RE = /^(jan(eiro)?|fev(ereiro)?|mar(co)?|abr(il)?|mai(o)?|jun(ho)?|jul(ho)?|ago(sto)?|set(embro)?|out(ubro)?|nov(embro)?|dez(embro)?)\.?(\s*(\/|de)?\s*\d{2,4})?$/i;
 
@@ -386,9 +391,9 @@ const CHART_MAX_ROTULOS_EIXO_X = 20;
  */
 function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
   const g = dados.grafico;
-  if (!g?.y.length) return null;
+  if (!g || !(g.y.length || g.y2?.length)) return null;
   const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
-  const valueCols = g.y.filter((col) => {
+  const valueCols = [...g.y, ...(g.y2 ?? [])].filter((col) => {
     const vals = todas.map((l) => l[col]).filter((v) => v != null && v !== "");
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
@@ -410,12 +415,12 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
       ? rows.slice(0, CHART_MAX_ROTULOS_EIXO_X)
       : rows.sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!])).slice(0, CHART_MAX_ROTULOS_EIXO_X);
   }
-  return { valueCols, rows, temporal };
+  return { valueCols, rows, temporal, direita: valueCols.filter((c) => g.y2?.includes(c)) };
 }
 
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
   // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
-  if (dados.grafico?.y.length) return graficoPelosPapeis(dados);
+  if (dados.grafico && (dados.grafico.y.length || dados.grafico.y2?.length)) return graficoPelosPapeis(dados);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
@@ -449,7 +454,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     return row;
   });
   const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
-  return { valueCols, rows, temporal };
+  return { valueCols, rows, temporal, direita: valueCols.filter(ehColunaPercentual) };
 }
 
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
@@ -459,18 +464,27 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const legenda = dados.valueCols.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null;
   const grade = <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-border, #e2e8f0)" />;
   const tooltip = <Tooltip formatter={formatoValor} cursor={{ fill: "var(--mm-primary-faint, #eef8f7)" }} />;
+  // Dois eixos de valor: unidade à esquerda (ou embaixo, na barra deitada) e % à direita (ou em cima).
+  // Só com séries dos dois tipos; se todas forem %, um eixo só, com %.
+  const direita = new Set(dados.direita ?? []);
+  const doisEixos = direita.size > 0 && dados.valueCols.some((c) => !direita.has(c));
+  const soPercent = direita.size > 0 && !doisEixos;
+  const pct = (v: number) => `${v.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+  const eixoDe = (col: string) => (doisEixos && direita.has(col) ? "dir" : "esq");
+  const nomeSerie = (col: string) => `${COLUNA_LABELS[col] ?? col}${doisEixos && direita.has(col) ? " (%)" : ""}`;
 
   if (dados.temporal) {
     return (
       <ResponsiveContainer width="100%" height={280}>
-        <BarChart data={dados.rows} margin={{ top: 8, right: 8, left: 0, bottom: 24 }}>
+        <BarChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
           {grade}
           <XAxis dataKey="label" tick={{ fontSize: 11 }} interval={0} angle={-25} textAnchor="end" height={50} />
-          <YAxis tick={{ fontSize: 11 }} width={60} tickFormatter={compacto} />
+          <YAxis yAxisId="esq" tick={{ fontSize: 11 }} width={60} tickFormatter={soPercent ? pct : compacto} />
+          {doisEixos ? <YAxis yAxisId="dir" orientation="right" tick={{ fontSize: 11 }} width={48} tickFormatter={pct} /> : null}
           {tooltip}
           {legenda}
           {dados.valueCols.map((col, idx) => (
-            <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[3, 3, 0, 0]} />
+            <Bar key={col} yAxisId={eixoDe(col)} dataKey={col} name={nomeSerie(col)} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[3, 3, 0, 0]} />
           ))}
         </BarChart>
       </ResponsiveContainer>
@@ -486,12 +500,13 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
     <ResponsiveContainer width="100%" height={altura}>
       <BarChart data={dados.rows} layout="vertical" margin={{ top: 4, right: 12, left: 0, bottom: 4 }} barCategoryGap="22%">
         {grade}
-        <XAxis type="number" tick={{ fontSize: 11 }} tickFormatter={compacto} />
+        <XAxis xAxisId="esq" type="number" tick={{ fontSize: 11 }} tickFormatter={soPercent ? pct : compacto} />
+        {doisEixos ? <XAxis xAxisId="dir" type="number" orientation="top" tick={{ fontSize: 11 }} tickFormatter={pct} /> : null}
         <YAxis type="category" dataKey="label" tick={{ fontSize: 11 }} width={larguraRotulo} interval={0} tickFormatter={corta} />
         {tooltip}
         {legenda}
         {dados.valueCols.map((col, idx) => (
-          <Bar key={col} dataKey={col} name={COLUNA_LABELS[col] ?? col} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[0, 3, 3, 0]} />
+          <Bar key={col} xAxisId={eixoDe(col)} dataKey={col} name={nomeSerie(col)} fill={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]} radius={[0, 3, 3, 0]} />
         ))}
       </BarChart>
     </ResponsiveContainer>
