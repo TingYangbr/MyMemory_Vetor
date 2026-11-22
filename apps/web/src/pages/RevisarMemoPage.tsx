@@ -42,6 +42,12 @@ const ROTULO: Record<RevisaoTipo, string> = {
 
 type Fase = "carregando" | "decidindo" | "pergunta" | "gravando" | "revisao" | "erro";
 
+/** Documento de cobrança (boleto, carnê, fatura, parcelas): vai direto para o cartão do financeiro. */
+function pareceCobranca(texto: string): boolean {
+  const t = texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  return /(vencimento|vence em|boleto|linha digitavel|codigo de barras|parcela \d|\d+ ?parcelas|fatura|valor a pagar|valor do documento|total a pagar|carne\b|pagavel em)/.test(t);
+}
+
 interface DocState {
   memoId: number;
   groupId: number | null;
@@ -118,6 +124,8 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     | { fase: "cancelado"; proposta: FinComandoProposta }
     | { fase: "erro"; msg: string }
   >(null);
+  /** A decisão viu um documento do financeiro: abre o cartão assim que a revisão aparece. */
+  const abrirFinAuto = useRef(false);
 
   const groupId = entrada?.groupId ?? null;
   const tipo = entrada?.tipo ?? "texto";
@@ -237,7 +245,23 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     if (fase !== "decidindo" || !dados || !categorias || !formPronto || decidiu.current) return;
     if (dados.matchedCategoryId == null && dados.category && categoryId == null && categorias.some((c) => c.name === dados.category)) return; // espera achar pelo nome
     decidiu.current = true;
-    const cat = categorias.find((c) => c.id === categoryId) ?? null;
+    let catSel = categorias.find((c) => c.id === categoryId) ?? null;
+    const ehFinanca = (c: { name: string; soConsulta: boolean } | null) => !!c && c.soConsulta && /^finan[cç]as pessoais/i.test(c.name);
+    if (!ehFinanca(catSel) && !(catSel && catSel.campos.length) && dados.iaLevel !== "semIA" && pareceCobranca(`${dados.suggestedMediaText}\n${dados.originalText}`)) {
+      const alvo =
+        categorias.find((c) => ehFinanca(c) && /a pagar/i.test(c.name)) ?? categorias.find((c) => ehFinanca(c)) ?? null;
+      if (alvo) {
+        catSel = alvo;
+        setCategoryId(alvo.id);
+        setCatDosCampos(alvo.id);
+      }
+    }
+    const cat = catSel;
+    if (ehFinanca(cat)) {
+      abrirFinAuto.current = true;
+      setFase("revisao");
+      return;
+    }
     const entries = parseDadosEntries(dados.dadosEspecificosJson);
     const p = percentualPreenchido(cat?.campos ?? [], entries);
     setPct(p);
@@ -417,6 +441,13 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     },
     [gravarEvidencia]
   );
+
+  // Documento do financeiro: o cartão abre sozinho (é ele a confirmação; o formulário fica atrás, se quiser mexer)
+  useEffect(() => {
+    if (fase !== "revisao" || !ehFin || fin || !abrirFinAuto.current) return;
+    abrirFinAuto.current = false;
+    void abrirFinanceiro();
+  }, [fase, ehFin, fin, abrirFinanceiro]);
 
   const guardarSoDocumento = useCallback(async () => {
     setBusy(true);
