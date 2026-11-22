@@ -14,6 +14,8 @@ const TIPOS: { valor: FinComandoTipo; rotulo: string }[] = [
   { valor: "conta", rotulo: "Conta a pagar / receber" },
   { valor: "fixa", rotulo: "Conta fixa (todo mês…)" },
   { valor: "pagamento", rotulo: "Pagamento de conta em aberto" },
+  { valor: "compra", rotulo: "Compra de ação / papel" },
+  { valor: "venda", rotulo: "Venda de ação / papel" },
 ];
 
 const ROTULO_DATA: Record<FinComandoTipo, string> = {
@@ -22,6 +24,8 @@ const ROTULO_DATA: Record<FinComandoTipo, string> = {
   conta: "Vencimento",
   fixa: "Primeiro vencimento",
   pagamento: "Pago em",
+  compra: "Data",
+  venda: "Data",
 };
 
 
@@ -30,6 +34,14 @@ function lerValor(t: string): number | null {
   if (!s) return null;
   const n = Number(/,\d{1,2}$/.test(s) ? s.replace(/\./g, "").replace(",", ".") : s.replace(/,/g, ""));
   return Number.isFinite(n) && n > 0 ? Math.round(n * 100) / 100 : null;
+}
+
+/** Quantidade: aceita "100", "1.000" (milhar) e "0,5". */
+function lerQtd(t: string): number | null {
+  const s = t.trim().replace(/\s/g, "");
+  if (!s) return null;
+  const n = Number(s.includes(",") ? s.replace(/\./g, "").replace(",", ".") : /^\d{1,3}(\.\d{3})+$/.test(s) ? s.replace(/\./g, "") : s);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -59,6 +71,14 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const [decMenor, setDecMenor] = useState<"" | "parcial" | "quitar">("");
   const [decMaior, setDecMaior] = useState<"" | "quitar" | "grupo">("");
   const [excGrupoId, setExcGrupoId] = useState("");
+  // Compra/venda de papel: papel ("novo" = ticker digitado, cadastrado ao gravar a compra), quantidade, preço, taxas
+  const inv0 = proposta.investimento;
+  const [papelSel, setPapelSel] = useState(inv0?.papelContaId != null ? String(inv0.papelContaId) : inv0?.ticker ? "novo" : "");
+  const [tickerNovo, setTickerNovo] = useState(inv0?.papelContaId == null ? inv0?.ticker ?? "" : "");
+  const [qtd, setQtd] = useState(inv0?.quantidade != null ? String(inv0.quantidade).replace(".", ",") : "");
+  const precoIni = inv0?.preco ?? (inv0?.quantidade && proposta.valor ? Math.round((proposta.valor / inv0.quantidade) * 1e6) / 1e6 : null);
+  const [preco, setPreco] = useState(precoIni != null ? String(precoIni).replace(".", ",") : "");
+  const [taxas, setTaxas] = useState(inv0?.taxas != null ? String(inv0.taxas).replace(".", ",") : "");
 
   // Gasto é sempre a pagar; receita, a receber; pagamento segue o item escolhido
   const sentidoEfetivo: "pagar" | "receber" =
@@ -68,9 +88,19 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const grupos = sentidoEfetivo === "pagar" ? gruposDesp : gruposRec;
   const cfg = proposta.config ?? { gravarDireto: false, criarGrupo: false, criarConta: false };
   const abertos = useMemo(() => proposta.opcoes.abertos, [proposta]);
-  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa";
+  const ehInv = tipo === "compra" || tipo === "venda";
+  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv;
   const contaObrigatoria = tipo !== "fixa";
-  const pedeGrupo = tipo !== "pagamento";
+  const pedeGrupo = tipo !== "pagamento" && !ehInv;
+  // Papéis da corretora escolhida (sem corretora: todos)
+  const papeisOpc = (proposta.opcoes.papeis ?? []).filter((x) => !contaId || x.corretoraId === Number(contaId));
+  const papelItem = papelSel && papelSel !== "novo" ? (proposta.opcoes.papeis ?? []).find((x) => x.id === Number(papelSel)) ?? null : null;
+  const qtdNum = lerQtd(qtd);
+  const precoNum = lerValor(preco);
+  const taxasNum = lerValor(taxas) ?? 0;
+  const totalInv = qtdNum != null && precoNum != null ? Math.round((qtdNum * precoNum + (tipo === "compra" ? taxasNum : -taxasNum)) * 100) / 100 : null;
+  const papelFalta = ehInv && !(papelItem || (tipo === "compra" && papelSel === "novo" && tickerNovo.trim()));
+  const vendeMais = tipo === "venda" && papelItem != null && qtdNum != null && qtdNum > papelItem.quantidade + 1e-9;
 
   // Pagamento: compara o valor informado com o previsto do item em aberto
   const alvoItem = tipo === "pagamento" ? abertos.find((a) => a.chave === alvo) ?? null : null;
@@ -86,6 +116,34 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
     const v = lerValor(valor);
     const conta = contaId ? Number(contaId) : null;
     const grupo = grupoId ? Number(grupoId) : null;
+    if (ehInv) {
+      if (conta == null) return setErro("Escolha a corretora.");
+      if (papelFalta) return setErro(tipo === "venda" ? "Escolha o papel vendido." : "Escolha o papel ou digite o ticker.");
+      if (qtdNum == null) return setErro("Informe a quantidade.");
+      if (precoNum == null) return setErro("Informe o preço.");
+      if (vendeMais) return setErro(`A posição é ${papelItem!.quantidade}: não dá para vender ${qtdNum}.`);
+      setEstado("gravando");
+      try {
+        const r = await apiPostJson<{ operacaoId: number; ticker: string; valorTotal: number; como: string }>("/api/fin/investimentos/operacoes", {
+          operacao: tipo,
+          papelContaId: papelItem?.id ?? null,
+          ticker: papelItem ? papelItem.ticker : tickerNovo.trim(),
+          corretoraId: conta,
+          data,
+          quantidade: qtdNum,
+          preco: precoNum,
+          taxas: taxasNum || null,
+          origem: "falecomigo",
+        });
+        setDesfazer({ tipo: "operacao", id: r.operacaoId });
+        setFeito(`${tipo === "compra" ? "Compra" : "Venda"} de ${qtd} ${r.ticker} (${brl(r.valorTotal)}) gravada.`);
+        setEstado("gravado");
+      } catch (e) {
+        setEstado("edicao");
+        setErro(e instanceof Error ? e.message : "Não foi possível gravar.");
+      }
+      return;
+    }
     if (tipo !== "pagamento" && v == null) return setErro("Informe o valor.");
     if (pedeGrupo && grupo == null) return setErro(sentidoEfetivo === "pagar" ? "Escolha o grupo de despesa." : "Escolha o grupo de receita.");
     if (pedeConta && contaObrigatoria && conta == null) return setErro("Escolha a conta ou o cartão.");
@@ -164,6 +222,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
     try {
       if (desfazer.tipo === "lote") await apiDeleteJson(`/api/fin/parcelados/${desfazer.lote}`);
       else if (desfazer.tipo === "lancamento") await apiDeleteJson(`/api/fin/lancamentos/${desfazer.id}`);
+      else if (desfazer.tipo === "operacao") await apiDeleteJson(`/api/fin/investimentos/operacoes/${desfazer.id}`);
       else if (desfazer.tipo === "recorrencia") await apiPatchJson(`/api/fin/recorrencias/${desfazer.id}`, { ativo: false });
       else await apiDeleteJson(`/api/fin/baixas/${desfazer.tituloId}`);
       setEstado("desfeito");
@@ -226,6 +285,8 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
   return (
     <div style={caixa}>
+      {/* A frase da proposta fica dentro do cartão: some quando grava (antes ficava "toque em Gravar" sobre o gravado) */}
+      <span style={{ fontSize: 14 }}>{proposta.mensagem}</span>
       <div style={linha}>
         <label style={rot}>
           O que é
@@ -258,6 +319,35 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
             ))}
           </select>
         </label>
+      ) : ehInv ? (
+        <div style={linha}>
+          <label style={rot}>
+            <span>Papel{marca(papelFalta)}</span>
+            <select className="mm-field" style={falta(papelFalta)} value={papelSel} onChange={(e) => setPapelSel(e.target.value)}>
+              <option value="">— escolha —</option>
+              {papeisOpc.map((x) => (
+                <option key={x.id} value={x.id}>
+                  {x.ticker} · {x.quantidade.toLocaleString("pt-BR")} un{x.corretoraNome && !contaId ? ` · ${x.corretoraNome}` : ""}
+                </option>
+              ))}
+              {tipo === "compra" ? <option value="novo">Outro (papel novo)…</option> : null}
+            </select>
+            {papelItem ? (
+              <small style={{ color: vendeMais ? "var(--mm-danger)" : "var(--mm-muted)" }}>
+                Posição: {papelItem.quantidade.toLocaleString("pt-BR")}
+                {papelItem.custoMedio != null ? ` · custo médio ${brl(papelItem.custoMedio)}` : ""}
+                {vendeMais ? " · menor que a quantidade vendida" : ""}
+              </small>
+            ) : null}
+          </label>
+          {papelSel === "novo" ? (
+            <label style={rot}>
+              <span>Ticker{marca(!tickerNovo.trim())}</span>
+              <input className="mm-field" style={falta(!tickerNovo.trim())} value={tickerNovo} maxLength={30} placeholder="PETR4"
+                onChange={(e) => setTickerNovo(e.target.value.toUpperCase())} />
+            </label>
+          ) : null}
+        </div>
       ) : (
         <label style={rot}>
           Descrição
@@ -265,7 +355,31 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
         </label>
       )}
 
-      <div style={linha}>
+      {ehInv ? (
+        <div style={linha}>
+          <label style={rot}>
+            <span>Quantidade{marca(qtdNum == null || vendeMais)}</span>
+            <input className="mm-field" style={falta(qtdNum == null || vendeMais)} inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} />
+          </label>
+          <label style={rot}>
+            <span>Preço (R$){marca(precoNum == null)}</span>
+            <input className="mm-field" style={falta(precoNum == null)} inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />
+          </label>
+          <label style={rot}>
+            Taxas (opcional)
+            <input className="mm-field" inputMode="decimal" value={taxas} onChange={(e) => setTaxas(e.target.value)} placeholder="0,00" />
+          </label>
+          <label style={rot}>
+            Data
+            <input className="mm-field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
+          </label>
+          <span style={{ alignSelf: "center", fontSize: 13 }}>
+            {totalInv != null ? `${tipo === "compra" ? "Custo" : "Líquido"}: ${brl(totalInv)}` : ""}
+          </span>
+        </div>
+      ) : null}
+
+      <div style={{ ...linha, display: ehInv ? "none" : "flex" }}>
         <label style={rot}>
           <span>Valor (R$){marca((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)}</span>
           <input className="mm-field" style={falta((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
@@ -355,13 +469,13 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
         {pedeConta ? (
           <label style={rot}>
             <span>
-              {tipo === "receita" || sentidoEfetivo === "receber" ? "Entra em" : "Sai de"}
+              {ehInv ? "Corretora" : tipo === "receita" || sentidoEfetivo === "receber" ? "Entra em" : "Sai de"}
               {!contaObrigatoria ? " (opcional)" : ""}
               {marca(contaObrigatoria && !contaId)}
             </span>
             <select className="mm-field" style={falta(contaObrigatoria && !contaId)} value={contaId} onChange={(e) => setContaId(e.target.value)}>
               <option value="">— escolha —</option>
-              {contasOpc.map((c) => (
+              {contasOpc.filter((c) => !ehInv || c.tipo !== "cartao").map((c) => (
                 <option key={c.id} value={c.id}>{c.nome}{c.tipo === "cartao" ? " (cartão)" : ""}</option>
               ))}
             </select>

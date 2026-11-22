@@ -911,6 +911,8 @@ export async function criarLancamento(
   inp: {
     data: string; descricao: string; valor?: number | null; valorMoeda?: number | null;
     contaOrigemId: number; contaDestinoId: number; quantidade?: number | null; preco?: number | null;
+    /** Lote dos lançamentos (operação de investimento: liga ao fato em fin_operacoes_inv). */
+    lote?: string | null;
   }
 ): Promise<{ valor: number; resultado: number | null }> {
   exigirData(inp.data, "data");
@@ -956,12 +958,13 @@ export async function criarLancamento(
     let vm: number | null = null;
     let moeda: string | null = null;
     let resultado: number | null = null;
-    const lote = randomUUID();
+    const lote = inp.lote ?? randomUUID();
+    const loteSimples = inp.lote ?? null;
 
     if (mo === "BRL" && md === "BRL") {
       if (!(valorInf != null && valorInf > 0)) throw new FinErro("valor", "Informe o valor.");
       valor = r2(valorInf);
-      await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd });
+      await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, preco: inp.preco ?? null, lote: loteSimples });
     } else {
       if (mo !== "BRL" && md !== "BRL" && mo !== md) {
         throw new FinErro("moeda", `De ${mo} para ${md} não é direto: converta passando por uma conta em reais.`);
@@ -982,7 +985,7 @@ export async function criarLancamento(
           if (!c) throw new FinErro("cotacao", `Sem cotação do ${moeda} em ${inp.data}. Informe o valor em reais.`);
           valor = r2(vm * c.valor);
         }
-        await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, valorMoeda: vm, moeda });
+        await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, preco: inp.preco ?? null, valorMoeda: vm, moeda, lote: loteSimples });
       } else {
         // Sai da conta em moeda: pelo custo médio em reais
         const pos = await posicao(conn, o.id, inp.data);
@@ -990,7 +993,7 @@ export async function criarLancamento(
         const custo = r2((pos.reais / pos.moeda) * vm);
         if (md !== "BRL" || !finContaEhDinheiro(d.tipo)) {
           valor = custo;
-          await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, valorMoeda: vm, moeda });
+          await lancar(conn, e, { data: inp.data, descricao: desc, valor, origem: o.id, destino: d.id, quantidade: qtd, preco: inp.preco ?? null, valorMoeda: vm, moeda, lote: loteSimples });
         } else {
           // Câmbio de volta para reais: diferença para o custo = ganho/perda cambial
           if (!(valorInf != null && valorInf > 0)) throw new FinErro("valor", "Câmbio: informe quanto entrou em reais.");
@@ -1022,6 +1025,8 @@ export async function excluirLancamento(e: Espaco, id: number): Promise<void> {
     const [t] = await pool.query<RowDataPacket[]>(`SELECT 1 FROM fin_titulos WHERE lote = ? LIMIT 1`, [l.lote]);
     if (t[0]) throw new FinErro("de_parcelado", "Este lançamento é de um parcelamento: exclua o parcelamento na agenda.");
     await pool.query(`DELETE FROM fin_lancamentos WHERE lote = ? AND ${f.sql}`, [l.lote, ...f.params]);
+    // Operação de investimento (compra/venda) ligada a este lote some junto
+    await pool.query(`DELETE FROM fin_operacoes_inv WHERE lote = ? AND ${f.sql}`, [l.lote, ...f.params]);
     return;
   }
   await pool.query(`DELETE FROM fin_lancamentos WHERE id = ?`, [id]);
@@ -1033,8 +1038,8 @@ export async function excluirLancamento(e: Espaco, id: number): Promise<void> {
  */
 export async function venderInvestimento(
   e: Espaco,
-  inp: { contaPapelId: number; contaDestinoId: number; data: string; quantidade: number; valorTotal: number }
-): Promise<{ custo: number; resultado: number; moeda: string }> {
+  inp: { contaPapelId: number; contaDestinoId: number; data: string; quantidade: number; valorTotal: number; lote?: string | null }
+): Promise<{ custo: number; resultado: number; moeda: string; lote: string }> {
   exigirData(inp.data, "data");
   if (!(inp.quantidade > 0) || !(inp.valorTotal > 0)) throw new FinErro("valor", "Informe quantidade e valor da venda.");
   const conn = await pool.getConnection();
@@ -1056,7 +1061,7 @@ export async function venderInvestimento(
       if (!c) throw new FinErro("cotacao", `Sem cotação do ${moeda} em ${inp.data}.`);
       resultadoReais = r2(resultado * c.valor);
     }
-    const lote = randomUUID();
+    const lote = inp.lote ?? randomUUID();
     const desc = `Venda ${inp.quantidade} ${papel.nome}`;
     const m = estrangeira ? moeda : null;
     await lancar(conn, e, {
@@ -1071,7 +1076,7 @@ export async function venderInvestimento(
       await lancar(conn, e, { data: inp.data, descricao: `${desc} — perda`, valor: -resultadoReais, origem: dest.id, destino: await contaSistema(conn, e, "perda_capital"), lote, valorMoeda: estrangeira ? -resultado : null, moeda: m });
     }
     await conn.commit();
-    return { custo, resultado, moeda };
+    return { custo, resultado, moeda, lote };
   } catch (err) {
     await conn.rollback();
     throw err;

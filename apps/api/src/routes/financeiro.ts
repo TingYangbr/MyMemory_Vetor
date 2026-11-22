@@ -28,6 +28,7 @@ import {
   type Espaco,
 } from "../services/financeiroService.js";
 import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
+import { desfazerOperacaoInvestimento, registrarOperacaoInvestimento } from "../services/finInvestimentosService.js";
 
 /** Controle financeiro — etapa 1 do núcleo (contas, livro, títulos, motor de recorrência). Espaço = o atual do usuário. */
 
@@ -106,6 +107,28 @@ const plugin: FastifyPluginAsync = async (app) => {
   }));
 
   app.get("/api/fin/config", rota(async (e) => lerFinConfig(e)));
+
+  /** Compra/venda de papel pela porta única (Fale comigo, tela). A B3 usará a mesma função com origem "b3". */
+  app.post("/api/fin/investimentos/operacoes", rota(async (e, req) => {
+    const b = z.object({
+      operacao: z.enum(["compra", "venda"]),
+      papelContaId: id.nullish(),
+      ticker: z.string().max(60).nullish(),
+      corretoraId: id,
+      data,
+      quantidade: z.number().finite().positive(),
+      preco: z.number().finite().positive().nullish(),
+      valorTotal: z.number().finite().positive().nullish(),
+      taxas: z.number().finite().min(0).nullish(),
+      origem: z.enum(["falecomigo", "tela"]).default("tela"),
+    }).parse(req.body);
+    return registrarOperacaoInvestimento(e, b);
+  }));
+
+  app.delete("/api/fin/investimentos/operacoes/:id", rota(async (e, req) => {
+    await desfazerOperacaoInvestimento(e, id.parse((req.params as { id: string }).id));
+    return { ok: true };
+  }));
 
   app.patch("/api/fin/config", rota(async (e, req) => {
     const b = z.object({ gravarDireto: z.boolean().optional(), criarGrupo: z.boolean().optional(), criarConta: z.boolean().optional() }).parse(req.body);
