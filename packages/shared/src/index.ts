@@ -1326,6 +1326,8 @@ export interface PerguntaResponse {
   comando?: ComandoAlteracao;
   /** Presente quando o texto pedia para criar um registro novo. */
   criacao?: ComandoCriacao;
+  /** Comando para o financeiro (gasto, conta, fixa, pagamento): cartão para conferir e gravar. */
+  finComando?: import("./financeiro.js").FinComandoProposta;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────

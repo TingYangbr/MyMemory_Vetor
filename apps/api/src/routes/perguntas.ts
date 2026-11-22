@@ -230,6 +230,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       planoSalvavel: result.planoSalvavel,
       comando: result.comando,
       criacao: result.criacao,
+      finComando: result.finComando,
     };
 
     sendEvent({ type: "result", data: body });
