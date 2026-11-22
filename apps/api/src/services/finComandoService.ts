@@ -317,55 +317,51 @@ async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComa
 }
 
 /** Frase curta do que vai ser gravado (e do que falta escolher no cartão). */
+/**
+ * Frase curta do cartão: o que será registrado e onde ("O gasto de R$ 80,00 será registrado em Alimentação, saindo do
+ * Nubank."). Faltando algo: "Preencha os dados em destaque." (os campos em vermelho no cartão).
+ */
 export function descreverProposta(p: FinComandoProposta): string {
   const conta = p.opcoes.contas.find((c) => c.id === p.contaId)?.nome;
   const grupo = [...p.opcoes.gruposDespesa, ...p.opcoes.gruposReceita].find((g) => g.id === p.grupoId)?.nome;
-  const v = p.valor != null ? brl(p.valor) : "valor a informar";
-  const falta: string[] = [];
+  const v = p.valor != null ? ` de ${brl(p.valor)}` : "";
+  let falta = p.valor == null && p.tipo !== "pagamento";
   let o = "";
   switch (p.tipo) {
     case "gasto":
-      o = `Gasto de ${v} em ${grupo ?? "?"}${conta ? `, ${conta}` : ""}, ${dataBr(p.data)}`;
-      if (!grupo) falta.push("o grupo de despesa");
-      if (!conta) falta.push("de qual conta ou cartão saiu");
+      o = `O gasto${v} será registrado ${grupo ? `em ${grupo}` : "nas despesas"}${conta ? `, saindo de ${conta}` : ""}`;
+      falta ||= !grupo || !conta;
       break;
     case "receita":
-      o = `Receita de ${v} (${grupo ?? "?"})${conta ? ` em ${conta}` : ""}, ${dataBr(p.data)}`;
-      if (!grupo) falta.push("o grupo de receita");
-      if (!conta) falta.push("em qual conta entrou");
+      o = `A receita${v} será registrada ${grupo ? `em ${grupo}` : "nas receitas"}${conta ? `, entrando em ${conta}` : ""}`;
+      falta ||= !grupo || !conta;
       break;
     case "conta":
-      o = `Conta a ${p.sentido} "${p.descricao}" de ${v}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""}, vencimento ${dataBr(p.data)}${grupo ? ` (${grupo})` : ""}`;
-      if (!grupo) falta.push(p.sentido === "pagar" ? "o grupo de despesa" : "o grupo de receita");
+      o = `A conta a ${p.sentido} "${p.descricao}"${v}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""} será registrada com vencimento em ${dataBr(p.data)}${grupo ? `, em ${grupo}` : ""}`;
+      falta ||= !grupo;
       break;
     case "fixa":
-      o = `Conta fixa a ${p.sentido} "${p.descricao}" de ${v}, ${p.periodicidade}, a partir de ${dataBr(p.data)}${grupo ? ` (${grupo})` : ""}`;
-      if (!grupo) falta.push(p.sentido === "pagar" ? "o grupo de despesa" : "o grupo de receita");
+      o = `A conta fixa "${p.descricao}"${v} (${p.periodicidade}) será registrada a partir de ${dataBr(p.data)}${grupo ? `, em ${grupo}` : ""}`;
+      falta ||= !grupo;
       break;
     case "compra":
     case "venda": {
       const i = p.investimento;
-      const tk = i?.ticker ?? "?";
-      const novo = p.tipo === "compra" && i && !i.papelContaId && i.ticker ? " (papel novo nesta corretora: será cadastrado)" : "";
-      o = `${p.tipo === "compra" ? "Compra" : "Venda"} de ${i?.quantidade != null ? qtdBr(i.quantidade) : "?"} ${tk}` +
-        `${i?.preco != null ? ` a ${brl(i.preco)}` : ""}${p.valor != null ? ` (${brl(p.valor)})` : ""}${conta ? ` na ${conta}` : ""}, ${dataBr(p.data)}${novo}`;
-      if (!i?.ticker) falta.push("o papel");
-      if (!i?.quantidade) falta.push("a quantidade");
-      if (!i?.preco && p.valor == null) falta.push("o preço");
-      if (!conta) falta.push("a corretora");
-      if (p.tipo === "venda" && i?.ticker && !i.papelContaId) falta.push(`qual ${i.ticker} (não há esse papel nesta corretora)`);
-      return `${o}.${falta.length ? ` Falta escolher: ${falta.join(", ")}.` : ""} Confira no cartão e toque em Gravar.`;
+      const qtd = i?.quantidade != null ? `${qtdBr(i.quantidade)} ` : "";
+      o = `A ${p.tipo} de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${brl(i.preco)}` : ""} será registrada${conta ? ` na ${conta}` : ""}` +
+        (p.tipo === "compra" && i && !i.papelContaId && i.ticker ? " (papel novo nesta corretora: será cadastrado)" : "");
+      falta = !i?.ticker || !i?.quantidade || (!i?.preco && p.valor == null) || !conta || (p.tipo === "venda" && !!i?.ticker && !i.papelContaId);
+      break;
     }
     case "pagamento": {
       const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
+      const nome = p.sentido === "pagar" ? "O pagamento" : "O recebimento";
       o = a
-        ? `${p.sentido === "pagar" ? "Pagamento" : "Recebimento"} de "${a.descricao}" (venc. ${dataBr(a.vencimento)}), ${v}${conta ? `, ${conta}` : ""}, em ${dataBr(p.data)}`
-        : `${p.sentido === "pagar" ? "Pagamento" : "Recebimento"} de ${v}`;
-      if (!a) falta.push("qual conta em aberto foi paga");
-      if (!conta) falta.push(p.sentido === "pagar" ? "de qual conta saiu" : "em qual conta entrou");
+        ? `${nome} de "${a.descricao}"${v} será registrado em ${dataBr(p.data)}${conta ? `, ${p.sentido === "pagar" ? "saindo de" : "entrando em"} ${conta}` : ""}`
+        : `${nome}${v} será registrado`;
+      falta ||= !a || !conta;
       break;
     }
   }
-  if (p.valor == null) falta.push("o valor");
-  return `${o}.${falta.length ? ` Falta escolher: ${falta.join(", ")}.` : ""} Confira no cartão e toque em Gravar.`;
+  return `${o}.${falta ? " Preencha os dados em destaque." : ""}`;
 }
