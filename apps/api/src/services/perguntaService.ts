@@ -33,6 +33,7 @@ import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaServ
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import { juntarEmListaAberta } from "./listaAbertaService.js";
 import { atualizarRegistroUnico } from "./registroUnicoService.js";
+import { montarPropostaFin } from "./finComandoService.js";
 import { ordenarColunasDaResposta, type LimitesDatas } from "./colunasRespostaService.js";
 
 /** Período pedido para cada coluna de data (parâmetros data_x_ini / data_x_fin do plano executado). */
@@ -309,6 +310,7 @@ export async function perguntarMemory(input: {
   aguardaFase2?: boolean;
   comando?: import("@mymemory/shared").ComandoAlteracao;
   criacao?: import("@mymemory/shared").ComandoCriacao;
+  finComando?: import("@mymemory/shared").FinComandoProposta;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -532,25 +534,37 @@ export async function perguntarMemory(input: {
     const efetivo = input.perfil?.efetivo;
     const liberadas = efetivo && !efetivo.todas ? new Set(efetivo.categoriasPermitidas) : null;
     const cats = liberadas ? input.categories.filter((c) => liberadas.has(c.name)) : input.categories;
+    // Categoria só de consulta (sem campos, com consultas — ex.: Finanças Pessoais, ERP): não guarda memo.
+    // Antes virava um memo que as consultas nunca leem ("gravou, mas não aparece").
+    const soConsulta = classificacao.categorias
+      .map((n) => cats.find((c) => c.isActive === 1 && c.name === n))
+      .find(
+        (c) =>
+          c &&
+          // O campo Situação que sobrou de quando a categoria era "atualizável" não conta
+          !(c.campos ?? []).some((f) => f.isActive === 1 && !/^situa/i.test(f.name) && f.name !== c.campoSituacao) &&
+          (c.queries ?? []).some((q) => q.isActive === 1)
+      );
+    // Finanças: gasto, receita, conta a pagar/receber, conta fixa ou pagamento → cartão para conferir e gravar
+    if (soConsulta && /^finan/i.test(soConsulta.name)) {
+      const fin = await withSpan("Comando do financeiro", () => montarPropostaFin({
+        texto: input.pergunta,
+        userId: input.userId,
+        groupId: input.groupId,
+      }));
+      totalCost += fin.costUsd;
+      return {
+        resposta: respostaComando(fin.proposta.mensagem, "Nada foi gravado ainda: confira no cartão e toque em Gravar."),
+        classificacao,
+        apiCost: totalCost,
+        finComando: fin.proposta,
+      };
+    }
     if (classificacao.acao === "criar") {
-      // Categoria só de consulta (sem campos, com consultas — ex.: Finanças Pessoais, ERP): não guarda memo.
-      // Antes virava um memo que as consultas nunca leem ("gravou, mas não aparece"). Responde direto.
-      const soConsulta = classificacao.categorias
-        .map((n) => cats.find((c) => c.isActive === 1 && c.name === n))
-        .find(
-          (c) =>
-            c &&
-            // O campo Situação que sobrou de quando a categoria era "atualizável" não conta
-            !(c.campos ?? []).some((f) => f.isActive === 1 && !/^situa/i.test(f.name) && f.name !== c.campoSituacao) &&
-            (c.queries ?? []).some((q) => q.isActive === 1)
-        );
       if (soConsulta) {
-        const ehFinancas = /^finan/i.test(soConsulta.name);
         return {
           resposta: respostaComando(
-            ehFinancas
-              ? `Não gravei. Lançar conta a pagar ou a receber, pagamento ou gasto pelo Fale comigo ainda não existe. Cadastre em "Contas a pagar e receber" (menu); depois as perguntas sobre ${soConsulta.name} já trazem o lançamento.`
-              : `Não gravei. ${soConsulta.name} só consulta dados (não guarda registros). Cadastre no sistema de origem; depois as perguntas já trazem o dado.`,
+            `Não gravei. ${soConsulta.name} só consulta dados (não guarda registros). Cadastre no sistema de origem; depois as perguntas já trazem o dado.`,
             "Categoria só de consulta: nada foi gravado."
           ),
           classificacao,
