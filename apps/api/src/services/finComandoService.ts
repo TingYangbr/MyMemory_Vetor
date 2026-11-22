@@ -4,10 +4,21 @@
  * Nada é gravado aqui: a tela mostra a proposta num cartão editável e grava pelas rotas /api/fin/* ao confirmar.
  * A IA só escolhe entre ids que existem; o que ela não souber fica vazio para a pessoa escolher no cartão.
  */
-import type { FinComandoProposta, FinComandoTipo, FinPeriodicidade } from "@mymemory/shared";
+import type { FinComandoGravado, FinComandoProposta, FinComandoTipo, FinPeriodicidade } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
-import { agenda, hojeSaoPaulo, listarContasComSaldo, type Espaco } from "./financeiroService.js";
+import {
+  agenda,
+  baixar,
+  criarLancamento,
+  criarParcelado,
+  criarRecorrencia,
+  hojeSaoPaulo,
+  listarContasComSaldo,
+  ultimoLancamentoId,
+  type Espaco,
+} from "./financeiroService.js";
+import { obterFinConfig } from "./finConfigService.js";
 
 const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento"];
 const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
@@ -139,6 +150,8 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     grupoId: idValido(j.grupoId, grupos),
     alvoChave: tipo === "pagamento" ? alvo?.chave ?? null : null,
     mensagem: "",
+    config: await obterFinConfig(e),
+    gravado: null,
     opcoes: { contas, gruposDespesa, gruposReceita, abertos },
   };
   // Escolha da IA que a frase não decide: deixa vazio e diz quais combinam
@@ -154,7 +167,77 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     duvidas.push(`Mais de uma conta combina (${cAmb.join(", ")})`);
   }
   proposta.mensagem = descreverProposta(proposta) + (duvidas.length ? ` ${duvidas.join(". ")}.` : "");
+  // "Gravar direto" ligado e nada faltando nem em dúvida: grava já; o cartão abre gravado, com Desfazer
+  if (proposta.config.gravarDireto && !duvidas.length && completa(proposta)) {
+    try {
+      proposta.gravado = await gravarProposta(e, proposta);
+      proposta.mensagem = `${proposta.gravado.mensagem} Gravado direto: se algo estiver errado, toque em Desfazer.`;
+    } catch (err) {
+      proposta.mensagem += ` (Não gravei direto: ${err instanceof Error ? err.message : "erro"}.)`;
+    }
+  }
   return { proposta, costUsd };
+}
+
+/** Todos os campos obrigatórios do tipo vieram identificados. */
+function completa(p: FinComandoProposta): boolean {
+  switch (p.tipo) {
+    case "gasto":
+    case "receita":
+      return p.valor != null && p.grupoId != null && p.contaId != null;
+    case "conta":
+    case "fixa":
+      return p.valor != null && p.grupoId != null;
+    case "pagamento":
+      return p.alvoChave != null && p.contaId != null;
+  }
+}
+
+/** Grava a proposta como o cartão gravaria (mesmas funções das rotas /api/fin/*). */
+async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComandoGravado> {
+  const v = p.valor ?? 0;
+  if (p.tipo === "gasto" || p.tipo === "receita") {
+    const origem = p.tipo === "gasto" ? p.contaId! : p.grupoId!;
+    const destino = p.tipo === "gasto" ? p.grupoId! : p.contaId!;
+    await criarLancamento(e, { data: p.data, descricao: p.descricao, valor: v, contaOrigemId: origem, contaDestinoId: destino });
+    const id = await ultimoLancamentoId(e, { data: p.data, origem, destino });
+    return {
+      mensagem: `${p.tipo === "gasto" ? "Gasto" : "Receita"} de ${brl(v)} gravado.`,
+      desfazer: id != null ? { tipo: "lancamento", id } : null,
+    };
+  }
+  if (p.tipo === "conta") {
+    const r = await criarParcelado(e, {
+      sentido: p.sentido,
+      descricao: p.descricao,
+      valorTotal: v,
+      parcelas: p.parcelas,
+      primeiroVencimento: p.data,
+      periodicidade: "mensal",
+      contaGrupoId: p.grupoId!,
+    });
+    return { mensagem: `Conta a ${p.sentido} de ${brl(v)}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""} gravada.`, desfazer: { tipo: "lote", lote: r.lote } };
+  }
+  if (p.tipo === "fixa") {
+    const id = await criarRecorrencia(e, {
+      sentido: p.sentido,
+      descricao: p.descricao,
+      valor: v,
+      periodicidade: p.periodicidade,
+      inicio: p.data,
+      contaGrupoId: p.grupoId!,
+      contaPagamentoId: p.contaId,
+    });
+    return { mensagem: `Conta fixa de ${brl(v)} (${p.periodicidade}) gravada.`, desfazer: { tipo: "recorrencia", id } };
+  }
+  const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave)!;
+  const partes = a.chave.split(":");
+  const corpo = partes[0] === "t" ? { tituloId: Number(partes[1]) } : { recorrenciaId: Number(partes[1]), referencia: partes.slice(2).join(":") };
+  const r = await baixar(e, { ...corpo, data: p.data, valorPago: p.valor ?? a.valor, contaPagamentoId: p.contaId! });
+  return {
+    mensagem: `${a.sentido === "pagar" ? "Pagamento" : "Recebimento"} de "${a.descricao}" gravado.`,
+    desfazer: { tipo: "baixa", tituloId: r.tituloId },
+  };
 }
 
 /** Frase curta do que vai ser gravado (e do que falta escolher no cartão). */

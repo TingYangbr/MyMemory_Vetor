@@ -5,6 +5,8 @@ import {
   FIN_PERIODICIDADES,
   FIN_TIPOS_CONTA,
   type FinAgendaResposta,
+  type FinConfig,
+  type FinConfigResposta,
   type FinConferencia,
   type FinContaSaldo,
   type FinItemAgenda,
@@ -24,7 +26,7 @@ import styles from "./Financeiro.module.css";
  * antes dos comandos pela IA.
  */
 
-type Aba = "agenda" | "lancamentos" | "contas" | "recorrencias";
+type Aba = "agenda" | "lancamentos" | "contas" | "recorrencias" | "falecomigo";
 type Filtro = "tudo" | "aberto" | "atraso" | "pago";
 type Recorrencia = FinRecorrencia & { excecoes: { referencia: string; valor: number | null; pular: boolean }[] };
 
@@ -166,6 +168,7 @@ export default function FinanceiroPage() {
             ["lancamentos", "Lançamentos"],
             ["contas", "Contas e saldos"],
             ["recorrencias", "Recorrências"],
+            ["falecomigo", "Fale comigo"],
           ] as [Aba, string][]).map(([k, r]) => (
             <button key={k} type="button" role="tab" aria-selected={aba === k} className={`${styles.tab} ${aba === k ? styles.tabOn : ""}`} onClick={() => setAba(k)}>
               {r}
@@ -178,6 +181,7 @@ export default function FinanceiroPage() {
         {agenda && aba === "lancamentos" ? <AbaLancamentos ctx={ctx} lancs={lancs} /> : null}
         {agenda && aba === "contas" ? <AbaContas ctx={ctx} conf={conf} /> : null}
         {agenda && aba === "recorrencias" ? <AbaRecorrencias ctx={ctx} recs={recs} /> : null}
+        {agenda && aba === "falecomigo" ? <AbaFaleComigo /> : null}
       </main>
     </div>
   );
@@ -802,5 +806,57 @@ function AbaRecorrencias({ ctx, recs }: { ctx: Ctx; recs: Recorrencia[] }) {
         ))}
       </div>
     </>
+  );
+}
+
+/* ---------------- Fale comigo (ajustes) ---------------- */
+
+/** Como o Fale comigo grava no financeiro deste espaço. No grupo, só o dono muda. */
+function AbaFaleComigo() {
+  const [cfg, setCfg] = useState<FinConfigResposta | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [salvo, setSalvo] = useState(false);
+
+  useEffect(() => {
+    apiGet<FinConfigResposta>("/api/fin/config").then(setCfg).catch((e) => setErro(msgErro(e)));
+  }, []);
+
+  async function mudar(campo: keyof FinConfig, valor: boolean) {
+    setErro(null);
+    setSalvo(false);
+    try {
+      setCfg(await apiPatchJson<FinConfigResposta>("/api/fin/config", { [campo]: valor }));
+      setSalvo(true);
+    } catch (e) {
+      setErro(msgErro(e));
+    }
+  }
+
+  if (!cfg) return erro ? <div className={styles.erro}>{erro}</div> : <div className={styles.vazio}>Carregando…</div>;
+  const itens: [keyof FinConfig, string, string][] = [
+    ["gravarDireto", "Gravar sem confirmar quando estiver completo",
+      "Se a frase trouxer tudo (valor, grupo, conta…) sem dúvida, grava na hora e o cartão já vem gravado, com Desfazer. Faltando algo, o cartão abre para conferir."],
+    ["criarGrupo", "Cadastrar grupo de despesa/receita pelo cartão",
+      "Mostra \"+ novo grupo\" ao lado do grupo no cartão, para cadastrar na hora o que ainda não existe."],
+    ["criarConta", "Cadastrar conta ou cartão pelo cartão",
+      "Mostra \"+ nova conta\" ao lado da conta no cartão (banco, cartão de crédito ou corretora)."],
+  ];
+  return (
+    <div style={{ display: "grid", gap: 14, maxWidth: 640 }}>
+      <p className={styles.sub}>Como as frases de dinheiro do Fale comigo (gastei, paguei, vence dia 10…) gravam aqui.</p>
+      {itens.map(([k, titulo, desc]) => (
+        <label key={k} style={{ display: "flex", gap: 10, alignItems: "flex-start", cursor: cfg.podeEditar ? "pointer" : "default" }}>
+          <input type="checkbox" checked={cfg[k]} disabled={!cfg.podeEditar} onChange={(e) => void mudar(k, e.target.checked)} style={{ marginTop: 3 }} />
+          <span>
+            <b>{titulo}</b>
+            <br />
+            <small style={{ color: "var(--mm-muted)" }}>{desc}</small>
+          </span>
+        </label>
+      ))}
+      {!cfg.podeEditar ? <small style={{ color: "var(--mm-muted)" }}>Só o dono do grupo muda estes ajustes.</small> : null}
+      {erro ? <div className={styles.erro}>{erro}</div> : null}
+      {salvo ? <div className={styles.ok}>Salvo.</div> : null}
+    </div>
   );
 }

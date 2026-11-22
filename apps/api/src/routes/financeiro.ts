@@ -23,9 +23,11 @@ import {
   listarLancamentos,
   listarRecorrencias,
   resolverEspaco,
+  ultimoLancamentoId,
   venderInvestimento,
   type Espaco,
 } from "../services/financeiroService.js";
+import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
 
 /** Controle financeiro — etapa 1 do núcleo (contas, livro, títulos, motor de recorrência). Espaço = o atual do usuário. */
 
@@ -103,6 +105,13 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { ok: true };
   }));
 
+  app.get("/api/fin/config", rota(async (e) => lerFinConfig(e)));
+
+  app.patch("/api/fin/config", rota(async (e, req) => {
+    const b = z.object({ gravarDireto: z.boolean().optional(), criarGrupo: z.boolean().optional(), criarConta: z.boolean().optional() }).parse(req.body);
+    return salvarFinConfig(e, b);
+  }));
+
   app.get("/api/fin/agenda", rota(async (e, req) => {
     const p = periodo(req);
     return agenda(e, p.de, p.ate);
@@ -172,7 +181,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       data, descricao: z.string().max(200), valor: valor.nullish(), valorMoeda: valor.nullish(), contaOrigemId: id, contaDestinoId: id,
       quantidade: z.number().finite().nullish(), preco: z.number().finite().positive().nullish(),
     }).parse(req.body);
-    return criarLancamento(e, b);
+    const r = await criarLancamento(e, b);
+    return { ...r, id: await ultimoLancamentoId(e, { data: b.data, origem: b.contaOrigemId, destino: b.contaDestinoId }) };
   }));
 
   app.delete("/api/fin/lancamentos/:id", rota(async (e, req) => {
