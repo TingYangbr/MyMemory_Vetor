@@ -546,7 +546,17 @@ export async function perguntarMemory(input: {
           (c.queries ?? []).some((q) => q.isActive === 1)
       );
     // Finanças: gasto, receita, conta a pagar/receber, conta fixa ou pagamento → cartão para conferir e gravar
-    if (soConsulta && /^finan/i.test(soConsulta.name)) {
+    // Também quando a IA escolheu outra categoria (a global antiga "Financeiro", "Contas_Receber" do ERP…), mas o
+    // grupo tem as categorias de Finanças Pessoais e a frase é de dinheiro: "gastei", "paguei", "vence dia 10"…
+    const temFinancas = cats.some((c) => c.isActive === 1 && /^finan[cç]as pessoais/i.test(c.name));
+    const fraseDeFinanceiro = (() => {
+      const t = input.pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+      const verbo = /\b(gastei|gasto de|paguei|pagar|pago|recebi|receber|vence|vencimento|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|todo dia \d+|todo mes)\b/.test(t);
+      const dinheiro = /(r\$\s*\d|\b\d+([.,]\d+)?\s*(reais|mil|k)\b|\b\d{2,}([.,]\d{2})?\b)/.test(t);
+      const pagamentoSemValor = /\b(paguei|recebi|quitei)\b/.test(t);
+      return verbo && (dinheiro || pagamentoSemValor);
+    })();
+    if ((soConsulta && /^finan/i.test(soConsulta.name)) || (temFinancas && fraseDeFinanceiro)) {
       const fin = await withSpan("Comando do financeiro", () => montarPropostaFin({
         texto: input.pergunta,
         userId: input.userId,
