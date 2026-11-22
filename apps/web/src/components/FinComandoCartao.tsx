@@ -165,6 +165,9 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   // Contorno vermelho nos campos obrigatórios ainda vazios (o que a IA não conseguiu identificar)
   const falta = (vazio: boolean): React.CSSProperties | undefined =>
     vazio ? { borderColor: "var(--mm-danger)", boxShadow: "0 0 0 1px var(--mm-danger)" } : undefined;
+  // ...e o rótulo diz o que falta (o contorno sozinho passa despercebido no celular)
+  const marca = (vazio: boolean) =>
+    vazio ? <span style={{ color: "var(--mm-danger)", fontWeight: 600 }}> · preencher</span> : null;
 
   const maisLink: React.CSSProperties = {
     background: "none",
@@ -223,7 +226,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
       {tipo === "pagamento" ? (
         <label style={rot}>
-          Qual conta em aberto
+          <span>Qual conta em aberto{marca(!alvo)}</span>
           <select className="mm-field" style={falta(!alvo)} value={alvo} onChange={(e) => setAlvo(e.target.value)}>
             <option value="">— escolha —</option>
             {abertos.map((a) => (
@@ -242,7 +245,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
       <div style={linha}>
         <label style={rot}>
-          Valor (R$)
+          <span>Valor (R$){marca(tipo !== "pagamento" && lerValor(valor) == null)}</span>
           <input className="mm-field" style={falta(tipo !== "pagamento" && lerValor(valor) == null)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
         </label>
         <label style={rot}>
@@ -270,7 +273,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
       <div style={linha}>
         {pedeGrupo ? (
           <label style={rot}>
-            {sentidoEfetivo === "pagar" ? "Grupo de despesa" : "Grupo de receita"}
+            <span>{sentidoEfetivo === "pagar" ? "Grupo de despesa" : "Grupo de receita"}{marca(!grupoId)}</span>
             <select className="mm-field" style={falta(!grupoId)} value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
               <option value="">— escolha —</option>
               {grupos.map((g) => (
@@ -284,8 +287,11 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
         ) : null}
         {pedeConta ? (
           <label style={rot}>
-            {tipo === "receita" || sentidoEfetivo === "receber" ? "Entra em" : "Sai de"}
-            {!contaObrigatoria ? " (opcional)" : ""}
+            <span>
+              {tipo === "receita" || sentidoEfetivo === "receber" ? "Entra em" : "Sai de"}
+              {!contaObrigatoria ? " (opcional)" : ""}
+              {marca(contaObrigatoria && !contaId)}
+            </span>
             <select className="mm-field" style={falta(contaObrigatoria && !contaId)} value={contaId} onChange={(e) => setContaId(e.target.value)}>
               <option value="">— escolha —</option>
               {contasOpc.map((c) => (

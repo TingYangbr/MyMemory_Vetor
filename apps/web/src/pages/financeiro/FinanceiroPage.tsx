@@ -164,7 +164,7 @@ export default function FinanceiroPage() {
 
         <div className={styles.tabs} role="tablist">
           {([
-            ["agenda", "Agenda"],
+            ["agenda", "Previstos"],
             ["lancamentos", "Lançamentos"],
             ["contas", "Contas e saldos"],
             ["recorrencias", "Recorrências"],
