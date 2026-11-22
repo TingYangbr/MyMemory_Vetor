@@ -551,7 +551,7 @@ export async function perguntarMemory(input: {
     const temFinancas = cats.some((c) => c.isActive === 1 && /^finan[cç]as pessoais/i.test(c.name));
     const fraseDeFinanceiro = (() => {
       const t = input.pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-      const verbo = /\b(gastei|gasto de|paguei|pagar|pago|recebi|receber|vence|vencimento|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|todo dia \d+|todo mes)\b/.test(t);
+      const verbo = /\b(gast\w*|pag\w*|receb\w*|quit\w*|vence\w*|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|despesa|cobranc\w*|conta a (pagar|receber)|todo dia \d+|todo mes)\b/.test(t);
       const dinheiro = /(r\$\s*\d|\b\d+([.,]\d+)?\s*(reais|mil|k)\b|\b\d{2,}([.,]\d{2})?\b)/.test(t);
       const pagamentoSemValor = /\b(paguei|recebi|quitei)\b/.test(t);
       return verbo && (dinheiro || pagamentoSemValor);
