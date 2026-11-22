@@ -403,6 +403,19 @@ const plugin: FastifyPluginAsync = async (app) => {
     sentencaSql: z.string().min(1).max(65_000).optional(),
     conexaoId: z.number().int().positive().nullable().optional(),
     isActive: z.number().int().min(0).max(1).optional(),
+    colunas: z
+      .array(
+        z.object({
+          coluna: z.string().min(1).max(128),
+          ordem: z.number().int().min(-1).max(999).nullable().optional(),
+          papel: z.enum(["X", "Y"]).nullable().optional(),
+          unidade: z.string().max(12).nullable().optional(),
+          rotulo: z.string().max(80).nullable().optional(),
+        })
+      )
+      .max(200)
+      .nullable()
+      .optional(),
   });
 
   const createQueryParamBody = z.object({

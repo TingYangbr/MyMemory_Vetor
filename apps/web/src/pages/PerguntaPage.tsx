@@ -300,7 +300,10 @@ function escolherSeries(cols: string[], pergunta: string): string[] {
   // "faturado"/"faturamento" sem "quantidade" explícita = valor monetário faturado (Valor_Prod_Fat, Valor_NF)
   const faturadoEhValor = /\bfatur/.test(p) && !/\b(quantidade|qtde|qtd|unidades|volume)\b/.test(p);
   const isValorFaturado = (col: string) =>
-    /^(valor|vlr|total)(_prod(uto)?)?_(fat|faturado|faturamento|nf)$/.test(semAcento(col));
+    /^(valor|vlr|total)(_prod(uto)?)?_(fat|faturado|faturamento|nf)$/.test(semAcento(col)) ||
+    /^(fat|faturado|faturamento)(_(total|valor|vlr))?$/.test(semAcento(col));
+  // Coluna auxiliar de ordenação (ord_…, ordem_…) não vira série
+  cols = cols.filter((c) => !/^ord(em)?_/i.test(c));
   const tokensPorCol = cols.map((col) =>
     semAcento(col).split(/[_\s]+/).filter((t) => t.length >= 4 && !(faturadoEhValor && t.startsWith("fatur")))
   );
@@ -319,8 +322,12 @@ function escolherSeries(cols: string[], pergunta: string): string[] {
     lista.some((a) => a.monetaria) ? lista.filter((a) => a.monetaria) : lista;
   // ≥ 0.75: exige ao menos uma palavra específica da coluna (palavra comum a 2+ colunas sozinha não basta)
   const citadas = avaliadas.filter((a) => a.citacao >= 0.75);
-  const valorFaturado = faturadoEhValor && citadas.length === 0 ? avaliadas.filter((a) => isValorFaturado(a.col)) : [];
-  const base = valorFaturado.length > 0 ? valorFaturado : soMonetarias(citadas.length > 0 ? citadas : avaliadas);
+  const valorFaturado = faturadoEhValor ? avaliadas.filter((a) => isValorFaturado(a.col)) : [];
+  // "lucro … faturados": a coluna de faturamento entra ao lado das citadas (lucro × faturamento)
+  const base =
+    citadas.length === 0 && valorFaturado.length > 0
+      ? valorFaturado
+      : [...soMonetarias(citadas.length > 0 ? citadas : avaliadas), ...valorFaturado.filter((v) => !citadas.includes(v))];
   return base
     .sort((a, b) => b.citacao - a.citacao || b.monetaria - a.monetaria || a.idx - b.idx)
     .slice(0, CHART_MAX_SERIES)
@@ -360,6 +367,8 @@ interface DadosGrafico {
   direita?: string[];
   /** Unidade de cada série (kg, %, cm…), da configuração dos campos. */
   unidades?: Record<string, string>;
+  /** Nome de exibição de cada série (configurado na consulta). */
+  rotulos?: Record<string, string>;
 }
 
 /**
@@ -462,7 +471,7 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
           .slice(0, CHART_MAX_ROTULOS_EIXO_X)
           .sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   }
-  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades };
+  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades, rotulos: dados.rotulos };
 }
 
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
@@ -511,6 +520,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     temporal,
     direita: seriesPercentuais(valueCols, dados.unidades),
     unidades: dados.unidades,
+    rotulos: dados.rotulos,
   };
 }
 
@@ -532,7 +542,7 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const unidadeDe = (col: string) => dados.unidades?.[col]?.trim() || (direita.has(col) ? "%" : "");
   const nomeSerie = (col: string) => {
     const u = unidadeDe(col);
-    return `${COLUNA_LABELS[col] ?? col}${u ? ` (${u})` : ""}`;
+    return `${dados.rotulos?.[col] ?? COLUNA_LABELS[col] ?? col}${u ? ` (${u})` : ""}`;
   };
   // Títulos dos eixos: as unidades de cada lado ("kg · cm" à esquerda, "%" à direita)
   const tituloEsq = [...new Set(dados.valueCols.filter((c) => !doisEixos || !direita.has(c)).map(unidadeDe).filter(Boolean))].join(" · ");
@@ -1390,7 +1400,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                   onDoubleClick={() => duploClique(col)}
                   title="Arraste para mudar a ordem; duplo clique ordena as linhas"
                 >
-                  {COLUNA_LABELS[col] ?? col}
+                  {dados.rotulos?.[col] ?? COLUNA_LABELS[col] ?? col}
                   {dados.unidades?.[col] ? ` (${dados.unidades[col]})` : ""}
                   {seta(col)}
                 </th>
