@@ -6,7 +6,7 @@
  * Padrões da chave: data não dita = hoje; dono não dito (categoria Pessoal) = quem registra; status = o primeiro valor.
  */
 import type { ComandoAlteracao, ComandoCriacao, MemoContextCategory } from "@mymemory/shared";
-import { lerValoresStatus, normalizarDataParaIso } from "@mymemory/shared";
+import { lerValoresStatus, normalizarDataParaIso, periodoDoDia } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
@@ -37,6 +37,7 @@ const valorCampo = (dados: Record<string, string>, campo: string) => {
 };
 
 const hojeIso = () => new Date().toLocaleDateString("sv-SE", { timeZone: "America/Sao_Paulo" });
+const horaAgora = () => Number(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false })) % 24;
 
 export async function atualizarRegistroUnico(input: {
   criacao: ComandoCriacao;
@@ -58,7 +59,11 @@ export async function atualizarRegistroUnico(input: {
     let padrao = "";
     if (def.tipo === "date") padrao = hojeIso();
     else if (cat.campoDono && norm(cat.campoDono) === norm(def.name)) padrao = await nomeCurtoDoMembro(input.userId, input.groupId);
-    else if (def.tipo === "status") padrao = lerValoresStatus(def.normalizedTerms)[0] ?? "";
+    else {
+      // Período do dia (Manhã/Tarde/Noite) pela hora do registro; outro status = o primeiro valor
+      const valores = def.tipo === "status" ? lerValoresStatus(def.normalizedTerms) : [];
+      padrao = periodoDoDia(def.name, valores, horaAgora()) ?? (def.tipo === "status" ? valores[0] ?? "" : "");
+    }
     if (padrao) novos[chaveDe(novos, def.name) ?? def.name] = padrao;
   }
   input.criacao.processado.dadosEspecificosJson = JSON.stringify(novos);
