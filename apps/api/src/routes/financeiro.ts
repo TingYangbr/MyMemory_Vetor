@@ -23,12 +23,14 @@ import {
   listarLancamentos,
   listarRecorrencias,
   resolverEspaco,
+  ligarMemoEvidencia,
   ultimoLancamentoId,
   venderInvestimento,
   type Espaco,
 } from "../services/financeiroService.js";
 import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
 import { desfazerOperacaoInvestimento, registrarOperacaoInvestimento } from "../services/finInvestimentosService.js";
+import { montarPropostaFin } from "../services/finComandoService.js";
 
 /** Controle financeiro — etapa 1 do núcleo (contas, livro, títulos, motor de recorrência). Espaço = o atual do usuário. */
 
@@ -107,6 +109,29 @@ const plugin: FastifyPluginAsync = async (app) => {
   }));
 
   app.get("/api/fin/config", rota(async (e) => lerFinConfig(e)));
+
+  /** Proposta do cartão a partir de um texto (ex.: o texto extraído do PDF no Catalogar). Nada é gravado aqui. */
+  app.post("/api/fin/comando", rota(async (e, req) => {
+    const b = z.object({ texto: z.string().min(1).max(20000) }).parse(req.body);
+    const { proposta, costUsd } = await montarPropostaFin({ texto: b.texto, userId: e.userId, groupId: e.groupId });
+    return { proposta, costUsd };
+  }));
+
+  /** Liga o memo do documento ao que o cartão gravou (evidência). */
+  app.post("/api/fin/evidencia", rota(async (e, req) => {
+    const b = z.object({
+      memoId: id,
+      alvo: z.discriminatedUnion("tipo", [
+        z.object({ tipo: z.literal("lote"), lote: z.string().min(1).max(40) }),
+        z.object({ tipo: z.literal("recorrencia"), id }),
+        z.object({ tipo: z.literal("baixa"), tituloId: id }),
+        z.object({ tipo: z.literal("lancamento"), id }),
+        z.object({ tipo: z.literal("operacao"), id }),
+      ]),
+    }).parse(req.body);
+    await ligarMemoEvidencia(e, b.memoId, b.alvo);
+    return { ok: true };
+  }));
 
   /** Compra/venda de papel pela porta única (Fale comigo, tela). A B3 usará a mesma função com origem "b3". */
   app.post("/api/fin/investimentos/operacoes", rota(async (e, req) => {

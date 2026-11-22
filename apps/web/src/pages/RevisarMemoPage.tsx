@@ -1,9 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import type { DocumentMemoProcessResponse, MeResponse, TextMemoProcessResponse, UserIaUseLevel } from "@mymemory/shared";
+import type {
+  DocumentMemoProcessResponse,
+  FinComandoDesfazer,
+  FinComandoProposta,
+  MeResponse,
+  TextMemoProcessResponse,
+  UserIaUseLevel,
+} from "@mymemory/shared";
 import { SEMIA_PLACEHOLDER_PREFIX, USER_IA_USE_LABELS, dedupeMemoKeywordsCommaSeparated } from "@mymemory/shared";
 import { apiDeleteJson, apiGetOptional, apiPostJson, mensagemDeErro } from "../api";
 import Header from "../components/Header";
+import FinComandoCartao from "../components/FinComandoCartao";
 import MemoProcessOverlay, { DOCUMENT_MEMO_PROCESS_STEPS } from "../components/MemoProcessOverlay";
 import { formatReviewBytes, urlFileLabel } from "../components/MemoReviewChrome";
 import MemoFormulario, { useCategoriasCompletas } from "../components/catalogarNovo/MemoFormulario";
@@ -101,6 +109,15 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
   const decidiu = useRef(false);
   /** O formulário já recebeu o que a IA montou (a decisão espera por isso). */
   const [formPronto, setFormPronto] = useState(false);
+  // Finanças Pessoais: o documento vira lançamento no financeiro (cartão) e o memo fica como evidência
+  const [fin, setFin] = useState<
+    | null
+    | { fase: "carregando" }
+    | { fase: "cartao"; proposta: FinComandoProposta }
+    | { fase: "gravado"; proposta: FinComandoProposta; memoId: number | null; aviso: string }
+    | { fase: "cancelado"; proposta: FinComandoProposta }
+    | { fase: "erro"; msg: string }
+  >(null);
 
   const groupId = entrada?.groupId ?? null;
   const tipo = entrada?.tipo ?? "texto";
@@ -228,6 +245,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     const precisaRevisar =
       entrada?.semDecisao ||
       !cat ||
+      cat.soConsulta ||
       cat.revisaoSempre ||
       dados.iaLevel === "semIA" ||
       Boolean(dados.processingWarning?.trim()) ||
@@ -336,6 +354,10 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
 
   const onSalvar = useCallback(() => {
     if (!dados) return;
+    if (categoria?.soConsulta) {
+      setErro(`${categoria.name} não guarda memos (só consultas). Escolha outra categoria.`);
+      return;
+    }
     if (over) {
       setErro(`O resumo passou do máximo de ${dados.maxSummaryChars} caracteres.`);
       return;
@@ -346,6 +368,68 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     }
     void gravar({ aviso: `Memo salvo${categoria ? ` em ${categoria.name}` : ""}`, comAssunto: true });
   }, [dados, over, precisaTexto, resumo, gravar, categoria]);
+
+  const ehSoConsulta = categoria?.soConsulta === true;
+  const ehFin = ehSoConsulta && /^finan[cç]as pessoais/i.test(categoria?.name ?? "");
+
+  /** Monta o cartão do financeiro com o texto do documento. */
+  const abrirFinanceiro = useCallback(async () => {
+    if (!dados) return;
+    setFin({ fase: "carregando" });
+    try {
+      const texto = [resumo.trim(), dados.originalText.trim()].filter(Boolean).join("\n\n").slice(0, 18000);
+      const r = await apiPostJson<{ proposta: FinComandoProposta; costUsd: number }>("/api/fin/comando", { texto });
+      setCustoExtra((c) => c + (r.costUsd || 0));
+      setFin({ fase: "cartao", proposta: r.proposta });
+    } catch (e) {
+      setFin({ fase: "erro", msg: mensagemDeErro(e, "Não foi possível montar o lançamento.") });
+    }
+  }, [dados, resumo]);
+
+  /** Grava o memo do documento sem categoria (evidência) e devolve o id. */
+  const gravarEvidencia = useCallback(async (): Promise<number | null> => {
+    if (!entrada || !dados) return null;
+    const m = await gravarMemoRevisado(entrada.tipo, dados, groupId, {
+      mediaText: resumo,
+      keywords,
+      dadosEspecificosJson: null,
+      dadosEspecificosOriginaisJson: null,
+      categoryId: null,
+      categoryName: null,
+      custoExtra,
+      tituloCurto: assunto || null,
+    });
+    return m?.id ?? null;
+  }, [entrada, dados, groupId, resumo, keywords, custoExtra, assunto]);
+
+  const finGravado = useCallback(
+    async (proposta: FinComandoProposta, desfazer: FinComandoDesfazer) => {
+      let memoId: number | null = null;
+      let aviso = "Lançado no financeiro.";
+      try {
+        memoId = await gravarEvidencia();
+        if (memoId != null && desfazer) await apiPostJson("/api/fin/evidencia", { memoId, alvo: desfazer });
+        if (memoId != null) aviso = `Lançado no financeiro. O documento ficou guardado como memo #${memoId}, ligado ao lançamento.`;
+      } catch (e) {
+        aviso = `Lançado no financeiro, mas o documento não foi guardado: ${mensagemDeErro(e, "erro")}.`;
+      }
+      setFin({ fase: "gravado", proposta, memoId, aviso });
+    },
+    [gravarEvidencia]
+  );
+
+  const guardarSoDocumento = useCallback(async () => {
+    setBusy(true);
+    try {
+      const id = await gravarEvidencia();
+      navigate("/", { replace: true, state: { memoSavedAt: Date.now(), memoAviso: "Documento guardado (sem lançamento no financeiro).", memoCriadoId: id } });
+    } catch (e) {
+      setErro(mensagemDeErro(e, "Falha ao guardar o documento."));
+      setFin(null);
+    } finally {
+      setBusy(false);
+    }
+  }, [gravarEvidencia, navigate]);
 
   const voice = useMemoReviewVoiceAssistant({
     soundEnabled: me.soundEnabled,
@@ -526,11 +610,65 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
           <button type="button" className="mm-btn mm-btn--ghost" disabled={busy} onClick={() => void descartar()}>
             Descartar
           </button>
-          <button type="button" className="mm-btn mm-btn--primary" disabled={!podeSalvar} onClick={onSalvar}>
-            {busy ? "Salvando…" : "✓ Salvar memo"}
-          </button>
+          {ehFin ? (
+            <button type="button" className="mm-btn mm-btn--primary" disabled={busy || fin?.fase === "carregando"} onClick={() => void abrirFinanceiro()}>
+              {fin?.fase === "carregando" ? "Montando…" : "Lançar no financeiro"}
+            </button>
+          ) : ehSoConsulta ? (
+            <span className={s.erro} style={{ margin: 0 }}>
+              {categoria?.name} não guarda memos (só consultas). Escolha outra categoria.
+            </span>
+          ) : (
+            <button type="button" className="mm-btn mm-btn--primary" disabled={!podeSalvar} onClick={onSalvar}>
+              {busy ? "Salvando…" : "✓ Salvar memo"}
+            </button>
+          )}
         </div>
       </div>
+
+      {fin && fin.fase !== "carregando" ? (
+        <div className={s.fundo} role="dialog" aria-modal="true" aria-labelledby="nm-fin">
+          <div className={s.cartao} style={{ maxWidth: 640, width: "100%", maxHeight: "90vh", overflowY: "auto" }}>
+            <h2 id="nm-fin">Lançar no financeiro</h2>
+            {fin.fase === "erro" ? (
+              <>
+                <p className={s.erro}>{fin.msg}</p>
+                <button type="button" className="mm-btn" onClick={() => setFin(null)}>Voltar à revisão</button>
+              </>
+            ) : (
+              <>
+                <FinComandoCartao
+                  proposta={fin.proposta}
+                  onGravado={(d) => void finGravado(fin.proposta, d)}
+                  onCancelar={() => setFin({ fase: "cancelado", proposta: fin.proposta })}
+                />
+                {fin.fase === "gravado" ? (
+                  <>
+                    <p>{fin.aviso}</p>
+                    <button
+                      type="button"
+                      className="mm-btn mm-btn--primary"
+                      onClick={() =>
+                        navigate("/", { replace: true, state: { memoSavedAt: Date.now(), memoAviso: fin.aviso, memoCriadoId: fin.memoId } })
+                      }
+                    >
+                      Concluir
+                    </button>
+                  </>
+                ) : null}
+                {fin.fase === "cancelado" ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                    <button type="button" className="mm-btn mm-btn--primary" disabled={busy} onClick={() => void guardarSoDocumento()}>
+                      Guardar só o documento
+                    </button>
+                    <button type="button" className="mm-btn" onClick={() => setFin(null)}>Voltar à revisão</button>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
 
       {fase === "pergunta" && categoria ? (
         <div className={s.fundo} role="dialog" aria-modal="true" aria-labelledby="nm-pergunta">
