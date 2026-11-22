@@ -554,7 +554,11 @@ export async function perguntarMemory(input: {
       const verbo = /\b(gast\w*|pag\w*|receb\w*|quit\w*|vence\w*|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|despesa|cobranc\w*|conta a (pagar|receber)|todo dia \d+|todo mes)\b/.test(t);
       const dinheiro = /(r\$\s*\d|\b\d+([.,]\d+)?\s*(reais|mil|k)\b|\b\d{2,}([.,]\d{2})?\b)/.test(t);
       const pagamentoSemValor = /\b(paguei|recebi|quitei)\b/.test(t);
-      return verbo && (dinheiro || pagamentoSemValor);
+      if (verbo && (dinheiro || pagamentoSemValor)) return true;
+      // Compra/venda de papel: "comprei 100 PETR4 a 38,50", "vendi 50 ações da Itaúsa"
+      const opPapel = /\b(comprei|compramos|vendi|vendemos|compra de|venda de)\b/.test(t);
+      const papel = /\b[A-Z]{4}\d{1,2}F?\b/.test(input.pergunta) || /\b(aco(es)?|acao|cotas?|fii|etf|bdr)\b/.test(t);
+      return opPapel && papel;
     })();
     if ((soConsulta && /^finan/i.test(soConsulta.name)) || (temFinancas && fraseDeFinanceiro)) {
       const fin = await withSpan("Comando do financeiro", () => montarPropostaFin({

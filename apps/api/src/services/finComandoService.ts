@@ -4,7 +4,7 @@
  * Nada é gravado aqui: a tela mostra a proposta num cartão editável e grava pelas rotas /api/fin/* ao confirmar.
  * A IA só escolhe entre ids que existem; o que ela não souber fica vazio para a pessoa escolher no cartão.
  */
-import type { FinComandoGravado, FinComandoProposta, FinComandoTipo, FinPeriodicidade } from "@mymemory/shared";
+import type { FinComandoGravado, FinComandoProposta, FinComandoTipo, FinPapelOpcao, FinPeriodicidade } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import {
@@ -19,8 +19,10 @@ import {
   type Espaco,
 } from "./financeiroService.js";
 import { obterFinConfig } from "./finConfigService.js";
+import { normalizarTicker, registrarOperacaoInvestimento } from "./finInvestimentosService.js";
 
-const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento"];
+const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda"];
+const qtdBr = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
 
 const somarDias = (iso: string, dias: number) => {
@@ -83,6 +85,18 @@ export async function montarPropostaFin(input: {
   const contas = contasTodas.filter((c) => c.tipo === "banco" || c.tipo === "cartao" || c.tipo === "corretora").map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }));
   const gruposDespesa = contasTodas.filter((c) => c.tipo === "despesa").map((c) => ({ id: c.id, nome: c.nome }));
   const gruposReceita = contasTodas.filter((c) => c.tipo === "receita").map((c) => ({ id: c.id, nome: c.nome }));
+  const nomeConta = new Map(contasTodas.map((c) => [c.id, c.nome]));
+  const papeis: FinPapelOpcao[] = contasTodas
+    .filter((c) => c.tipo === "investimento")
+    .map((c) => ({
+      id: c.id,
+      ticker: normalizarTicker(c.papel ?? c.nome),
+      corretoraId: c.corretoraContaId,
+      corretoraNome: c.corretoraContaId != null ? nomeConta.get(c.corretoraContaId) ?? null : null,
+      quantidade: Number(c.quantidade ?? 0),
+      custoMedio: c.custoMedio ?? null,
+      moeda: c.moeda,
+    }));
   const ag = await agenda(e, somarDias(hoje, -90), somarDias(hoje, 60));
   const abertos = ag.itens
     .filter((i) => i.situacao !== "pago")
@@ -106,18 +120,22 @@ export async function montarPropostaFin(input: {
       grupos_despesa: gruposDespesa,
       grupos_receita: gruposReceita,
       em_aberto: abertos,
+      papeis_cadastrados: papeis.map((p) => ({ id: p.id, ticker: p.ticker, corretoraId: p.corretoraId, corretora: p.corretoraNome, quantidade: p.quantidade })),
       tipos: {
         gasto: "despesa já feita (gastei, comprei, paguei algo que não estava em aberto): sai de uma conta/cartão para um grupo de despesa",
         receita: "dinheiro recebido que não estava em aberto (recebi, entrou, salário caiu): de um grupo de receita para uma conta",
         conta: "conta a pagar ou a receber futura, única ou parcelada (vence dia 10, em 3x, boleto de…)",
         fixa: "conta que se repete (todo mês, todo dia 5, mensal, semanal, anual) — aluguel, salário, assinatura",
         pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
+        compra: "compra de ação, FII, ETF, BDR ou outro papel (comprei 100 PETR4 a 38,50 na XP): sai da corretora para o papel. NÃO é gasto",
+        venda: "venda de papel (vendi 50 ITSA4 a 10,20): sai do papel para a corretora",
       },
     },
     null,
     2
   );
-  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null}
+  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
+Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
 Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item). contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
@@ -129,7 +147,7 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
   };
   const alvo = typeof j.alvoChave === "string" ? abertos.find((a) => a.chave === j.alvoChave) ?? null : null;
   const sentido: "pagar" | "receber" =
-    tipo === "gasto" ? "pagar" : tipo === "receita" ? "receber" : alvo ? alvo.sentido : j.sentido === "receber" ? "receber" : "pagar";
+    tipo === "gasto" || tipo === "compra" ? "pagar" : tipo === "receita" || tipo === "venda" ? "receber" : alvo ? alvo.sentido : j.sentido === "receber" ? "receber" : "pagar";
   const valorBruto = Number(j.valor);
   const valor = Number.isFinite(valorBruto) && valorBruto > 0 ? Math.round(valorBruto * 100) / 100 : alvo?.valor ?? null;
   const data = typeof j.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(j.data) ? j.data : hoje;
@@ -152,8 +170,34 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     mensagem: "",
     config: await obterFinConfig(e),
     gravado: null,
-    opcoes: { contas, gruposDespesa, gruposReceita, abertos },
+    opcoes: { contas, gruposDespesa, gruposReceita, abertos, papeis },
   };
+  if (tipo === "compra" || tipo === "venda") {
+    // Papel: pelo id escolhido, ou pelo ticker (na corretora citada; sem corretora, a única que tem esse papel)
+    const num = (v: unknown) => {
+      const n = Number(v);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    let papel = papeis.find((p) => p.id === Number(j.papelContaId)) ?? null;
+    const ticker = typeof j.ticker === "string" && j.ticker.trim() ? normalizarTicker(j.ticker) : papel?.ticker ?? null;
+    if (!papel && ticker) {
+      const doTicker = papeis.filter((p) => p.ticker === ticker);
+      papel = doTicker.find((p) => p.corretoraId === proposta.contaId) ?? (proposta.contaId == null && doTicker.length === 1 ? doTicker[0]! : null);
+    }
+    if (papel && proposta.contaId == null) proposta.contaId = papel.corretoraId;
+    if (papel && proposta.contaId != null && papel.corretoraId !== proposta.contaId) papel = null;
+    proposta.investimento = {
+      papelContaId: papel?.id ?? null,
+      ticker: papel?.ticker ?? ticker,
+      quantidade: num(j.quantidade),
+      preco: num(j.preco),
+      taxas: num(j.taxas),
+    };
+    proposta.descricao = `${tipo === "compra" ? "Compra" : "Venda"} ${proposta.investimento.ticker ?? ""}`.trim();
+    proposta.grupoId = null;
+    const v = proposta.investimento;
+    if (v.preco != null && v.quantidade != null) proposta.valor = Math.round(v.preco * v.quantidade * 100) / 100;
+  }
   // Escolha da IA que a frase não decide: deixa vazio e diz quais combinam
   const duvidas: string[] = [];
   const gAmb = escolhaAmbigua(proposta.grupoId, grupos, input.texto);
@@ -162,6 +206,10 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
   }
   const cAmb = escolhaAmbigua(proposta.contaId, contas, input.texto);
+  if (tipo === "venda" && proposta.investimento?.papelContaId && proposta.investimento.quantidade) {
+    const pos = papeis.find((p) => p.id === proposta.investimento!.papelContaId)?.quantidade ?? 0;
+    if (proposta.investimento.quantidade > pos + 1e-9) duvidas.push(`A posição hoje é ${qtdBr(pos)}: menor que a quantidade vendida`);
+  }
   if (cAmb) {
     proposta.contaId = null;
     duvidas.push(`Mais de uma conta combina (${cAmb.join(", ")})`);
@@ -188,6 +236,12 @@ function completa(p: FinComandoProposta): boolean {
     case "conta":
     case "fixa":
       return p.valor != null && p.grupoId != null;
+    case "compra":
+    case "venda": {
+      const i = p.investimento;
+      if (!i || p.contaId == null || !i.quantidade || !(i.preco || p.valor)) return false;
+      return p.tipo === "compra" ? !!(i.papelContaId || i.ticker) : !!i.papelContaId;
+    }
     case "pagamento": {
       // Valor diferente do previsto pede decisão (parcial, desconto, excedente): não grava direto
       const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
@@ -199,6 +253,25 @@ function completa(p: FinComandoProposta): boolean {
 /** Grava a proposta como o cartão gravaria (mesmas funções das rotas /api/fin/*). */
 async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComandoGravado> {
   const v = p.valor ?? 0;
+  if (p.tipo === "compra" || p.tipo === "venda") {
+    const i = p.investimento!;
+    const r = await registrarOperacaoInvestimento(e, {
+      operacao: p.tipo,
+      papelContaId: i.papelContaId,
+      ticker: i.ticker,
+      corretoraId: p.contaId!,
+      data: p.data,
+      quantidade: i.quantidade!,
+      preco: i.preco,
+      valorTotal: i.preco ? null : p.valor,
+      taxas: i.taxas,
+      origem: "falecomigo",
+    });
+    return {
+      mensagem: `${p.tipo === "compra" ? "Compra" : "Venda"} de ${qtdBr(i.quantidade!)} ${r.ticker} (${brl(r.valorTotal)}) gravada.`,
+      desfazer: { tipo: "operacao", id: r.operacaoId },
+    };
+  }
   if (p.tipo === "gasto" || p.tipo === "receita") {
     const origem = p.tipo === "gasto" ? p.contaId! : p.grupoId!;
     const destino = p.tipo === "gasto" ? p.grupoId! : p.contaId!;
@@ -269,6 +342,20 @@ export function descreverProposta(p: FinComandoProposta): string {
       o = `Conta fixa a ${p.sentido} "${p.descricao}" de ${v}, ${p.periodicidade}, a partir de ${dataBr(p.data)}${grupo ? ` (${grupo})` : ""}`;
       if (!grupo) falta.push(p.sentido === "pagar" ? "o grupo de despesa" : "o grupo de receita");
       break;
+    case "compra":
+    case "venda": {
+      const i = p.investimento;
+      const tk = i?.ticker ?? "?";
+      const novo = p.tipo === "compra" && i && !i.papelContaId && i.ticker ? " (papel novo nesta corretora: será cadastrado)" : "";
+      o = `${p.tipo === "compra" ? "Compra" : "Venda"} de ${i?.quantidade != null ? qtdBr(i.quantidade) : "?"} ${tk}` +
+        `${i?.preco != null ? ` a ${brl(i.preco)}` : ""}${p.valor != null ? ` (${brl(p.valor)})` : ""}${conta ? ` na ${conta}` : ""}, ${dataBr(p.data)}${novo}`;
+      if (!i?.ticker) falta.push("o papel");
+      if (!i?.quantidade) falta.push("a quantidade");
+      if (!i?.preco && p.valor == null) falta.push("o preço");
+      if (!conta) falta.push("a corretora");
+      if (p.tipo === "venda" && i?.ticker && !i.papelContaId) falta.push(`qual ${i.ticker} (não há esse papel nesta corretora)`);
+      return `${o}.${falta.length ? ` Falta escolher: ${falta.join(", ")}.` : ""} Confira no cartão e toque em Gravar.`;
+    }
     case "pagamento": {
       const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
       o = a

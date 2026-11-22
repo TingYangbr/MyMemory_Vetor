@@ -3489,7 +3489,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                       O limiar inicial e o mínimo são configuráveis em <strong>Admin → Outros → Configurações do sistema</strong>.
                     </p>
                   ) : null}
-                  {r.comando || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
+                  {r.comando || r.finComando || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
                     // Com tabela logo abaixo, o texto só repete o que ela mostra: fica em 2 linhas com "Mais…"
                     const temTabela = temTabelaNaResposta(r.resposta);
