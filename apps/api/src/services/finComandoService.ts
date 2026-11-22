@@ -188,8 +188,11 @@ function completa(p: FinComandoProposta): boolean {
     case "conta":
     case "fixa":
       return p.valor != null && p.grupoId != null;
-    case "pagamento":
-      return p.alvoChave != null && p.contaId != null;
+    case "pagamento": {
+      // Valor diferente do previsto pede decisão (parcial, desconto, excedente): não grava direto
+      const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
+      return a != null && p.contaId != null && (p.valor == null || Math.abs(p.valor - a.valor) < 0.005);
+    }
   }
 }
 
