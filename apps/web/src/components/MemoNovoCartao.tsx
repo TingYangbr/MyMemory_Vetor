@@ -114,13 +114,17 @@ export function MemoNovoCartao({
   return (
     <div className={styles.overlay} onClick={() => !salvando && onFechar()}>
       <div className={styles.cartao} role="dialog" aria-label="Registro novo" onClick={(e) => e.stopPropagation()}>
-        <div className={styles.topo}>
-          <div>
+        {/* Salvar e Cancelar no topo, na linha do título: não precisa rolar o cartão para gravar */}
+        <div className={styles.topo} style={{ alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <button type="button" className="mm-btn mm-btn--primary" onClick={() => void salvar()} disabled={salvando}>
+            {salvando ? "Salvando…" : "Salvar"}
+          </button>
+          <button type="button" className="mm-btn mm-btn--ghost" onClick={onFechar} disabled={salvando}>
+            Cancelar
+          </button>
+          <div style={{ marginLeft: 4 }}>
             <strong>{criacao.categoria ?? "Memo"}</strong> <span className={styles.id}>novo</span>
           </div>
-          <button type="button" className={styles.fechar} onClick={onFechar} disabled={salvando} aria-label="Fechar sem gravar">
-            ×
-          </button>
         </div>
 
         {p.processingWarning ? <p className={criacao.origemModelo ? styles.aviso : styles.dica}>{p.processingWarning}</p> : null}
@@ -182,9 +186,6 @@ export function MemoNovoCartao({
         </div>
 
         {erro ? <p className="mm-error">{erro}</p> : null}
-        <button type="button" className={`mm-btn mm-btn--primary ${styles.salvar}`} onClick={() => void salvar()} disabled={salvando}>
-          {salvando ? "Salvando…" : "Salvar registro"}
-        </button>
       </div>
     </div>
   );

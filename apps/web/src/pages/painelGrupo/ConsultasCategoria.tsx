@@ -116,7 +116,8 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
   const pareceErp = (q: QueryCategoria) => /@\w/.test(q.sentencaSql) && !/\bfrom\s+memos\b/i.test(q.sentencaSql);
   const nomeConexao = (q: QueryCategoria) => {
     if (q.conexaoPendente) return null;
-    if (q.conexaoId == null) return "memos do proMemory";
+    // Sem conexão = banco interno do proMemory: lê os memos (Query padrão) ou tabelas próprias (ex.: financeiro fin_…)
+    if (q.conexaoId == null) return /\bfrom\s+memos\b/i.test(q.sentencaSql) ? "memos do proMemory" : "banco interno do proMemory";
     return conexoes.find((c) => c.id === q.conexaoId)?.nome ?? `conexão #${q.conexaoId}`;
   };
 
@@ -516,7 +517,7 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
             }}
           >
             {pendente ? <option value="pendente">— escolha a conexão —</option> : null}
-            <option value="">Memos do proMemory</option>
+            <option value="">Banco interno do proMemory (memos e financeiro)</option>
             {grupoConexoes.length ? (
               <optgroup label="ERP deste grupo">
                 {grupoConexoes.map((c) => (
