@@ -71,8 +71,8 @@ export async function prepararCriacao(input: {
 
   return {
     mensagem: cat
-      ? `Preparei um registro novo em ${cat.name}: confira no cartão e toque em Salvar registro.`
-      : "Preparei um registro novo: confira no cartão e toque em Salvar registro.",
+      ? `Confira os dados do novo registro de ${cat.name} e toque em Salvar.`
+      : "Confira os dados do novo registro e toque em Salvar.",
     groupId: input.groupId,
     categoria: cat?.name ?? processado.category ?? null,
     campos,
@@ -203,7 +203,7 @@ export function montarCriacaoDeModelo(input: {
     ok: true,
     texto,
     criacao: {
-      mensagem: `Preparei um registro novo em ${cat.name}: confira no cartão e toque em Salvar registro.`,
+      mensagem: `Confira os dados do novo registro de ${cat.name} e toque em Salvar.`,
       groupId: input.groupId,
       categoria: cat.name,
       campos: camposDoCartao(cat, campoSituacao),
