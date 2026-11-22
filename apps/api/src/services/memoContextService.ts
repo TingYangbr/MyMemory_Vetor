@@ -1163,6 +1163,9 @@ export async function updateQueryCategoria(
     // Escolha explícita da conexão (inclusive PostgreSQL interno) resolve a pendência do clone
     sets.push("conexaoid = ?", "conexaopendente = 0");
     vals.push(patch.conexaoId ?? null);
+    // Consulta do ERP deixa de ser "Query padrão": a sincronização dos campos e o "Voltar ao automático" não a
+    // trocam mais pelo SQL dos memos (foi assim que uma consulta do ERP virou consulta de memos sem conexão)
+    if (patch.conexaoId != null) sets.push("sqlgerado = NULL", "autotipo = NULL");
   }
   if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
   if (patch.colunas !== undefined) {

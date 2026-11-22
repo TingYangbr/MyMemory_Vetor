@@ -438,7 +438,7 @@ const CHART_MAX_ROTULOS_TEMPORAL = 62;
  * Linhas com o mesmo rótulo são somadas (ex.: várias contas do mesmo cliente). Com mais rótulos do que cabem,
  * fica com os maiores pelo primeiro Y (ranking) ou, se forem datas, com os primeiros.
  */
-function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico | null {
+function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = false): DadosGrafico | null {
   const g = dados.grafico;
   if (!g?.y.length) return null;
   const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
@@ -460,8 +460,8 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
   let rows = [...somas.values()];
   const temporal = todas.every((l) => isRotuloTemporal(String(l[labelCol] ?? "")));
   // Eixo X em ordem crescente (datas em ordem cronológica). Com rótulos demais: as datas mais recentes, ou os
-  // maiores pelo primeiro Y (e esses, em ordem crescente de rótulo)
-  rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
+  // maiores pelo primeiro Y (e esses, em ordem crescente de rótulo). Tabela ordenada à mão: a ordem dela.
+  if (!manterOrdem) rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   if (rows.length > (temporal ? CHART_MAX_ROTULOS_TEMPORAL : CHART_MAX_ROTULOS_EIXO_X)) {
     rows = temporal
       ? rows.slice(-CHART_MAX_ROTULOS_TEMPORAL)
@@ -474,9 +474,9 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado): DadosGrafico |
   return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades, rotulos: dados.rotulos };
 }
 
-function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string): DadosGrafico | null {
+function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string, manterOrdem = false): DadosGrafico | null {
   // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
-  if (dados.grafico?.y.length) return graficoPelosPapeis(dados);
+  if (dados.grafico?.y.length) return graficoPelosPapeis(dados, manterOrdem);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
     if (col.toLowerCase() === "id") return false;
@@ -513,7 +513,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   });
   const temporal = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
   // Eixo X em ordem crescente; numa pergunta de ranking ("os 10 maiores") fica a ordem da consulta (pelo valor)
-  if (temporal || !ehPerguntaDeRanking(pergunta)) rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
+  if (!manterOrdem && (temporal || !ehPerguntaDeRanking(pergunta))) rows.sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   return {
     valueCols,
     rows: temporal ? rows.slice(-CHART_MAX_ROTULOS_TEMPORAL) : rows,
@@ -617,6 +617,24 @@ interface TabelaEstruturadaProps {
   onOpenMemoFile?: (id: number) => void;
   loadingCardId?: number | null;
   loadingFileId?: number | null;
+  /** Ordem das linhas (duplo clique no título), controlada por fora para o gráfico seguir a tabela. */
+  ordenacao?: Ordenacao;
+  onOrdenar?: (o: Ordenacao) => void;
+}
+
+type Ordenacao = { col: string; dir: 1 | -1 } | null;
+
+/** Linhas na ordem pedida (vazios no fim); sem ordem, como vieram. */
+function ordenarLinhas(linhas: Record<string, unknown>[], o: Ordenacao): Record<string, unknown>[] {
+  if (!o) return linhas;
+  return [...linhas].sort((a, b) => {
+    const x = valorParaOrdenar(a[o.col]);
+    const y = valorParaOrdenar(b[o.col]);
+    if (x.t === "" && y.t !== "") return 1;
+    if (y.t === "" && x.t !== "") return -1;
+    const r = x.n != null && y.n != null ? x.n - y.n : x.t.localeCompare(y.t, "pt-BR", { numeric: true });
+    return r * o.dir;
+  });
 }
 
 /** Coluna de um campo do tipo lista (valor com várias linhas) no resultado, ou null. */
@@ -632,7 +650,18 @@ function respostaComLista(resposta: PerguntaResponse["resposta"]): boolean {
 
 /** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
 function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
-  const grafico = useMemo(() => buildDadosGrafico(props.dados, props.pergunta ?? ""), [props.dados, props.pergunta]);
+  // Ordenar a tabela (duplo clique no título) reordena também as barras do gráfico
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>(null);
+  const grafico = useMemo(() => {
+    const d = ordenacao
+      ? {
+          ...props.dados,
+          linhas: ordenarLinhas(props.dados.linhas, ordenacao),
+          ...(props.dados.linhasCompletas ? { linhasCompletas: ordenarLinhas(props.dados.linhasCompletas, ordenacao) } : {}),
+        }
+      : props.dados;
+    return buildDadosGrafico(d, props.pergunta ?? "", ordenacao != null);
+  }, [props.dados, props.pergunta, ordenacao]);
   // Campo do tipo lista (valor com várias linhas): mostra primeiro a lista, a tabela fica atrás de um botão
   const colLista = useMemo(() => colunaDeLista(props.dados), [props.dados]);
   const [verTabela, setVerTabela] = useState(false);
@@ -646,7 +675,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   );
   const tabelaEl = (
     <div className={styles.tabelaScrollItem}>
-      <TabelaEstruturada {...props} />
+      <TabelaEstruturada {...props} ordenacao={ordenacao} onOrdenar={setOrdenacao} />
     </div>
   );
   // Gráfico pequeno (até 5 barras no eixo X): lado a lado com a tabela, se a tela couber (no celular empilha).
@@ -1276,12 +1305,14 @@ function valorParaOrdenar(v: unknown): { n: number | null; t: string } {
   return { n: null, t: t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase() };
 }
 
-function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId }: {
+function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, loadingFileId, ordenacao, onOrdenar }: {
   dados: PerguntaResultadoEstruturado;
   onOpenMemo?: (id: number) => void;
   onOpenMemoFile?: (id: number) => void;
   loadingCardId?: number | null;
   loadingFileId?: number | null;
+  ordenacao?: Ordenacao;
+  onOrdenar?: (o: Ordenacao) => void;
 }) {
   const [expandedCell, setExpandedCell] = useState<string | null>(null);
   const alteracao = useContext(AlteracaoCtx);
@@ -1292,7 +1323,9 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
   useEffect(() => setOrdem(inicial), [inicial]);
   const [arrastando, setArrastando] = useState<string | null>(null);
   // Ordem das linhas: duplo clique no título (crescente, decrescente, original)
-  const [sortCol, setSortCol] = useState<{ col: string; dir: 1 | -1 } | null>(null);
+  const [sortLocal, setSortLocal] = useState<Ordenacao>(null);
+  const sortCol = onOrdenar ? ordenacao ?? null : sortLocal;
+  const setSortCol = (f: (s: Ordenacao) => Ordenacao) => (onOrdenar ? onOrdenar(f(sortCol)) : setSortLocal(f));
   // Depois de arrastar: oferece gravar a ordem na categoria por 5 s
   const [oferta, setOferta] = useState<{ seg: number; estado: "pergunta" | "gravando" | "ok" | "erro"; msg?: string } | null>(null);
   useEffect(() => {
@@ -1315,18 +1348,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
   const [verTodas, setVerTodas] = useState(false);
   const todas = dados.linhasCompletas ?? [];
   const base = verTodas && todas.length > dados.linhas.length ? todas : dados.linhas;
-  const linhas = useMemo(() => {
-    if (!sortCol) return base;
-    const col = sortCol.col;
-    return [...base].sort((a, b) => {
-      const x = valorParaOrdenar(a[col]);
-      const y = valorParaOrdenar(b[col]);
-      if (x.t === "" && y.t !== "") return 1; // vazios sempre no fim
-      if (y.t === "" && x.t !== "") return -1;
-      const r = x.n != null && y.n != null ? x.n - y.n : x.t.localeCompare(y.t, "pt-BR", { numeric: true });
-      return r * sortCol.dir;
-    });
-  }, [base, sortCol]);
+  const linhas = useMemo(() => ordenarLinhas(base, sortCol), [base, sortCol]);
 
   if (!dados.totalLinhas) return null;
 
@@ -1702,6 +1724,35 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   // _k: chave estável de cada resposta (a lista cresce pelo topo; chave por índice trocava o estado dos cartões)
   const [respostas, setRespostas] = useState<(PerguntaResponse & { perguntaTexto: string; _k?: number })[]>([]);
   const seqResposta = useRef(0);
+  // Largura de cada resposta (arrastando a borda direita): passa da coluna, centrada na tela
+  // (margem negativa, e não transform: transform quebraria as janelas "fixed" de dentro da resposta)
+  const [larguras, setLarguras] = useState<Record<number, { w: number; c: number }>>({});
+  const estiloLargura = (k: number | undefined): React.CSSProperties | undefined => {
+    const l = k != null ? larguras[k] : undefined;
+    return l ? { width: l.w, marginLeft: Math.round((l.c - l.w) / 2) } : undefined;
+  };
+  const iniciarLargura = (e: React.PointerEvent<HTMLElement>, k: number | undefined) => {
+    if (k == null) return;
+    const card = (e.currentTarget as HTMLElement).parentElement;
+    const coluna = card?.parentElement;
+    if (!card || !coluna) return;
+    e.preventDefault();
+    const x0 = e.clientX;
+    const w0 = card.getBoundingClientRect().width;
+    const minimo = coluna.getBoundingClientRect().width;
+    const maximo = window.innerWidth - 16;
+    const mover = (ev: PointerEvent) => {
+      // centrada: a borda direita anda a metade do que a largura cresce
+      const w = Math.max(minimo, Math.min(maximo, w0 + 2 * (ev.clientX - x0)));
+      setLarguras((m) => ({ ...m, [k]: { w: Math.round(w), c: Math.round(minimo) } }));
+    };
+    const soltar = () => {
+      window.removeEventListener("pointermove", mover);
+      window.removeEventListener("pointerup", soltar);
+    };
+    window.addEventListener("pointermove", mover);
+    window.addEventListener("pointerup", soltar);
+  };
   const [busy, setBusy] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -3219,7 +3270,15 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         {respostas.length > 0 ? (
           <div className={styles.cards}>
             {respostas.map((r, i) => (
-              <article key={r._k ?? `i${i}`} className={styles.card} {...(i === 0 ? { "data-resposta-nova": "" } : {})} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
+              <article key={r._k ?? `i${i}`} className={styles.card} style={estiloLargura(r._k)} {...(i === 0 ? { "data-resposta-nova": "" } : {})} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
+                <span
+                  className={styles.cardAlca}
+                  role="separator"
+                  aria-orientation="vertical"
+                  title="Arraste para alargar a resposta; duplo clique volta ao normal"
+                  onPointerDown={(e) => iniciarLargura(e, r._k)}
+                  onDoubleClick={() => r._k != null && setLarguras((m) => { const n = { ...m }; delete n[r._k!]; return n; })}
+                />
                 <div className={styles.cardPergunta}>
                   <div className={styles.cardPerguntaMain}>
                     <span className={styles.cardPerguntaIcon} aria-hidden><IconChat size={16} /></span>

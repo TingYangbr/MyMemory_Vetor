@@ -112,6 +112,8 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
       .catch(() => setConexoes([]));
   }, [groupId, isAdmin]);
 
+  /** SQL com parâmetros @ (SQL Server) e sem ler memos: é consulta do ERP. */
+  const pareceErp = (q: QueryCategoria) => /@\w/.test(q.sentencaSql) && !/\bfrom\s+memos\b/i.test(q.sentencaSql);
   const nomeConexao = (q: QueryCategoria) => {
     if (q.conexaoPendente) return null;
     if (q.conexaoId == null) return "memos do proMemory";
@@ -119,7 +121,13 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
   };
 
   async function voltarAoAutomatico(q: QueryCategoria) {
-    if (!window.confirm("Gerar de novo a query padrão a partir dos campos? O SQL editado à mão será substituído.")) return;
+    if (
+      !window.confirm(
+        `Voltar "${q.nome}" ao automático?\n\nO SQL atual será TROCADO pelo SQL padrão que lê os MEMOS desta categoria, ` +
+          "e a conexão volta para os memos do proMemory. Se esta consulta lê o ERP, ela deixa de funcionar.\n\nNão dá para desfazer."
+      )
+    )
+      return;
     setVoltando(q.id);
     setErro(null);
     try {
@@ -205,10 +213,15 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
           <div key={q.id} className={s.q} style={q.autoEditada ? { background: "var(--mm-warning-bg)" } : undefined}>
             <div className={s.qHead}>
               <b>{q.nome}</b>
+              <span className="mm-muted" style={{ fontSize: 12 }}>#{q.id}</span>
               {q.autoGerada ? <span className={`${s.tag} ${s.tagOk}`}>{q.autoTipo === "alteracoes" ? "Automática · histórico" : "Automática"}</span> : null}
               {q.autoEditada ? <span className={`${s.tag} ${s.tagWarn}`}>Editada à mão</span> : null}
               {q.conexaoPendente ? (
                 <span className={`${s.tag} ${s.tagWarn}`}>escolha a conexão</span>
+              ) : q.conexaoId == null && pareceErp(q) ? (
+                <span className={`${s.tag} ${s.tagWarn}`} title="O SQL é do ERP, mas a consulta está sem conexão: vai rodar no banco interno e falhar. Edite e escolha a conexão.">
+                  ⚠ sem conexão com o ERP
+                </span>
               ) : (
                 <span className={`${s.tag} ${q.conexaoId != null ? s.tagInd : ""}`}>{nomeConexao(q)}</span>
               )}
@@ -228,7 +241,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
               ) : null}
               {podeEditar ? (
                 <>
-                  {q.autoEditada ? (
+                  {q.autoEditada && q.conexaoId == null && !pareceErp(q) ? (
                     <button type="button" className={`mm-btn ${s.btnSm}`} disabled={voltando === q.id} onClick={() => void voltarAoAutomatico(q)}>
                       Voltar ao automático
                     </button>

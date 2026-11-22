@@ -368,11 +368,35 @@
 }
 
 .card {
+  position: relative;
   background: var(--mm-card);
   border: 1px solid var(--mm-border);
   border-radius: var(--mm-radius);
   overflow: hidden;
   box-shadow: var(--mm-shadow, 0 1px 3px rgba(15, 23, 42, 0.06));
+}
+
+/* Alça na borda direita da resposta: arrastar alarga (tabelas largas, gráfico maior) */
+.cardAlca {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  cursor: ew-resize;
+  z-index: 2;
+  touch-action: none;
+}
+
+.cardAlca:hover,
+.cardAlca:active {
+  background: color-mix(in srgb, var(--mm-accent) 25%, transparent);
+}
+
+@media (max-width: 720px) {
+  .cardAlca {
+    display: none;
+  }
 }
 
 .cardPergunta {
