@@ -5,7 +5,7 @@
  * Com alguma ordem configurada na categoria, a tabela mostra todas as colunas da consulta (menos as técnicas),
  * em vez das poucas que a IA escolheu. O id fica na tabela (a tela o põe na última coluna, com o arquivo).
  */
-import type { MemoContextCategory, PerguntaResposta, PerguntaResultadoEstruturado } from "@mymemory/shared";
+import type { MemoContextCategory, PerguntaResposta, PerguntaResultadoEstruturado, QueryColunaConfig } from "@mymemory/shared";
 import { normalizarDataParaIso, toParamName } from "@mymemory/shared";
 
 /** Colunas que a tela usa por dentro (ícone do arquivo, escopo) e não mostra como coluna. */
@@ -97,12 +97,70 @@ function completarDias(
   return { ...dados, linhas, linhasCompletas: undefined, totalLinhas: linhas.length };
 }
 
+/**
+ * Tabela de uma consulta com "Colunas do resultado" configuradas (DB interno ou ERP): a mesma regra dos campos do
+ * memo — ordem (−1 oculta, a não ser que a pergunta cite), papel X/Y no gráfico, unidade e rótulo de exibição.
+ */
+function aplicarConfigConsulta(
+  dados: PerguntaResultadoEstruturado,
+  cfg: QueryColunaConfig[],
+  pergunta: string,
+  cats: MemoContextCategory[]
+): PerguntaResultadoEstruturado {
+  const chavesLinha = dados.linhas[0] ? Object.keys(dados.linhas[0]) : dados.colunas;
+  const porCol = new Map(cfg.map((c, i) => [c.coluna.toLowerCase(), { c, i }]));
+  const de = (col: string) => porCol.get(col.toLowerCase());
+  const p = ` ${norm(pergunta)} `;
+  const citada = (col: string) => {
+    const info = de(col);
+    return [col, info?.c.rotulo ?? ""].some((n) => {
+      const x = norm(n);
+      return x.length >= 3 && p.includes(` ${x} `);
+    });
+  };
+  // Com ordem configurada, mostra todas as colunas da consulta (menos as técnicas), não só as que a IA escolheu
+  const configurada = cfg.some((c) => c.ordem != null);
+  const base = configurada ? chavesLinha.filter((c) => !TECNICAS.has(c.toLowerCase())) : dados.colunas;
+  const visiveis = base.filter((c) => !(de(c)?.c.ordem === -1 && !citada(c)));
+  const ordenadas = visiveis
+    .map((c, idx) => {
+      const o = de(c)?.c.ordem;
+      return { c, k: (o != null && o >= 0 ? [0, o] : [1, idx]) as [number, number] };
+    })
+    .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1])
+    .map((x) => x.c);
+  const colReal = (nome: string) => chavesLinha.find((c) => c.toLowerCase() === nome.toLowerCase());
+  const x = cfg.filter((c) => c.papel === "X").map((c) => colReal(c.coluna)).find(Boolean);
+  const y = cfg.filter((c) => c.papel === "Y").map((c) => colReal(c.coluna)).filter((c): c is string => !!c);
+  const unidades: Record<string, string> = {};
+  const rotulos: Record<string, string> = {};
+  for (const c of cfg) {
+    const col = colReal(c.coluna);
+    if (!col) continue;
+    if (c.unidade) unidades[col] = c.unidade;
+    if (c.rotulo) rotulos[col] = c.rotulo;
+  }
+  return {
+    ...dados,
+    colunas: ordenadas,
+    ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}),
+    ...(y.length ? { grafico: { ...(x ? { x } : {}), y } } : {}),
+    ...(Object.keys(unidades).length ? { unidades } : {}),
+    ...(Object.keys(rotulos).length ? { rotulos } : {}),
+  };
+}
+
 function ordenarUm(
   dadosOriginais: PerguntaResultadoEstruturado,
   cats: MemoContextCategory[],
   pergunta: string,
   limites: LimitesDatas = {}
 ): PerguntaResultadoEstruturado {
+  // Tabela de consulta com as colunas configuradas: vale a configuração da consulta
+  if (dadosOriginais.queryId != null) {
+    const q = cats.flatMap((c) => c.queries ?? []).find((x) => x.id === dadosOriginais.queryId);
+    if (q?.colunas?.length && dadosOriginais.colunas.length) return aplicarConfigConsulta(dadosOriginais, q.colunas, pergunta, cats);
+  }
   const campos = cats.flatMap((c) => (c.campos ?? []).filter((f) => f.isActive === 1));
   if (!campos.length || !dadosOriginais.colunas.length) return dadosOriginais;
   // Dias sem registro (campo de data com "mostrar dias sem registro") antes de ordenar as colunas

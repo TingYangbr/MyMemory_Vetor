@@ -8,6 +8,7 @@ import type {
   MemoContextSubcategory,
   QueryCategoria,
   QueryCategoriaParam,
+  QueryColunaConfig,
   WorkspaceGroupItem,
 } from "@mymemory/shared";
 import type { RowDataPacket, ResultSetHeader } from "../lib/dbTypes.js";
@@ -319,7 +320,8 @@ export async function loadMemoContextStructure(
   let queryParamRows: RowDataPacket[] = [];
   try {
     const [qRows] = await pool.query<RowDataPacket[]>(
-      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, sqlgerado, autotipo, isactive, createdat, updatedat
+      `SELECT id, categoryid, nome, descricao, sentencasql, conexaoid, conexaopendente, sqlgerado, autotipo, isactive, createdat, updatedat,
+              colunas_json AS "colunasJson"
        FROM queries_categoria WHERE categoryid IN (${placeholders}) AND isactive = 1 ORDER BY id ASC`,
       catIds
     );
@@ -406,6 +408,7 @@ export async function loadMemoContextStructure(
         createdAt: ts(r.createdAt),
         updatedAt: ts(r.updatedAt),
         params: [],
+        colunas: lerColunasConsulta(r.colunasJson),
       });
   }
   for (const r of queryParamRows) {
@@ -1104,10 +1107,30 @@ export async function createQueryCategoria(
   return rows[0].id;
 }
 
+/** Configuração das colunas do resultado (JSON gravado na consulta), validada. */
+export function lerColunasConsulta(raw: unknown): QueryColunaConfig[] {
+  if (raw == null || raw === "") return [];
+  try {
+    const arr = typeof raw === "string" ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return [];
+    return arr
+      .filter((c) => c && typeof c.coluna === "string" && c.coluna.trim())
+      .map((c) => ({
+        coluna: String(c.coluna).trim(),
+        ordem: Number.isInteger(c.ordem) ? Number(c.ordem) : null,
+        papel: c.papel === "X" || c.papel === "Y" ? c.papel : null,
+        unidade: typeof c.unidade === "string" && c.unidade.trim() ? c.unidade.trim().slice(0, 12) : null,
+        rotulo: typeof c.rotulo === "string" && c.rotulo.trim() ? c.rotulo.trim().slice(0, 80) : null,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function updateQueryCategoria(
   userId: number,
   queryId: number,
-  patch: { nome?: string; descricao?: string | null; sentencaSql?: string; conexaoId?: number | null; isActive?: number }
+  patch: { nome?: string; descricao?: string | null; sentencaSql?: string; conexaoId?: number | null; isActive?: number; colunas?: QueryColunaConfig[] | null }
 ): Promise<void> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(
@@ -1142,6 +1165,11 @@ export async function updateQueryCategoria(
     vals.push(patch.conexaoId ?? null);
   }
   if (patch.isActive !== undefined) { sets.push("isactive = ?"); vals.push(patch.isActive); }
+  if (patch.colunas !== undefined) {
+    const cols = lerColunasConsulta(patch.colunas ?? []);
+    sets.push("colunas_json = ?");
+    vals.push(cols.length ? JSON.stringify(cols) : null);
+  }
   if (sets.length === 0) return;
   vals.push(queryId);
   await pool.query(`UPDATE queries_categoria SET ${sets.join(", ")} WHERE id = ?`, vals);
@@ -1474,16 +1502,16 @@ export async function copiarCategoriaParaGrupo(
 
     // Só as consultas escritas à mão; as automáticas são geradas de novo no destino (abaixo)
     const [queries] = await conn.query<RowDataPacket[]>(
-      `SELECT id, nome, descricao, sentencasql AS "sentencaSql", conexaoid AS "conexaoId"
+      `SELECT id, nome, descricao, sentencasql AS "sentencaSql", conexaoid AS "conexaoId", colunas_json AS "colunasJson"
        FROM queries_categoria WHERE categoryid = ? AND isactive = 1 AND sqlgerado IS NULL`,
       [categoryId]
     );
     for (const q of queries) {
       const [nq] = await conn.query<{ id: number }[]>(
-        `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, conexaopendente, isactive)
-         VALUES (?, ?, ?, ?, NULL, NULL, ?, 1) RETURNING id`,
+        `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, conexaopendente, colunas_json, isactive)
+         VALUES (?, ?, ?, ?, NULL, NULL, ?, ?, 1) RETURNING id`,
         // Conexão externa não vai junto: o grupo destino escolhe a dele
-        [novoId, q.nome, q.descricao ?? null, q.sentencaSql, q.conexaoId != null ? 1 : 0]
+        [novoId, q.nome, q.descricao ?? null, q.sentencaSql, q.conexaoId != null ? 1 : 0, q.colunasJson ?? null]
       );
       const nqId = Number(nq[0]?.id);
       const [params] = await conn.query<RowDataPacket[]>(

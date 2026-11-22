@@ -713,6 +713,20 @@ export interface QueryCategoriaParam {
   updatedAt: string;
 }
 
+/** Configuração de uma coluna do resultado de uma consulta (DB interno ou ERP), como os campos do memo. */
+export interface QueryColunaConfig {
+  /** Nome da coluna como vem do SELECT. */
+  coluna: string;
+  /** Ordem na tabela (0, 1, 2…); -1 = oculta (aparece se a pergunta citar); null = ordem da consulta. */
+  ordem?: number | null;
+  /** Papel no gráfico: X (rótulos) ou Y (valores, uma cor cada). */
+  papel?: "X" | "Y" | null;
+  /** Unidade (R$, %, kg…): título da coluna, legenda e eixo. "%" vai para o eixo da direita. */
+  unidade?: string | null;
+  /** Nome para exibir no lugar do nome da coluna. */
+  rotulo?: string | null;
+}
+
 export interface QueryCategoria {
   id: number;
   categoryId: number;
@@ -733,6 +747,8 @@ export interface QueryCategoria {
   createdAt: string;
   updatedAt: string;
   params: QueryCategoriaParam[];
+  /** Colunas do resultado configuradas (ordem, oculta, X/Y, unidade, rótulo). */
+  colunas?: QueryColunaConfig[];
 }
 
 export interface DbConnection {
@@ -1231,6 +1247,10 @@ export interface PerguntaResultadoEstruturado {
   grafico?: { x?: string; y: string[] };
   /** Unidade de cada coluna que é campo com unidade (título da tabela, legenda e eixos do gráfico). */
   unidades?: Record<string, string>;
+  /** Consulta que gerou a tabela (aplica a configuração das colunas dela). */
+  queryId?: number;
+  /** Nome de exibição de cada coluna (configurado na consulta). */
+  rotulos?: Record<string, string>;
 }
 
 export interface PerguntaResposta {

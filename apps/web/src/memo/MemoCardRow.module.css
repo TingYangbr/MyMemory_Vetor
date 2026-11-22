@@ -55,6 +55,13 @@
   display: block;
 }
 
+/* Imagem (Pão de Açúcar): o quadro ocupa o ícone inteiro, do tamanho do "T" e do PDF */
+.searchCardGlyphImg {
+  width: 2.4rem;
+  height: 1.91rem;
+  display: block;
+}
+
 .searchCardGlyphWrapMail {
   display: flex;
   align-items: center;

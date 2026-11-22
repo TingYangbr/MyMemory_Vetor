@@ -7,6 +7,8 @@ import type {
   QueryCategoria,
   QueryCategoriaParam,
   QueryCategoriaParamTipo,
+  QueryColunaConfig,
+  PerguntaResultadoEstruturado,
 } from "@mymemory/shared";
 import { OPERADORES_SQL, gerarQueryAlteracoesMemos, gerarQueryPadraoMemos, queryPadraoDescricao, queryPadraoNome } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson } from "../../api";
@@ -348,6 +350,29 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
   const [aviso, setAviso] = useState<string | null>(null);
   /** Editor de query existente + "Gerar SQL padrão": o servidor recria os parâmetros ao salvar. */
   const [padraoGerado, setPadraoGerado] = useState(false);
+  // Colunas do resultado: ordem (-1 oculta), papel no gráfico, unidade e rótulo — como os campos do memo
+  const [colunas, setColunas] = useState<QueryColunaConfig[]>(query?.colunas ?? []);
+  const [lendoColunas, setLendoColunas] = useState(false);
+
+  /** Roda a consulta sem filtros e acrescenta as colunas que ainda não estão na lista. */
+  async function lerColunas() {
+    if (!query) return setAviso("Salve a query primeiro; depois leia as colunas do resultado.");
+    setLendoColunas(true);
+    setErro(null);
+    try {
+      const r = await apiPostJson<{ resultado: PerguntaResultadoEstruturado }>(`/api/consultas-categoria/${query.id}/executar`, { groupId, valores: {} });
+      const nomes = r.resultado.linhas[0] ? Object.keys(r.resultado.linhas[0]) : r.resultado.colunas;
+      const tem = new Set(colunas.map((c) => c.coluna.toLowerCase()));
+      const novas = nomes.filter((n) => !tem.has(n.toLowerCase())).map((coluna) => ({ coluna, ordem: null, papel: null, unidade: null, rotulo: null }));
+      setColunas((cs) => [...cs, ...novas]);
+      setAviso(novas.length ? `${novas.length} coluna(s) lida(s) do resultado. Configure e salve.` : "Todas as colunas do resultado já estão na lista.");
+    } catch (e) {
+      setErro(msgErro(e, "Não foi possível executar a consulta para ler as colunas."));
+    } finally {
+      setLendoColunas(false);
+    }
+  }
+  const setColuna = (i: number, mud: Partial<QueryColunaConfig>) => setColunas((cs) => cs.map((c, j) => (j === i ? { ...c, ...mud } : c)));
 
   function achar() {
     const achados = acharParametros(sql);
@@ -400,13 +425,16 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
       const corpo = { nome: nome.trim(), descricao: descricao.trim() || null, sentencaSql: sql.trim(), conexaoId };
       let perfis: string[] | undefined;
       let qid: number;
+      // Só as colunas com alguma configuração vão para o banco
+      const colunasCfg = colunas.filter((c) => c.ordem != null || c.papel || c.unidade?.trim() || c.rotulo?.trim());
       if (query) {
-        await apiPatchJson(`/api/memo-context/queries/${query.id}`, corpo);
+        await apiPatchJson(`/api/memo-context/queries/${query.id}`, { ...corpo, colunas: colunasCfg });
         qid = query.id;
       } else {
         const r = await apiPostJson<{ id: number; perfisAfetados?: string[] }>(`/api/memo-context/categories/${cat.id}/queries`, corpo);
         qid = r.id;
         perfis = r.perfisAfetados;
+        if (colunasCfg.length) await apiPatchJson(`/api/memo-context/queries/${qid}`, { colunas: colunasCfg });
       }
       for (const p of padraoGerado ? [] : params) {
         const { id, apagar, ...dados } = p;
@@ -621,6 +649,72 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
       >
         <IconPlus size={13} /> Parâmetro
       </button>
+
+      <div className={s.row} style={{ marginTop: 16 }}>
+        <p className={s.fieldLabel} style={{ margin: 0 }}>Colunas do resultado</p>
+        <span className={s.sp} />
+        <button type="button" className={`mm-btn mm-btn--ghost ${s.btnSm}`} disabled={lendoColunas || !query} onClick={() => void lerColunas()}
+          title={query ? "Roda a consulta sem filtros e traz as colunas" : "Salve a query primeiro"}>
+          {lendoColunas ? "Lendo…" : "▶ Ler colunas"}
+        </button>
+      </div>
+      <p className={s.help}>
+        Como nos campos do memo: Ordem na tabela (1, 2, 3…; -1 oculta, a não ser que a pergunta cite), Papel no gráfico (X = rótulos,
+        Y = valores, uma cor cada), Unidade (R$, %, kg… — % vai para o eixo da direita) e o nome para exibir.
+      </p>
+      {colunas.length ? (
+        <div className={s.tblWrap}>
+          <table className={`${s.tbl} ${s.ptbl}`}>
+            <thead>
+              <tr>
+                <th>Coluna</th>
+                <th>Nome para exibir</th>
+                <th>Ordem</th>
+                <th>Gráfico</th>
+                <th>Unidade</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {colunas.map((c, i) => (
+                <tr key={c.coluna}>
+                  <td style={{ fontFamily: "monospace", fontSize: 12 }}>{c.coluna}</td>
+                  <td>
+                    <input className="mm-field" value={c.rotulo ?? ""} maxLength={80} placeholder={c.coluna}
+                      onChange={(e) => setColuna(i, { rotulo: e.target.value || null })} />
+                  </td>
+                  <td>
+                    <input className="mm-field" style={{ width: 64 }} inputMode="numeric" value={c.ordem ?? ""} placeholder="—"
+                      onChange={(e) => {
+                        const v = e.target.value.trim();
+                        const n = Number(v);
+                        setColuna(i, { ordem: v === "" || !Number.isInteger(n) ? null : Math.max(-1, n) });
+                      }} />
+                  </td>
+                  <td>
+                    <select className="mm-field" value={c.papel ?? ""} onChange={(e) => setColuna(i, { papel: (e.target.value || null) as "X" | "Y" | null })}>
+                      <option value="">—</option>
+                      <option value="X">X (rótulos)</option>
+                      <option value="Y">Y (valores)</option>
+                    </select>
+                  </td>
+                  <td>
+                    <input className="mm-field" style={{ width: 72 }} value={c.unidade ?? ""} maxLength={12} placeholder="R$, %"
+                      onChange={(e) => setColuna(i, { unidade: e.target.value || null })} />
+                  </td>
+                  <td>
+                    <button type="button" className={s.iconBtn} aria-label={`Tirar ${c.coluna}`} onClick={() => setColunas((cs) => cs.filter((_, j) => j !== i))}>
+                      <IconTrash size={14} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <p className={s.help}>{query ? "Nenhuma coluna configurada. Toque em ▶ Ler colunas." : "Salve a query para configurar as colunas."}</p>
+      )}
 
       {erro ? <p className={s.msgErr}>{erro}</p> : null}
       <div className={s.actions}>

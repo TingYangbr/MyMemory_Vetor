@@ -922,6 +922,18 @@ Consultas parametrizadas vinculadas a uma categoria, usadas pelo Fale comigo par
 | Parâmetros | Cada parâmetro lista o campo do memo de onde vem o valor. |
 | Conexão BD externa | Vazia = PostgreSQL interno. Preenchida = SQL Server da conexão escolhida. |
 
+## Colunas do resultado de uma consulta
+
+No editor de cada consulta (DB interno ou ERP), a seção **Colunas do resultado** configura a tabela e o gráfico das respostas, como os campos do memo:
+
+- **▶ Ler colunas** roda a consulta sem filtros e traz as colunas do resultado (a consulta precisa estar salva).
+- **Nome para exibir**: aparece no título da coluna e na legenda do gráfico no lugar do nome técnico.
+- **Ordem**: 1, 2, 3… primeiro, nessa ordem; vazio = ordem da consulta; **-1 oculta** a coluna (ela aparece se a pergunta a citar). Com alguma ordem configurada, a tabela mostra todas as colunas da consulta, não só as que a IA escolheu.
+- **Gráfico**: **X** = rótulos (ex.: código do produto), **Y** = valores (uma cor cada; vários Y = barras lado a lado, ex.: lucro × faturamento).
+- **Unidade**: R$, %, kg… no título e no eixo; colunas em **%** vão para o eixo da direita.
+
+Só as colunas com alguma configuração são gravadas. A configuração vai junto quando a categoria é copiada. Sem configuração, o gráfico escolhe sozinho: colunas citadas na pergunta (as auxiliares `ord_…` ficam de fora) e, quando a pergunta fala em faturado/faturamento, a coluna de faturamento ao lado.
+
 ## Executar uma consulta (▶ Executar)
 Na aba **Consultas** da categoria, cada consulta tem o botão **▶ Executar** (só para o dono do grupo ou admin; não aparece em consulta de ERP sem conexão escolhida).
 - Abre uma janela grande, redimensionável pelo canto e com ⛶ para maximizar.
