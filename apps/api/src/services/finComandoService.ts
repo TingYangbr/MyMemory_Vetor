@@ -111,7 +111,7 @@ export async function montarPropostaFin(input: {
     }));
 
   const system =
-    "Você converte uma frase de controle financeiro pessoal em UMA operação, escolhendo só entre os ids informados. Responda só JSON.";
+    "Você converte uma frase de controle financeiro pessoal, ou o texto de um documento (boleto, carnê, fatura, contrato, nota), em UMA operação, escolhendo só entre os ids informados. Documento de cobrança = conta a pagar (ou a receber, se for você quem cobra) com o vencimento e as parcelas do documento; descrição = quem cobra e o quê. Responda só JSON.";
   const user = JSON.stringify(
     {
       frase: input.texto,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { FinComandoDesfazer, FinComandoProposta, FinComandoTipo, FinPeriodicidade, FinTipoConta } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { apiDeleteJson, apiPatchJson, apiPostJson } from "../api";
@@ -47,7 +47,16 @@ function lerQtd(t: string): number | null {
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const dataBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
-export default function FinComandoCartao({ proposta }: { proposta: FinComandoProposta }) {
+export default function FinComandoCartao({
+  proposta,
+  onGravado,
+  onCancelar,
+}: {
+  proposta: FinComandoProposta;
+  /** Chamado uma vez quando grava (o Catalogar liga o memo do documento ao que foi gravado). */
+  onGravado?: (desfazer: FinComandoDesfazer) => void;
+  onCancelar?: () => void;
+}) {
   const [tipo, setTipo] = useState<FinComandoTipo>(proposta.tipo);
   const [sentido, setSentido] = useState<"pagar" | "receber">(proposta.sentido);
   const [descricao, setDescricao] = useState(proposta.descricao);
@@ -59,8 +68,17 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const [grupoId, setGrupoId] = useState(proposta.grupoId != null ? String(proposta.grupoId) : "");
   const [alvo, setAlvo] = useState(proposta.alvoChave ?? "");
   const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito" | "cancelado">(proposta.gravado ? "gravado" : "edicao");
+  const avisou = useRef(false);
   const [erro, setErro] = useState<string | null>(null);
   const [desfazer, setDesfazer] = useState<FinComandoDesfazer>(proposta.gravado?.desfazer ?? null);
+  useEffect(() => {
+    if (estado === "gravado" && !avisou.current) {
+      avisou.current = true;
+      onGravado?.(desfazer);
+    }
+    if (estado === "cancelado") onCancelar?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [estado]);
   const [feito, setFeito] = useState(proposta.gravado?.mensagem ?? "");
   // Opções do cartão (crescem quando a pessoa cadastra um grupo ou uma conta na hora)
   const [contasOpc, setContasOpc] = useState(proposta.opcoes.contas);

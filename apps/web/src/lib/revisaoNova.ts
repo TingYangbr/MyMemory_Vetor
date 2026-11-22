@@ -129,6 +129,8 @@ export interface CategoriaComRegra {
   campoSituacao: string | null;
   situacaoTipo?: "afazer" | "registro";
   rotuloConcluido?: string | null;
+  /** Sem campos e com consultas (Finanças Pessoais, ERP): não guarda memo. */
+  soConsulta: boolean;
 }
 
 export function categoriaComRegra(c: MemoContextCategory): CategoriaComRegra {
@@ -142,6 +144,9 @@ export function categoriaComRegra(c: MemoContextCategory): CategoriaComRegra {
     campoSituacao: c.atualizavel ? c.campoSituacao ?? null : null,
     situacaoTipo: c.situacaoTipo,
     rotuloConcluido: c.rotuloConcluido ?? null,
+    soConsulta:
+      !(c.campos ?? []).some((f) => f.isActive === 1 && !/^situa/i.test(f.name) && f.name !== c.campoSituacao) &&
+      (c.queries ?? []).some((q) => q.isActive === 1),
   };
 }
 
