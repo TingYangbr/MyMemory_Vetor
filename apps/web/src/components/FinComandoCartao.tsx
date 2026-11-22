@@ -47,7 +47,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const [contaId, setContaId] = useState(proposta.contaId != null ? String(proposta.contaId) : "");
   const [grupoId, setGrupoId] = useState(proposta.grupoId != null ? String(proposta.grupoId) : "");
   const [alvo, setAlvo] = useState(proposta.alvoChave ?? "");
-  const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito">("edicao");
+  const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito" | "cancelado">("edicao");
   const [erro, setErro] = useState<string | null>(null);
   const [desfazer, setDesfazer] = useState<Desfazer>(null);
   const [feito, setFeito] = useState("");
@@ -156,6 +156,18 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const linha: React.CSSProperties = { display: "flex", flexWrap: "wrap", gap: 8, alignItems: "flex-end" };
   const rot: React.CSSProperties = { display: "flex", flexDirection: "column", gap: 2, fontSize: 12, color: "var(--mm-muted)", minWidth: 120, flex: "1 1 140px" };
 
+  // Contorno vermelho nos campos obrigatórios ainda vazios (o que a IA não conseguiu identificar)
+  const falta = (vazio: boolean): React.CSSProperties | undefined =>
+    vazio ? { borderColor: "var(--mm-danger)", boxShadow: "0 0 0 1px var(--mm-danger)" } : undefined;
+
+  if (estado === "cancelado") {
+    return (
+      <div style={caixa} role="status">
+        <span>Cancelado: nada foi gravado.</span>
+      </div>
+    );
+  }
+
   if (estado === "gravado" || estado === "desfeito") {
     return (
       <div style={caixa} role="status">
@@ -195,7 +207,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
       {tipo === "pagamento" ? (
         <label style={rot}>
           Qual conta em aberto
-          <select className="mm-field" value={alvo} onChange={(e) => setAlvo(e.target.value)}>
+          <select className="mm-field" style={falta(!alvo)} value={alvo} onChange={(e) => setAlvo(e.target.value)}>
             <option value="">— escolha —</option>
             {abertos.map((a) => (
               <option key={a.chave} value={a.chave}>
@@ -214,7 +226,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
       <div style={linha}>
         <label style={rot}>
           Valor (R$)
-          <input className="mm-field" inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
+          <input className="mm-field" style={falta(tipo !== "pagamento" && lerValor(valor) == null)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
         </label>
         <label style={rot}>
           {ROTULO_DATA[tipo]}
@@ -242,7 +254,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
         {pedeGrupo ? (
           <label style={rot}>
             {sentidoEfetivo === "pagar" ? "Grupo de despesa" : "Grupo de receita"}
-            <select className="mm-field" value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
+            <select className="mm-field" style={falta(!grupoId)} value={grupoId} onChange={(e) => setGrupoId(e.target.value)}>
               <option value="">— escolha —</option>
               {grupos.map((g) => (
                 <option key={g.id} value={g.id}>{g.nome}</option>
@@ -254,7 +266,7 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
           <label style={rot}>
             {tipo === "receita" || sentidoEfetivo === "receber" ? "Entra em" : "Sai de"}
             {!contaObrigatoria ? " (opcional)" : ""}
-            <select className="mm-field" value={contaId} onChange={(e) => setContaId(e.target.value)}>
+            <select className="mm-field" style={falta(contaObrigatoria && !contaId)} value={contaId} onChange={(e) => setContaId(e.target.value)}>
               <option value="">— escolha —</option>
               {proposta.opcoes.contas.map((c) => (
                 <option key={c.id} value={c.id}>{c.nome}{c.tipo === "cartao" ? " (cartão)" : ""}</option>
@@ -265,15 +277,19 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
       </div>
 
       {erro ? <span className="mm-error">{erro}</span> : null}
-      <button
-        type="button"
-        className="mm-btn mm-btn--primary"
-        style={{ justifySelf: "start" }}
-        disabled={estado === "gravando"}
-        onClick={() => void gravar()}
-      >
-        {estado === "gravando" ? "Gravando…" : "Gravar"}
-      </button>
+      <div style={{ display: "flex", gap: 8 }}>
+        <button
+          type="button"
+          className="mm-btn mm-btn--primary"
+          disabled={estado === "gravando"}
+          onClick={() => void gravar()}
+        >
+          {estado === "gravando" ? "Gravando…" : "Gravar"}
+        </button>
+        <button type="button" className="mm-btn" disabled={estado === "gravando"} onClick={() => setEstado("cancelado")}>
+          Cancelar
+        </button>
+      </div>
     </div>
   );
 }
