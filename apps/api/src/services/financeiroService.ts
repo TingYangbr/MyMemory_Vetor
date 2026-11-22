@@ -84,6 +84,19 @@ function esp(e: Espaco, alias = ""): { sql: string; params: unknown[] } {
     : { sql: `${p}groupid IS NULL AND ${p}userid = ?`, params: [e.userId] };
 }
 
+/** Id do lançamento que acabou de ser gravado com estes dados (para o Desfazer do Fale comigo). */
+export async function ultimoLancamentoId(
+  e: Espaco,
+  l: { data: string; origem: number; destino: number }
+): Promise<number | null> {
+  const f = esp(e);
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT MAX(id) AS "id" FROM fin_lancamentos WHERE data = ? AND conta_origemid = ? AND conta_destinoid = ? AND ${f.sql}`,
+    [l.data, l.origem, l.destino, ...f.params]
+  );
+  return rows[0]?.id == null ? null : Number(rows[0].id);
+}
+
 /* ---------------- Contas ---------------- */
 
 async function contaSistema(c: Conn, e: Espaco, chave: FinChaveSistema): Promise<number> {
