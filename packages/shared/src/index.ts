@@ -1713,6 +1713,24 @@ export * from "./campoStatus.js";
 export * from "./situacaoMemo.js";
 
 /** Modelo pronto do catálogo (plug-in de categoria). */
+/** Uma diferença entre a categoria do grupo e o modelo de mesmo nome. */
+export interface ComparacaoModeloItem {
+  area: "categoria" | "campos" | "subcategorias" | "consultas";
+  /** O que difere (ex.: "Valor · unidade", "Faturamento_produto · SQL"). */
+  item: string;
+  /** so_grupo = existe só no grupo (seria acrescentado ao modelo); so_modelo = só no modelo (sairia). */
+  tipo: "diferente" | "so_grupo" | "so_modelo";
+  grupo?: string;
+  modelo?: string;
+}
+
+export interface ComparacaoModelo {
+  categoria: string;
+  /** null = não há modelo com esse nome (nem no catálogo, nem global). */
+  modelo: { id: number; origem: "catalogo" | "global"; versao: number; resumo: string | null; exemplos: string | null } | null;
+  itens: ComparacaoModeloItem[];
+}
+
 export interface CatalogoModelo {
   id: number;
   nome: string;

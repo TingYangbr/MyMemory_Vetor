@@ -650,8 +650,11 @@ function respostaComLista(resposta: PerguntaResponse["resposta"]): boolean {
 
 /** Envolve a tabela estruturada com um gráfico de barras à esquerda quando há colunas numéricas para plotar. */
 function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
-  // Ordenar a tabela (duplo clique no título) reordena também as barras do gráfico
-  const [ordenacao, setOrdenacao] = useState<Ordenacao>(null);
+  // Ordenar a tabela (duplo clique no título) reordena também as barras do gráfico — e o PDF, quando a página
+  // controla a ordem (props.onOrdenar)
+  const [ordenacaoLocal, setOrdenacaoLocal] = useState<Ordenacao>(null);
+  const ordenacao = props.onOrdenar ? props.ordenacao ?? null : ordenacaoLocal;
+  const setOrdenacao = props.onOrdenar ?? setOrdenacaoLocal;
   const grafico = useMemo(() => {
     const d = ordenacao
       ? {
@@ -2559,6 +2562,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   }
 
   const [pdfGerandoIdx, setPdfGerandoIdx] = useState<number | null>(null);
+  // Ordem escolhida em cada tabela da resposta ("<resposta>:<tabela>"): o PDF sai na mesma ordem da tela
+  const [ordenacoes, setOrdenacoes] = useState<Record<string, Ordenacao>>({});
+  const chaveOrdem = (r: { _k?: number }, idx: number) => `${r._k ?? "x"}:${idx}`;
 
   // Estado por resposta (pela identidade do objeto: o índice muda quando chega resposta nova)
   const [expandidos, setExpandidos] = useState<Set<object>>(() => new Set());
@@ -2590,22 +2596,26 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       const tabelas: PdfTabela[] = [];
       for (const [k, d] of lista.entries()) {
         if (!d.totalLinhas) continue;
-        const g = buildDadosGrafico(d, r.perguntaTexto);
+        const ord = ordenacoes[chaveOrdem(r, k)] ?? null;
+        const dTela = ord
+          ? { ...d, linhas: ordenarLinhas(d.linhas, ord), ...(d.linhasCompletas ? { linhasCompletas: ordenarLinhas(d.linhasCompletas, ord) } : {}) }
+          : d;
+        const g = buildDadosGrafico(dTela, r.perguntaTexto, ord != null);
         const grafico: PdfTabela["grafico"] = g
           ? {
               rotulos: g.rows.map((row) => String(row.label)),
               series: g.valueCols.map((c, idx) => ({
-                nome: COLUNA_LABELS[c] ?? c,
+                nome: d.rotulos?.[c] ?? COLUNA_LABELS[c] ?? c,
                 cor: CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length],
                 valores: g.rows.map((row) => Number(row[c]) || 0),
               })),
             }
           : null;
-        const linhas = d.linhasCompletas ?? d.linhas;
+        const linhas = dTela.linhasCompletas ?? dTela.linhas;
         tabelas.push({
           titulo: lista.length > 1 ? `Dados ${k + 1}` : "Dados",
           colunas: d.colunas,
-          rotulos: d.colunas.map((c) => COLUNA_LABELS[c] ?? c),
+          rotulos: d.colunas.map((c) => d.rotulos?.[c] ?? COLUNA_LABELS[c] ?? c),
           linhas: linhas.map((l) => d.colunas.map((c) => textoCelula(c, l[c]))),
           totalLinhas: d.totalLinhas,
           grafico,
@@ -3606,9 +3616,15 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.resposta.dados_estruturados ? (
                     Array.isArray(r.resposta.dados_estruturados)
                       ? r.resposta.dados_estruturados.map((d, idx) => (
-                          <EstruturadoComGrafico key={idx} dados={d} pergunta={r.perguntaTexto} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                          <EstruturadoComGrafico key={idx} dados={d} pergunta={r.perguntaTexto}
+                            ordenacao={ordenacoes[chaveOrdem(r, idx)] ?? null}
+                            onOrdenar={(o) => setOrdenacoes((m) => ({ ...m, [chaveOrdem(r, idx)]: o }))}
+                            onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                         ))
-                      : <EstruturadoComGrafico dados={r.resposta.dados_estruturados} pergunta={r.perguntaTexto} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
+                      : <EstruturadoComGrafico dados={r.resposta.dados_estruturados} pergunta={r.perguntaTexto}
+                          ordenacao={ordenacoes[chaveOrdem(r, 0)] ?? null}
+                          onOrdenar={(o) => setOrdenacoes((m) => ({ ...m, [chaveOrdem(r, 0)]: o }))}
+                          onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />

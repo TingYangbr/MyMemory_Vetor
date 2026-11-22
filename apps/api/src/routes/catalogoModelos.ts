@@ -2,6 +2,7 @@ import type { FastifyPluginAsync, FastifyReply } from "fastify";
 import { z } from "zod";
 import { getUserIsAdmin, resolveUserId } from "../lib/userContext.js";
 import { habilitarModelo, listarModelos, publicarModelo, retirarModelo } from "../services/catalogoModelosService.js";
+import { compararComModelo } from "../services/comparacaoModeloService.js";
 
 /** Catálogo de modelos prontos: listar, habilitar num grupo; publicar e retirar (admin). */
 function erro(reply: FastifyReply, e: unknown) {
@@ -16,6 +17,20 @@ function erro(reply: FastifyReply, e: unknown) {
 
 const plugin: FastifyPluginAsync = async (app) => {
   const id = z.coerce.number().int().positive();
+
+  // Admin: diferenças entre uma categoria (de um grupo) e o modelo de mesmo nome, antes de publicar
+  app.get("/api/catalogo-modelos/comparar/:categoryId", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    if (!(await getUserIsAdmin(userId))) return reply.code(403).send({ error: "forbidden", message: "Só o administrador compara com os modelos." });
+    const cid = id.safeParse((req.params as { categoryId: string }).categoryId);
+    if (!cid.success) return reply.code(400).send({ error: "invalid_id" });
+    try {
+      return { ok: true, ...(await compararComModelo(cid.data)) };
+    } catch (e) {
+      return erro(reply, e);
+    }
+  });
 
   app.get("/api/catalogo-modelos", async (req, reply) => {
     const userId = await resolveUserId(req);
