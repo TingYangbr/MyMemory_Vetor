@@ -669,6 +669,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
             ) : (
               <>
                 <FinComandoCartao
+                  embutido
                   proposta={fin.proposta}
                   onGravado={(d) => void finGravado(fin.proposta, d)}
                   onCancelar={() => setFin({ fase: "cancelado", proposta: fin.proposta })}
