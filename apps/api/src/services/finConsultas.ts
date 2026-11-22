@@ -15,6 +15,8 @@ export interface FinConsultaDef {
 const HOJE = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const INI_MES = "date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const FIM_MES = "(date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') + interval '1 month - 1 day')::date";
+/** "Sem data final" na agenda: títulos sem limite; a previsão das recorrências vai até 12 meses à frente (fin_agenda). */
+export const SEM_FIM = "DATE '9999-12-31'";
 
 /** Função do motor em SQL: títulos + ocorrências previstas das recorrências, como a agenda da tela. */
 export const SQL_FUNCAO_FIN_AGENDA = `
@@ -35,7 +37,7 @@ AS $fn$
        OR (t.situacao = 'quitado' AND t.quitado_em BETWEEN p_de AND p_ate)
   ),
   reg AS (
-    SELECT r.id, r.sentido, r.descricao, r.valor, r.periodicidade, r.inicio, LEAST(COALESCE(r.fim, p_ate), p_ate) AS ate,
+    SELECT r.id, r.sentido, r.descricao, r.valor, r.periodicidade, r.inicio, LEAST(COALESCE(r.fim, p_ate), CASE WHEN p_ate >= DATE '9999-01-01' THEN h.d + 366 ELSE p_ate END) AS ate,
            g.nome AS gr, h.d AS hoje,
            GREATEST(r.inicio, date_trunc('month', r.criado_em AT TIME ZONE 'America/Sao_Paulo')::date, h.d - 366) AS piso,
            CASE r.periodicidade WHEN 'mensal' THEN 1 WHEN 'bimestral' THEN 2 WHEN 'trimestral' THEN 3
@@ -131,10 +133,12 @@ export const FIN_CONSULTAS: FinConsultaDef[] = [
       "Use para: o que vence, quanto vou pagar/receber em um mês, contas atrasadas, o que já foi pago. " +
       "Colunas: vencimento, situacao (previsto = recorrente ainda não pago; confirmado = título a vencer; atraso = vencido e não pago; pago), " +
       "tipo (pagar ou receber), descricao, valor, grupo, pago_em, valor_pago. " +
-      "data_ini/data_fin = período dos vencimentos (sem eles: o mês atual); atrasados de antes do período sempre aparecem. " +
+      "data_ini/data_fin = período dos vencimentos (sem data_ini: desde o dia 1º do mês atual; sem data_fin: sem limite, " +
+      "as contas fixas previstas até 12 meses à frente); atrasados de antes do período sempre aparecem; " +
+      "pagos entram pela data do pagamento. " +
       "tipo: 'pagar' ou 'receber'. situacao: 'atraso', 'pago', 'aberto' (a vencer + atrasado) ou vazio (tudo).",
     sql: `SELECT a.vencimento, a.situacao, a.tipo, a.descricao, a.valor, a.grupo, a.parcela, a.parcelas, a.pago_em, a.valor_pago
-FROM fin_agenda(COALESCE(:data_ini, ${INI_MES}), COALESCE(:data_fin, ${FIM_MES})) a
+FROM fin_agenda(COALESCE(:data_ini, ${INI_MES}), COALESCE(:data_fin, ${SEM_FIM})) a
 WHERE (:tipo IS NULL OR :tipo ILIKE '%' || a.tipo || '%')
   AND (:situacao IS NULL OR CASE
         WHEN :situacao ILIKE '%atras%' OR :situacao ILIKE '%vencid%' THEN a.situacao = 'atraso'
