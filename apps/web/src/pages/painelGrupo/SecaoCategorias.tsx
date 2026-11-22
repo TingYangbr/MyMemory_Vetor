@@ -10,7 +10,7 @@ import type {
   PainelGrupoContagensResponse,
 } from "@mymemory/shared";
 import { lerValoresStatus } from "@mymemory/shared";
-import type { CatalogoModelo } from "@mymemory/shared";
+import type { CatalogoModelo, ComparacaoModelo, ComparacaoModeloItem } from "@mymemory/shared";
 
 /** Admin do sistema: a edição da categoria mostra "Publicar no catálogo de modelos". */
 const AdminCtx = createContext(false);
@@ -541,6 +541,27 @@ function PublicarNoCatalogo({ cat }: { cat: MemoContextCategory }) {
   const [exemplos, setExemplos] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; texto: string } | null>(null);
+  const [comp, setComp] = useState<ComparacaoModelo | null>(null);
+  const [comparando, setComparando] = useState(false);
+
+  /** Diferenças entre esta categoria e o modelo de mesmo nome (o que a publicação levaria para o modelo). */
+  async function comparar() {
+    setComparando(true);
+    setMsg(null);
+    try {
+      const r = await apiGet<ComparacaoModelo>(`/api/catalogo-modelos/comparar/${cat.id}`);
+      setComp(r);
+      // Publicar substitui o modelo: mantém o texto do catálogo que ele já tem
+      if (r.modelo?.origem === "catalogo") {
+        if (r.modelo.resumo) setResumo(r.modelo.resumo);
+        if (r.modelo.exemplos) setExemplos(r.modelo.exemplos);
+      }
+    } catch (e) {
+      setMsg({ ok: false, texto: msgErro(e) });
+    } finally {
+      setComparando(false);
+    }
+  }
 
   async function publicar() {
     setBusy(true);
@@ -561,11 +582,18 @@ function PublicarNoCatalogo({ cat }: { cat: MemoContextCategory }) {
 
   return (
     <div style={{ borderTop: "1px solid var(--mm-border)", marginTop: 8, paddingTop: 10 }}>
-      {!aberto ? (
-        <button type="button" className="mm-btn mm-btn--ghost" onClick={() => setAberto(true)}>
-          Publicar no catálogo de modelos…
+      <div className={s.row} style={{ gap: 8, flexWrap: "wrap" }}>
+        <button type="button" className="mm-btn mm-btn--ghost" disabled={comparando} onClick={() => void comparar()}>
+          {comparando ? "Comparando…" : "Comparar com o modelo"}
         </button>
-      ) : (
+        {!aberto ? (
+          <button type="button" className="mm-btn mm-btn--ghost" onClick={() => setAberto(true)}>
+            Publicar no catálogo de modelos…
+          </button>
+        ) : null}
+      </div>
+      {comp ? <DiferencasModelo comp={comp} onFechar={() => setComp(null)} /> : null}
+      {!aberto ? null : (
         <>
           <b style={{ fontSize: 14 }}>Publicar no catálogo de modelos</b>
           <p className={s.help}>
@@ -595,6 +623,92 @@ function PublicarNoCatalogo({ cat }: { cat: MemoContextCategory }) {
         </>
       )}
       {msg ? <p className={msg.ok ? s.msgOk : s.msgErr}>{msg.texto}</p> : null}
+    </div>
+  );
+}
+
+const AREA_ROTULO: Record<ComparacaoModeloItem["area"], string> = {
+  categoria: "Categoria",
+  campos: "Campos",
+  subcategorias: "Subcategorias",
+  consultas: "Consultas",
+};
+const TIPO_ROTULO: Record<ComparacaoModeloItem["tipo"], string> = {
+  diferente: "diferente",
+  so_grupo: "só no grupo",
+  so_modelo: "só no modelo",
+};
+
+/** Lista das diferenças grupo × modelo, por área; textos longos (SQL) abrem ao tocar. */
+function DiferencasModelo({ comp, onFechar }: { comp: ComparacaoModelo; onFechar: () => void }) {
+  const areas = (["categoria", "campos", "subcategorias", "consultas"] as const).filter((a) => comp.itens.some((i) => i.area === a));
+  const curto = (t?: string) => (t && t.length > 140 ? `${t.slice(0, 140)}…` : t ?? "");
+  return (
+    <div style={{ border: "1px solid var(--mm-border)", borderRadius: 8, padding: 10, margin: "8px 0", display: "grid", gap: 8 }}>
+      <div className={s.row}>
+        <b style={{ fontSize: 14 }}>
+          {comp.modelo
+            ? `${comp.categoria}: grupo × ${comp.modelo.origem === "catalogo" ? `modelo do catálogo (versão ${comp.modelo.versao})` : "categoria global"}`
+            : `${comp.categoria}: não há modelo com este nome`}
+        </b>
+        <span className={s.sp} />
+        <button type="button" className={s.iconBtn} aria-label="Fechar comparação" onClick={onFechar}>
+          <IconX />
+        </button>
+      </div>
+      {!comp.modelo ? (
+        <p className={s.help}>Publicar cria o modelo (versão 1).</p>
+      ) : comp.itens.length === 0 ? (
+        <p className={s.help}>Nenhuma diferença: o grupo está igual ao modelo. A conexão do ERP não conta (não vai para o modelo).</p>
+      ) : (
+        <>
+          <p className={s.help}>
+            {comp.itens.length} diferença(s). Publicar leva o que está no grupo para o modelo (nova versão); o que está "só no modelo" sai dele.
+            Quem já habilitou continua com a sua cópia.
+          </p>
+          {areas.map((a) => (
+            <div key={a}>
+              <p className={s.fieldLabel} style={{ margin: "4px 0" }}>{AREA_ROTULO[a]}</p>
+              <div className={s.tblWrap}>
+                <table className={s.tbl}>
+                  <thead>
+                    <tr>
+                      <th>Item</th>
+                      <th />
+                      <th>No grupo</th>
+                      <th>No modelo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {comp.itens
+                      .filter((i) => i.area === a)
+                      .map((i, k) => (
+                        <tr key={k}>
+                          <td style={{ fontWeight: 600 }}>{i.item}</td>
+                          <td>
+                            <span className={`${s.tag} ${i.tipo === "so_modelo" ? s.tagWarn : i.tipo === "so_grupo" ? s.tagOk : ""}`}>{TIPO_ROTULO[i.tipo]}</span>
+                          </td>
+                          {[i.grupo, i.modelo].map((v, j) => (
+                            <td key={j} style={{ fontSize: 12, maxWidth: 320, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                              {v && v.length > 140 ? (
+                                <details>
+                                  <summary style={{ cursor: "pointer" }}>{curto(v)}</summary>
+                                  <code style={{ fontSize: 11 }}>{v}</code>
+                                </details>
+                              ) : (
+                                v ?? ""
+                              )}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
     </div>
   );
 }
