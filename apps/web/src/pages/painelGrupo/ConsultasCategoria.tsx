@@ -205,6 +205,7 @@ export default function ConsultasCategoria({ cat, groupId, isAdmin, podeEditar, 
           <div key={q.id} className={s.q} style={q.autoEditada ? { background: "var(--mm-warning-bg)" } : undefined}>
             <div className={s.qHead}>
               <b>{q.nome}</b>
+              <span className="mm-muted" style={{ fontSize: 12 }}>#{q.id}</span>
               {q.autoGerada ? <span className={`${s.tag} ${s.tagOk}`}>{q.autoTipo === "alteracoes" ? "Automática · histórico" : "Automática"}</span> : null}
               {q.autoEditada ? <span className={`${s.tag} ${s.tagWarn}`}>Editada à mão</span> : null}
               {q.conexaoPendente ? (
