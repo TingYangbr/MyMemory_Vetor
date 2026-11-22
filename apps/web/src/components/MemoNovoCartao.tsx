@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import type { ComandoCriacao, MemoCreatedResponse } from "@mymemory/shared";
-import { normalizarDataParaIso, resolverValorStatus } from "@mymemory/shared";
+import { normalizarDataParaIso, periodoDoDia, resolverValorStatus } from "@mymemory/shared";
+
+/** Campo opcional vazio: contorno amarelo (não bloqueia; nos memos nenhum campo é obrigatório). */
+export const VAZIO_OPCIONAL: React.CSSProperties = { borderColor: "#eab308", boxShadow: "0 0 0 1px #eab308" };
 
 /** Valor do status como opção do seletor (vazio ou fora da lista = o inicial). */
 const opcaoStatus = (valor: string, valores: string[]) => resolverValorStatus(valor, valores) ?? valores[0];
@@ -61,7 +64,13 @@ export function MemoNovoCartao({
     const inicial: Record<string, string> = {};
     for (const c of criacao.campos) {
       const k = Object.keys(extraidos).find((x) => normNome(x) === normNome(c.nome));
-      const v = k != null ? extraidos[k] ?? "" : "";
+      let v = k != null ? extraidos[k] ?? "" : "";
+      // Vazio: período do dia pela hora (Manhã/Tarde/Noite); status = a opção que o seletor mostra (antes ficava
+      // mostrando a primeira, mas gravava vazio e pedia "preencher")
+      if (!v.trim()) {
+        const valores = c.tipo === "status" ? c.valores ?? [] : [];
+        v = periodoDoDia(c.nome, valores, new Date().getHours()) ?? (valores.length ? valores[0]! : "");
+      }
       inicial[c.nome] = c.tipo === "date" ? dataParaTela(v) : v;
     }
     setValores(inicial);
@@ -146,7 +155,7 @@ export function MemoNovoCartao({
               <label htmlFor={`novo-${c.nome}`} title={c.descricao ?? undefined}>
                 {c.nome}
                 {/* Vazio: destaque caramelo, sem bloquear (nos memos nenhum campo é obrigatório) */}
-                {!(valores[c.nome] ?? "").trim() ? <span style={{ color: "var(--mm-warning)", fontWeight: 600 }}> · preencher</span> : null}
+                {!(valores[c.nome] ?? "").trim() ? <span style={{ color: "#ca8a04", fontWeight: 600 }}> · preencher</span> : null}
               </label>
               {c.tipo === "status" && c.valores?.length ? (
                 <select
@@ -166,6 +175,7 @@ export function MemoNovoCartao({
                 <textarea
                   id={`novo-${c.nome}`}
                   className="mm-field"
+                  style={!(valores[c.nome] ?? "").trim() ? VAZIO_OPCIONAL : undefined}
                   rows={Math.min(12, Math.max(3, (valores[c.nome] ?? "").split("\n").length + 1))}
                   value={valores[c.nome] ?? ""}
                   placeholder="um item por linha"
@@ -176,7 +186,7 @@ export function MemoNovoCartao({
                 <input
                   id={`novo-${c.nome}`}
                   className="mm-field"
-                  style={!(valores[c.nome] ?? "").trim() ? { borderColor: "var(--mm-warning)" } : undefined}
+                  style={!(valores[c.nome] ?? "").trim() ? VAZIO_OPCIONAL : undefined}
                   value={valores[c.nome] ?? ""}
                   placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
                   onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}
