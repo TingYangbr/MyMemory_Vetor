@@ -108,6 +108,7 @@ import { GrupoUsarGlobais1700000000193 } from "./migrations/1700000000193-GrupoU
 import { AgendaSemDataFinal1700000000194 } from "./migrations/1700000000194-AgendaSemDataFinal.js";
 import { FinConfig1700000000195 } from "./migrations/1700000000195-FinConfig.js";
 import { FinTituloSaldo1700000000196 } from "./migrations/1700000000196-FinTituloSaldo.js";
+import { FinOperacoesInv1700000000197 } from "./migrations/1700000000197-FinOperacoesInv.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -264,6 +265,7 @@ assertMediaStorageEnv();
       AgendaSemDataFinal1700000000194,
       FinConfig1700000000195,
       FinTituloSaldo1700000000196,
+      FinOperacoesInv1700000000197,
     ],
   });
   const ds = await AppDataSource.initialize();

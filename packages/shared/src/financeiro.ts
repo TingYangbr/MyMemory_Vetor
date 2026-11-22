@@ -299,7 +299,28 @@ export interface FinConferencia {
 }
 
 /** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
-export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento";
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda";
+
+/** Papel já cadastrado no espaço (conta de investimento), com a posição de hoje. */
+export interface FinPapelOpcao {
+  id: number;
+  ticker: string;
+  corretoraId: number | null;
+  corretoraNome: string | null;
+  quantidade: number;
+  custoMedio: number | null;
+  moeda: string;
+}
+
+/** Compra/venda de papel no cartão do Fale comigo. A corretora é o contaId da proposta. */
+export interface FinComandoInvestimento {
+  /** Conta do papel quando já existe nesta corretora; senão o ticker (cadastrado ao gravar a compra). */
+  papelContaId: number | null;
+  ticker: string | null;
+  quantidade: number | null;
+  preco: number | null;
+  taxas: number | null;
+}
 
 /**
  * Proposta montada pela IA a partir da frase ("gastei 80 no mercado no Nubank", "conta de luz de 300 vence dia 10",
@@ -326,6 +347,7 @@ export type FinComandoDesfazer =
   | { tipo: "recorrencia"; id: number }
   | { tipo: "baixa"; tituloId: number }
   | { tipo: "lancamento"; id: number }
+  | { tipo: "operacao"; id: number }
   | null;
 
 export interface FinComandoGravado {
@@ -349,6 +371,8 @@ export interface FinComandoProposta {
   grupoId: number | null;
   /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
   alvoChave: string | null;
+  /** Compra/venda de papel (contaId = corretora; valor = valor total, se dito). */
+  investimento?: FinComandoInvestimento | null;
   mensagem: string;
   /** Ajustes do Fale comigo neste espaço (gravar direto, criar grupo/conta pelo cartão). */
   config: FinConfig;
@@ -359,5 +383,6 @@ export interface FinComandoProposta {
     gruposDespesa: { id: number; nome: string }[];
     gruposReceita: { id: number; nome: string }[];
     abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean }[];
+    papeis?: FinPapelOpcao[];
   };
 }
