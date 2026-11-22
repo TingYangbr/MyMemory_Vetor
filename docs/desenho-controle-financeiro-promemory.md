@@ -454,6 +454,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
 - **Onde ficam:** no Catálogo de modelos (Categorias Modelos). O dono habilita num grupo; a cópia leva as consultas. No espaço Pessoal valem as categorias dos grupos de que a pessoa participa, e as consultas leem os dados do espaço em que a pergunta foi feita.
 - **Motor em SQL:** função `fin_agenda(de, ate)`, igual à agenda da tela (comparada nos testes: mesmo resultado em 4 períodos, incluindo dia 31, 29/02, quinzenal, exceções e pagos).
+- **Consulta "Contas a pagar e receber (agenda)":** sem `data_ini` = desde o dia 1º do mês atual; sem `data_fin` = sem limite (abertos e pagos; atrasados de antes sempre entram); a previsão das contas fixas vai até 12 meses à frente (migration 194).
 - **Segurança:** as consultas rodam pelo papel restrito com RLS por espaço; testado que outro usuário não aparece e que o papel não lê outras tabelas.
 - **Filtros tolerantes:** tipo ("contas a pagar", "gastos") e situação ("atrasadas", "em aberto", "pagas") aceitam o jeito de falar; nomes de conta e grupo sem acento.
 - **Limites:** cotação do dólar nas consultas = a última que o app já buscou (aparece a data); preço de mercado de ações não existe ainda.
