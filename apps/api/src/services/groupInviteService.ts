@@ -28,6 +28,7 @@ export interface GroupOwnerPanelData {
     name: string;
     description: string | null;
     allowFreeSpecificFieldsWithoutCategoryMatch: boolean;
+    usarGlobais: boolean;
   };
   invites: GroupOwnerPanelInviteRow[];
 }
@@ -41,7 +42,7 @@ export async function getGroupOwnerPanelData(
   let gRows: RowDataPacket[];
   try {
     [gRows] = await pool.query<RowDataPacket[]>(
-      "SELECT id, name, description, allowFreeSpecificFieldsWithoutCategoryMatch FROM groups WHERE id = ? LIMIT 1",
+      `SELECT id, name, description, allowFreeSpecificFieldsWithoutCategoryMatch, usar_globais AS "usarGlobais" FROM groups WHERE id = ? LIMIT 1`,
       [groupId]
     );
   } catch {
@@ -76,6 +77,7 @@ export async function getGroupOwnerPanelData(
       allowFreeSpecificFieldsWithoutCategoryMatch:
         g.allowFreeSpecificFieldsWithoutCategoryMatch === 1 ||
         g.allowFreeSpecificFieldsWithoutCategoryMatch === true,
+      usarGlobais: g.usarGlobais == null ? true : Number(g.usarGlobais) === 1,
     },
     invites,
   };
@@ -85,14 +87,20 @@ export async function updateGroupOwnerSettings(input: {
   userId: number;
   groupId: number;
   isAdmin: boolean;
-  allowFreeSpecificFieldsWithoutCategoryMatch: boolean;
+  allowFreeSpecificFieldsWithoutCategoryMatch?: boolean;
+  usarGlobais?: boolean;
 }): Promise<GroupOwnerPanelData["group"]> {
   await assertUserCanAccessGroup(input.userId, input.groupId, input.isAdmin);
   try {
-    await pool.query(
-      `UPDATE groups SET allowfreespecificfieldswithoutcategorymatch = ? WHERE id = ?`,
-      [input.allowFreeSpecificFieldsWithoutCategoryMatch ? 1 : 0, input.groupId]
-    );
+    if (input.allowFreeSpecificFieldsWithoutCategoryMatch !== undefined) {
+      await pool.query(
+        `UPDATE groups SET allowfreespecificfieldswithoutcategorymatch = ? WHERE id = ?`,
+        [input.allowFreeSpecificFieldsWithoutCategoryMatch ? 1 : 0, input.groupId]
+      );
+    }
+    if (input.usarGlobais !== undefined) {
+      await pool.query(`UPDATE groups SET usar_globais = ? WHERE id = ?`, [input.usarGlobais ? 1 : 0, input.groupId]);
+    }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("allowfreespecificfieldswithoutcategorymatch")) {

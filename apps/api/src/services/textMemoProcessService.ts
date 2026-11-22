@@ -87,19 +87,24 @@ export async function loadCategoryContext(
   /** Só esta categoria (escolhida pelo usuário na revisão), sem filtro de tipo de mídia nem de nome repetido. */
   somenteId?: number | null
 ): Promise<CatCtx[]> {
+  let comGlobais = true;
   if (groupId != null) {
     await assertUserWorkspaceGroupAccess(userId, groupId, isAdmin);
+    // Grupo com "Usar categorias globais" desligado: só as categorias do próprio grupo
+    const [g] = await pool.query<RowDataPacket[]>(`SELECT usar_globais AS "u" FROM groups WHERE id = ? LIMIT 1`, [groupId]);
+    comGlobais = Number(g[0]?.u ?? 1) === 1;
   }
-  /* Sempre carrega globais (groupId IS NULL) + categorias do grupo do usuário.
+  const globais = comGlobais ? "groupId IS NULL OR " : "";
+  /* Carrega globais (groupId IS NULL, se o grupo usa) + categorias do grupo do usuário.
      Categorias do grupo têm prioridade sobre globais de mesmo nome (ORDER BY groupId IS NULL). */
   const [catRows] = await pool.query<RowDataPacket[]>(
     somenteId != null
       ? `SELECT id, name, ${COLS_SITUACAO} FROM categories
          WHERE id = ? AND isActive = 1
-           AND (groupId IS NULL OR ${groupId != null ? "groupId = ?" : "groupId IN (SELECT groupId FROM group_members WHERE userId = ?)"})`
+           AND (${globais}${groupId != null ? "groupId = ?" : "groupId IN (SELECT groupId FROM group_members WHERE userId = ?)"})`
       : groupId != null
       ? `SELECT id, name, ${COLS_SITUACAO} FROM categories
-         WHERE (groupId IS NULL OR groupId = ?)
+         WHERE (${globais}groupId = ?)
            AND isActive = 1
            AND (mediaType IS NULL OR mediaType = 'text')
          ORDER BY CASE WHEN groupId IS NULL THEN 1 ELSE 0 END, id ASC`

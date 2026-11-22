@@ -29,7 +29,8 @@ const postInviteBody = z.object({
 });
 
 const patchOwnerSettingsBody = z.object({
-  allowFreeSpecificFieldsWithoutCategoryMatch: z.boolean(),
+  allowFreeSpecificFieldsWithoutCategoryMatch: z.boolean().optional(),
+  usarGlobais: z.boolean().optional(),
 });
 
 const acceptBody = z.object({
@@ -200,6 +201,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         isAdmin,
         allowFreeSpecificFieldsWithoutCategoryMatch:
           bodyParsed.data.allowFreeSpecificFieldsWithoutCategoryMatch,
+        usarGlobais: bodyParsed.data.usarGlobais,
       });
       const body: PatchGroupOwnerSettingsResponse = { ok: true, group };
       return body;

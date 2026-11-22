@@ -871,6 +871,8 @@ export interface GroupOwnerPanelResponse {
     name: string;
     description: string | null;
     allowFreeSpecificFieldsWithoutCategoryMatch: boolean;
+    /** O registro de memos também considera as categorias globais (Categorias Modelos). */
+    usarGlobais: boolean;
   };
   invites: GroupOwnerPanelInviteRow[];
 }
@@ -882,6 +884,7 @@ export interface PatchGroupOwnerSettingsResponse {
     name: string;
     description: string | null;
     allowFreeSpecificFieldsWithoutCategoryMatch: boolean;
+    usarGlobais: boolean;
   };
 }
 

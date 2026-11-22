@@ -60,6 +60,13 @@ export default function SecaoConfig({ groupId, painel, setPainel, matriz, recarr
     }, "Salvo.");
   }
 
+  function mudarGlobais(valor: boolean) {
+    void rodar(async () => {
+      const r = await apiPatchJson<PatchGroupOwnerSettingsResponse>(`/api/groups/${groupId}/owner-settings`, { usarGlobais: valor });
+      setPainel({ ...painel, group: r.group });
+    }, "Salvo.");
+  }
+
   async function gerarAssuntos() {
     setGerando(true);
     setOk(null);
@@ -123,6 +130,17 @@ export default function SecaoConfig({ groupId, painel, setPainel, matriz, recarr
             <p>A IA pode guardar dados de um memo que não combinou com nenhuma categoria.</p>
           </label>
           {chave("cf-livres", painel.group.allowFreeSpecificFieldsWithoutCategoryMatch, mudarLivres)}
+        </div>
+        <div className={s.switchRow}>
+          <label htmlFor="cf-globais" style={{ cursor: "pointer" }}>
+            <b>Usar categorias globais</b>
+            <p>
+              Ligado: ao registrar memos, a IA também considera as categorias globais (Categorias Modelos: Financeiro, Contas_Receber,
+              Imóvel…), que não aparecem na lista do grupo. Desligado: só as categorias do grupo. Para usar uma global, traga-a com
+              "Copiar das globais" em Categorias.
+            </p>
+          </label>
+          {chave("cf-globais", painel.group.usarGlobais, mudarGlobais)}
         </div>
         <div className={s.switchRow}>
           <div>
