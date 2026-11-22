@@ -161,6 +161,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const b = z.object({
       tituloId: id.nullish(), recorrenciaId: id.nullish(), referencia: data.nullish(),
       data, valorPago: valor.positive().nullish(), contaPagamentoId: id,
+      modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
   }));
