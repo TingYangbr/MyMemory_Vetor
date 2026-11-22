@@ -285,6 +285,8 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
   return (
     <div style={caixa}>
+      {/* A frase da proposta fica dentro do cartão: some quando grava (antes ficava "toque em Gravar" sobre o gravado) */}
+      <span style={{ fontSize: 14 }}>{proposta.mensagem}</span>
       <div style={linha}>
         <label style={rot}>
           O que é
