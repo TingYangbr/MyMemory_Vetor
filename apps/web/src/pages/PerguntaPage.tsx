@@ -19,6 +19,7 @@ import type {
 import { camposDeModeloCriacao, chipsDeCriacao, derivarChips, ehPlanoCriacao, escreverItensLista, lerItensLista, perguntaComValores, planoDeCriacao, situacaoEncerrada, textoDeCriacao, toParamName } from "@mymemory/shared";
 import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
+import FinComandoCartao from "../components/FinComandoCartao";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -3333,7 +3334,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 </div>
                 <div className={styles.cardResposta}>
                   {/* Comando (alterar/criar): sem as marcas técnicas da consulta */}
-                  <div className={styles.cardRespostaMeta} style={r.comando || r.criacao ? { display: "none" } : undefined}>
+                  <div className={styles.cardRespostaMeta} style={r.comando || r.criacao || r.finComando ? { display: "none" } : undefined}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
                     </span>
@@ -3515,6 +3516,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   })()}
                   <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
+                  {r.finComando ? <FinComandoCartao proposta={r.finComando} /> : null}
                   {r.resposta.refeitoCom ? <p className={styles.alvoUsoNota}>↺ Refeito com: {r.resposta.refeitoCom}</p> : null}
                   {r.resposta.alvo === "uso_do_sistema" ? (
                     <div className={styles.ampliarWrap}>
@@ -3540,7 +3542,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
-                  {r.resposta.limitacoes.length > 0 && !r.comando && !r.criacao ? (
+                  {r.resposta.limitacoes.length > 0 && !r.comando && !r.criacao && !r.finComando ? (
                     <ul className={styles.limitacoes}>
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>

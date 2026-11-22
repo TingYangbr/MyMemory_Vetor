@@ -467,3 +467,12 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Tela:** escolha do mercado ao criar a conta; etiqueta "exterior" e o link Marcar como Brasil/exterior na lista.
 - **Implementado:** migration 183 (coluna, preenchimento pelo padrão e atualização das duas consultas no modelo e nas cópias não editadas).
 
+
+### 13.13 Etapa 2b: o Fale comigo grava no financeiro (22/11/2026)
+
+- **Quando:** a classificação aponta uma das categorias **Finanças Pessoais - …** e o texto é um registro ou uma alteração ("gastei 80 no mercado no Nubank", "conta de luz de 300 vence dia 10", "aluguel de 2.500 todo dia 5", "paguei o aluguel").
+- **Como:** `finComandoService.montarPropostaFin` manda à IA a frase, a data de hoje, as contas (banco, cartão, corretora), os grupos de despesa e de receita e o que está em aberto na agenda (90 dias para trás, 60 para a frente). A IA devolve **uma** operação, escolhendo só ids que existem; o resto fica vazio.
+- **Tipos:** gasto (lançamento conta/cartão → grupo de despesa), receita (grupo de receita → conta), conta a pagar/receber (título único ou parcelado), conta fixa (recorrência) e pagamento de algo em aberto (baixa do título ou da ocorrência).
+- **Nada é gravado sem confirmação:** a resposta traz um cartão editável (tipo, descrição, valor, data, parcelas, periodicidade, grupo, conta). **Gravar** usa as rotas da tela (`/api/fin/lancamentos`, `/parcelados`, `/recorrencias`, `/baixas`), no espaço escolhido no topo. Depois de gravar há **Desfazer** para conta/parcelado, conta fixa (desativa) e pagamento; o gasto/receita avulso é apagado pela aba Lançamentos (a rota não devolve o id).
+- **Antes disto**, o pedido virava um memo na categoria, que as consultas nunca leem.
+- **Próximo:** grupo novo pelo próprio comando (hoje precisa existir), transferência entre contas e câmbio por frase, e lembrete de vencimento.

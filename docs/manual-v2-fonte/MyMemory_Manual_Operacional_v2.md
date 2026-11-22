@@ -382,6 +382,19 @@ A resposta estruturada é dividida em duas partes: o texto resume, a tabela (e o
 - Maiores e menores ("os 3 produtos mais faturados") também são calculados pelo sistema sobre todas as linhas. A IA só cita destaques quando a pergunta pede ranking, maiores ou menores.
 - A tabela mostra só as colunas que a pergunta pede: o item (ex.: código e descrição do produto) e a medida (ex.: valor faturado). Para ver outras, peça na pergunta: "incluir o cliente", "com o número da nota".
 DICA: Peça o ranking de forma explícita ("os 5 maiores clientes em faturamento") para que os destaques venham no texto.
+## Lançar no financeiro pelo Fale comigo
+Com as categorias **Finanças Pessoais - …** habilitadas no grupo, frases de registro viram um cartão para conferir e gravar no financeiro (tela Contas a pagar e receber):
+| Frase | Vira |
+|---|---|
+| "gastei 80 no mercado no Nubank" | Gasto: sai do cartão Nubank para o grupo Mercado |
+| "recebi 5 mil de salário no Itaú" | Receita: do grupo Salário para a conta Itaú |
+| "conta de luz de 300 vence dia 10", "geladeira 3.000 em 10x" | Conta a pagar (única ou parcelada) |
+| "aluguel de 2.500 todo dia 5" | Conta fixa (recorrente) |
+| "paguei o aluguel", "recebi do Joaquim" | Pagamento/recebimento de algo em aberto |
+- O cartão vem preenchido e tudo pode ser ajustado antes de **Gravar** (tipo, descrição, valor, data, parcelas, repetição, grupo e conta). Grupo ou conta que a IA não reconheceu fica para escolher.
+- Grava no **grupo escolhido no topo**. Depois de gravar há **↶ Desfazer** (conta, parcelado, conta fixa e pagamento); gasto/receita avulso se apaga na aba Lançamentos.
+- Os grupos e contas precisam existir (cadastre na tela Contas a pagar e receber).
+
 ## Colunas e linhas da tabela
 - **Ordem das colunas pela categoria:** cada campo tem **Ordem na tabela** (edição do campo). 1, 2, 3… aparecem primeiro, nessa ordem; vazio vem depois, na ordem dos campos; colunas que não são campo (texto, data de registro) por último; **-1 não aparece**, a não ser que a pergunta cite o campo. Com alguma ordem definida na categoria, a tabela mostra todas as colunas da consulta (menos as técnicas), e não só as que a IA escolheu.
 - **Lápis (✎) sempre na primeira coluna; #id e o ícone do arquivo original sempre na última.**

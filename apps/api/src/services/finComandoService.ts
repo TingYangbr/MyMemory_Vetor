@@ -1,0 +1,157 @@
+/**
+ * Fale comigo → financeiro (etapa 2b). A IA lê a frase junto com as contas, os grupos e o que está em aberto no
+ * espaço e devolve UMA proposta (gasto, receita, conta a pagar/receber, conta fixa ou pagamento de algo em aberto).
+ * Nada é gravado aqui: a tela mostra a proposta num cartão editável e grava pelas rotas /api/fin/* ao confirmar.
+ * A IA só escolhe entre ids que existem; o que ela não souber fica vazio para a pessoa escolher no cartão.
+ */
+import type { FinComandoProposta, FinComandoTipo, FinPeriodicidade } from "@mymemory/shared";
+import { FIN_PERIODICIDADES } from "@mymemory/shared";
+import { invokeLLM } from "../lib/invokeLlm.js";
+import { agenda, hojeSaoPaulo, listarContasComSaldo, type Espaco } from "./financeiroService.js";
+
+const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento"];
+const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
+
+const somarDias = (iso: string, dias: number) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + dias);
+  return d.toISOString().slice(0, 10);
+};
+
+const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const dataBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
+
+function safeJson(text: string): Record<string, unknown> {
+  try {
+    const t = text.trim();
+    const i = t.indexOf("{");
+    const k = t.lastIndexOf("}");
+    return JSON.parse(i >= 0 && k > i ? t.slice(i, k + 1) : t) as Record<string, unknown>;
+  } catch {
+    return {};
+  }
+}
+
+export async function montarPropostaFin(input: {
+  texto: string;
+  userId: number;
+  groupId: number | null;
+}): Promise<{ proposta: FinComandoProposta; costUsd: number }> {
+  const e: Espaco = { groupId: input.groupId, userId: input.userId };
+  const hoje = hojeSaoPaulo();
+  const contasTodas = (await listarContasComSaldo(e, hoje, hoje)).filter((c) => c.ativo);
+  const contas = contasTodas.filter((c) => c.tipo === "banco" || c.tipo === "cartao" || c.tipo === "corretora").map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }));
+  const gruposDespesa = contasTodas.filter((c) => c.tipo === "despesa").map((c) => ({ id: c.id, nome: c.nome }));
+  const gruposReceita = contasTodas.filter((c) => c.tipo === "receita").map((c) => ({ id: c.id, nome: c.nome }));
+  const ag = await agenda(e, somarDias(hoje, -90), somarDias(hoje, 60));
+  const abertos = ag.itens
+    .filter((i) => i.situacao !== "pago")
+    .slice(0, 60)
+    .map((i) => ({
+      chave: i.chave,
+      descricao: i.descricao,
+      vencimento: i.vencimento,
+      valor: i.valor,
+      sentido: i.sentido,
+      atrasado: i.situacao === "atraso",
+    }));
+
+  const system =
+    "Você converte uma frase de controle financeiro pessoal em UMA operação, escolhendo só entre os ids informados. Responda só JSON.";
+  const user = JSON.stringify(
+    {
+      frase: input.texto,
+      hoje,
+      contas_bancos_cartoes: contas,
+      grupos_despesa: gruposDespesa,
+      grupos_receita: gruposReceita,
+      em_aberto: abertos,
+      tipos: {
+        gasto: "despesa já feita (gastei, comprei, paguei algo que não estava em aberto): sai de uma conta/cartão para um grupo de despesa",
+        receita: "dinheiro recebido que não estava em aberto (recebi, entrou, salário caiu): de um grupo de receita para uma conta",
+        conta: "conta a pagar ou a receber futura, única ou parcelada (vence dia 10, em 3x, boleto de…)",
+        fixa: "conta que se repete (todo mês, todo dia 5, mensal, semanal, anual) — aluguel, salário, assinatura",
+        pagamento: "pagou ou recebeu algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim)",
+      },
+    },
+    null,
+    2
+  );
+  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null}
+Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item). contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome.`;
+  const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
+  const j = safeJson(text);
+
+  const tipo: FinComandoTipo = TIPOS.includes(j.tipo as FinComandoTipo) ? (j.tipo as FinComandoTipo) : "gasto";
+  const idValido = (v: unknown, lista: { id: number }[]) => {
+    const n = Number(v);
+    return Number.isFinite(n) && lista.some((x) => x.id === n) ? n : null;
+  };
+  const alvo = typeof j.alvoChave === "string" ? abertos.find((a) => a.chave === j.alvoChave) ?? null : null;
+  const sentido: "pagar" | "receber" =
+    tipo === "gasto" ? "pagar" : tipo === "receita" ? "receber" : alvo ? alvo.sentido : j.sentido === "receber" ? "receber" : "pagar";
+  const valorBruto = Number(j.valor);
+  const valor = Number.isFinite(valorBruto) && valorBruto > 0 ? Math.round(valorBruto * 100) / 100 : alvo?.valor ?? null;
+  const data = typeof j.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(j.data) ? j.data : hoje;
+  const parcelas = Math.max(1, Math.min(360, Math.trunc(Number(j.parcelas) || 1)));
+  const periodicidade: FinPeriodicidade = PERIODICIDADES.includes(j.periodicidade as FinPeriodicidade)
+    ? (j.periodicidade as FinPeriodicidade)
+    : "mensal";
+  const grupos = sentido === "pagar" ? gruposDespesa : gruposReceita;
+  const proposta: FinComandoProposta = {
+    tipo,
+    sentido,
+    descricao: String(j.descricao ?? alvo?.descricao ?? "").trim().slice(0, 200) || (alvo?.descricao ?? "Lançamento"),
+    valor,
+    data,
+    parcelas,
+    periodicidade,
+    contaId: idValido(j.contaId, contas),
+    grupoId: idValido(j.grupoId, grupos),
+    alvoChave: tipo === "pagamento" ? alvo?.chave ?? null : null,
+    mensagem: "",
+    opcoes: { contas, gruposDespesa, gruposReceita, abertos },
+  };
+  proposta.mensagem = descreverProposta(proposta);
+  return { proposta, costUsd };
+}
+
+/** Frase curta do que vai ser gravado (e do que falta escolher no cartão). */
+export function descreverProposta(p: FinComandoProposta): string {
+  const conta = p.opcoes.contas.find((c) => c.id === p.contaId)?.nome;
+  const grupo = [...p.opcoes.gruposDespesa, ...p.opcoes.gruposReceita].find((g) => g.id === p.grupoId)?.nome;
+  const v = p.valor != null ? brl(p.valor) : "valor a informar";
+  const falta: string[] = [];
+  let o = "";
+  switch (p.tipo) {
+    case "gasto":
+      o = `Gasto de ${v} em ${grupo ?? "?"}${conta ? `, ${conta}` : ""}, ${dataBr(p.data)}`;
+      if (!grupo) falta.push("o grupo de despesa");
+      if (!conta) falta.push("de qual conta ou cartão saiu");
+      break;
+    case "receita":
+      o = `Receita de ${v} (${grupo ?? "?"})${conta ? ` em ${conta}` : ""}, ${dataBr(p.data)}`;
+      if (!grupo) falta.push("o grupo de receita");
+      if (!conta) falta.push("em qual conta entrou");
+      break;
+    case "conta":
+      o = `Conta a ${p.sentido} "${p.descricao}" de ${v}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""}, vencimento ${dataBr(p.data)}${grupo ? ` (${grupo})` : ""}`;
+      if (!grupo) falta.push(p.sentido === "pagar" ? "o grupo de despesa" : "o grupo de receita");
+      break;
+    case "fixa":
+      o = `Conta fixa a ${p.sentido} "${p.descricao}" de ${v}, ${p.periodicidade}, a partir de ${dataBr(p.data)}${grupo ? ` (${grupo})` : ""}`;
+      if (!grupo) falta.push(p.sentido === "pagar" ? "o grupo de despesa" : "o grupo de receita");
+      break;
+    case "pagamento": {
+      const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
+      o = a
+        ? `${p.sentido === "pagar" ? "Pagamento" : "Recebimento"} de "${a.descricao}" (venc. ${dataBr(a.vencimento)}), ${v}${conta ? `, ${conta}` : ""}, em ${dataBr(p.data)}`
+        : `${p.sentido === "pagar" ? "Pagamento" : "Recebimento"} de ${v}`;
+      if (!a) falta.push("qual conta em aberto foi paga");
+      if (!conta) falta.push(p.sentido === "pagar" ? "de qual conta saiu" : "em qual conta entrou");
+      break;
+    }
+  }
+  if (p.valor == null) falta.push("o valor");
+  return `${o}.${falta.length ? ` Falta escolher: ${falta.join(", ")}.` : ""} Confira no cartão e toque em Gravar.`;
+}

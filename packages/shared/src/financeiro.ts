@@ -297,3 +297,36 @@ export interface FinConferencia {
   aPagarTitulos: number;
   ok: boolean;
 }
+
+/** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento";
+
+/**
+ * Proposta montada pela IA a partir da frase ("gastei 80 no mercado no Nubank", "conta de luz de 300 vence dia 10",
+ * "aluguel de 2.500 todo dia 5", "paguei o aluguel"). A tela mostra num cartão editável e só grava ao confirmar,
+ * pelas mesmas rotas da tela Contas a pagar e receber.
+ */
+export interface FinComandoProposta {
+  tipo: FinComandoTipo;
+  sentido: "pagar" | "receber";
+  descricao: string;
+  valor: number | null;
+  /** Data do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa. AAAA-MM-DD. */
+  data: string;
+  /** Conta a pagar/receber: 1 = à vista; 2+ = parcelado. */
+  parcelas: number;
+  periodicidade: FinPeriodicidade;
+  /** Banco, cartão ou corretora (de onde sai / para onde entra). */
+  contaId: number | null;
+  /** Grupo de despesa ou de receita. */
+  grupoId: number | null;
+  /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
+  alvoChave: string | null;
+  mensagem: string;
+  opcoes: {
+    contas: { id: number; nome: string; tipo: FinTipoConta }[];
+    gruposDespesa: { id: number; nome: string }[];
+    gruposReceita: { id: number; nome: string }[];
+    abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean }[];
+  };
+}
