@@ -32,6 +32,35 @@ function safeJson(text: string): Record<string, unknown> {
   }
 }
 
+const palavras = (t: string) =>
+  new Set(
+    t
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length >= 3)
+  );
+
+/**
+ * A IA escolheu um grupo/conta, mas a frase só cita uma palavra que outros também têm ("condomínio" com
+ * "Condomínio Granja" e "Condomínio Butantã")? Então é ambíguo: devolve os nomes para a pessoa escolher no cartão.
+ * Se a frase tem uma palavra só do escolhido ("Granja"), a escolha vale.
+ */
+function escolhaAmbigua(id: number | null, lista: { id: number; nome: string }[], frase: string): string[] | null {
+  if (id == null) return null;
+  const esc = lista.find((x) => x.id === id);
+  if (!esc) return null;
+  const f = palavras(frase);
+  const pe = palavras(esc.nome);
+  const citadas = [...pe].filter((w) => f.has(w));
+  if (!citadas.length) return null;
+  const rivais = lista.filter((x) => x.id !== id && citadas.some((w) => palavras(x.nome).has(w)));
+  if (!rivais.length) return null;
+  const distingue = citadas.some((w) => rivais.every((r) => !palavras(r.nome).has(w)));
+  return distingue ? null : [esc, ...rivais].map((x) => x.nome);
+}
+
 export async function montarPropostaFin(input: {
   texto: string;
   userId: number;
@@ -78,7 +107,7 @@ export async function montarPropostaFin(input: {
     2
   );
   const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null}
-Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item). contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome.`;
+Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item). contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
 
@@ -112,7 +141,19 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     mensagem: "",
     opcoes: { contas, gruposDespesa, gruposReceita, abertos },
   };
-  proposta.mensagem = descreverProposta(proposta);
+  // Escolha da IA que a frase não decide: deixa vazio e diz quais combinam
+  const duvidas: string[] = [];
+  const gAmb = escolhaAmbigua(proposta.grupoId, grupos, input.texto);
+  if (gAmb) {
+    proposta.grupoId = null;
+    duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
+  }
+  const cAmb = escolhaAmbigua(proposta.contaId, contas, input.texto);
+  if (cAmb) {
+    proposta.contaId = null;
+    duvidas.push(`Mais de uma conta combina (${cAmb.join(", ")})`);
+  }
+  proposta.mensagem = descreverProposta(proposta) + (duvidas.length ? ` ${duvidas.join(". ")}.` : "");
   return { proposta, costUsd };
 }
 
