@@ -1759,3 +1759,16 @@ export interface BatchProcessJobStatus extends BatchProcessResponse {
 }
 
 export * from "./financeiro.js";
+
+/**
+ * Valor padrão de um campo de período do dia ("Período", "Periodo_Medicao", "Turno"): Manhã até 12h, Tarde até 18h,
+ * Noite depois (e de madrugada). Com valores fixos (campo status), escolhe o que começa igual; null se o campo não é
+ * de período ou se nenhum valor combina.
+ */
+export function periodoDoDia(nomeCampo: string, valores: string[], hora: number): string | null {
+  const n = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (!/(periodo|turno)/.test(n(nomeCampo))) return null;
+  const base = hora >= 5 && hora < 12 ? "manha" : hora >= 12 && hora < 18 ? "tarde" : "noite";
+  if (valores.length) return valores.find((v) => n(v).trim().startsWith(base)) ?? null;
+  return base === "manha" ? "Manhã" : base === "tarde" ? "Tarde" : "Noite";
+}

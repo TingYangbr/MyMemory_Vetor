@@ -62,6 +62,7 @@ function LigacoesDoMemo({ memoId }: { memoId: number }) {
 }
 import { capturarFalaCurta, vozDisponivel, type CapturaVoz } from "../lib/vozCurta";
 import styles from "./MemoAlteracaoCartao.module.css";
+import { VAZIO_OPCIONAL } from "./MemoNovoCartao";
 
 /** AAAA-MM-DD → DD/MM/AAAA para editar; o resto como está. */
 function paraTela(c: MemoAlteravelCampo): string {
@@ -286,8 +287,9 @@ export function MemoAlteracaoCartao({
   return (
     <div className={styles.overlay} onClick={() => !salvando && onFechar()}>
       <div className={styles.cartao} role="dialog" aria-label={`Alterar memo #${memoId}`} onClick={(e) => e.stopPropagation()}>
-        <div className={styles.topo}>
-          <div>
+        {/* Mesmo padrão dos outros cartões: título, Salvar e Cancelar no topo */}
+        <div className={styles.topo} style={{ alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ marginRight: "auto" }}>
             <strong>{dados?.categoria ?? "Memo"}</strong> <span className={styles.id}>#{memoId}</span>
             {dados ? (
               <span className={encerrado ? styles.situacaoEncerrada : styles.situacao}>
@@ -295,8 +297,13 @@ export function MemoAlteracaoCartao({
               </span>
             ) : null}
           </div>
-          <button type="button" className={styles.fechar} onClick={onFechar} disabled={salvando} aria-label="Fechar sem alterar">
-            ×
+          {dados ? (
+            <button type="button" className="mm-btn mm-btn--primary" onClick={() => void salvar()} disabled={salvando}>
+              {salvando ? "Salvando…" : avisosData ? "Salvar mesmo assim" : "Salvar"}
+            </button>
+          ) : null}
+          <button type="button" className="mm-btn mm-btn--ghost" onClick={onFechar} disabled={salvando}>
+            Cancelar
           </button>
         </div>
 
@@ -342,6 +349,7 @@ export function MemoAlteracaoCartao({
                         className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
                         rows={Math.min(12, Math.max(3, (valores[c.nome] ?? "").split("\n").length + 1))}
                         value={valores[c.nome] ?? ""}
+                        style={!(valores[c.nome] ?? "").trim() ? VAZIO_OPCIONAL : undefined}
                         placeholder="um item por linha"
                         onChange={(e) => {
                           setValores((v) => ({ ...v, [c.nome]: e.target.value }));
@@ -354,6 +362,7 @@ export function MemoAlteracaoCartao({
                         id={`alt-${c.nome}`}
                         className={`mm-field ${ouvindo === c.nome ? styles.inputOuvindo : ""} ${destaque === c.nome || propostosCampos.has(c.nome) ? styles.inputDestaque : ""}`}
                         value={valores[c.nome] ?? ""}
+                        style={!(valores[c.nome] ?? "").trim() ? VAZIO_OPCIONAL : undefined}
                         placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
                         onChange={(e) => {
                           setValores((v) => ({ ...v, [c.nome]: e.target.value }));
@@ -396,9 +405,6 @@ export function MemoAlteracaoCartao({
                 <div>Confira a data. Se estiver certa, clique em salvar de novo.</div>
               </div>
             ) : null}
-            <button type="button" className={`mm-btn mm-btn--primary ${styles.salvar}`} onClick={() => void salvar()} disabled={salvando}>
-              {salvando ? "Salvando…" : avisosData ? "Salvar mesmo assim" : "Salvar alterações"}
-            </button>
             <LigacoesDoMemo memoId={memoId} />
             <div className={styles.acoes}>
               {encerrado ? (
