@@ -115,15 +115,15 @@ const plugin: FastifyPluginAsync = async (app) => {
         // Se a origem usava conexão externa, marca como pendente para obrigar a escolha no grupo destino.
         const [queryRows] = await conn.query<RowDataPacket[]>(
           // Automáticas (Query padrão, Consulta de alterações) não: são geradas de novo depois do commit
-          `SELECT id, nome, descricao, sentencasql, conexaoid, sqlgerado FROM queries_categoria WHERE categoryid = ? AND isactive = 1 AND sqlgerado IS NULL`,
+          `SELECT id, nome, descricao, sentencasql, conexaoid, sqlgerado, colunas_json AS "colunasJson" FROM queries_categoria WHERE categoryid = ? AND isactive = 1 AND sqlgerado IS NULL`,
           [catId]
         );
         for (const qRow of queryRows) {
           const [newQRows] = await conn.query<{ id: number }[]>(
-            `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, conexaopendente, isactive)
-             VALUES (?, ?, ?, ?, ?, NULL, ?, 1) RETURNING id`,
+            `INSERT INTO queries_categoria (categoryid, nome, descricao, sentencasql, sqlgerado, conexaoid, conexaopendente, colunas_json, isactive)
+             VALUES (?, ?, ?, ?, ?, NULL, ?, ?, 1) RETURNING id`,
             // sqlgerado copiado: Query padrão automática na origem continua automática no grupo destino
-            [newCatId, qRow.nome, qRow.descricao ?? null, qRow.sentencaSql, qRow.sqlGerado ?? null, qRow.conexaoId != null ? 1 : 0]
+            [newCatId, qRow.nome, qRow.descricao ?? null, qRow.sentencaSql, qRow.sqlGerado ?? null, qRow.conexaoId != null ? 1 : 0, qRow.colunasJson ?? null]
           );
           const newQId = Number(newQRows[0]?.id);
           if (!Number.isFinite(newQId)) throw new Error("Falha ao inserir query clonada.");

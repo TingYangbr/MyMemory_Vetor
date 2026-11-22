@@ -139,6 +139,12 @@ export interface PlanoConsulta {
   comparacao_somente_em_ambos?: boolean;
 }
 
+/** Id numérico da consulta (query_id do plano é o id da queries_categoria em texto). */
+const idConsulta = (qid: string): { queryId?: number } => {
+  const n = Number(qid);
+  return Number.isInteger(n) && n > 0 ? { queryId: n } : {};
+};
+
 interface QueryExecResultado {
   query_id: string;
   colunas: string[];
@@ -1582,7 +1588,7 @@ async function gerarRespostaEstruturada(input: {
       if (comLinhas.length <= 1) {
         const r = comLinhas[0] ?? principais[0] ?? input.porQuery[0];
         return r
-          ? { colunas: colunasDe(r.colunas), linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas) }
+          ? { colunas: colunasDe(r.colunas), linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM), totalLinhas: r.totalLinhas, ...linhasParaPdf(r.linhas), ...idConsulta(r.query_id) }
           : input.agregado;
       }
       return comLinhas.map((r) => ({
@@ -1591,6 +1597,7 @@ async function gerarRespostaEstruturada(input: {
         linhas: r.linhas.slice(0, LIMITE_LINHAS_LLM),
         totalLinhas: r.totalLinhas,
         ...linhasParaPdf(r.linhas),
+        ...idConsulta(r.query_id),
       }));
     })(),
   };
