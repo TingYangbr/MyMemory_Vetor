@@ -116,15 +116,15 @@ export function MemoNovoCartao({
       <div className={styles.cartao} role="dialog" aria-label="Registro novo" onClick={(e) => e.stopPropagation()}>
         {/* Salvar e Cancelar no topo, na linha do título: não precisa rolar o cartão para gravar */}
         <div className={styles.topo} style={{ alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }}>
+          <div style={{ marginRight: "auto" }}>
+            <strong>{criacao.categoria ?? "Memo"}</strong> <span className={styles.id}>novo</span>
+          </div>
           <button type="button" className="mm-btn mm-btn--primary" onClick={() => void salvar()} disabled={salvando}>
             {salvando ? "Salvando…" : "Salvar"}
           </button>
           <button type="button" className="mm-btn mm-btn--ghost" onClick={onFechar} disabled={salvando}>
             Cancelar
           </button>
-          <div style={{ marginLeft: 4 }}>
-            <strong>{criacao.categoria ?? "Memo"}</strong> <span className={styles.id}>novo</span>
-          </div>
         </div>
 
         {p.processingWarning ? <p className={criacao.origemModelo ? styles.aviso : styles.dica}>{p.processingWarning}</p> : null}
@@ -145,6 +145,8 @@ export function MemoNovoCartao({
             <div key={c.nome} className={styles.campo}>
               <label htmlFor={`novo-${c.nome}`} title={c.descricao ?? undefined}>
                 {c.nome}
+                {/* Vazio: destaque caramelo, sem bloquear (nos memos nenhum campo é obrigatório) */}
+                {!(valores[c.nome] ?? "").trim() ? <span style={{ color: "var(--mm-warning)", fontWeight: 600 }}> · preencher</span> : null}
               </label>
               {c.tipo === "status" && c.valores?.length ? (
                 <select
@@ -174,6 +176,7 @@ export function MemoNovoCartao({
                 <input
                   id={`novo-${c.nome}`}
                   className="mm-field"
+                  style={!(valores[c.nome] ?? "").trim() ? { borderColor: "var(--mm-warning)" } : undefined}
                   value={valores[c.nome] ?? ""}
                   placeholder={c.tipo === "date" ? "dd/mm/aaaa" : ""}
                   onChange={(e) => setValores((v) => ({ ...v, [c.nome]: e.target.value }))}

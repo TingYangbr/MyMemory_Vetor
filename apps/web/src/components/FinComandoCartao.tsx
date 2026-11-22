@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import janela from "./MemoAlteracaoCartao.module.css";
 import type { FinComandoDesfazer, FinComandoProposta, FinComandoTipo, FinPeriodicidade, FinTipoConta } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { apiDeleteJson, apiPatchJson, apiPostJson } from "../api";
@@ -51,8 +53,11 @@ export default function FinComandoCartao({
   proposta,
   onGravado,
   onCancelar,
+  embutido = false,
 }: {
   proposta: FinComandoProposta;
+  /** Já está dentro de uma janela (Catalogar): não abre outra por cima. */
+  embutido?: boolean;
   /** Chamado uma vez quando grava (o Catalogar liga o memo do documento ao que foi gravado). */
   onGravado?: (desfazer: FinComandoDesfazer) => void;
   onCancelar?: () => void;
@@ -68,6 +73,8 @@ export default function FinComandoCartao({
   const [grupoId, setGrupoId] = useState(proposta.grupoId != null ? String(proposta.grupoId) : "");
   const [alvo, setAlvo] = useState(proposta.alvoChave ?? "");
   const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito" | "cancelado">(proposta.gravado ? "gravado" : "edicao");
+  // Janela por cima da tela, como o registro novo de memo; fechada pelo ×/fora, reabre pelo botão na resposta
+  const [aberto, setAberto] = useState(true);
   const avisou = useRef(false);
   const [erro, setErro] = useState<string | null>(null);
   const [desfazer, setDesfazer] = useState<FinComandoDesfazer>(proposta.gravado?.desfazer ?? null);
@@ -301,9 +308,20 @@ export default function FinComandoCartao({
     );
   }
 
-  return (
-    <div style={caixa}>
-      {/* A frase da proposta fica dentro do cartão: some quando grava (antes ficava "toque em Gravar" sobre o gravado) */}
+  const titulo = `Finanças · ${TIPOS.find((t) => t.valor === tipo)?.rotulo ?? "lançamento"}`;
+  const conteudo = (
+    <div style={embutido ? caixa : { display: "grid", gap: 8 }}>
+      {/* Mesmo padrão do registro novo de memo: título, Salvar e Cancelar no topo */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+        <strong style={{ marginRight: "auto" }}>{titulo}</strong>
+        <button type="button" className="mm-btn mm-btn--primary" disabled={estado === "gravando"} onClick={() => void gravar()}>
+          {estado === "gravando" ? "Salvando…" : "Salvar"}
+        </button>
+        <button type="button" className="mm-btn mm-btn--ghost" disabled={estado === "gravando"} onClick={() => setEstado("cancelado")}>
+          Cancelar
+        </button>
+      </div>
+      {/* A frase da proposta fica dentro do cartão: some quando grava */}
       <span style={{ fontSize: 14 }}>{proposta.mensagem}</span>
       <div style={linha}>
         <label style={rot}>
@@ -522,20 +540,26 @@ export default function FinComandoCartao({
       ) : null}
 
       {erro ? <span className="mm-error">{erro}</span> : null}
-      <div style={{ display: "flex", gap: 8 }}>
-        <button
-          type="button"
-          className="mm-btn mm-btn--primary"
-          disabled={estado === "gravando"}
-          onClick={() => void gravar()}
-        >
-          {estado === "gravando" ? "Gravando…" : "Gravar"}
-        </button>
-        <button type="button" className="mm-btn" disabled={estado === "gravando"} onClick={() => setEstado("cancelado")}>
-          Cancelar
-        </button>
-      </div>
     </div>
+  );
+
+  if (embutido) return conteudo;
+  return (
+    <>
+      <button type="button" className="mm-btn" style={{ marginTop: 8 }} onClick={() => setAberto(true)}>
+        Conferir e salvar o lançamento
+      </button>
+      {aberto
+        ? createPortal(
+            <div className={janela.overlay} onClick={() => estado !== "gravando" && setAberto(false)}>
+              <div className={janela.cartao} role="dialog" aria-label={titulo} style={{ width: "min(640px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+                {conteudo}
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
+    </>
   );
 }
 
