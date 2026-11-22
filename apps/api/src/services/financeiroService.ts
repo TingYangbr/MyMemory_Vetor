@@ -543,18 +543,38 @@ async function lancar(
  */
 export async function baixar(
   e: Espaco,
-  inp: { tituloId?: number | null; recorrenciaId?: number | null; referencia?: string | null; data: string; valorPago?: number | null; contaPagamentoId: number }
-): Promise<{ tituloId: number }> {
+  inp: {
+    tituloId?: number | null; recorrenciaId?: number | null; referencia?: string | null; data: string; valorPago?: number | null; contaPagamentoId: number;
+    /** Pagou menos: "parcial" deixa a diferença em aberto (novo título "saldo"); "quitar" (padrão) quita com desconto. */
+    modo?: "quitar" | "parcial" | null;
+    /** Pagou mais: o excedente vai para este grupo (despesa no pagar, receita no receber) em vez de juros/multa. */
+    excedenteGrupoId?: number | null;
+  }
+): Promise<{ tituloId: number; saldoTituloId?: number | null }> {
   exigirData(inp.data, "data do pagamento");
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
     const f = esp(e);
     let tituloId: number;
+    let saldoTituloId: number | null = null;
+    const parcial = inp.modo === "parcial";
+    const sentidoDoGrupo = async (s: "pagar" | "receber") =>
+      inp.excedenteGrupoId ? (await obterConta(conn, e, inp.excedenteGrupoId, grupoDoSentido(s), "grupo do excedente")).id : null;
+    /** Título com a diferença que ficou em aberto (pagamento parcial). */
+    const criarSaldo = async (t: { sentido: string; descricao: string; vencimento: string; grupoId: number; lote: string | null; parcela: number | null; parcelas: number | null }, resto: number, origemId: number) => {
+      const [ins] = await conn.query<RowDataPacket[]>(
+        `INSERT INTO fin_titulos (groupid, userid, sentido, descricao, valor, vencimento, conta_grupoid, lote, parcela, parcelas, saldo_de_tituloid)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        [e.groupId, e.userId, t.sentido, `${t.descricao.replace(/ \(saldo\)$/, "")} (saldo)`.slice(0, 200), r2(resto), t.vencimento, t.grupoId, t.lote, t.parcela, t.parcelas, origemId]
+      );
+      return Number(ins[0].id);
+    };
 
     if (inp.tituloId) {
       const [ts] = await conn.query<RowDataPacket[]>(
-        `SELECT id, sentido, descricao, valor, situacao FROM fin_titulos WHERE id = ? AND ${f.sql} FOR UPDATE`,
+        `SELECT id, sentido, descricao, valor, situacao, vencimento::text AS "venc", conta_grupoid AS "gid", lote, parcela, parcelas
+         FROM fin_titulos WHERE id = ? AND ${f.sql} FOR UPDATE`,
         [inp.tituloId, ...f.params]
       );
       const t = ts[0];
@@ -567,16 +587,28 @@ export async function baixar(
       if (!(vp > 0)) throw new FinErro("valor", "Informe o valor pago.");
       const desc = String(t.descricao);
       tituloId = Number(t.id);
+      const exc = vp > valor ? await sentidoDoGrupo(sentido) : null;
+      const ficaAberto = parcial && vp < valor;
       if (sentido === "pagar") {
         const ctl = await contaSistema(conn, e, "a_pagar");
         await lancar(conn, e, { data: inp.data, descricao: desc, valor: Math.min(vp, valor), origem: conta.id, destino: ctl, tituloId });
-        if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — juros/multa`, valor: vp - valor, origem: conta.id, destino: await contaSistema(conn, e, "juros_pagos"), tituloId });
-        if (vp < valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — desconto`, valor: valor - vp, origem: await contaSistema(conn, e, "descontos_obtidos"), destino: ctl, tituloId });
+        if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ${exc ? "excedente" : "juros/multa"}`, valor: vp - valor, origem: conta.id, destino: exc ?? await contaSistema(conn, e, "juros_pagos"), tituloId });
+        if (vp < valor && !ficaAberto) await lancar(conn, e, { data: inp.data, descricao: `${desc} — desconto`, valor: valor - vp, origem: await contaSistema(conn, e, "descontos_obtidos"), destino: ctl, tituloId });
       } else {
         const ctl = await contaSistema(conn, e, "a_receber");
         await lancar(conn, e, { data: inp.data, descricao: desc, valor: Math.min(vp, valor), origem: ctl, destino: conta.id, tituloId });
-        if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — juros/multa`, valor: vp - valor, origem: await contaSistema(conn, e, "juros_recebidos"), destino: conta.id, tituloId });
-        if (vp < valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — desconto`, valor: valor - vp, origem: ctl, destino: await contaSistema(conn, e, "descontos_concedidos"), tituloId });
+        if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ${exc ? "excedente" : "juros/multa"}`, valor: vp - valor, origem: exc ?? await contaSistema(conn, e, "juros_recebidos"), destino: conta.id, tituloId });
+        if (vp < valor && !ficaAberto) await lancar(conn, e, { data: inp.data, descricao: `${desc} — desconto`, valor: valor - vp, origem: ctl, destino: await contaSistema(conn, e, "descontos_concedidos"), tituloId });
+      }
+      if (ficaAberto) {
+        // Parcial: este título fica com o que foi pago; a diferença vira um título "saldo" em aberto, mesmo vencimento.
+        // O a pagar/a receber já contém o valor cheio (nasceu na compra), então o livro não muda.
+        await conn.query(`UPDATE fin_titulos SET valor = ? WHERE id = ?`, [vp, tituloId]);
+        saldoTituloId = await criarSaldo(
+          { sentido, descricao: desc, vencimento: String(t.venc), grupoId: Number(t.gid), lote: t.lote ?? null, parcela: t.parcela ?? null, parcelas: t.parcelas ?? null },
+          valor - vp,
+          tituloId
+        );
       }
       await conn.query(
         `UPDATE fin_titulos SET situacao = 'quitado', quitado_em = ?, valor_pago = ?, conta_pagamentoid = ? WHERE id = ?`,
@@ -605,20 +637,52 @@ export async function baixar(
         throw err;
       }
       tituloId = Number(ins[0].id);
-      // Nasce no pagamento: direto entre a conta e o grupo, sem passar por a pagar/a receber
+      const excGrupo = vp > previsto ? await sentidoDoGrupo(regra.sentido) : null;
+      // Nasce no pagamento: direto entre a conta e o grupo, sem passar por a pagar/a receber.
+      // Excedente com grupo escolhido: o previsto vai ao grupo da conta fixa e a diferença ao grupo escolhido.
+      const noGrupo = excGrupo ? previsto : vp;
       await lancar(conn, e, {
         data: inp.data,
         descricao: regra.descricao,
-        valor: vp,
+        valor: noGrupo,
         origem: regra.sentido === "pagar" ? conta.id : regra.contaGrupoId,
         destino: regra.sentido === "pagar" ? regra.contaGrupoId : conta.id,
         tituloId,
       });
+      if (excGrupo) {
+        await lancar(conn, e, {
+          data: inp.data,
+          descricao: `${regra.descricao} — excedente`,
+          valor: vp - previsto,
+          origem: regra.sentido === "pagar" ? conta.id : excGrupo,
+          destino: regra.sentido === "pagar" ? excGrupo : conta.id,
+          tituloId,
+        });
+      }
+      if (parcial && vp < previsto) {
+        // Parcial: a ocorrência fica paga pelo que foi pago; a diferença vira título "saldo" em aberto,
+        // com a despesa/receita reconhecida agora contra a pagar/a receber (como uma conta a prazo)
+        await conn.query(`UPDATE fin_titulos SET valor = ? WHERE id = ?`, [vp, tituloId]);
+        saldoTituloId = await criarSaldo(
+          { sentido: regra.sentido, descricao: regra.descricao, vencimento: inp.referencia, grupoId: regra.contaGrupoId, lote: null, parcela: null, parcelas: null },
+          previsto - vp,
+          tituloId
+        );
+        const ctl = await contaSistema(conn, e, regra.sentido === "pagar" ? "a_pagar" : "a_receber");
+        await lancar(conn, e, {
+          data: inp.data,
+          descricao: `${regra.descricao} (saldo)`,
+          valor: previsto - vp,
+          origem: regra.sentido === "pagar" ? ctl : regra.contaGrupoId,
+          destino: regra.sentido === "pagar" ? regra.contaGrupoId : ctl,
+          tituloId: saldoTituloId,
+        });
+      }
     } else {
       throw new FinErro("alvo", "Informe o título ou a recorrência e o vencimento.");
     }
     await conn.commit();
-    return { tituloId };
+    return { tituloId, saldoTituloId };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -636,9 +700,20 @@ export async function desfazerBaixa(e: Espaco, tituloId: number): Promise<void> 
   const t = ts[0];
   if (!t) throw new FinErro("nao_encontrado", "Título não encontrado.");
   if (t.situacao !== "quitado") throw new FinErro("nao_pago", "Este título não está pago.");
+  // Pagamento parcial: o saldo que ficou em aberto volta para este título (se o saldo já foi pago, desfaça-o antes)
+  const [saldos] = await pool.query<RowDataPacket[]>(
+    `SELECT id, valor, situacao FROM fin_titulos WHERE saldo_de_tituloid = ?`,
+    [tituloId]
+  );
+  if (saldos.some((s) => s.situacao !== "aberto")) {
+    throw new FinErro("saldo_pago", "O saldo deste pagamento parcial já foi pago. Desfaça antes o pagamento do saldo.");
+  }
+  const devolver = saldos.reduce((a, s) => a + n(s.valor), 0);
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    for (const s of saldos) await conn.query(`DELETE FROM fin_titulos WHERE id = ?`, [s.id]);
+    if (devolver > 0) await conn.query(`UPDATE fin_titulos SET valor = valor + ? WHERE id = ?`, [r2(devolver), tituloId]);
     await conn.query(`DELETE FROM fin_lancamentos WHERE tituloid = ?`, [tituloId]);
     if (t.rid != null) {
       // Título de recorrência só existia por causa do pagamento: volta a ser ocorrência prevista

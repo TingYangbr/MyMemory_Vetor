@@ -54,7 +54,11 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const [contasOpc, setContasOpc] = useState(proposta.opcoes.contas);
   const [gruposDesp, setGruposDesp] = useState(proposta.opcoes.gruposDespesa);
   const [gruposRec, setGruposRec] = useState(proposta.opcoes.gruposReceita);
-  const [novo, setNovo] = useState<null | "grupo" | "conta">(null);
+  const [novo, setNovo] = useState<null | "grupo" | "conta" | "excedente">(null);
+  // Pagamento com valor diferente do previsto: o que fazer com a diferença
+  const [decMenor, setDecMenor] = useState<"" | "parcial" | "quitar">("");
+  const [decMaior, setDecMaior] = useState<"" | "quitar" | "grupo">("");
+  const [excGrupoId, setExcGrupoId] = useState("");
 
   // Gasto é sempre a pagar; receita, a receber; pagamento segue o item escolhido
   const sentidoEfetivo: "pagar" | "receber" =
@@ -68,6 +72,15 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
   const contaObrigatoria = tipo !== "fixa";
   const pedeGrupo = tipo !== "pagamento";
 
+  // Pagamento: compara o valor informado com o previsto do item em aberto
+  const alvoItem = tipo === "pagamento" ? abertos.find((a) => a.chave === alvo) ?? null : null;
+  const valorInf = lerValor(valor) ?? alvoItem?.valor ?? null;
+  const dif = alvoItem && valorInf != null ? Math.round((valorInf - alvoItem.valor) * 100) / 100 : 0;
+  const pagouMenos = dif < 0;
+  const pagouMais = dif > 0;
+  const ehRecorrencia = alvoItem?.chave.startsWith("r:") ?? false;
+  const valorPendente = (pagouMenos && !decMenor) || (pagouMais && (!decMaior || (decMaior === "grupo" && !excGrupoId)));
+
   async function gravar() {
     setErro(null);
     const v = lerValor(valor);
@@ -77,6 +90,9 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
     if (pedeGrupo && grupo == null) return setErro(sentidoEfetivo === "pagar" ? "Escolha o grupo de despesa." : "Escolha o grupo de receita.");
     if (pedeConta && contaObrigatoria && conta == null) return setErro("Escolha a conta ou o cartão.");
     if (tipo === "pagamento" && !alvo) return setErro("Escolha qual conta em aberto foi paga.");
+    if (tipo === "pagamento" && pagouMenos && !decMenor) return setErro("Pagou menos que o previsto: escolha Parcial ou Quitar assim mesmo.");
+    if (tipo === "pagamento" && pagouMais && !decMaior) return setErro("Pagou mais que o previsto: escolha Quitar assim mesmo ou o grupo do excedente.");
+    if (tipo === "pagamento" && pagouMais && decMaior === "grupo" && !excGrupoId) return setErro("Escolha o grupo do excedente.");
     setEstado("gravando");
     try {
       if (tipo === "gasto" || tipo === "receita") {
@@ -121,14 +137,20 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
           partes[0] === "t"
             ? { tituloId: Number(partes[1]) }
             : { recorrenciaId: Number(partes[1]), referencia: partes.slice(2).join(":") };
-        const r = await apiPostJson<{ tituloId: number }>("/api/fin/baixas", {
+        const parcial = pagouMenos && decMenor === "parcial";
+        const r = await apiPostJson<{ tituloId: number; saldoTituloId?: number | null }>("/api/fin/baixas", {
           ...corpo,
           data,
           valorPago: v ?? a.valor,
           contaPagamentoId: conta,
+          modo: parcial ? "parcial" : "quitar",
+          excedenteGrupoId: pagouMais && decMaior === "grupo" ? Number(excGrupoId) : null,
         });
         setDesfazer({ tipo: "baixa", tituloId: r.tituloId });
-        setFeito(`${a.sentido === "pagar" ? "Pagamento" : "Recebimento"} de "${a.descricao}" gravado.`);
+        setFeito(
+          `${a.sentido === "pagar" ? "Pagamento" : "Recebimento"} de "${a.descricao}" gravado.` +
+            (parcial ? ` Ficou ${brl(-dif)} em aberto (saldo), mesmo vencimento.` : "")
+        );
       }
       setEstado("gravado");
     } catch (e) {
@@ -245,8 +267,8 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
       <div style={linha}>
         <label style={rot}>
-          <span>Valor (R$){marca(tipo !== "pagamento" && lerValor(valor) == null)}</span>
-          <input className="mm-field" style={falta(tipo !== "pagamento" && lerValor(valor) == null)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
+          <span>Valor (R$){marca((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)}</span>
+          <input className="mm-field" style={falta((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
         </label>
         <label style={rot}>
           {ROTULO_DATA[tipo]}
@@ -269,6 +291,51 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
           </label>
         ) : null}
       </div>
+
+      {alvoItem && (pagouMenos || pagouMais) ? (
+        <div style={{ display: "grid", gap: 6, fontSize: 13 }}>
+          <span style={{ color: valorPendente ? "var(--mm-danger)" : "var(--mm-muted)" }}>
+            {pagouMenos
+              ? `Pagou ${brl(-dif)} a menos que o previsto (${brl(alvoItem.valor)}).`
+              : `Pagou ${brl(dif)} a mais que o previsto (${brl(alvoItem.valor)}).`}
+          </span>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {pagouMenos ? (
+              <>
+                <button type="button" className={`mm-btn${decMenor === "parcial" ? " mm-btn--primary" : ""}`} onClick={() => setDecMenor("parcial")}>
+                  Parcial: fica {brl(-dif)} em aberto
+                </button>
+                <button type="button" className={`mm-btn${decMenor === "quitar" ? " mm-btn--primary" : ""}`} onClick={() => setDecMenor("quitar")}>
+                  Quitar assim mesmo (desconto)
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" className={`mm-btn${decMaior === "quitar" ? " mm-btn--primary" : ""}`} onClick={() => setDecMaior("quitar")}>
+                  {ehRecorrencia ? "Quitar assim mesmo (a conta veio maior)" : "Quitar assim mesmo (juros/multa)"}
+                </button>
+                <button type="button" className={`mm-btn${decMaior === "grupo" ? " mm-btn--primary" : ""}`} onClick={() => setDecMaior("grupo")}>
+                  Lançar o excedente em um grupo…
+                </button>
+              </>
+            )}
+          </div>
+          {pagouMais && decMaior === "grupo" ? (
+            <label style={rot}>
+              <span>{sentidoEfetivo === "pagar" ? "Grupo de despesa do excedente" : "Grupo de receita do excedente"}{marca(!excGrupoId)}</span>
+              <select className="mm-field" style={falta(!excGrupoId)} value={excGrupoId} onChange={(e) => setExcGrupoId(e.target.value)}>
+                <option value="">— escolha (ex.: Juros e multas) —</option>
+                {(sentidoEfetivo === "pagar" ? gruposDesp : gruposRec).map((g) => (
+                  <option key={g.id} value={g.id}>{g.nome}</option>
+                ))}
+              </select>
+              {cfg.criarGrupo ? (
+                <button type="button" style={maisLink} onClick={() => setNovo("excedente")}>+ novo grupo</button>
+              ) : null}
+            </label>
+          ) : null}
+        </div>
+      ) : null}
 
       <div style={linha}>
         {pedeGrupo ? (
@@ -307,14 +374,15 @@ export default function FinComandoCartao({ proposta }: { proposta: FinComandoPro
 
       {novo ? (
         <NovoCadastro
-          qual={novo}
+          qual={novo === "excedente" ? "grupo" : novo}
           sentido={sentidoEfetivo}
           onFechar={() => setNovo(null)}
           onCriado={(c) => {
             if (c.tipo === "despesa") setGruposDesp((l) => [...l, { id: c.id, nome: c.nome }]);
             else if (c.tipo === "receita") setGruposRec((l) => [...l, { id: c.id, nome: c.nome }]);
             else setContasOpc((l) => [...l, { id: c.id, nome: c.nome, tipo: c.tipo }]);
-            if (c.tipo === "despesa" || c.tipo === "receita") setGrupoId(String(c.id));
+            if (novo === "excedente") setExcGrupoId(String(c.id));
+            else if (c.tipo === "despesa" || c.tipo === "receita") setGrupoId(String(c.id));
             else setContaId(String(c.id));
             setNovo(null);
           }}
