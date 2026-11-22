@@ -97,6 +97,40 @@ export async function ultimoLancamentoId(
   return rows[0]?.id == null ? null : Number(rows[0].id);
 }
 
+/**
+ * Liga o memo do documento (PDF/imagem do Catalogar) ao que foi gravado: lote do parcelado, conta fixa,
+ * lançamento, pagamento (título) ou operação de investimento. O memo tem de ser deste espaço.
+ */
+export async function ligarMemoEvidencia(
+  e: Espaco,
+  memoId: number,
+  alvo: { tipo: "lote"; lote: string } | { tipo: "recorrencia"; id: number } | { tipo: "baixa"; tituloId: number } | { tipo: "lancamento"; id: number } | { tipo: "operacao"; id: number }
+): Promise<void> {
+  const [m] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM memos WHERE id = ? AND isactive = 1 AND ${e.groupId != null ? "groupid = ?" : "groupid IS NULL AND userid = ?"} LIMIT 1`,
+    [memoId, e.groupId ?? e.userId]
+  );
+  if (!m[0]) throw new FinErro("memo", "Documento não encontrado neste espaço.");
+  const f = esp(e);
+  if (alvo.tipo === "lote") {
+    await pool.query(`UPDATE fin_titulos SET memoid = ? WHERE lote = ? AND ${f.sql}`, [memoId, alvo.lote, ...f.params]);
+    await pool.query(`UPDATE fin_lancamentos SET memoid = ? WHERE lote = ? AND ${f.sql}`, [memoId, alvo.lote, ...f.params]);
+  } else if (alvo.tipo === "recorrencia") {
+    await pool.query(`UPDATE fin_recorrencias SET memoid = ? WHERE id = ? AND ${f.sql}`, [memoId, alvo.id, ...f.params]);
+  } else if (alvo.tipo === "baixa") {
+    await pool.query(`UPDATE fin_titulos SET memoid = COALESCE(memoid, ?) WHERE id = ? AND ${f.sql}`, [memoId, alvo.tituloId, ...f.params]);
+    await pool.query(`UPDATE fin_lancamentos SET memoid = ? WHERE tituloid = ? AND ${f.sql}`, [memoId, alvo.tituloId, ...f.params]);
+  } else if (alvo.tipo === "lancamento") {
+    await pool.query(`UPDATE fin_lancamentos SET memoid = ? WHERE id = ? AND ${f.sql}`, [memoId, alvo.id, ...f.params]);
+  } else {
+    await pool.query(`UPDATE fin_operacoes_inv SET memoid = ? WHERE id = ? AND ${f.sql}`, [memoId, alvo.id, ...f.params]);
+    await pool.query(
+      `UPDATE fin_lancamentos SET memoid = ? WHERE lote = (SELECT lote FROM fin_operacoes_inv WHERE id = ?) AND ${f.sql}`,
+      [memoId, alvo.id, ...f.params]
+    );
+  }
+}
+
 /* ---------------- Contas ---------------- */
 
 async function contaSistema(c: Conn, e: Espaco, chave: FinChaveSistema): Promise<number> {
