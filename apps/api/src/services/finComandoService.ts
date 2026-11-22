@@ -71,7 +71,7 @@ export async function montarPropostaFin(input: {
         receita: "dinheiro recebido que não estava em aberto (recebi, entrou, salário caiu): de um grupo de receita para uma conta",
         conta: "conta a pagar ou a receber futura, única ou parcelada (vence dia 10, em 3x, boleto de…)",
         fixa: "conta que se repete (todo mês, todo dia 5, mensal, semanal, anual) — aluguel, salário, assinatura",
-        pagamento: "pagou ou recebeu algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim)",
+        pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
       },
     },
     null,
