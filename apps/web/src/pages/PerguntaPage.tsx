@@ -1689,7 +1689,9 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const [ready, setReady] = useState(false);
   const [pergunta, setPergunta] = useState("");
   const [historico, setHistorico] = useState<PerguntaCardHistorico[]>([]);
-  const [respostas, setRespostas] = useState<(PerguntaResponse & { perguntaTexto: string })[]>([]);
+  // _k: chave estável de cada resposta (a lista cresce pelo topo; chave por índice trocava o estado dos cartões)
+  const [respostas, setRespostas] = useState<(PerguntaResponse & { perguntaTexto: string; _k?: number })[]>([]);
+  const seqResposta = useRef(0);
   const [busy, setBusy] = useState(false);
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -2169,7 +2171,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       }
 
       if (!res) throw new Error("Resposta não recebida.");
-      const card = { ...res, perguntaTexto: q };
+      const card = { ...res, perguntaTexto: q, _k: ++seqResposta.current };
       setRespostas((prev) => [card, ...prev]);
       if (res.comando) tratarComando(res.comando);
       if (res.criacao) setCriando(res.criacao);
@@ -2715,7 +2717,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       if (j.replanejar) replanejar = j.pergunta ?? q;
       else if (j.resultado) {
         const res = j.resultado;
-        setRespostas((prev) => [{ ...res, perguntaTexto: q }, ...prev]);
+        setRespostas((prev) => [{ ...res, perguntaTexto: q, _k: ++seqResposta.current }, ...prev]);
         setHistorico((prev) => [
           ...prev,
           {
@@ -3207,7 +3209,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
         {respostas.length > 0 ? (
           <div className={styles.cards}>
             {respostas.map((r, i) => (
-              <article key={i} className={styles.card} {...(i === 0 ? { "data-resposta-nova": "" } : {})} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
+              <article key={r._k ?? `i${i}`} className={styles.card} {...(i === 0 ? { "data-resposta-nova": "" } : {})} {...(ttsBusyPergunta === r.perguntaTexto ? { "data-tts-card-active": "" } : {})}>
                 <div className={styles.cardPergunta}>
                   <div className={styles.cardPerguntaMain}>
                     <span className={styles.cardPerguntaIcon} aria-hidden><IconChat size={16} /></span>
