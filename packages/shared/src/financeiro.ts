@@ -306,6 +306,33 @@ export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento
  * "aluguel de 2.500 todo dia 5", "paguei o aluguel"). A tela mostra num cartão editável e só grava ao confirmar,
  * pelas mesmas rotas da tela Contas a pagar e receber.
  */
+/** Ajustes do Fale comigo → financeiro, por espaço (grupo ou pessoal). */
+export interface FinConfig {
+  /** Grava sem pedir confirmação quando todos os campos obrigatórios vierem identificados, sem dúvida. */
+  gravarDireto: boolean;
+  /** O cartão mostra "+ novo" ao lado do grupo de despesa/receita, para cadastrar na hora. */
+  criarGrupo: boolean;
+  /** O cartão mostra "+ nova" ao lado da conta/cartão, para cadastrar na hora. */
+  criarConta: boolean;
+}
+
+export interface FinConfigResposta extends FinConfig {
+  /** Pode mudar os ajustes (dono do grupo, admin, ou o próprio usuário no espaço pessoal). */
+  podeEditar: boolean;
+}
+
+export type FinComandoDesfazer =
+  | { tipo: "lote"; lote: string }
+  | { tipo: "recorrencia"; id: number }
+  | { tipo: "baixa"; tituloId: number }
+  | { tipo: "lancamento"; id: number }
+  | null;
+
+export interface FinComandoGravado {
+  mensagem: string;
+  desfazer: FinComandoDesfazer;
+}
+
 export interface FinComandoProposta {
   tipo: FinComandoTipo;
   sentido: "pagar" | "receber";
@@ -323,6 +350,10 @@ export interface FinComandoProposta {
   /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
   alvoChave: string | null;
   mensagem: string;
+  /** Ajustes do Fale comigo neste espaço (gravar direto, criar grupo/conta pelo cartão). */
+  config: FinConfig;
+  /** Já gravado direto (cartão completo e "gravar direto" ligado): o cartão abre no estado gravado. */
+  gravado?: FinComandoGravado | null;
   opcoes: {
     contas: { id: number; nome: string; tipo: FinTipoConta }[];
     gruposDespesa: { id: number; nome: string }[];
