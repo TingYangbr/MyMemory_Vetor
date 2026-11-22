@@ -104,6 +104,7 @@ import { CampoPapelGrafico1700000000189 } from "./migrations/1700000000189-Campo
 import { RegistroUnicoPor1700000000190 } from "./migrations/1700000000190-RegistroUnicoPor.js";
 import { CampoUnidade1700000000191 } from "./migrations/1700000000191-CampoUnidade.js";
 import { CampoCompletarDatas1700000000192 } from "./migrations/1700000000192-CampoCompletarDatas.js";
+import { GrupoUsarGlobais1700000000193 } from "./migrations/1700000000193-GrupoUsarGlobais.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -256,6 +257,7 @@ assertMediaStorageEnv();
       RegistroUnicoPor1700000000190,
       CampoUnidade1700000000191,
       CampoCompletarDatas1700000000192,
+      GrupoUsarGlobais1700000000193,
     ],
   });
   const ds = await AppDataSource.initialize();
