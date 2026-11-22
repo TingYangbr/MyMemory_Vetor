@@ -147,7 +147,7 @@ export default function FinanceiroPage() {
             </span>
           ) : null}
         </div>
-        <p className={styles.sub}>Etapa 1 do controle financeiro, em teste. Cada lançamento grava de onde sai e para onde vai.</p>
+        <p className={styles.sub}>Cada lançamento grava de onde sai e para onde vai. Também dá para lançar pelo Fale comigo ("paguei o aluguel", "gastei 80 no mercado").</p>
 
         {erro ? <div className={styles.erro}>{erro}</div> : null}
         {aviso ? <div className={styles.ok}>{aviso}</div> : null}
