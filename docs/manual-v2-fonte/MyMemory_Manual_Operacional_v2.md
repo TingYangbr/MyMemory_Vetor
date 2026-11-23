@@ -422,6 +422,14 @@ Na edição do campo, **Papel no gráfico**:
 ## Ordenação
 "Ordene por X", "em ordem alfabética", "de A a Z", "do maior para o menor" e "mais recentes primeiro" são aplicados no próprio banco de dados: a tabela e o PDF já chegam na ordem pedida.
 - Exemplo: "Listar faturamento por produto de abril de 2026, incluir abrev do cliente e ordenar por abrev cliente de A a Z".
+## Percentuais nas perguntas
+Não há sintaxe especial: basta pedir o % em linguagem natural. O sistema reconhece o tipo pelas palavras da pergunta, e a conta é feita no banco, não pela IA.
+- **Razão entre duas medidas**, quando a pergunta cita duas grandezas: "margem % por produto", "% do lucro sobre o faturamento por cliente".
+- **Participação no total**, quando uma grandeza é repartida por item: "% de cada grupo nos gastos de novembro", "quanto o combustível representa nos gastos do ano", "participação de cada cliente no faturamento".
+- **Participação dentro de um recorte**, com "em cada" ou "dentro de": "% de cada grupo nos gastos em cada mês", em que o total de referência é o de cada mês.
+- **Variação**, com "crescimento", "variação" ou "mês a mês": ver as seções abaixo.
+- A coluna de % sai com o sinal % e vai para o eixo da direita do gráfico. Para um ranking pelo %, peça "ordenado pelo %".
+DICA: Quando uma pergunta ambígua pegar o tipo errado, diga a base do cálculo: "sobre o faturamento" (razão), "do total" (participação) ou "do total de cada mês" (recorte).
 ## Comparação entre dois períodos
 Perguntas de variação entre dois períodos têm as contas feitas pelo sistema, não pela IA.
 - Exemplo: "Faturamento e CMV total por produto, variação % de fevereiro sobre janeiro de 2026, somente produtos faturados nos dois meses".
