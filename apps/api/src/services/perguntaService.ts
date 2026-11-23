@@ -520,6 +520,17 @@ export async function perguntarMemory(input: {
     classificacao.alvo = "dados";
   }
 
+  // Declaração de dinheiro no passado ("transferi 18 mil do Itaú para a XP", "paguei 300 de luz"): é registro no
+  // financeiro, mesmo quando o classificador marca "consultar" (aí a frase ia para a busca de memos).
+  if (
+    input.permitirComandos &&
+    classificacao.acao === "consultar" &&
+    input.categories.some((c) => c.isActive === 1 && /^finan[cç]as pessoais/i.test(c.name)) &&
+    declaracaoFinanceira(input.pergunta)
+  ) {
+    classificacao.acao = "criar";
+  }
+
   // Comando ("adiar a reunião para 14h", "acrescentar arroz na lista"): não é pergunta e nunca vai
   // aos pipes de consulta, que só leem. Só pela tela do usuário (nunca por chave de integração).
   if ((classificacao.acao === "alterar" || classificacao.acao === "criar") && input.permitirComandos) {
@@ -551,7 +562,7 @@ export async function perguntarMemory(input: {
     const temFinancas = cats.some((c) => c.isActive === 1 && /^finan[cç]as pessoais/i.test(c.name));
     const fraseDeFinanceiro = (() => {
       const t = input.pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
-      const verbo = /\b(gast\w*|pag\w*|receb\w*|quit\w*|vence\w*|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|despesa|cobranc\w*|conta a (pagar|receber)|todo dia \d+|todo mes)\b/.test(t);
+      const verbo = /\b(gast\w*|pag\w*|receb\w*|quit\w*|vence\w*|venc\.|boleto|parcel\w*|em \d+ ?x|fatura|aluguel|salario|prolabore|pro-labore|assinatura|despesa|cobranc\w*|transf\w*|aplique\w*|apliquei|resgat\w*|saquei|saque|deposit\w*|conta a (pagar|receber)|todo dia \d+|todo mes)\b/.test(t);
       const dinheiro = /(r\$\s*\d|\b\d+([.,]\d+)?\s*(reais|mil|k)\b|\b\d{2,}([.,]\d{2})?\b)/.test(t);
       const pagamentoSemValor = /\b(paguei|recebi|quitei)\b/.test(t);
       if (verbo && (dinheiro || pagamentoSemValor)) return true;
@@ -910,4 +921,18 @@ function semLinhas(d: PerguntaResposta["dados_estruturados"]): boolean {
   if (!d) return true;
   const lista = Array.isArray(d) ? d : [d];
   return lista.every((x) => (x?.totalLinhas ?? x?.linhas?.length ?? 0) === 0);
+}
+
+
+/**
+ * Frase que AFIRMA um movimento de dinheiro já feito, em 1ª pessoa ("transferi 18 mil da conta Itaú para a XP",
+ * "paguei 300 de luz", "recebi 2.000 do Joaquim"), e não pergunta ("quanto paguei…?", "liste o que transferi").
+ */
+function declaracaoFinanceira(frase: string): boolean {
+  const t = frase.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  if (t.includes("?")) return false;
+  if (/^(quanto|quantos|quantas|qual|quais|quando|onde|como|o que|que |por que|porque|liste|listar|lista|mostre|mostrar|me mostre|me de|exiba|total|soma|resumo|extrato|relatorio|tem |houve|existe)/.test(t)) return false;
+  const verbo = /^(eu |hoje |ontem |dia \d+[^ ]* |em \d+[^ ]* )*(transferi|paguei|gastei|recebi|comprei|vendi|apliquei|resgatei|saquei|depositei|quitei|mandei|enviei|fiz (um )?pix|fiz (uma )?transferencia)\b/.test(t);
+  const valor = /(r\$\s*\d|\b\d+([.,]\d+)?\s*(reais|mil|k)\b|\b\d{2,}([.,]\d{2})?\b)/.test(t);
+  return verbo && valor;
 }
