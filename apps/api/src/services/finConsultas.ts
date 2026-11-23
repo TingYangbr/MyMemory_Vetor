@@ -14,7 +14,6 @@ export interface FinConsultaDef {
 
 const HOJE = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const INI_MES = "date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date";
-const INI_ANO = "date_trunc('year', now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const FIM_MES = "(date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') + interval '1 month - 1 day')::date";
 /** "Sem data final" na agenda: títulos sem limite; a previsão das recorrências vai até 12 meses à frente (fin_agenda). */
 export const SEM_FIM = "DATE '9999-12-31'";
@@ -106,7 +105,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       "comparar meses, quanto saiu ou entrou de uma conta ou cartão, extrato, lançamentos, para quem paguei, maiores gastos.",
     resumo: "Quanto gastou e recebeu, por grupo e por mês, o que sobrou, e o extrato de cada conta e cartão.",
     exemplos: ["Quanto gastei com alimentação em outubro?", "Sobrou dinheiro em outubro?", "Quanto saiu do Itaú este mês?", "O que paguei para a Michelle?", "Quais foram meus maiores gastos no mês?"].join("\n"),
-    consultas: ["Financeiro — Gastos e receitas", "Financeiro — Resultado", "Financeiro — Entradas e saídas", "Financeiro — Lançamentos", "Financeiro — Contas cadastradas"],
+    consultas: ["Financeiro — Movimentos por grupo", "Financeiro — Entradas e saídas", "Financeiro — Lançamentos", "Financeiro — Contas cadastradas"],
   },
   {
     nome: "Finanças Pessoais - Saldos e investimentos",
@@ -159,65 +158,40 @@ LIMIT 500`,
     ],
   },
   {
-    nome: "Financeiro — Gastos e receitas por grupo",
+    nome: "Financeiro — Movimentos por grupo",
     descricao:
-      "Total de despesas e de receitas por grupo (Alimentação, Moradia, Salário…) no período, pela data da compra/venda (competência: " +
-      "compra no cartão conta no mês da compra). Use para: quanto gastei, com o quê, quanto recebi. " +
-      "Colunas: grupo, tipo (despesa ou receita), total, lancamentos. tipo: 'despesa'/'gasto' ou 'receita'. Sem datas: o mês atual.",
-    sql: `SELECT g.nome AS grupo, g.tipo,
-  SUM(CASE WHEN (g.tipo = 'despesa') = (l.conta_destinoid = g.id) THEN l.valor ELSE -l.valor END) AS total,
-  COUNT(*) AS lancamentos
+      "Detalhe: UMA LINHA POR LANÇAMENTO de despesa ou receita, já com o sinal certo (estorno subtrai). Monte os totais com a " +
+      "agregação (soma), como no ERP: por grupo, por mês (coluna mes), por grupo e mês, por conta, maiores gastos, resultado. " +
+      "Use para: quanto gastei com X, gastos mensais por grupo, alimentação março × abril, sobrou dinheiro no mês, quanto " +
+      "recebi de salário. Colunas: data, mes (AAAA-MM), grupo (Alimentação, Moradia, Salário…), tipo (despesa ou receita), " +
+      "descricao, conta (banco ou cartão de onde saiu / para onde entrou), receita, despesa, resultado (= receita − despesa). " +
+      "Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de resultado. Para série mensal ('mensal', " +
+      "'mês a mês', 'por mês') sem período citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. " +
+      "tipo: 'despesa'/'gasto' ou 'receita'. Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
+    sql: `SELECT l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, g.nome AS grupo, g.tipo, l.descricao,
+  c.nome AS conta,
+  CASE WHEN g.tipo = 'receita' THEN (CASE WHEN l.conta_origemid = g.id THEN l.valor ELSE -l.valor END) ELSE 0 END AS receita,
+  CASE WHEN g.tipo = 'despesa' THEN (CASE WHEN l.conta_destinoid = g.id THEN l.valor ELSE -l.valor END) ELSE 0 END AS despesa,
+  CASE WHEN g.tipo = 'receita' THEN (CASE WHEN l.conta_origemid = g.id THEN l.valor ELSE -l.valor END)
+       ELSE -(CASE WHEN l.conta_destinoid = g.id THEN l.valor ELSE -l.valor END) END AS resultado
 FROM fin_lancamentos l
 JOIN fin_contas g ON g.id IN (l.conta_origemid, l.conta_destinoid) AND g.tipo IN ('despesa', 'receita')
+LEFT JOIN fin_contas c ON c.id = CASE WHEN l.conta_origemid = g.id THEN l.conta_destinoid ELSE l.conta_origemid END
 WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
        OR (g.tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%' OR :tipo ILIKE '%pag%'))
        OR (g.tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%')))
   AND (:grupo IS NULL OR g.nome ILIKE :grupo)
-GROUP BY g.nome, g.tipo
-ORDER BY g.tipo, total DESC
-LIMIT 200`,
-    params: [...periodo(""), { campo: "tipo", tipo: "string", operadorSql: "=" }, { campo: "grupo", tipo: "string", operadorSql: "LIKE" }],
-  },
-  {
-    nome: "Financeiro — Gastos e receitas por grupo e mês",
-    descricao:
-      "Total de despesas e de receitas por grupo E por mês (AAAA-MM), por competência. Use para: gastos mensais por grupo, " +
-      "evolução de um grupo mês a mês, comparar meses de um grupo (ex.: alimentação em março × abril). " +
-      "Colunas: mes, grupo, tipo (despesa ou receita), total, lancamentos. tipo: 'despesa'/'gasto' ou 'receita'. " +
-      "Sem datas: do começo do ano até o fim do mês atual (é uma série mensal; para um mês só, informe as datas).",
-    sql: `SELECT to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, g.nome AS grupo, g.tipo,
-  SUM(CASE WHEN (g.tipo = 'despesa') = (l.conta_destinoid = g.id) THEN l.valor ELSE -l.valor END) AS total,
-  COUNT(*) AS lancamentos
-FROM fin_lancamentos l
-JOIN fin_contas g ON g.id IN (l.conta_origemid, l.conta_destinoid) AND g.tipo IN ('despesa', 'receita')
-WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_ANO}) AND COALESCE(:data_fin, ${FIM_MES})
-  AND (:tipo IS NULL
-       OR (g.tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%' OR :tipo ILIKE '%pag%'))
-       OR (g.tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%')))
-  AND (:grupo IS NULL OR g.nome ILIKE :grupo)
-GROUP BY 1, g.nome, g.tipo
-ORDER BY 1, g.tipo, total DESC
-LIMIT 1000`,
-    params: [...periodo(""), { campo: "tipo", tipo: "string", operadorSql: "=" }, { campo: "grupo", tipo: "string", operadorSql: "LIKE" }],
-  },
-  {
-    nome: "Financeiro — Resultado por mês (receitas − despesas)",
-    descricao:
-      "Receitas, despesas e resultado (sobra ou falta) de cada mês do período, por competência. Use para: sobrou dinheiro?, " +
-      "comparar meses. Colunas: mes (AAAA-MM), receitas, despesas, resultado. Sem datas: o mês atual.",
-    sql: `SELECT to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes,
-  SUM(CASE WHEN g.tipo = 'receita' THEN (CASE WHEN l.conta_origemid = g.id THEN l.valor ELSE -l.valor END) ELSE 0 END) AS receitas,
-  SUM(CASE WHEN g.tipo = 'despesa' THEN (CASE WHEN l.conta_destinoid = g.id THEN l.valor ELSE -l.valor END) ELSE 0 END) AS despesas,
-  SUM(CASE WHEN g.tipo = 'receita' THEN (CASE WHEN l.conta_origemid = g.id THEN l.valor ELSE -l.valor END)
-           ELSE -(CASE WHEN l.conta_destinoid = g.id THEN l.valor ELSE -l.valor END) END) AS resultado
-FROM fin_lancamentos l
-JOIN fin_contas g ON g.id IN (l.conta_origemid, l.conta_destinoid) AND g.tipo IN ('despesa', 'receita')
-WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
-GROUP BY 1
-ORDER BY 1
-LIMIT 120`,
-    params: periodo(""),
+  AND (:conta IS NULL OR c.nome ILIKE :conta)
+  AND (:descricao IS NULL OR l.descricao ILIKE :descricao)
+ORDER BY l.data, g.nome`,
+    params: [
+      ...periodo(""),
+      { campo: "tipo", tipo: "string", operadorSql: "=" },
+      { campo: "grupo", tipo: "string", operadorSql: "LIKE" },
+      { campo: "conta", tipo: "string", operadorSql: "LIKE" },
+      { campo: "descricao", tipo: "string", operadorSql: "LIKE" },
+    ],
   },
   {
     nome: "Financeiro — Entradas e saídas por conta (caixa)",
