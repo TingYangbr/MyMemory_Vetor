@@ -350,7 +350,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       }
       const resultado: PerguntaResponse = {
         resposta: {
-          resposta: `${r.criacao.mensagem} Nada foi gravado ainda.`,
+          resposta: r.criacao.mensagem,
           tipo_resposta: "semantica",
           dados_usados: [],
           limitacoes: ["Registro novo ainda não gravado: confira no cartão e salve."],
