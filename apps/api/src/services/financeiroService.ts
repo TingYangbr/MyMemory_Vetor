@@ -443,6 +443,31 @@ async function excecoesDe(c: Conn, ids: number[]): Promise<Map<number, Map<strin
   return out;
 }
 
+/**
+ * Vencimento de uma recorrência dentro de um mês ("AAAA-MM") que ainda pode ser pago: existe pela regra, não foi
+ * pulado e ainda não virou título (pago). Usado pelo Fale comigo para "paguei o aluguel em 10/09" pegar setembro
+ * (a agenda esconde atrasados anteriores ao mês do cadastro da regra).
+ */
+export async function ocorrenciaNoMes(
+  e: Espaco,
+  recorrenciaId: number,
+  mes: string
+): Promise<{ referencia: string; valor: number; descricao: string; sentido: "pagar" | "receber"; grupo: string | null } | null> {
+  const [regra] = await listarRegras(pool, e, false, recorrenciaId);
+  if (!regra) return null;
+  const ult = new Date(Date.UTC(Number(mes.slice(0, 4)), Number(mes.slice(5, 7)), 0)).getUTCDate();
+  const ref = finOcorrencias(regra, `${mes}-01`, `${mes}-${String(ult).padStart(2, "0")}`)[0];
+  if (!ref) return null;
+  const x = (await excecoesDe(pool, [regra.id])).get(regra.id)?.get(ref);
+  if (x?.pular) return null;
+  const [t] = await pool.query<RowDataPacket[]>(
+    `SELECT 1 FROM fin_titulos WHERE recorrenciaid = ? AND referencia = ? LIMIT 1`,
+    [regra.id, ref]
+  );
+  if (t[0]) return null;
+  return { referencia: ref, valor: x?.valor ?? regra.valor, descricao: regra.descricao, sentido: regra.sentido, grupo: regra.contaGrupoNome ?? null };
+}
+
 function exigirOcorrencia(regra: RegraRow, referencia: string): void {
   exigirData(referencia, "referência");
   const ok = finOcorrencias(regra, referencia, referencia).includes(referencia);

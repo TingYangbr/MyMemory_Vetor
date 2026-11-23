@@ -17,6 +17,7 @@ import {
   listarContasComSaldo,
   ultimoLancamentoId,
   type Espaco,
+  ocorrenciaNoMes,
 } from "./financeiroService.js";
 import { obterFinConfig } from "./finConfigService.js";
 import { normalizarTicker, registrarOperacaoInvestimento } from "./finInvestimentosService.js";
@@ -108,6 +109,7 @@ export async function montarPropostaFin(input: {
       valor: i.valor,
       sentido: i.sentido,
       atrasado: i.situacao === "atraso",
+      grupo: i.contaGrupoNome ?? null,
     }));
 
   const system =
@@ -136,7 +138,7 @@ export async function montarPropostaFin(input: {
   );
   const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
-Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item). contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
+Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
 
@@ -145,7 +147,30 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     const n = Number(v);
     return Number.isFinite(n) && lista.some((x) => x.id === n) ? n : null;
   };
-  const alvo = typeof j.alvoChave === "string" ? abertos.find((a) => a.chave === j.alvoChave) ?? null : null;
+  let alvo = typeof j.alvoChave === "string" ? abertos.find((a) => a.chave === j.alvoChave) ?? null : null;
+  // Pagamento com data citada de outro mês ("paguei o aluguel em 10/09"): a parcela é a do mês informado, como na
+  // medição com data (antropometria). Sem data na frase (data = hoje), fica a escolha da IA.
+  const dataDita = typeof j.data === "string" && /^\d{4}-\d{2}-\d{2}$/.test(j.data) && j.data !== hoje ? j.data : null;
+  if (TIPOS.includes(j.tipo as FinComandoTipo) && j.tipo === "pagamento" && alvo && dataDita && alvo.vencimento.slice(0, 7) !== dataDita.slice(0, 7)) {
+    const mes = dataDita.slice(0, 7);
+    const m = /^r:(\d+):/.exec(alvo.chave);
+    if (m) {
+      const oc = await ocorrenciaNoMes(e, Number(m[1]), mes);
+      if (oc) {
+        const chave = `r:${m[1]}:${oc.referencia}`;
+        let item = abertos.find((a) => a.chave === chave);
+        if (!item) {
+          item = { chave, descricao: oc.descricao, vencimento: oc.referencia, valor: oc.valor, sentido: oc.sentido, atrasado: oc.referencia < hoje, grupo: oc.grupo };
+          abertos.unshift(item);
+        }
+        alvo = item;
+      }
+    } else {
+      // Parcela de título: a do mesmo nome com vencimento no mês informado
+      const doMes = abertos.find((a) => a.chave.startsWith("t:") && a.descricao === alvo!.descricao && a.vencimento.slice(0, 7) === mes);
+      if (doMes) alvo = doMes;
+    }
+  }
   const sentido: "pagar" | "receber" =
     tipo === "gasto" || tipo === "compra" ? "pagar" : tipo === "receita" || tipo === "venda" ? "receber" : alvo ? alvo.sentido : j.sentido === "receber" ? "receber" : "pagar";
   const valorBruto = Number(j.valor);

@@ -422,7 +422,7 @@ export interface FinComandoProposta {
     contas: { id: number; nome: string; tipo: FinTipoConta }[];
     gruposDespesa: { id: number; nome: string }[];
     gruposReceita: { id: number; nome: string }[];
-    abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean }[];
+    abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean; grupo?: string | null }[];
     papeis?: FinPapelOpcao[];
   };
 }
