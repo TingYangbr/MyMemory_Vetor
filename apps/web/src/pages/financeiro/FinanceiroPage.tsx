@@ -11,6 +11,7 @@ import {
   type FinConferencia,
   type FinContaSaldo,
   type FinHistoricoTitulo,
+  type FinOcorrenciasRecorrencia,
   type FinItemAgenda,
   type FinLancamento,
   type FinPeriodicidade,
@@ -901,6 +902,7 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
 /* ---------------- Recorrências ---------------- */
 
 function AbaRecorrencias({ ctx, recs }: { ctx: Ctx; recs: Recorrencia[] }) {
+  const [ver, setVer] = useState<number | null>(null);
   const [nova, setNova] = useState(false);
   const per = (p: FinPeriodicidade) => FIN_PERIODICIDADES.find((x) => x.valor === p)?.rotulo.toLowerCase() ?? p;
   return (
@@ -933,6 +935,7 @@ function AbaRecorrencias({ ctx, recs }: { ctx: Ctx; recs: Recorrencia[] }) {
                 </small>
               ) : null}
               <div className={styles.acoes}>
+                <button type="button" className={styles.link} onClick={() => setVer(r.id)}>Ocorrências</button>
                 <button type="button" className={styles.link} disabled={ctx.ocupado}
                   onClick={() => { const v = prompt("Novo valor (vale para os vencimentos ainda não pagos):", String(r.valor).replace(".", ",")); if (v && num(v) > 0) void ctx.agir(() => apiPatchJson(`/api/fin/recorrencias/${r.id}`, { valor: num(v) }), "Valor reajustado."); }}>
                   Reajustar
@@ -951,7 +954,79 @@ function AbaRecorrencias({ ctx, recs }: { ctx: Ctx; recs: Recorrencia[] }) {
           </div>
         ))}
       </div>
+      {ver != null ? <OcorrenciasRecorrencia id={ver} fechar={() => setVer(null)} /> : null}
     </>
+  );
+}
+
+const SIT_OCORR: Record<FinOcorrenciasRecorrencia["itens"][number]["situacao"], string> = {
+  pago: "pago",
+  aberto: "em aberto (título)",
+  atraso: "em atraso",
+  previsto: "previsto",
+  pulado: "pulado",
+};
+
+/** Janela com o que a recorrência já gerou em contas a pagar/receber e os próximos vencimentos. */
+function OcorrenciasRecorrencia({ id, fechar }: { id: number; fechar: () => void }) {
+  const [o, setO] = useState<FinOcorrenciasRecorrencia | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [historico, setHistorico] = useState<number | null>(null);
+  useEffect(() => {
+    apiGet<FinOcorrenciasRecorrencia>(`/api/fin/recorrencias/${id}/ocorrencias`).then(setO).catch((e) => setErro(msgErro(e)));
+  }, [id]);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && historico == null) fechar(); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [fechar, historico]);
+  const pagar = o?.sentido !== "receber";
+  const cel: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid var(--mm-border-muted)", textAlign: "left", fontSize: 13 };
+  const num_: React.CSSProperties = { ...cel, textAlign: "right", whiteSpace: "nowrap" };
+  const cor = (s: string) =>
+    s === "pago" ? "var(--mm-primary, #0d9488)" : s === "atraso" ? "var(--mm-danger)" : s === "pulado" ? "var(--mm-muted)" : undefined;
+  return createPortal(
+    <div className={janela.overlay} onClick={fechar}>
+      <div className={janela.cartao} role="dialog" aria-label="Ocorrências da recorrência" style={{ width: "min(720px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className={janela.topo}>
+          <div>
+            <b>Ocorrências da recorrência</b>
+            {o ? <div className={janela.id}>{o.descricao} · {pagar ? "Pagamento" : "Recebimento"} · {pagar ? "pago" : "recebido"} até hoje {brl(o.pago)}</div> : null}
+          </div>
+          <button type="button" className={janela.fechar} onClick={fechar} aria-label="Fechar">×</button>
+        </div>
+        {erro ? <div className={styles.erro}>{erro}</div> : null}
+        {!o && !erro ? <div className={janela.carregando}>Carregando…</div> : null}
+        {o ? (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr>
+                <th style={cel}>Vencimento</th><th style={num_}>Valor</th><th style={cel}>Situação</th><th style={num_}>Pago</th><th style={cel}>Conta</th><th style={cel} />
+              </tr></thead>
+              <tbody>
+                {o.itens.map((i) => (
+                  <tr key={i.referencia}>
+                    <td style={cel}>{dataBr(i.referencia)}</td>
+                    <td style={num_}>{brl(i.valor)}{i.excecao ? <small style={{ display: "block", color: "var(--mm-muted)" }}>outro valor neste mês</small> : null}</td>
+                    <td style={{ ...cel, color: cor(i.situacao) }}>{SIT_OCORR[i.situacao]}{i.quitadoEm ? ` ${dataBr(i.quitadoEm)}` : ""}</td>
+                    <td style={num_}>{i.valorPago != null ? brl(i.valorPago) : ""}</td>
+                    <td style={cel}>{i.contaPagamento ?? ""}</td>
+                    <td style={cel}>
+                      {i.tituloId != null ? <button type="button" className={styles.link} onClick={() => setHistorico(i.tituloId)}>Histórico</button> : null}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className={styles.dica} style={{ marginTop: 8 }}>
+              "Pago" e "em aberto (título)" já estão gravados em contas a pagar/receber; "previsto" e "em atraso" são só a previsão da regra (o título nasce quando você paga).
+            </p>
+          </div>
+        ) : null}
+        {historico != null ? <HistoricoTitulo tituloId={historico} fechar={() => setHistorico(null)} /> : null}
+      </div>
+    </div>,
+    document.body
   );
 }
 
