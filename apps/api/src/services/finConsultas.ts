@@ -14,6 +14,7 @@ export interface FinConsultaDef {
 
 const HOJE = "(now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const INI_MES = "date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo')::date";
+const INI_ANO = "date_trunc('year', now() AT TIME ZONE 'America/Sao_Paulo')::date";
 const FIM_MES = "(date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') + interval '1 month - 1 day')::date";
 /** "Sem data final" na agenda: títulos sem limite; a previsão das recorrências vai até 12 meses à frente (fin_agenda). */
 export const SEM_FIM = "DATE '9999-12-31'";
@@ -183,13 +184,14 @@ LIMIT 200`,
     descricao:
       "Total de despesas e de receitas por grupo E por mês (AAAA-MM), por competência. Use para: gastos mensais por grupo, " +
       "evolução de um grupo mês a mês, comparar meses de um grupo (ex.: alimentação em março × abril). " +
-      "Colunas: mes, grupo, tipo (despesa ou receita), total, lancamentos. tipo: 'despesa'/'gasto' ou 'receita'. Sem datas: o mês atual.",
+      "Colunas: mes, grupo, tipo (despesa ou receita), total, lancamentos. tipo: 'despesa'/'gasto' ou 'receita'. " +
+      "Sem datas: do começo do ano até o fim do mês atual (é uma série mensal; para um mês só, informe as datas).",
     sql: `SELECT to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, g.nome AS grupo, g.tipo,
   SUM(CASE WHEN (g.tipo = 'despesa') = (l.conta_destinoid = g.id) THEN l.valor ELSE -l.valor END) AS total,
   COUNT(*) AS lancamentos
 FROM fin_lancamentos l
 JOIN fin_contas g ON g.id IN (l.conta_origemid, l.conta_destinoid) AND g.tipo IN ('despesa', 'receita')
-WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
+WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_ANO}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
        OR (g.tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%' OR :tipo ILIKE '%pag%'))
        OR (g.tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%')))
