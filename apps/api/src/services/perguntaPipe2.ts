@@ -391,7 +391,7 @@ export function applyAgregacao(
     // group_by sem medida não agrega nada: antes virava SELECT só das colunas do grupo e perdia os valores
     // (ex.: consulta que já soma por grupo → só "grupo", sem o total). Mantém todas as colunas; só a data
     // truncada (agrupamento por período) seleciona as colunas do grupo.
-    const cols = groupSelectParts.length > 0 && (ag.group_by_trunc?.length ?? 0) > 0 ? groupSelectParts.join(", ") : "*";
+    const cols = "*";
     const orderClauses = ag.order_by.map((o) => {
       const name = normalizeOrderCampo(o.campo);
       const resolved = MEDIDA_ALIAS[name.toLowerCase()] ?? name;

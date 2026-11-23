@@ -179,6 +179,27 @@ LIMIT 200`,
     params: [...periodo(""), { campo: "tipo", tipo: "string", operadorSql: "=" }, { campo: "grupo", tipo: "string", operadorSql: "LIKE" }],
   },
   {
+    nome: "Financeiro — Gastos e receitas por grupo e mês",
+    descricao:
+      "Total de despesas e de receitas por grupo E por mês (AAAA-MM), por competência. Use para: gastos mensais por grupo, " +
+      "evolução de um grupo mês a mês, comparar meses de um grupo (ex.: alimentação em março × abril). " +
+      "Colunas: mes, grupo, tipo (despesa ou receita), total, lancamentos. tipo: 'despesa'/'gasto' ou 'receita'. Sem datas: o mês atual.",
+    sql: `SELECT to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, g.nome AS grupo, g.tipo,
+  SUM(CASE WHEN (g.tipo = 'despesa') = (l.conta_destinoid = g.id) THEN l.valor ELSE -l.valor END) AS total,
+  COUNT(*) AS lancamentos
+FROM fin_lancamentos l
+JOIN fin_contas g ON g.id IN (l.conta_origemid, l.conta_destinoid) AND g.tipo IN ('despesa', 'receita')
+WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
+  AND (:tipo IS NULL
+       OR (g.tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%' OR :tipo ILIKE '%pag%'))
+       OR (g.tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%')))
+  AND (:grupo IS NULL OR g.nome ILIKE :grupo)
+GROUP BY 1, g.nome, g.tipo
+ORDER BY 1, g.tipo, total DESC
+LIMIT 1000`,
+    params: [...periodo(""), { campo: "tipo", tipo: "string", operadorSql: "=" }, { campo: "grupo", tipo: "string", operadorSql: "LIKE" }],
+  },
+  {
     nome: "Financeiro — Resultado por mês (receitas − despesas)",
     descricao:
       "Receitas, despesas e resultado (sobra ou falta) de cada mês do período, por competência. Use para: sobrou dinheiro?, " +
