@@ -199,14 +199,18 @@ export const FIN_CONSULTAS: FinConsultaDef[] = [
       "data_ini/data_fin = período dos vencimentos (sem data_ini: desde o dia 1º do mês atual; sem data_fin: sem limite, " +
       "as contas fixas previstas até 12 meses à frente); atrasados de antes do período sempre aparecem; " +
       "pagos entram pela data do pagamento. " +
-      "tipo: 'pagar' ou 'receber'. situacao: 'atraso', 'pago', 'aberto' (a vencer + atrasado) ou vazio (tudo).",
+      "tipo: 'pagar' ou 'receber'. situacao: 'aberto' = A PAGAR / A RECEBER / pendente / em aberto / não pago (a vencer + atrasado); " +
+      "'atraso' = vencido e não pago; 'pago' = já pago ou recebido (quitado); vazio = tudo. " +
+      "\"O que tenho a pagar em dezembro\" → tipo pagar e situacao aberto; \"o que paguei\" → situacao pago.",
     sql: `SELECT a.vencimento, a.situacao, a.tipo, a.descricao, a.valor, a.grupo, a.parcela, a.parcelas, a.pago_em, a.valor_pago
 FROM fin_agenda(COALESCE(:data_ini, ${INI_MES}), COALESCE(:data_fin, ${SEM_FIM})) a
 WHERE (:tipo IS NULL OR :tipo ILIKE '%' || a.tipo || '%')
   AND (:situacao IS NULL OR CASE
         WHEN :situacao ILIKE '%atras%' OR :situacao ILIKE '%vencid%' THEN a.situacao = 'atraso'
-        WHEN :situacao ILIKE '%abert%' OR :situacao ILIKE '%vencer%' OR :situacao ILIKE '%pend%' THEN a.situacao IN ('previsto', 'confirmado', 'atraso')
-        WHEN :situacao ILIKE '%pag%' OR :situacao ILIKE '%receb%' OR :situacao ILIKE '%quit%' THEN a.situacao = 'pago'
+        WHEN :situacao ILIKE '%abert%' OR :situacao ILIKE '%vencer%' OR :situacao ILIKE '%pend%'
+          OR :situacao ILIKE '%pagar%' OR :situacao ILIKE '%receber%' OR :situacao ILIKE '%não%' OR :situacao ILIKE '%nao%'
+          THEN a.situacao IN ('previsto', 'confirmado', 'atraso')
+        WHEN :situacao ILIKE '%pag%' OR :situacao ILIKE '%receb%' OR :situacao ILIKE '%quit%' OR :situacao ILIKE '%baix%' THEN a.situacao = 'pago'
         ELSE true END)
   AND (:descricao IS NULL OR a.descricao ILIKE :descricao)
   AND (:grupo IS NULL OR a.grupo ILIKE :grupo)
