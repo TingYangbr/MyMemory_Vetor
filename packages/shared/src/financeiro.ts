@@ -358,7 +358,7 @@ export interface FinConferencia {
 }
 
 /** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
-export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda";
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia";
 
 /** Papel já cadastrado no espaço (conta de investimento), com a posição de hoje. */
 export interface FinPapelOpcao {
@@ -428,6 +428,8 @@ export interface FinComandoProposta {
   contaId: number | null;
   /** Grupo de despesa ou de receita. */
   grupoId: number | null;
+  /** Transferência: para onde vai (contaId = de onde sai). */
+  contaDestinoId?: number | null;
   /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
   alvoChave: string | null;
   /** Compra/venda de papel (contaId = corretora; valor = valor total, se dito). */

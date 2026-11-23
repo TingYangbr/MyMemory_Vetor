@@ -18,6 +18,7 @@ const TIPOS: { valor: FinComandoTipo; rotulo: string }[] = [
   { valor: "pagamento", rotulo: "Pagamento de conta em aberto" },
   { valor: "compra", rotulo: "Compra de ação / papel" },
   { valor: "venda", rotulo: "Venda de ação / papel" },
+  { valor: "transferencia", rotulo: "Transferência entre contas" },
 ];
 
 const ROTULO_DATA: Record<FinComandoTipo, string> = {
@@ -28,6 +29,7 @@ const ROTULO_DATA: Record<FinComandoTipo, string> = {
   pagamento: "Pago em",
   compra: "Data",
   venda: "Data",
+  transferencia: "Data",
 };
 
 
@@ -70,6 +72,7 @@ export default function FinComandoCartao({
   const [parcelas, setParcelas] = useState(String(proposta.parcelas || 1));
   const [periodicidade, setPeriodicidade] = useState<FinPeriodicidade>(proposta.periodicidade);
   const [contaId, setContaId] = useState(proposta.contaId != null ? String(proposta.contaId) : "");
+  const [destinoId, setDestinoId] = useState(proposta.contaDestinoId != null ? String(proposta.contaDestinoId) : "");
   const [grupoId, setGrupoId] = useState(proposta.grupoId != null ? String(proposta.grupoId) : "");
   const [alvo, setAlvo] = useState(proposta.alvoChave ?? "");
   const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito" | "cancelado">(proposta.gravado ? "gravado" : "edicao");
@@ -114,9 +117,10 @@ export default function FinComandoCartao({
   const cfg = proposta.config ?? { gravarDireto: false, criarGrupo: false, criarConta: false };
   const abertos = useMemo(() => proposta.opcoes.abertos, [proposta]);
   const ehInv = tipo === "compra" || tipo === "venda";
-  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv;
+  const ehTransf = tipo === "transferencia";
+  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv || ehTransf;
   const contaObrigatoria = tipo !== "fixa";
-  const pedeGrupo = tipo !== "pagamento" && !ehInv;
+  const pedeGrupo = tipo !== "pagamento" && !ehInv && !ehTransf;
   // Papéis da corretora escolhida (sem corretora: todos)
   const papeisOpc = (proposta.opcoes.papeis ?? []).filter((x) => !contaId || x.corretoraId === Number(contaId));
   const papelItem = papelSel && papelSel !== "novo" ? (proposta.opcoes.papeis ?? []).find((x) => x.id === Number(papelSel)) ?? null : null;
@@ -176,9 +180,20 @@ export default function FinComandoCartao({
     if (tipo === "pagamento" && pagouMenos && !decMenor) return setErro("Pagou menos que o previsto: escolha Parcial ou Quitar assim mesmo.");
     if (tipo === "pagamento" && pagouMais && !decMaior) return setErro("Pagou mais que o previsto: escolha Quitar assim mesmo ou o grupo do excedente.");
     if (tipo === "pagamento" && pagouMais && decMaior === "grupo" && !excGrupoId) return setErro("Escolha o grupo do excedente.");
+    if (ehTransf && (destinoId === "" || destinoId === contaId)) return setErro("Escolha para qual conta vai (diferente da de origem).");
     setEstado("gravando");
     try {
-      if (tipo === "gasto" || tipo === "receita") {
+      if (ehTransf) {
+        const r = await apiPostJson<{ id?: number | null }>("/api/fin/lancamentos", {
+          data,
+          descricao: descricao.trim() || "Transferência",
+          valor: v,
+          contaOrigemId: conta,
+          contaDestinoId: Number(destinoId),
+        });
+        setDesfazer(r.id != null ? { tipo: "lancamento", id: r.id } : null);
+        setFeito(`Transferência de ${brl(v!)} gravada.`);
+      } else if (tipo === "gasto" || tipo === "receita") {
         const r = await apiPostJson<{ id?: number | null }>("/api/fin/lancamentos", {
           data,
           descricao: descricao.trim() || (tipo === "gasto" ? "Gasto" : "Receita"),
@@ -535,6 +550,17 @@ export default function FinComandoCartao({
             {cfg.criarConta ? (
               <button type="button" style={maisLink} onClick={() => setNovo("conta")}>+ nova conta</button>
             ) : null}
+          </label>
+        ) : null}
+        {ehTransf ? (
+          <label style={rot}>
+            <span>Vai para{marca(!destinoId || destinoId === contaId)}</span>
+            <select className="mm-field" style={falta(!destinoId || destinoId === contaId)} value={destinoId} onChange={(e) => setDestinoId(e.target.value)}>
+              <option value="">— escolha —</option>
+              {contasOpc.filter((c) => String(c.id) !== contaId).map((c) => (
+                <option key={c.id} value={c.id}>{c.nome}{c.tipo === "cartao" ? " (cartão)" : ""}</option>
+              ))}
+            </select>
           </label>
         ) : null}
       </div>
