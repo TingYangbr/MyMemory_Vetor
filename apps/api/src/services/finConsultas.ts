@@ -18,7 +18,7 @@ const FIM_MES = "(date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') + 
 /** "Sem data final" na agenda: títulos sem limite; a previsão das recorrências vai até 12 meses à frente (fin_agenda). */
 export const SEM_FIM = "DATE '9999-12-31'";
 
-/** Função do motor em SQL: títulos + ocorrências previstas das recorrências, como a agenda da tela. */
+/** Função do motor em SQL: títulos + ocorrências previstas das recorrências, como a aba Previstos da tela. */
 export const SQL_FUNCAO_FIN_AGENDA = `
 CREATE OR REPLACE FUNCTION public.fin_agenda(p_de date, p_ate date)
 RETURNS TABLE (vencimento date, situacao text, tipo text, descricao text, valor numeric, grupo text,
@@ -190,7 +190,7 @@ const periodo = (_desc: string): FinConsultaDef["params"] => [
 
 export const FIN_CONSULTAS: FinConsultaDef[] = [
   {
-    nome: "Financeiro — Contas a pagar e receber (agenda)",
+    nome: "Financeiro — Contas a pagar e receber (previstos)",
     descricao:
       "Vencimentos do período: títulos (parcelas, contas a prazo) e a PREVISÃO das contas recorrentes (aluguel, salário). " +
       "Use para: o que vence, quanto vou pagar/receber em um mês, contas atrasadas, o que já foi pago. " +
