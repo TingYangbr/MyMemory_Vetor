@@ -296,7 +296,9 @@ function semAcento(s: string): string {
  * para "valores presentes" apontar Valor_Presente_* e não todas as Valor_*.
  */
 function escolherSeries(cols: string[], pergunta: string): string[] {
-  const p = semAcento(pergunta);
+  // "gastos" é a coluna despesa; "recebi/recebimentos", a receita (financeiro)
+  const pBase = semAcento(pergunta);
+  const p = `${pBase}${/\bgast/.test(pBase) ? " despesa" : ""}${/\breceb/.test(pBase) ? " receita" : ""}`;
   // "faturado"/"faturamento" sem "quantidade" explícita = valor monetário faturado (Valor_Prod_Fat, Valor_NF)
   const faturadoEhValor = /\bfatur/.test(p) && !/\b(quantidade|qtde|qtd|unidades|volume)\b/.test(p);
   const isValorFaturado = (col: string) =>
@@ -486,6 +488,9 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
   if (numericCols.length === 0) return null;
+  // Coluna toda zerada (ex.: receita num período só de gastos) não vira barra: o gráfico ficava vazio
+  const comValor = numericCols.filter((col) => dados.linhas.some((l) => (numeroDaCelula(l[col]) ?? 0) !== 0));
+  if (comValor.length > 0) numericCols.splice(0, numericCols.length, ...comValor);
 
   let labelCol = dados.colunas.find((col) => !numericCols.includes(col));
   let valueCols = numericCols;
