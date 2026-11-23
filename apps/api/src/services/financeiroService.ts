@@ -11,6 +11,7 @@ import {
   finOcorrencias,
   finSomarDias,
   type FinAgendaResposta,
+  type FinHistoricoTitulo,
   type FinChaveSistema,
   type FinConferencia,
   type FinConta,
@@ -765,6 +766,99 @@ export async function desfazerBaixa(e: Espaco, tituloId: number): Promise<void> 
   } finally {
     conn.release();
   }
+}
+
+/* ---------------- Histórico de um título ---------------- */
+
+/**
+ * Tudo o que aconteceu com um título: sobe até o título de origem (pagamento parcial cria um título "saldo" ligado ao
+ * anterior), desce pela cadeia de saldos e junta os lançamentos de cada um, mais o lançamento da compra/venda
+ * parcelada (o que fez a despesa nascer, ligado pelo lote).
+ */
+export async function historicoTitulo(e: Espaco, tituloId: number): Promise<FinHistoricoTitulo> {
+  const f = esp(e);
+  let raiz = tituloId;
+  for (let i = 0; i < 50; i++) {
+    const [r] = await pool.query<RowDataPacket[]>(
+      `SELECT id, saldo_de_tituloid AS "pai" FROM fin_titulos WHERE id = ? AND ${f.sql}`,
+      [raiz, ...f.params]
+    );
+    if (!r[0]) throw new FinErro("nao_encontrado", "Título não encontrado.");
+    if (r[0].pai == null) break;
+    raiz = Number(r[0].pai);
+  }
+  const ft = esp(e, "t");
+  const [ts] = await pool.query<RowDataPacket[]>(
+    `WITH RECURSIVE cadeia AS (
+       SELECT id FROM fin_titulos WHERE id = ?
+       UNION ALL
+       SELECT x.id FROM fin_titulos x JOIN cadeia c ON x.saldo_de_tituloid = c.id
+     )
+     SELECT t.id, t.sentido, t.descricao, t.valor, to_char(t.vencimento, 'YYYY-MM-DD') AS "venc", t.situacao,
+       to_char(t.quitado_em, 'YYYY-MM-DD') AS "quitadoEm", t.valor_pago AS "valorPago", p.nome AS "contaPag",
+       t.parcela, t.parcelas, t.saldo_de_tituloid AS "saldoDe", t.memoid AS "memoId", t.lote, g.nome AS "grupo"
+     FROM fin_titulos t
+     JOIN cadeia c ON c.id = t.id
+     JOIN fin_contas g ON g.id = t.conta_grupoid
+     LEFT JOIN fin_contas p ON p.id = t.conta_pagamentoid
+     WHERE ${ft.sql}
+     ORDER BY t.id`,
+    [raiz, ...ft.params]
+  );
+  if (!ts.length) throw new FinErro("nao_encontrado", "Título não encontrado.");
+  const ids = ts.map((t) => Number(t.id));
+  const lote: string | null = ts[0].lote ?? null;
+  const fl = esp(e, "l");
+  const [ls] = await pool.query<RowDataPacket[]>(
+    `SELECT l.id, to_char(l.data, 'YYYY-MM-DD') AS "data", l.descricao, l.valor, o.nome AS "saiuDe", d.nome AS "foiPara",
+       l.tituloid AS "tituloId", l.memoid AS "memoId"
+     FROM fin_lancamentos l
+     JOIN fin_contas o ON o.id = l.conta_origemid
+     JOIN fin_contas d ON d.id = l.conta_destinoid
+     WHERE ${fl.sql} AND (l.tituloid = ANY(?::int[]) ${lote ? "OR (l.tituloid IS NULL AND l.lote = ?)" : ""})
+     ORDER BY l.data, l.id`,
+    [...fl.params, ids, ...(lote ? [lote] : [])]
+  );
+  const tipoDe = (l: RowDataPacket): FinHistoricoTitulo["lancamentos"][number]["tipo"] =>
+    l.tituloId == null ? "compra"
+    : /— excedente$/.test(l.descricao) ? "excedente"
+    : /— juros\/multa$/.test(l.descricao) ? "juros"
+    : /— desconto$/.test(l.descricao) ? "desconto"
+    : "pagamento";
+  const titulos = ts.map((t) => ({
+    id: Number(t.id),
+    descricao: String(t.descricao),
+    valor: n(t.valor),
+    vencimento: String(t.venc),
+    situacao: t.situacao === "quitado" ? ("quitado" as const) : ("aberto" as const),
+    quitadoEm: t.quitadoEm ?? null,
+    valorPago: nOuNull(t.valorPago),
+    contaPagamento: t.contaPag ?? null,
+    parcela: nOuNull(t.parcela),
+    parcelas: nOuNull(t.parcelas),
+    saldoDe: nOuNull(t.saldoDe),
+    memoId: nOuNull(t.memoId),
+  }));
+  return {
+    sentido: ts[0].sentido,
+    descricao: String(ts[0].descricao),
+    grupo: ts[0].grupo ?? null,
+    valorOriginal: r2(titulos.reduce((s, t) => s + t.valor, 0)),
+    pago: r2(titulos.reduce((s, t) => s + (t.situacao === "quitado" ? t.valorPago ?? t.valor : 0), 0)),
+    emAberto: r2(titulos.reduce((s, t) => s + (t.situacao === "aberto" ? t.valor : 0), 0)),
+    titulos,
+    lancamentos: ls.map((l) => ({
+      id: Number(l.id),
+      data: String(l.data),
+      descricao: String(l.descricao),
+      valor: n(l.valor),
+      saiuDe: String(l.saiuDe),
+      foiPara: String(l.foiPara),
+      tipo: tipoDe(l),
+      tituloId: nOuNull(l.tituloId),
+      memoId: nOuNull(l.memoId),
+    })),
+  };
 }
 
 /* ---------------- Agenda: títulos + projeção do motor ---------------- */

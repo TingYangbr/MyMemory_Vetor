@@ -6,6 +6,7 @@ import { obterCotacao } from "../services/finCotacaoService.js";
 import {
   FinErro,
   agenda,
+  historicoTitulo,
   atualizarConta,
   atualizarRecorrencia,
   baixar,
@@ -212,6 +213,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
+  }));
+
+  app.get("/api/fin/titulos/:id/historico", rota(async (e, req) => {
+    return historicoTitulo(e, id.parse((req.params as { id: string }).id));
   }));
 
   app.delete("/api/fin/baixas/:tituloId", rota(async (e, req) => {
