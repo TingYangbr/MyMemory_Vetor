@@ -820,7 +820,7 @@ export async function historicoTitulo(e: Espaco, tituloId: number): Promise<FinH
     [...fl.params, ids, ...(lote ? [lote] : [])]
   );
   const tipoDe = (l: RowDataPacket): FinHistoricoTitulo["lancamentos"][number]["tipo"] =>
-    l.tituloId == null ? "compra"
+    l.tituloId == null ? "registro"
     : /— excedente$/.test(l.descricao) ? "excedente"
     : /— juros\/multa$/.test(l.descricao) ? "juros"
     : /— desconto$/.test(l.descricao) ? "desconto"
@@ -981,7 +981,8 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     `SELECT l.id, to_char(l.data, 'YYYY-MM-DD') AS "data", l.descricao, l.valor,
        l.conta_origemid AS "contaOrigemId", o.nome AS "contaOrigemNome",
        l.conta_destinoid AS "contaDestinoId", d.nome AS "contaDestinoNome",
-       l.quantidade, l.preco, l.tituloid AS "tituloId", l.valor_moeda AS "valorMoeda", l.moeda, l.cotacao
+       l.quantidade, l.preco, l.tituloid AS "tituloId", l.valor_moeda AS "valorMoeda", l.moeda, l.cotacao,
+       (l.tituloid IS NULL AND (o.tipo IN ('a_pagar', 'a_receber') OR d.tipo IN ('a_pagar', 'a_receber'))) AS "registro"
      FROM fin_lancamentos l
      JOIN fin_contas o ON o.id = l.conta_origemid
      JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -1005,6 +1006,7 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     valorMoeda: nOuNull(r.valorMoeda),
     moeda: r.moeda ? String(r.moeda).trim() : null,
     cotacao: nOuNull(r.cotacao),
+    registro: r.registro === true || r.registro === 1 || r.registro === "t",
   }));
 }
 
