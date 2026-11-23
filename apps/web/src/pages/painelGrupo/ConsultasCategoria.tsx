@@ -367,6 +367,15 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
   // Colunas do resultado: ordem (-1 oculta), papel no gráfico, unidade e rótulo — como os campos do memo
   const [colunas, setColunas] = useState<QueryColunaConfig[]>(query?.colunas ?? []);
   const [lendoColunas, setLendoColunas] = useState(false);
+  // Coluna calculada na resposta (não vem do SELECT): ex.: margem_pct (% entre medidas), total, contagem
+  const [colunaNova, setColunaNova] = useState("");
+  function acrescentarColuna() {
+    const nome = colunaNova.trim();
+    if (!nome) return;
+    if (colunas.some((c) => c.coluna.toLowerCase() === nome.toLowerCase())) return setAviso(`A coluna ${nome} já está na lista.`);
+    setColunas((cs) => [...cs, { coluna: nome, ordem: null, papel: null, unidade: /_pct$|^pct_|perc/i.test(nome) ? "%" : null, rotulo: null }]);
+    setColunaNova("");
+  }
 
   /** Roda a consulta sem filtros e acrescenta as colunas que ainda não estão na lista. */
   async function lerColunas() {
@@ -729,6 +738,23 @@ function EditorQuery({ cat, query, conexoes, groupId, isAdmin, onFechar, onSalvo
       ) : (
         <p className={s.help}>{query ? "Nenhuma coluna configurada. Toque em ▶ Ler colunas." : "Salve a query para configurar as colunas."}</p>
       )}
+      <div className={s.row} style={{ marginTop: 6, gap: 6 }}>
+        <input
+          className="mm-field"
+          style={{ maxWidth: 220 }}
+          value={colunaNova}
+          placeholder="coluna calculada (ex.: margem_pct)"
+          onChange={(e) => setColunaNova(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), acrescentarColuna())}
+        />
+        <button type="button" className={`mm-btn mm-btn--ghost ${s.btnSm}`} onClick={acrescentarColuna}>
+          <IconPlus size={13} /> Coluna calculada
+        </button>
+      </div>
+      <p className={s.help}>
+        Colunas que a resposta calcula e o SELECT não tem: % entre medidas (margem_pct), totais (faturamento, margem_contribuicao),
+        contagem. Use o mesmo nome que aparece no título da tabela da resposta.
+      </p>
 
       {erro ? <p className={s.msgErr}>{erro}</p> : null}
       <div className={s.actions}>
