@@ -563,8 +563,8 @@ export default function FinComandoCartao({
   );
 }
 
-/** Janela para cadastrar na hora um grupo de despesa/receita ou uma conta/cartão (ajuste do Fale comigo). */
-function NovoCadastro(props: {
+/** Janela para cadastrar na hora um grupo de despesa/receita ou uma conta/cartão (Fale comigo e telas do financeiro). */
+export function NovoCadastro(props: {
   qual: "grupo" | "conta";
   sentido: "pagar" | "receber";
   onFechar: () => void;
