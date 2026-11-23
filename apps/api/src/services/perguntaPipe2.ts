@@ -368,7 +368,8 @@ export function applyAgregacao(
       const fmt = fmtMap[t.granularidade] ?? "yyyy-MM";
       expr = `FORMAT(${colQ}, '${fmt}')`;
     } else {
-      expr = `DATE_TRUNC('${t.granularidade}', mymemory_parse_date(${colQ})::timestamp)`;
+      // Coluna "AAAA-MM" (ex.: mes da view de lançamentos) não é data completa: completa com o dia 1º
+      expr = `DATE_TRUNC('${t.granularidade}', COALESCE(mymemory_parse_date(${colQ}::text), mymemory_parse_date(${colQ}::text || '-01'))::timestamp)`;
     }
     truncMap.set(colNorm, { selectExpr: `${expr} AS ${aliasQ}`, groupExpr: expr });
   }
@@ -1743,7 +1744,7 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
     return { resposta, apiCost: totalCost, dadosEstruturados: resultado };
   }
 
-  let planoExec = { ...plano, queries: executableQueries };
+  let planoExec = { ...plano, queries: executableQueries.map((t) => periodoPadraoSerie(t, input.queriesDisponiveis)) };
   let { agregado, porQuery, avisos } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
     plano: planoExec,
     queriesDisponiveis: input.queriesDisponiveis,
@@ -2020,6 +2021,42 @@ export async function sugerirValoresParam(input: {
     if (s && !vistos.has(s.toLowerCase())) { vistos.add(s.toLowerCase()); out.push(s); }
   }
   return out;
+}
+
+/**
+ * Série mensal ("gastos por mês", "total mês a mês") numa consulta de detalhe do banco interno, sem período citado:
+ * o padrão da consulta é só o mês atual, e a série saía com um mês. Sem nenhuma data na pergunta, a série começa em
+ * 1º de janeiro do ano atual (a data final fica no padrão da consulta).
+ */
+function periodoPadraoSerie(task: PlanoQuery, queries: QueryDisponivel[]): PlanoQuery {
+  const ag = task.agregacao;
+  const tpl = queries.find((q) => q.query_id === task.query_id);
+  if (!ag || !tpl || tpl.conexaoId != null || !/^\s*detalhe:/i.test(tpl.descricao ?? "")) return task;
+  const serie = (ag.group_by_trunc?.length ?? 0) > 0 || ag.group_by.some((c) => /^(_base\.)?mes$/i.test(c));
+  if (!serie) return task;
+  const ehData = (tipo: string) => /date|data/i.test(tipo);
+  const temData = task.parametros.some(
+    (p) => p.valor != null && String(p.valor).trim() !== "" && (ehData(p.tipo) || /_(ini|fin)$/i.test(p.nome))
+  );
+  if (temData) return task;
+  const ini = tpl.params.find((p) => /_ini$/i.test(p.nome) && ehData(p.tipo));
+  if (!ini) return task;
+  const hoje = contextoDatas().calendario["hoje"] ?? new Date().toISOString().slice(0, 10);
+  return {
+    ...task,
+    parametros: [
+      ...task.parametros,
+      {
+        nome: ini.nome,
+        termo_usuario: "(série sem período: desde janeiro)",
+        valor: `${hoje.slice(0, 4)}-01-01`,
+        tipo: ini.tipo,
+        operador_sugerido: ">=",
+        obrigatorio: false,
+        precisa_normalizacao: false,
+      },
+    ],
+  };
 }
 
 /**

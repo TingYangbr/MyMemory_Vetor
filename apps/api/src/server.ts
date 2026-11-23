@@ -119,6 +119,7 @@ import { FinViewLancamentos1700000000204 } from "./migrations/1700000000204-FinV
 import { FinLancamentosContem1700000000205 } from "./migrations/1700000000205-FinLancamentosContem.js";
 import { FinAgendaAPagarAberto1700000000206 } from "./migrations/1700000000206-FinAgendaAPagarAberto.js";
 import { FinLancamentosTitulo1700000000207 } from "./migrations/1700000000207-FinLancamentosTitulo.js";
+import { FinLancamentosPagamentos1700000000208 } from "./migrations/1700000000208-FinLancamentosPagamentos.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -286,6 +287,7 @@ assertMediaStorageEnv();
       FinLancamentosContem1700000000205,
       FinAgendaAPagarAberto1700000000206,
       FinLancamentosTitulo1700000000207,
+      FinLancamentosPagamentos1700000000208,
     ],
   });
   const ds = await AppDataSource.initialize();
