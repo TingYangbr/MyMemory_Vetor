@@ -257,7 +257,7 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         <b>{i.descricao}</b>
         {i.parcela ? ` ${i.parcela}/${i.parcelas}` : ""}
         {tag}
-        <small>{pagar ? "A pagar" : "A receber"} · {i.contaGrupoNome}{i.recorrenciaId ? " · recorrente" : ""}</small>
+        <small>{pagar ? "Pagamento" : "Recebimento"} · {i.contaGrupoNome}{i.recorrenciaId ? " · recorrente" : ""}</small>
         <div className={styles.acoes}>
           {i.situacao !== "pago" ? (
             <button type="button" className={styles.link} onClick={() => abrirModo("baixa")}>{pagar ? "Pagar" : "Receber"}</button>
@@ -769,7 +769,7 @@ function AbaRecorrencias({ ctx, recs }: { ctx: Ctx; recs: Recorrencia[] }) {
         {recs.length === 0 ? <div className={styles.vazio}>Nenhuma recorrência.</div> : null}
         {recs.map((r) => (
           <div key={r.id} className={styles.linha} style={{ opacity: r.ativo ? 1 : 0.55 }}>
-            <span className={styles.data}>{r.sentido === "pagar" ? "A pagar" : "A receber"}</span>
+            <span className={styles.data}>{r.sentido === "pagar" ? "Pagamento" : "Recebimento"}</span>
             <div className={styles.desc}>
               <b>{r.descricao}</b>{r.ativo ? "" : <span className={styles.tag}>encerrada</span>}
               <small>{per(r.periodicidade)} desde {dataBr(r.inicio)}{r.fim ? ` até ${dataBr(r.fim)}` : ""} · {r.contaGrupoNome}</small>
