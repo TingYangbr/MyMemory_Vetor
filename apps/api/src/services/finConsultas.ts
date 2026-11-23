@@ -241,13 +241,13 @@ LIMIT 500`,
       "resultado; quanto SAIU de uma conta = soma de valor com saiu_de = conta; quanto ENTROU = soma de valor com " +
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
-      "investimento. Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
+      "investimento ('pagamentos', 'pagamentos efetuados', 'o que paguei', 'compras' = despesa, igual a gastos). Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
     sql: `SELECT data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
   receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento
 FROM fin_v_lancamentos
 WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
-       OR (tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%'))
+       OR (tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%' OR :tipo ILIKE '%pag%' OR :tipo ILIKE '%compr%' OR :tipo ILIKE '%sa_da%'))
        OR (tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%'))
        OR (tipo = 'investimento' AND :tipo ILIKE '%invest%')
        OR (tipo = 'transferencia' AND :tipo ILIKE '%transf%'))
