@@ -540,7 +540,7 @@ function FormParcelado({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [valor, setValor] = useState("");
   const [parcelas, setParcelas] = useState("1");
   const [primeiro, setPrimeiro] = useState(ctx.hoje);
-  const [competencia, setCompetencia] = useState(ctx.hoje);
+  const competencia = ctx.hoje;
   const [grupo, setGrupo] = useState("");
   const [novoGrupo, setNovoGrupo] = useState(false);
   const n = Math.max(1, Math.floor(Number(parcelas) || 1));
@@ -564,7 +564,6 @@ function FormParcelado({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         <label className={styles.campo}>Valor total<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
         <label className={styles.campo}>Parcelas<input type="number" min={1} max={360} value={parcelas} onChange={(e) => setParcelas(e.target.value)} /></label>
         <label className={styles.campo}>1º vencimento<input type="date" value={primeiro} onChange={(e) => setPrimeiro(e.target.value)} /></label>
-        <label className={styles.campo}>Data da {sentido === "pagar" ? "compra" : "venda"}<input type="date" value={competencia} onChange={(e) => setCompetencia(e.target.value)} /></label>
         <label className={styles.campo}>
           <span>Grupo de {sentido === "pagar" ? "despesa" : "receita"}
             <button type="button" style={maisLink} onClick={(e) => { e.preventDefault(); setNovoGrupo(true); }}>+ novo grupo</button>

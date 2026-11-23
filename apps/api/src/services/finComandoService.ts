@@ -22,7 +22,7 @@ import {
 import { obterFinConfig } from "./finConfigService.js";
 import { normalizarTicker, registrarOperacaoInvestimento } from "./finInvestimentosService.js";
 
-const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda"];
+const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda", "transferencia"];
 const qtdBr = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
 
@@ -131,12 +131,14 @@ export async function montarPropostaFin(input: {
         pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
         compra: "compra de ação, FII, ETF, BDR ou outro papel (comprei 100 PETR4 a 38,50 na XP): sai da corretora para o papel. NÃO é gasto",
         venda: "venda de papel (vendi 50 ITSA4 a 10,20): sai do papel para a corretora",
+        transferencia: "dinheiro entre contas suas (transferi do Itaú para a XP, mandei para a poupança, paguei a fatura do cartão com o Itaú, apliquei/resgatei na corretora, saque): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
       },
     },
     null,
     2
   );
-  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
+  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"contaDestinoId":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
+Transferência: contaId = de onde sai, contaDestinoId = para onde vai (ids de contas_bancos_cartoes), grupoId null.
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
 Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
@@ -192,6 +194,7 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     contaId: idValido(j.contaId, contas),
     grupoId: idValido(j.grupoId, grupos),
     alvoChave: tipo === "pagamento" ? alvo?.chave ?? null : null,
+    contaDestinoId: tipo === "transferencia" ? idValido(j.contaDestinoId, contas) : null,
     mensagem: "",
     config: await obterFinConfig(e),
     gravado: null,
@@ -231,6 +234,15 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
   }
   const cAmb = escolhaAmbigua(proposta.contaId, contas, input.texto);
+  if (tipo === "transferencia") {
+    proposta.grupoId = null;
+    if (proposta.contaDestinoId === proposta.contaId) proposta.contaDestinoId = null;
+    const dAmb = escolhaAmbigua(proposta.contaDestinoId ?? null, contas, input.texto);
+    if (dAmb) {
+      proposta.contaDestinoId = null;
+      duvidas.push(`Mais de uma conta de destino combina (${dAmb.join(", ")})`);
+    }
+  }
   if (tipo === "venda" && proposta.investimento?.papelContaId && proposta.investimento.quantidade) {
     const pos = papeis.find((p) => p.id === proposta.investimento!.papelContaId)?.quantidade ?? 0;
     if (proposta.investimento.quantidade > pos + 1e-9) duvidas.push(`A posição hoje é ${qtdBr(pos)}: menor que a quantidade vendida`);
@@ -261,6 +273,8 @@ function completa(p: FinComandoProposta): boolean {
     case "conta":
     case "fixa":
       return p.valor != null && p.grupoId != null;
+    case "transferencia":
+      return p.valor != null && p.contaId != null && p.contaDestinoId != null && p.contaId !== p.contaDestinoId;
     case "compra":
     case "venda": {
       const i = p.investimento;
@@ -306,6 +320,13 @@ async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComa
       mensagem: `${p.tipo === "gasto" ? "Gasto" : "Receita"} de ${brl(v)} gravado.`,
       desfazer: id != null ? { tipo: "lancamento", id } : null,
     };
+  }
+  if (p.tipo === "transferencia") {
+    const origem = p.contaId!;
+    const destino = p.contaDestinoId!;
+    await criarLancamento(e, { data: p.data, descricao: p.descricao, valor: v, contaOrigemId: origem, contaDestinoId: destino });
+    const id = await ultimoLancamentoId(e, { data: p.data, origem, destino });
+    return { mensagem: `Transferência de ${brl(v)} gravada.`, desfazer: id != null ? { tipo: "lancamento", id } : null };
   }
   if (p.tipo === "conta") {
     const r = await criarParcelado(e, {
@@ -361,6 +382,12 @@ export function descreverProposta(p: FinComandoProposta): string {
       o = `A receita${v} será registrada ${grupo ? `em ${grupo}` : "nas receitas"}${conta ? `, entrando em ${conta}` : ""}`;
       falta ||= !grupo || !conta;
       break;
+    case "transferencia": {
+      const dest = p.opcoes.contas.find((c) => c.id === p.contaDestinoId)?.nome;
+      o = `A transferência${v} sairá ${conta ? `de ${conta}` : "de uma conta"} para ${dest ?? "outra conta"} (não entra em gastos)`;
+      falta ||= !conta || !dest;
+      break;
+    }
     case "conta":
       o = `A conta a ${p.sentido} "${p.descricao}"${v}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""} será registrada com vencimento em ${dataBr(p.data)}${grupo ? `, em ${grupo}` : ""}`;
       falta ||= !grupo;

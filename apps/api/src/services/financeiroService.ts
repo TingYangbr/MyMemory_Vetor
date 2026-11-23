@@ -526,26 +526,17 @@ export async function criarParcelado(
     const lote = randomUUID();
     const parcelas = finGerarParcelas(inp.valorTotal, inp.parcelas, inp.primeiroVencimento, inp.periodicidade ?? "mensal");
     const desc = inp.descricao.trim();
+    // Regime de caixa: só os títulos; a despesa/receita entra parcela a parcela, na data de cada pagamento
+    // (antes nascia inteira na data da compra, contra a pagar/a receber — títulos antigos continuam assim, caixa = 0)
+    void controle;
+    void competencia;
     for (const p of parcelas) {
       await conn.query(
-        `INSERT INTO fin_titulos (groupid, userid, sentido, descricao, valor, vencimento, conta_grupoid, lote, parcela, parcelas)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO fin_titulos (groupid, userid, sentido, descricao, valor, vencimento, conta_grupoid, lote, parcela, parcelas, caixa)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [e.groupId, e.userId, inp.sentido, desc, p.valor, p.vencimento, grupo.id, lote, p.parcela, parcelas.length]
       );
     }
-    // Competência: a despesa/receita nasce na data da compra/venda, contra a pagar/a receber
-    await conn.query(
-      `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, lote)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        e.groupId, e.userId, competencia,
-        parcelas.length > 1 ? `${desc} (${parcelas.length}x)` : desc,
-        r2(inp.valorTotal),
-        inp.sentido === "pagar" ? controle : grupo.id,
-        inp.sentido === "pagar" ? grupo.id : controle,
-        lote,
-      ]
-    );
     await conn.commit();
     return { lote, titulos: parcelas.length };
   } catch (err) {
@@ -623,18 +614,18 @@ export async function baixar(
     const sentidoDoGrupo = async (s: "pagar" | "receber") =>
       inp.excedenteGrupoId ? (await obterConta(conn, e, inp.excedenteGrupoId, grupoDoSentido(s), "grupo do excedente")).id : null;
     /** Título com a diferença que ficou em aberto (pagamento parcial). */
-    const criarSaldo = async (t: { sentido: string; descricao: string; vencimento: string; grupoId: number; lote: string | null; parcela: number | null; parcelas: number | null }, resto: number, origemId: number) => {
+    const criarSaldo = async (t: { sentido: string; descricao: string; vencimento: string; grupoId: number; lote: string | null; parcela: number | null; parcelas: number | null; caixa?: number }, resto: number, origemId: number) => {
       const [ins] = await conn.query<RowDataPacket[]>(
-        `INSERT INTO fin_titulos (groupid, userid, sentido, descricao, valor, vencimento, conta_grupoid, lote, parcela, parcelas, saldo_de_tituloid)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-        [e.groupId, e.userId, t.sentido, `${t.descricao.replace(/ \(saldo\)$/, "")} (saldo)`.slice(0, 200), r2(resto), t.vencimento, t.grupoId, t.lote, t.parcela, t.parcelas, origemId]
+        `INSERT INTO fin_titulos (groupid, userid, sentido, descricao, valor, vencimento, conta_grupoid, lote, parcela, parcelas, saldo_de_tituloid, caixa)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        [e.groupId, e.userId, t.sentido, `${t.descricao.replace(/ \(saldo\)$/, "")} (saldo)`.slice(0, 200), r2(resto), t.vencimento, t.grupoId, t.lote, t.parcela, t.parcelas, origemId, t.caixa ?? 0]
       );
       return Number(ins[0].id);
     };
 
     if (inp.tituloId) {
       const [ts] = await conn.query<RowDataPacket[]>(
-        `SELECT id, sentido, descricao, valor, situacao, vencimento::text AS "venc", conta_grupoid AS "gid", lote, parcela, parcelas
+        `SELECT id, sentido, descricao, valor, situacao, vencimento::text AS "venc", conta_grupoid AS "gid", lote, parcela, parcelas, caixa
          FROM fin_titulos WHERE id = ? AND ${f.sql} FOR UPDATE`,
         [inp.tituloId, ...f.params]
       );
@@ -650,7 +641,20 @@ export async function baixar(
       tituloId = Number(t.id);
       const exc = vp > valor ? await sentidoDoGrupo(sentido) : null;
       const ficaAberto = parcial && vp < valor;
-      if (sentido === "pagar") {
+      const caixa = Number(t.caixa ?? 0) === 1;
+      if (caixa) {
+        // Regime de caixa: o pago vai direto entre a conta e o grupo (sem a pagar/a receber); desconto não gera
+        // lançamento (a despesa é o que saiu); acima do valor, excedente (grupo escolhido) ou juros/multa
+        const gid = Number(t.gid);
+        const base = Math.min(vp, valor);
+        if (sentido === "pagar") {
+          await lancar(conn, e, { data: inp.data, descricao: desc, valor: base, origem: conta.id, destino: gid, tituloId });
+          if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ${exc ? "excedente" : "juros/multa"}`, valor: vp - valor, origem: conta.id, destino: exc ?? await contaSistema(conn, e, "juros_pagos"), tituloId });
+        } else {
+          await lancar(conn, e, { data: inp.data, descricao: desc, valor: base, origem: gid, destino: conta.id, tituloId });
+          if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ${exc ? "excedente" : "juros/multa"}`, valor: vp - valor, origem: exc ?? await contaSistema(conn, e, "juros_recebidos"), destino: conta.id, tituloId });
+        }
+      } else if (sentido === "pagar") {
         const ctl = await contaSistema(conn, e, "a_pagar");
         await lancar(conn, e, { data: inp.data, descricao: desc, valor: Math.min(vp, valor), origem: conta.id, destino: ctl, tituloId });
         if (vp > valor) await lancar(conn, e, { data: inp.data, descricao: `${desc} — ${exc ? "excedente" : "juros/multa"}`, valor: vp - valor, origem: conta.id, destino: exc ?? await contaSistema(conn, e, "juros_pagos"), tituloId });
@@ -666,7 +670,7 @@ export async function baixar(
         // O a pagar/a receber já contém o valor cheio (nasceu na compra), então o livro não muda.
         await conn.query(`UPDATE fin_titulos SET valor = ? WHERE id = ?`, [vp, tituloId]);
         saldoTituloId = await criarSaldo(
-          { sentido, descricao: desc, vencimento: String(t.venc), grupoId: Number(t.gid), lote: t.lote ?? null, parcela: t.parcela ?? null, parcelas: t.parcelas ?? null },
+          { sentido, descricao: desc, vencimento: String(t.venc), grupoId: Number(t.gid), lote: t.lote ?? null, parcela: t.parcela ?? null, parcelas: t.parcelas ?? null, caixa: Number(t.caixa ?? 0) },
           valor - vp,
           tituloId
         );
@@ -1297,7 +1301,7 @@ export async function conferencia(e: Espaco): Promise<FinConferencia> {
   const contas = await listarContasComSaldo(e, "0001-01-01", hoje);
   const f = esp(e);
   const [ts] = await pool.query<RowDataPacket[]>(
-    `SELECT sentido, COALESCE(SUM(valor), 0) AS "total" FROM fin_titulos WHERE ${f.sql} AND situacao = 'aberto' GROUP BY sentido`,
+    `SELECT sentido, COALESCE(SUM(valor), 0) AS "total" FROM fin_titulos WHERE ${f.sql} AND situacao = 'aberto' AND caixa = 0 GROUP BY sentido`,
     f.params
   );
   const tit = (s: string) => r2(n(ts.find((x) => x.sentido === s)?.total));
