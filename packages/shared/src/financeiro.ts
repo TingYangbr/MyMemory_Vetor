@@ -258,6 +258,44 @@ export interface FinItemAgenda {
   contaPagamentoId: number | null;
 }
 
+/** Histórico de um título: o original, os saldos de pagamento parcial e todos os lançamentos feitos sobre eles. */
+export interface FinHistoricoTitulo {
+  sentido: "pagar" | "receber";
+  descricao: string;
+  grupo: string | null;
+  /** Valor do título antes dos pagamentos parciais (soma da cadeia original + saldos). */
+  valorOriginal: number;
+  pago: number;
+  emAberto: number;
+  titulos: {
+    id: number;
+    descricao: string;
+    valor: number;
+    vencimento: string;
+    situacao: "aberto" | "quitado";
+    quitadoEm: string | null;
+    valorPago: number | null;
+    contaPagamento: string | null;
+    parcela: number | null;
+    parcelas: number | null;
+    /** Título de onde este saldo nasceu (pagamento parcial). */
+    saldoDe: number | null;
+    memoId: number | null;
+  }[];
+  lancamentos: {
+    id: number;
+    data: string;
+    descricao: string;
+    valor: number;
+    saiuDe: string;
+    foiPara: string;
+    /** compra = nascimento do parcelamento (todas as parcelas); os demais vêm do pagamento. */
+    tipo: "compra" | "pagamento" | "excedente" | "juros" | "desconto";
+    tituloId: number | null;
+    memoId: number | null;
+  }[];
+}
+
 export interface FinAgendaResposta {
   de: string;
   ate: string;

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   FIN_MOEDAS,
@@ -9,6 +10,7 @@ import {
   type FinConfigResposta,
   type FinConferencia,
   type FinContaSaldo,
+  type FinHistoricoTitulo,
   type FinItemAgenda,
   type FinLancamento,
   type FinPeriodicidade,
@@ -19,6 +21,7 @@ import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson, apiPutJson } from "..
 import Header from "../../components/Header";
 import { IconArrowLeft } from "../../components/icons";
 import styles from "./Financeiro.module.css";
+import janela from "../../components/MemoAlteracaoCartao.module.css";
 
 /**
  * Controle financeiro — etapa 1 (desenho, seção 13): agenda de contas a pagar e receber (títulos + previsão
@@ -243,6 +246,7 @@ function AbaAgenda({ ctx, agenda }: { ctx: Ctx; agenda: FinAgendaResposta }) {
 
 function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; aberto: boolean; abrir: (v: boolean) => void }) {
   const [modo, setModo] = useState<"baixa" | "excecao" | null>(null);
+  const [historico, setHistorico] = useState(false);
   const pagar = i.sentido === "pagar";
   const tag =
     i.situacao === "atraso" ? <span className={`${styles.tag} ${styles.tagAtraso}`}>em atraso</span>
@@ -259,6 +263,9 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         {tag}
         <small>{pagar ? "Pagamento" : "Recebimento"} · {i.contaGrupoNome}{i.recorrenciaId ? " · recorrente" : ""}</small>
         <div className={styles.acoes}>
+          {i.tituloId != null ? (
+            <button type="button" className={styles.link} onClick={() => setHistorico(true)}>Histórico</button>
+          ) : null}
           {i.situacao !== "pago" ? (
             <button type="button" className={styles.link} onClick={() => abrirModo("baixa")}>{pagar ? "Pagar" : "Receber"}</button>
           ) : (
@@ -285,11 +292,114 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         </div>
         {aberto && modo === "baixa" ? <FormBaixa ctx={ctx} i={i} fechar={() => abrir(false)} /> : null}
         {aberto && modo === "excecao" ? <FormExcecao ctx={ctx} i={i} fechar={() => abrir(false)} /> : null}
+        {historico && i.tituloId != null ? <HistoricoTitulo tituloId={i.tituloId} fechar={() => setHistorico(false)} /> : null}
       </div>
       <span className={`${styles.valor} ${pagar ? styles.valorPagar : styles.valorReceber}`}>
         {brl(i.situacao === "pago" ? i.valorPago ?? i.valor : i.valor)}
       </span>
     </div>
+  );
+}
+
+const TIPO_LANC: Record<FinHistoricoTitulo["lancamentos"][number]["tipo"], string> = {
+  compra: "compra",
+  pagamento: "pagamento",
+  excedente: "excedente",
+  juros: "juros/multa",
+  desconto: "desconto",
+};
+
+/** Janela com tudo o que aconteceu com um título: original, saldos de pagamento parcial e lançamentos. */
+function HistoricoTitulo({ tituloId, fechar }: { tituloId: number; fechar: () => void }) {
+  const [h, setH] = useState<FinHistoricoTitulo | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  useEffect(() => {
+    apiGet<FinHistoricoTitulo>(`/api/fin/titulos/${tituloId}/historico`).then(setH).catch((e) => setErro(msgErro(e)));
+  }, [tituloId]);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") fechar(); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [fechar]);
+  const pagar = h?.sentido !== "receber";
+  const cel: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid var(--mm-border-muted)", textAlign: "left", fontSize: 13 };
+  const num_: React.CSSProperties = { ...cel, textAlign: "right", whiteSpace: "nowrap" };
+  return createPortal(
+    <div className={janela.overlay} onClick={fechar}>
+      <div className={janela.cartao} role="dialog" aria-label="Histórico do título" style={{ width: "min(720px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className={janela.topo}>
+          <div>
+            <b>Histórico do título</b>
+            {h ? <div className={janela.id}>{h.descricao} · {pagar ? "Pagamento" : "Recebimento"}{h.grupo ? ` · ${h.grupo}` : ""}</div> : null}
+          </div>
+          <button type="button" className={janela.fechar} onClick={fechar} aria-label="Fechar">×</button>
+        </div>
+        {erro ? <div className={styles.erro}>{erro}</div> : null}
+        {!h && !erro ? <div className={janela.carregando}>Carregando…</div> : null}
+        {h ? (
+          <>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: 14 }}>
+              <span>Valor original <b>{brl(h.valorOriginal)}</b></span>
+              <span>{pagar ? "Pago" : "Recebido"} <b>{brl(h.pago)}</b></span>
+              <span>Em aberto <b style={{ color: h.emAberto > 0 ? "var(--mm-danger)" : undefined }}>{brl(h.emAberto)}</b></span>
+            </div>
+            <div style={{ fontWeight: 600, margin: "8px 0 4px" }}>Títulos</div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={cel}>Vencimento</th><th style={cel}>Descrição</th><th style={num_}>Valor</th><th style={cel}>Situação</th><th style={num_}>Pago</th><th style={cel}>Conta</th>
+                </tr></thead>
+                <tbody>
+                  {h.titulos.map((t) => (
+                    <tr key={t.id}>
+                      <td style={cel}>{dataBr(t.vencimento)}</td>
+                      <td style={cel}>
+                        {t.descricao}{t.parcela ? ` ${t.parcela}/${t.parcelas}` : ""}
+                        {t.saldoDe ? <small style={{ display: "block", color: "var(--mm-muted)" }}>saldo de pagamento parcial</small> : null}
+                        {t.memoId ? <a href={`/memo/${t.memoId}/editar`} style={{ display: "block", fontSize: 12 }}>ver comprovante</a> : null}
+                      </td>
+                      <td style={num_}>{brl(t.valor)}</td>
+                      <td style={cel}>{t.situacao === "quitado" ? `${pagar ? "pago" : "recebido"} ${dataBr(t.quitadoEm)}` : "em aberto"}</td>
+                      <td style={num_}>{t.valorPago != null ? brl(t.valorPago) : ""}</td>
+                      <td style={cel}>{t.contaPagamento ?? ""}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div style={{ fontWeight: 600, margin: "14px 0 4px" }}>Lançamentos</div>
+            {h.lancamentos.length === 0 ? <div className={styles.vazio}>Nenhum lançamento ainda.</div> : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={cel}>Data</th><th style={cel}>Tipo</th><th style={cel}>Descrição</th><th style={cel}>Saiu de</th><th style={cel}>Foi para</th><th style={num_}>Valor</th>
+                  </tr></thead>
+                  <tbody>
+                    {h.lancamentos.map((l) => (
+                      <tr key={l.id}>
+                        <td style={cel}>{dataBr(l.data)}</td>
+                        <td style={cel}>{TIPO_LANC[l.tipo]}</td>
+                        <td style={cel}>
+                          {l.descricao}
+                          {l.memoId ? <a href={`/memo/${l.memoId}/editar`} style={{ display: "block", fontSize: 12 }}>ver comprovante</a> : null}
+                        </td>
+                        <td style={cel}>{l.saiuDe}</td>
+                        <td style={cel}>{l.foiPara}</td>
+                        <td style={num_}>{brl(l.valor)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {h.lancamentos.some((l) => l.tipo === "compra") ? (
+              <p className={styles.dica} style={{ marginTop: 8 }}>"Compra" é o lançamento que fez a despesa nascer, pelo valor de todas as parcelas.</p>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>,
+    document.body
   );
 }
 

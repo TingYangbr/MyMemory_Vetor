@@ -94,10 +94,12 @@ SELECT l.id, l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.d
   CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END AS despesa,
   (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
     - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
-  l.moeda, l.valor_moeda, l.quantidade, l.preco
+  l.moeda, l.valor_moeda, l.quantidade, l.preco,
+  ti.descricao AS titulo, ti.vencimento AS titulo_vencimento, l.tituloid AS titulo_id
 FROM fin_lancamentos l
 JOIN fin_contas o ON o.id = l.conta_origemid
 JOIN fin_contas d ON d.id = l.conta_destinoid
+LEFT JOIN fin_titulos ti ON ti.id = l.tituloid
 WHERE (SELECT public.mm_ctx_ativo())
   AND CASE WHEN (SELECT public.mm_ctx_group_id()) IS NOT NULL
         THEN l.groupid = (SELECT public.mm_ctx_group_id())
@@ -234,13 +236,14 @@ LIMIT 500`,
       "(para onde foi), grupo (despesa/receita: Alimentação, Moradia, Salário…), tipo (despesa, receita, transferencia, " +
       "investimento, outro), conta (banco ou cartão do lado do dinheiro, para despesa/receita), receita, despesa, " +
       "resultado (= receita − despesa, já com sinal: estorno subtrai), moeda e valor_moeda (conta em outra moeda), " +
-      "quantidade e preco (investimento). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
+      "quantidade e preco (investimento), titulo e titulo_vencimento (conta a pagar/receber que o lançamento pagou; " +
+      "'lançamentos do título X', 'o que já paguei do aluguel de dezembro' → parâmetro titulo). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
       "resultado; quanto SAIU de uma conta = soma de valor com saiu_de = conta; quanto ENTROU = soma de valor com " +
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
       "investimento. Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
     sql: `SELECT data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
-  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco
+  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento
 FROM fin_v_lancamentos
 WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
@@ -255,6 +258,7 @@ WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM
   AND (:descricao IS NULL OR descricao ILIKE '%' || :descricao || '%')
   AND (:valor_min IS NULL OR valor >= :valor_min)
   AND (:valor_max IS NULL OR valor <= :valor_max)
+  AND (:titulo IS NULL OR titulo ILIKE '%' || :titulo || '%')
 ORDER BY data, id`,
     params: [
       ...periodo(""),
@@ -266,6 +270,7 @@ ORDER BY data, id`,
       { campo: "descricao", tipo: "string", operadorSql: "LIKE" },
       { campo: "valor_min", tipo: "number", operadorSql: ">=" },
       { campo: "valor_max", tipo: "number", operadorSql: "<=" },
+      { campo: "titulo", tipo: "string", operadorSql: "LIKE" },
     ],
   },
   {
