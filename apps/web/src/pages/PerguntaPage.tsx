@@ -501,6 +501,41 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   valueCols = escolherSeries(valueCols.filter((col) => !isColunaIdentificador(col)), pergunta);
   if (valueCols.length === 0) return null;
 
+  // Pivô: duas colunas de rótulo (ex.: mês e grupo) e um valor → eixo X = a de tempo (ou a primeira), uma barra
+  // por valor da outra (Combustível, Condomínio…) no mesmo período. Antes o rótulo repetia ("10/2026" duas vezes).
+  const textuais = dados.colunas.filter((c) => !numericCols.includes(c) && c.toLowerCase() !== "id" && !isColunaIdentificador(c));
+  if (valueCols.length === 1 && textuais.length === 2) {
+    const tempo = textuais.find((c) => dados.linhas.every((l) => isRotuloTemporal(String(l[c] ?? ""))));
+    const eixo = tempo ?? textuais[0]!;
+    const serieCol = textuais.find((c) => c !== eixo)!;
+    const series = [...new Set(dados.linhas.map((l) => String(l[serieCol] ?? "")))];
+    const eixos = new Set(dados.linhas.map((l) => String(l[eixo] ?? "")));
+    // Só quando a outra coluna repete (pivô faz sentido) e cabe no gráfico
+    if (series.length >= 2 && series.length <= 8 && eixos.size < dados.linhas.length) {
+      const vc = valueCols[0]!;
+      const porEixo = new Map<string, Record<string, string | number>>();
+      for (const l of dados.linhas) {
+        const raw = String(l[eixo] ?? "");
+        const row = porEixo.get(raw) ?? { label: formatDateCell(raw) ?? raw, _raw: raw };
+        const k = String(l[serieCol] ?? "");
+        row[k] = Number(row[k] ?? 0) + (numeroDaCelula(l[vc]) ?? 0);
+        porEixo.set(raw, row);
+      }
+      const linhasPiv = [...porEixo.values()];
+      for (const r of linhasPiv) for (const k of series) if (r[k] == null) r[k] = 0;
+      const temporalPiv = tempo != null;
+      if (!manterOrdem) linhasPiv.sort((x, y) => compararRotulos(String(x._raw), String(y._raw)));
+      const u = dados.unidades?.[vc];
+      return {
+        valueCols: series,
+        rows: linhasPiv,
+        temporal: temporalPiv,
+        direita: [],
+        unidades: u ? Object.fromEntries(series.map((k) => [k, u])) : undefined,
+      };
+    }
+  }
+
   // Mais de 20 rótulos distintos no eixo X fica ilegível — mostra só a tabela. Datas (linha do tempo, inclusive
   // com os dias sem registro) aceitam até 2 meses de dias, e ficam os mais recentes.
   const temporalAntes = dados.linhas.every((l) => isRotuloTemporal(String(l[labelCol!] ?? "")));
