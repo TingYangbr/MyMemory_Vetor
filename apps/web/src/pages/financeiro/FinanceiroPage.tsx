@@ -19,6 +19,7 @@ import {
 } from "@mymemory/shared";
 import { apiDeleteJson, apiGet, apiPatchJson, apiPostJson, apiPutJson } from "../../api";
 import Header from "../../components/Header";
+import { NovoCadastro } from "../../components/FinComandoCartao";
 import { IconArrowLeft } from "../../components/icons";
 import styles from "./Financeiro.module.css";
 import janela from "../../components/MemoAlteracaoCartao.module.css";
@@ -130,7 +131,7 @@ export default function FinanceiroPage() {
   }, [carregar]);
 
   const ativas = contas.filter((c) => c.ativo);
-  const ctx: Ctx = { contas: ativas, todas: contas, hoje: hoje ?? "", agir, ocupado };
+  const ctx: Ctx = { contas: ativas, todas: contas, hoje: hoje ?? "", agir, ocupado, recarregar: carregar };
 
   return (
     <div className={styles.shell}>
@@ -196,7 +197,14 @@ interface Ctx {
   hoje: string;
   agir: (fn: () => Promise<unknown>, ok?: string) => Promise<boolean>;
   ocupado: boolean;
+  /** Recarrega contas e listas (ex.: depois de cadastrar um grupo pelo "+ novo grupo"). */
+  recarregar: () => Promise<void>;
 }
+
+const maisLink: React.CSSProperties = {
+  border: "none", background: "none", padding: 0, marginLeft: 6, color: "var(--mm-primary, #0d9488)",
+  cursor: "pointer", fontSize: 12, textDecoration: "underline",
+};
 
 function SelConta(props: { valor: string; onChange: (v: string) => void; contas: FinContaSaldo[]; tipos?: FinTipoConta[]; vazio?: string; soReal?: boolean }) {
   const lista = props.contas.filter((c) => (!props.tipos || props.tipos.includes(c.tipo)) && (!props.soReal || c.moeda === "BRL"));
@@ -465,6 +473,7 @@ function FormRecorrencia({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [fim, setFim] = useState("");
   const [grupo, setGrupo] = useState("");
   const [conta, setConta] = useState("");
+  const [novo, setNovo] = useState<"grupo" | "conta" | null>(null);
   const salvar = async () => {
     const ok = await ctx.agir(() => apiPostJson("/api/fin/recorrencias", {
       sentido, descricao, valor: num(valor), periodicidade, inicio, fim: fim || null,
@@ -490,14 +499,32 @@ function FormRecorrencia({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         </label>
         <label className={styles.campo}>Primeiro vencimento<input type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></label>
         <label className={styles.campo}>Termina em (opcional)<input type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></label>
-        <label className={styles.campo}>Grupo de {sentido === "pagar" ? "despesa" : "receita"}
+        <label className={styles.campo}>
+          <span>Grupo de {sentido === "pagar" ? "despesa" : "receita"}
+            <button type="button" style={maisLink} onClick={(e) => { e.preventDefault(); setNovo("grupo"); }}>+ novo grupo</button>
+          </span>
           <SelConta valor={grupo} onChange={setGrupo} contas={ctx.contas} tipos={sentido === "pagar" ? ["despesa"] : ["receita"]} />
         </label>
-        <label className={styles.campo}>{sentido === "pagar" ? "Paga normalmente por" : "Recebe normalmente em"} (opcional)
+        <label className={styles.campo}>
+          <span>{sentido === "pagar" ? "Paga normalmente por" : "Recebe normalmente em"} (opcional)
+            <button type="button" style={maisLink} onClick={(e) => { e.preventDefault(); setNovo("conta"); }}>+ nova conta</button>
+          </span>
           <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={sentido === "pagar" ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} vazio="— nenhuma —" soReal />
         </label>
       </div>
-      <p className={styles.dica}>Nada é gravado adiantado: o motor calcula os vencimentos. Falta um grupo? Crie em Contas e saldos.</p>
+      {novo ? (
+        <NovoCadastro
+          qual={novo}
+          sentido={sentido}
+          onFechar={() => setNovo(null)}
+          onCriado={(c) => {
+            const qual = novo;
+            setNovo(null);
+            void ctx.recarregar().then(() => (qual === "grupo" ? setGrupo(String(c.id)) : setConta(String(c.id))));
+          }}
+        />
+      ) : null}
+      <p className={styles.dica}>Nada é gravado adiantado: o motor calcula os vencimentos.</p>
       <div className={styles.formAcoes}>
         <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>
         <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={ctx.ocupado || !descricao.trim() || !(num(valor) > 0) || !grupo || !inicio} onClick={() => void salvar()}>Criar</button>
@@ -514,6 +541,7 @@ function FormParcelado({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [primeiro, setPrimeiro] = useState(ctx.hoje);
   const [competencia, setCompetencia] = useState(ctx.hoje);
   const [grupo, setGrupo] = useState("");
+  const [novoGrupo, setNovoGrupo] = useState(false);
   const n = Math.max(1, Math.floor(Number(parcelas) || 1));
   const salvar = async () => {
     const ok = await ctx.agir(() => apiPostJson("/api/fin/parcelados", {
@@ -536,9 +564,16 @@ function FormParcelado({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         <label className={styles.campo}>Parcelas<input type="number" min={1} max={360} value={parcelas} onChange={(e) => setParcelas(e.target.value)} /></label>
         <label className={styles.campo}>1º vencimento<input type="date" value={primeiro} onChange={(e) => setPrimeiro(e.target.value)} /></label>
         <label className={styles.campo}>Data da {sentido === "pagar" ? "compra" : "venda"}<input type="date" value={competencia} onChange={(e) => setCompetencia(e.target.value)} /></label>
-        <label className={styles.campo}>Grupo de {sentido === "pagar" ? "despesa" : "receita"}
+        <label className={styles.campo}>
+          <span>Grupo de {sentido === "pagar" ? "despesa" : "receita"}
+            <button type="button" style={maisLink} onClick={(e) => { e.preventDefault(); setNovoGrupo(true); }}>+ novo grupo</button>
+          </span>
           <SelConta valor={grupo} onChange={setGrupo} contas={ctx.contas} tipos={sentido === "pagar" ? ["despesa"] : ["receita"]} />
         </label>
+        {novoGrupo ? (
+          <NovoCadastro qual="grupo" sentido={sentido} onFechar={() => setNovoGrupo(false)}
+            onCriado={(c) => { setNovoGrupo(false); void ctx.recarregar().then(() => setGrupo(String(c.id))); }} />
+        ) : null}
       </div>
       {num(valor) > 0 ? <p className={styles.dica}>{n}x de cerca de {brl(num(valor) / n)}, mensais. A {sentido === "pagar" ? "despesa" : "receita"} entra na data da {sentido === "pagar" ? "compra" : "venda"}.</p> : null}
       <div className={styles.formAcoes}>
