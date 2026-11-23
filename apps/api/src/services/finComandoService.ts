@@ -46,6 +46,7 @@ function safeJson(text: string): Record<string, unknown> {
   }
 }
 
+const PALAVRAS_VAZIAS = new Set(["de", "da", "do", "das", "dos", "em", "no", "na", "nos", "nas", "um", "uma", "os", "as", "ao", "por", "com", "para", "pra", "pro", "dia", "mil", "reais"]);
 const palavras = (t: string) =>
   new Set(
     t
@@ -53,7 +54,8 @@ const palavras = (t: string) =>
       .replace(/[̀-ͯ]/g, "")
       .toLowerCase()
       .split(/[^a-z0-9]+/)
-      .filter((w) => w.length >= 3)
+      // 2 letras contam ("XP", "BB", "C6"); preposições e artigos, não
+      .filter((w) => w.length >= 2 && !PALAVRAS_VAZIAS.has(w))
   );
 
 /**
@@ -66,13 +68,12 @@ function escolhaAmbigua(id: number | null, lista: { id: number; nome: string }[]
   const esc = lista.find((x) => x.id === id);
   if (!esc) return null;
   const f = palavras(frase);
-  const pe = palavras(esc.nome);
-  const citadas = [...pe].filter((w) => f.has(w));
+  const citadas = [...palavras(esc.nome)].filter((w) => f.has(w));
   if (!citadas.length) return null;
-  const rivais = lista.filter((x) => x.id !== id && citadas.some((w) => palavras(x.nome).has(w)));
-  if (!rivais.length) return null;
-  const distingue = citadas.some((w) => rivais.every((r) => !palavras(r.nome).has(w)));
-  return distingue ? null : [esc, ...rivais].map((x) => x.nome);
+  // Rival só quando tem TODAS as palavras do escolhido que a frase cita: "Conta Itau" dito inteiro não é ambíguo
+  // com "Conta XP" nem com "Cartão Itau"; "condomínio" sozinho é com "Condomínio Granja" e "Condomínio Butantã".
+  const rivais = lista.filter((x) => x.id !== id && citadas.every((w) => palavras(x.nome).has(w)));
+  return rivais.length ? [esc, ...rivais].map((x) => x.nome) : null;
 }
 
 export async function montarPropostaFin(input: {
