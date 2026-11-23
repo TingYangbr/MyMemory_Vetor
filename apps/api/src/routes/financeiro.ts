@@ -7,6 +7,7 @@ import {
   FinErro,
   agenda,
   historicoTitulo,
+  ocorrenciasRecorrencia,
   atualizarConta,
   atualizarRecorrencia,
   baixar,
@@ -213,6 +214,10 @@ const plugin: FastifyPluginAsync = async (app) => {
       modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
+  }));
+
+  app.get("/api/fin/recorrencias/:id/ocorrencias", rota(async (e, req) => {
+    return ocorrenciasRecorrencia(e, id.parse((req.params as { id: string }).id));
   }));
 
   app.get("/api/fin/titulos/:id/historico", rota(async (e, req) => {

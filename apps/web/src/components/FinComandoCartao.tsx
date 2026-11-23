@@ -354,6 +354,23 @@ export default function FinComandoCartao({
               </option>
             ))}
           </select>
+          {(() => {
+            const it = abertos.find((a) => a.chave === alvo);
+            if (!it) return null;
+            return (
+              <div style={{ ...rot, marginTop: 8 }}>
+                <span>{it.sentido === "pagar" ? "Grupo de despesa" : "Grupo de receita"} (da conta em aberto)</span>
+                <input
+                  className="mm-field"
+                  readOnly
+                  tabIndex={-1}
+                  value={it.grupo ?? "—"}
+                  title="Vem da conta em aberto: a despesa/receita já foi registrada nesse grupo. Para mudar, altere a conta ou a recorrência."
+                  style={{ background: "#fef9c3", color: "#422006", cursor: "default" }}
+                />
+              </div>
+            );
+          })()}
         </label>
       ) : ehInv ? (
         <div style={linha}>

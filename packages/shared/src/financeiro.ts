@@ -258,6 +258,25 @@ export interface FinItemAgenda {
   contaPagamentoId: number | null;
 }
 
+/** O que uma recorrência já gerou (títulos pagos/abertos) e os próximos vencimentos previstos. */
+export interface FinOcorrenciasRecorrencia {
+  descricao: string;
+  sentido: "pagar" | "receber";
+  itens: {
+    referencia: string;
+    valor: number;
+    /** pago = virou título quitado; aberto = título gravado em aberto; atraso/previsto = ainda só previsão; pulado = exceção. */
+    situacao: "pago" | "aberto" | "atraso" | "previsto" | "pulado";
+    quitadoEm: string | null;
+    valorPago: number | null;
+    contaPagamento: string | null;
+    tituloId: number | null;
+    /** Valor diferente do da regra neste mês (exceção). */
+    excecao: boolean;
+  }[];
+  pago: number;
+}
+
 /** Histórico de um título: o original, os saldos de pagamento parcial e todos os lançamentos feitos sobre eles. */
 export interface FinHistoricoTitulo {
   sentido: "pagar" | "receber";
@@ -422,7 +441,7 @@ export interface FinComandoProposta {
     contas: { id: number; nome: string; tipo: FinTipoConta }[];
     gruposDespesa: { id: number; nome: string }[];
     gruposReceita: { id: number; nome: string }[];
-    abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean }[];
+    abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean; grupo?: string | null }[];
     papeis?: FinPapelOpcao[];
   };
 }
