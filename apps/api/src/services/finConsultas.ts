@@ -73,6 +73,69 @@ AS $fn$
   SELECT v, s, tp, ds, vl, gr, og, pc, pcs, pe, vp FROM prev
 $fn$`;
 
+/**
+ * View de entradas e saídas (como a ia_FaturamentoProduto do ERP): uma linha por lançamento com todos os campos — de
+ * onde saiu e para onde foi, grupo, tipo, conta do lado do dinheiro, receita/despesa/resultado já com sinal, moeda e
+ * quantidade. O recorte do espaço está NA view (mesma regra da RLS: mm_ctx_*), porque ela roda com os direitos do dono;
+ * fora de uma consulta isolada (sem contexto) ela não devolve nada.
+ */
+export const SQL_VIEW_FIN_LANCAMENTOS = `
+CREATE OR REPLACE VIEW public.fin_v_lancamentos AS
+SELECT l.id, l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.descricao, l.valor,
+  o.nome AS saiu_de, o.tipo AS tipo_saida, d.nome AS foi_para, d.tipo AS tipo_entrada,
+  CASE WHEN o.tipo IN ('despesa', 'receita') THEN o.nome WHEN d.tipo IN ('despesa', 'receita') THEN d.nome END AS grupo,
+  CASE WHEN 'despesa' IN (o.tipo, d.tipo) THEN 'despesa'
+       WHEN 'receita' IN (o.tipo, d.tipo) THEN 'receita'
+       WHEN 'investimento' IN (o.tipo, d.tipo) THEN 'investimento'
+       WHEN o.tipo IN ('banco', 'cartao', 'corretora') AND d.tipo IN ('banco', 'cartao', 'corretora') THEN 'transferencia'
+       ELSE 'outro' END AS tipo,
+  CASE WHEN o.tipo IN ('despesa', 'receita') THEN d.nome WHEN d.tipo IN ('despesa', 'receita') THEN o.nome END AS conta,
+  CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END AS receita,
+  CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END AS despesa,
+  (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
+    - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
+  l.moeda, l.valor_moeda, l.quantidade, l.preco
+FROM fin_lancamentos l
+JOIN fin_contas o ON o.id = l.conta_origemid
+JOIN fin_contas d ON d.id = l.conta_destinoid
+WHERE (SELECT public.mm_ctx_ativo())
+  AND CASE WHEN (SELECT public.mm_ctx_group_id()) IS NOT NULL
+        THEN l.groupid = (SELECT public.mm_ctx_group_id())
+        ELSE l.groupid IS NULL AND l.userid = (SELECT public.mm_ctx_user_id()) END`;
+
+/** A mesma consulta sem a view (fallback se o banco não aceitar criá-la). */
+export const SQL_LANCAMENTOS_SEM_VIEW = `SELECT l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.descricao, l.valor,
+  o.nome AS saiu_de, o.tipo AS tipo_saida, d.nome AS foi_para, d.tipo AS tipo_entrada,
+  CASE WHEN o.tipo IN ('despesa', 'receita') THEN o.nome WHEN d.tipo IN ('despesa', 'receita') THEN d.nome END AS grupo,
+  CASE WHEN 'despesa' IN (o.tipo, d.tipo) THEN 'despesa'
+       WHEN 'receita' IN (o.tipo, d.tipo) THEN 'receita'
+       WHEN 'investimento' IN (o.tipo, d.tipo) THEN 'investimento'
+       WHEN o.tipo IN ('banco', 'cartao', 'corretora') AND d.tipo IN ('banco', 'cartao', 'corretora') THEN 'transferencia'
+       ELSE 'outro' END AS tipo,
+  CASE WHEN o.tipo IN ('despesa', 'receita') THEN d.nome WHEN d.tipo IN ('despesa', 'receita') THEN o.nome END AS conta,
+  CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END AS receita,
+  CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END AS despesa,
+  (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
+    - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
+  l.moeda, l.valor_moeda, l.quantidade, l.preco
+FROM fin_lancamentos l
+JOIN fin_contas o ON o.id = l.conta_origemid
+JOIN fin_contas d ON d.id = l.conta_destinoid
+WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
+  AND (:tipo IS NULL
+       OR ('despesa' IN (o.tipo, d.tipo) AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%'))
+       OR ('receita' IN (o.tipo, d.tipo) AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%'))
+       OR ('investimento' IN (o.tipo, d.tipo) AND :tipo ILIKE '%invest%')
+       OR (o.tipo IN ('banco', 'cartao', 'corretora') AND d.tipo IN ('banco', 'cartao', 'corretora') AND :tipo ILIKE '%transf%'))
+  AND (:grupo IS NULL OR (o.tipo IN ('despesa', 'receita') AND o.nome ILIKE :grupo) OR (d.tipo IN ('despesa', 'receita') AND d.nome ILIKE :grupo))
+  AND (:conta IS NULL OR o.nome ILIKE :conta OR d.nome ILIKE :conta)
+  AND (:saiu_de IS NULL OR o.nome ILIKE :saiu_de)
+  AND (:foi_para IS NULL OR d.nome ILIKE :foi_para)
+  AND (:descricao IS NULL OR l.descricao ILIKE :descricao)
+  AND (:valor_min IS NULL OR l.valor >= :valor_min)
+  AND (:valor_max IS NULL OR l.valor <= :valor_max)
+ORDER BY l.data, l.id`;
+
 /** Três categorias, separadas pelo tempo da pergunta (futuro, passado, posição) — como no ERP, facilita a classificação. */
 export interface FinCategoriaDef {
   nome: string;
@@ -172,37 +235,23 @@ LIMIT 500`,
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
       "investimento. Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
-    sql: `SELECT l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.descricao, l.valor,
-  o.nome AS saiu_de, o.tipo AS tipo_saida, d.nome AS foi_para, d.tipo AS tipo_entrada,
-  CASE WHEN o.tipo IN ('despesa', 'receita') THEN o.nome WHEN d.tipo IN ('despesa', 'receita') THEN d.nome END AS grupo,
-  CASE WHEN 'despesa' IN (o.tipo, d.tipo) THEN 'despesa'
-       WHEN 'receita' IN (o.tipo, d.tipo) THEN 'receita'
-       WHEN 'investimento' IN (o.tipo, d.tipo) THEN 'investimento'
-       WHEN o.tipo IN ('banco', 'cartao', 'corretora') AND d.tipo IN ('banco', 'cartao', 'corretora') THEN 'transferencia'
-       ELSE 'outro' END AS tipo,
-  CASE WHEN o.tipo IN ('despesa', 'receita') THEN d.nome WHEN d.tipo IN ('despesa', 'receita') THEN o.nome END AS conta,
-  CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END AS receita,
-  CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END AS despesa,
-  (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
-    - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
-  l.moeda, l.valor_moeda, l.quantidade, l.preco
-FROM fin_lancamentos l
-JOIN fin_contas o ON o.id = l.conta_origemid
-JOIN fin_contas d ON d.id = l.conta_destinoid
-WHERE l.data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
+    sql: `SELECT data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
+  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco
+FROM fin_v_lancamentos
+WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
-       OR ('despesa' IN (o.tipo, d.tipo) AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%'))
-       OR ('receita' IN (o.tipo, d.tipo) AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%'))
-       OR ('investimento' IN (o.tipo, d.tipo) AND :tipo ILIKE '%invest%')
-       OR (o.tipo IN ('banco', 'cartao', 'corretora') AND d.tipo IN ('banco', 'cartao', 'corretora') AND :tipo ILIKE '%transf%'))
-  AND (:grupo IS NULL OR (o.tipo IN ('despesa', 'receita') AND o.nome ILIKE :grupo) OR (d.tipo IN ('despesa', 'receita') AND d.nome ILIKE :grupo))
-  AND (:conta IS NULL OR o.nome ILIKE :conta OR d.nome ILIKE :conta)
-  AND (:saiu_de IS NULL OR o.nome ILIKE :saiu_de)
-  AND (:foi_para IS NULL OR d.nome ILIKE :foi_para)
-  AND (:descricao IS NULL OR l.descricao ILIKE :descricao)
-  AND (:valor_min IS NULL OR l.valor >= :valor_min)
-  AND (:valor_max IS NULL OR l.valor <= :valor_max)
-ORDER BY l.data, l.id`,
+       OR (tipo = 'despesa' AND (:tipo ILIKE '%desp%' OR :tipo ILIKE '%gast%'))
+       OR (tipo = 'receita' AND (:tipo ILIKE '%receit%' OR :tipo ILIKE '%receb%' OR :tipo ILIKE '%ganh%'))
+       OR (tipo = 'investimento' AND :tipo ILIKE '%invest%')
+       OR (tipo = 'transferencia' AND :tipo ILIKE '%transf%'))
+  AND (:grupo IS NULL OR grupo ILIKE :grupo)
+  AND (:conta IS NULL OR saiu_de ILIKE :conta OR foi_para ILIKE :conta)
+  AND (:saiu_de IS NULL OR saiu_de ILIKE :saiu_de)
+  AND (:foi_para IS NULL OR foi_para ILIKE :foi_para)
+  AND (:descricao IS NULL OR descricao ILIKE :descricao)
+  AND (:valor_min IS NULL OR valor >= :valor_min)
+  AND (:valor_max IS NULL OR valor <= :valor_max)
+ORDER BY data, id`,
     params: [
       ...periodo(""),
       { campo: "tipo", tipo: "string", operadorSql: "=" },

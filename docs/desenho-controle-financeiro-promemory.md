@@ -449,7 +449,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 | Categoria | Pergunta sobre | Consultas |
 | --- | --- | --- |
 | Finanças Pessoais - A pagar e receber | o futuro | Agenda (vencimentos, atrasados, pagos, com a previsão das recorrentes); Fluxo de caixa previsto por mês |
-| Finanças Pessoais - Gastos e lançamentos | o passado | **Lançamentos (entradas e saídas)**: UMA consulta de detalhe (uma linha por lançamento: data, mes, descricao, valor, saiu_de/foi_para e tipos, grupo, tipo, conta, receita, despesa, resultado, moeda, quantidade); a IA monta por grupo, mês, conta, extrato — padrão do ERP (migrations 202-203). "Contas cadastradas" fica só em Saldos e investimentos |
+| Finanças Pessoais - Gastos e lançamentos | o passado | **Lançamentos (entradas e saídas)**: UMA consulta de detalhe (uma linha por lançamento: data, mes, descricao, valor, saiu_de/foi_para e tipos, grupo, tipo, conta, receita, despesa, resultado, moeda, quantidade); a IA monta por grupo, mês, conta, extrato — padrão do ERP (migrations 202-203). Lê a **view `fin_v_lancamentos`** (migration 204), como a ia_FaturamentoProduto do ERP; o recorte do espaço está dentro da view (mm_ctx_*). "Contas cadastradas" fica só em Saldos e investimentos |
 | Finanças Pessoais - Saldos e investimentos | a posição | Saldos das contas (inclui moeda e valor de hoje); Posição de investimentos |
 
 - **Onde ficam:** no Catálogo de modelos (Categorias Modelos). O dono habilita num grupo; a cópia leva as consultas. No espaço Pessoal valem as categorias dos grupos de que a pessoa participa, e as consultas leem os dados do espaço em que a pergunta foi feita.
