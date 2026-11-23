@@ -388,7 +388,10 @@ export function applyAgregacao(
 
   // Sem função de medida E sem medidas[] — apenas ORDER BY + LIMIT (ex.: "mostre os 10 mais recentes")
   if (!ag.medida && !(ag.medidas && ag.medidas.length > 0)) {
-    const cols = groupSelectParts.length > 0 ? groupSelectParts.join(", ") : "*";
+    // group_by sem medida não agrega nada: antes virava SELECT só das colunas do grupo e perdia os valores
+    // (ex.: consulta que já soma por grupo → só "grupo", sem o total). Mantém todas as colunas; só a data
+    // truncada (agrupamento por período) seleciona as colunas do grupo.
+    const cols = groupSelectParts.length > 0 && (ag.group_by_trunc?.length ?? 0) > 0 ? groupSelectParts.join(", ") : "*";
     const orderClauses = ag.order_by.map((o) => {
       const name = normalizeOrderCampo(o.campo);
       const resolved = MEDIDA_ALIAS[name.toLowerCase()] ?? name;
