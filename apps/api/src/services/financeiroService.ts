@@ -12,6 +12,7 @@ import {
   finSomarDias,
   type FinAgendaResposta,
   type FinHistoricoTitulo,
+  type FinOcorrenciasRecorrencia,
   type FinChaveSistema,
   type FinConferencia,
   type FinConta,
@@ -791,6 +792,55 @@ export async function desfazerBaixa(e: Espaco, tituloId: number): Promise<void> 
   } finally {
     conn.release();
   }
+}
+
+/* ---------------- Ocorrências de uma recorrência ---------------- */
+
+/**
+ * Tudo o que a regra já gerou na tabela de contas a pagar/receber (títulos pagos ou em aberto, cada um com a sua
+ * referência) e a previsão: do início da regra (no máximo 2 anos para trás) até 12 meses à frente.
+ */
+export async function ocorrenciasRecorrencia(e: Espaco, id: number): Promise<FinOcorrenciasRecorrencia> {
+  const [regra] = await listarRegras(pool, e, false, id);
+  if (!regra) throw new FinErro("nao_encontrado", "Recorrência não encontrada.");
+  const hoje = hojeSaoPaulo();
+  const [ts] = await pool.query<RowDataPacket[]>(
+    `SELECT t.id, to_char(t.referencia, 'YYYY-MM-DD') AS "ref", to_char(t.vencimento, 'YYYY-MM-DD') AS "venc", t.valor,
+       t.situacao, to_char(t.quitado_em, 'YYYY-MM-DD') AS "quitadoEm", t.valor_pago AS "valorPago", p.nome AS "conta"
+     FROM fin_titulos t LEFT JOIN fin_contas p ON p.id = t.conta_pagamentoid
+     WHERE t.recorrenciaid = ?
+     ORDER BY t.referencia`,
+    [regra.id]
+  );
+  const exc = (await excecoesDe(pool, [regra.id])).get(regra.id);
+  const titulo = new Map(ts.map((t) => [String(t.ref ?? t.venc), t]));
+  const de = [regra.inicio, finSomarDias(hoje, -730)].sort().at(-1)!;
+  const ate = finSomarDias(hoje, 366);
+  const refs = new Set<string>([...finOcorrencias(regra, de, ate, 400), ...titulo.keys()]);
+  const itens: FinOcorrenciasRecorrencia["itens"] = [...refs].sort().map((ref) => {
+    const t = titulo.get(ref);
+    const x = exc?.get(ref);
+    if (t) {
+      const pago = t.situacao === "quitado";
+      return {
+        referencia: ref, valor: n(t.valor), situacao: pago ? "pago" : "aberto",
+        quitadoEm: t.quitadoEm ?? null, valorPago: nOuNull(t.valorPago), contaPagamento: t.conta ?? null,
+        tituloId: Number(t.id), excecao: false,
+      };
+    }
+    return {
+      referencia: ref, valor: x?.valor ?? regra.valor,
+      situacao: x?.pular ? "pulado" : ref < hoje ? "atraso" : "previsto",
+      quitadoEm: null, valorPago: null, contaPagamento: null, tituloId: null,
+      excecao: x?.valor != null,
+    };
+  });
+  return {
+    descricao: regra.descricao,
+    sentido: regra.sentido,
+    itens,
+    pago: r2(itens.reduce((s, i) => s + (i.situacao === "pago" ? i.valorPago ?? i.valor : 0), 0)),
+  };
 }
 
 /* ---------------- Histórico de um título ---------------- */
