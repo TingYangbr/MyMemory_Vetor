@@ -1026,8 +1026,11 @@ async function planejarConsultaEstruturada(input: {
 
 // Padrões de nomes de colunas que indicam valor numérico (monetário, quantidade, etc.)
 const NUMERIC_COL_RE = /^(valor|perda|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|desconto|acrescimo|imposto|taxa|margem|lucro|receita|prazo|indice|índice|media|média|dias|atraso|juros|num|numero|número|nr|seq|idade|limite|credito|crédito|debito|débito|frete|comissao|comissão)_|_(valor|perda|qtde|quantidade|custo|total|preco|preço|saldo|percentual|peso|volume|medio|médio|media|média|prazo|indice|índice|dias|atraso|pagamento|juros|num|numero|número|nr|seq|id)$/i;
+/** Nome de coluna que É o valor (sem prefixo/sufixo): "despesa", "receita", "resultado", "valor" (financeiro). */
+const NUMERIC_COL_EXATA_RE = /^(valor|despesa|receita|resultado|total|quantidade|qtde|preco|preço|saldo|custo|lucro|margem|juros|desconto|entradas|saidas|saídas|lancamentos|lançamentos|contagem|media|média)$/i;
 function isLikelyNumericColumn(col: string): boolean {
-  return NUMERIC_COL_RE.test(col);
+  // Antes só valor_x / x_valor: a soma de "despesa" era descartada e "gastos mensais por grupo" voltava sem agregar
+  return NUMERIC_COL_RE.test(col) || NUMERIC_COL_EXATA_RE.test(col);
 }
 
 /**
