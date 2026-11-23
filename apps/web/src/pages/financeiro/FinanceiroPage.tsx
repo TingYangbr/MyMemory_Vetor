@@ -302,7 +302,7 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
 }
 
 const TIPO_LANC: Record<FinHistoricoTitulo["lancamentos"][number]["tipo"], string> = {
-  compra: "compra",
+  registro: "registro",
   pagamento: "pagamento",
   excedente: "excedente",
   juros: "juros/multa",
@@ -392,8 +392,8 @@ function HistoricoTitulo({ tituloId, fechar }: { tituloId: number; fechar: () =>
                 </table>
               </div>
             )}
-            {h.lancamentos.some((l) => l.tipo === "compra") ? (
-              <p className={styles.dica} style={{ marginTop: 8 }}>"Compra" é o lançamento que fez a despesa nascer, pelo valor de todas as parcelas.</p>
+            {h.lancamentos.some((l) => l.tipo === "registro") ? (
+              <p className={styles.dica} style={{ marginTop: 8 }}>"Registro" é o lançamento da compra/venda a prazo: faz a despesa ou receita nascer na data da compra, pelo valor de todas as parcelas, contra Contas a pagar/receber. O dinheiro só sai no pagamento.</p>
             ) : null}
           </>
         ) : null}
@@ -570,9 +570,10 @@ function AbaLancamentos({ ctx, lancs }: { ctx: Ctx; lancs: FinLancamento[] }) {
             <span className={styles.data}>{dataBr(l.data)}</span>
             <div className={styles.desc}>
               <b>{l.descricao}</b>
+              {l.registro ? <span className={`${styles.tag} ${styles.tagConfirmado}`} title="Compra/venda a prazo: a despesa ou receita nasce aqui, contra Contas a pagar/receber. O dinheiro só sai no pagamento.">registro</span> : null}
               <small>{l.contaOrigemNome} → {l.contaDestinoNome}{l.quantidade ? ` · qtd ${l.quantidade > 0 ? "+" : ""}${l.quantidade}${l.preco ? ` a ${l.moeda ? emMoeda(l.preco, l.moeda) : brl(l.preco)}` : ""}` : ""}</small>
               {l.moeda && l.valorMoeda != null ? <small>{emMoeda(l.valorMoeda, l.moeda)}{l.cotacao ? ` · cotação ${cot(l.cotacao)}` : ""}</small> : null}
-              {!l.tituloId ? (
+              {!l.tituloId && !l.registro ? (
                 <div className={styles.acoes}>
                   <button type="button" className={`${styles.link} ${styles.linkPerigo}`} disabled={ctx.ocupado}
                     onClick={() => { if (confirm("Excluir este lançamento?")) void ctx.agir(() => apiDeleteJson(`/api/fin/lancamentos/${l.id}`), "Lançamento excluído."); }}>

@@ -289,8 +289,8 @@ export interface FinHistoricoTitulo {
     valor: number;
     saiuDe: string;
     foiPara: string;
-    /** compra = nascimento do parcelamento (todas as parcelas); os demais vêm do pagamento. */
-    tipo: "compra" | "pagamento" | "excedente" | "juros" | "desconto";
+    /** registro = nascimento da compra/venda a prazo (todas as parcelas); os demais vêm do pagamento. */
+    tipo: "registro" | "pagamento" | "excedente" | "juros" | "desconto";
     tituloId: number | null;
     memoId: number | null;
   }[];
@@ -326,6 +326,8 @@ export interface FinLancamento {
   valorMoeda: number | null;
   moeda: string | null;
   cotacao: number | null;
+  /** Registro da compra/venda a prazo (despesa/receita contra Contas a pagar/receber): não é movimento de dinheiro. */
+  registro?: boolean;
 }
 
 export interface FinConferencia {
