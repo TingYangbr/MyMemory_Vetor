@@ -23,9 +23,9 @@ import {
   parceladoNoCartao,
 } from "./financeiroService.js";
 import { obterFinConfig } from "./finConfigService.js";
-import { normalizarTicker, registrarOperacaoInvestimento, registrarProvento } from "./finInvestimentosService.js";
+import { normalizarTicker, registrarOperacaoInvestimento, registrarPosicaoInicial, registrarProvento } from "./finInvestimentosService.js";
 
-const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda", "transferencia", "provento", "cambio"];
+const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda", "transferencia", "provento", "cambio", "posicao"];
 const qtdBr = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
 
@@ -144,6 +144,7 @@ export async function montarPropostaFin(input: {
         pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim, paguei a fatura do Itaú = o item 'Fatura <cartão>'). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
         compra: "compra de ação, FII, ETF, BDR ou outro papel (comprei 100 PETR4 a 38,50 na XP): sai da corretora para o papel. NÃO é gasto",
         venda: "venda de papel (vendi 50 ITSA4 a 10,20): sai do papel para a corretora",
+        posicao: "posição que a pessoa JÁ TINHA numa data, sem comprar agora (tenho 800 BBDC4 com preço médio 14,25 na Clear em 31/12/2025; minha posição inicial de ITSA4 é 1.000 a 9,80): quantidade + preço médio (em preco); NÃO tira dinheiro da corretora",
         provento: "provento recebido de um papel (recebi 120 de dividendos de PETR4, JCP de ITSA4 de 85, rendimento do HGLG11 de 42): NÃO é receita comum",
         cambio: "compra ou venda de moeda estrangeira entre uma conta em reais e uma em outra moeda (comprei 1.000 dólares a 5,40 na Avenue; mandei 10 mil para a Avenue e chegaram 1.850 dólares; comprei 500 euros em espécie; vendi 500 dólares a 5,60 para o Itaú)",
         transferencia: "dinheiro entre contas suas NA MESMA MOEDA (transferi do Itaú para a XP, mandei para a poupança, apliquei/resgatei na corretora, saque; fatura de cartão é pagamento; reais para dólar é câmbio): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
@@ -234,7 +235,7 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     proposta.grupoId = null;
     proposta.descricao = `${{ dividendo: "Dividendos", jcp: "JCP", rendimento: "Rendimentos", juros: "Juros" }[tp]} ${proposta.investimento.ticker ?? ""}`.trim();
   }
-  if (tipo === "compra" || tipo === "venda") {
+  if (tipo === "compra" || tipo === "venda" || tipo === "posicao") {
     // Papel: pelo id escolhido, ou pelo ticker (na corretora citada; sem corretora, a única que tem esse papel)
     const num = (v: unknown) => {
       const n = Number(v);
@@ -261,7 +262,7 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
       const t = proposta.investimento.ticker;
       proposta.investimento.precoAtual = (await precosPapeis([t]).catch(() => new Map())).get(t) ?? null;
     }
-    proposta.descricao = `${tipo === "compra" ? "Compra" : "Venda"} ${proposta.investimento.ticker ?? ""}`.trim();
+    proposta.descricao = `${tipo === "compra" ? "Compra" : tipo === "posicao" ? "Posição inicial" : "Venda"} ${proposta.investimento.ticker ?? ""}`.trim();
     proposta.grupoId = null;
     const v = proposta.investimento;
     if (v.preco != null && v.quantidade != null) proposta.valor = Math.round(v.preco * v.quantidade * 100) / 100;
@@ -349,10 +350,11 @@ function completa(p: FinComandoProposta): boolean {
       return !!o && !!d && o.moeda !== d.moeda && (o.moeda === "BRL" || d.moeda === "BRL") && p.valor != null && p.cambio?.valorMoeda != null;
     }
     case "compra":
-    case "venda": {
+    case "venda":
+    case "posicao": {
       const i = p.investimento;
       if (!i || p.contaId == null || !i.quantidade || !(i.preco || p.valor)) return false;
-      return p.tipo === "compra" ? !!(i.papelContaId || i.ticker) : !!i.papelContaId;
+      return p.tipo === "venda" ? !!i.papelContaId : !!(i.papelContaId || i.ticker);
     }
     case "pagamento": {
       // Valor diferente do previsto pede decisão (parcial, desconto, excedente): não grava direto
@@ -367,6 +369,14 @@ function completa(p: FinComandoProposta): boolean {
 /** Grava a proposta como o cartão gravaria (mesmas funções das rotas /api/fin/*). */
 async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComandoGravado> {
   const v = p.valor ?? 0;
+  if (p.tipo === "posicao") {
+    const i = p.investimento!;
+    const r = await registrarPosicaoInicial(e, {
+      papelContaId: i.papelContaId, ticker: i.ticker, corretoraId: p.contaId, data: p.data, quantidade: i.quantidade!,
+      precoMedio: i.preco, custoTotal: i.preco ? null : p.valor, origem: "falecomigo",
+    });
+    return { mensagem: `Posição inicial de ${qtdBr(i.quantidade!)} ${r.ticker} (custo ${brl(r.custo)}) gravada.`, desfazer: { tipo: "operacao", id: r.operacaoId } };
+  }
   if (p.tipo === "compra" || p.tipo === "venda") {
     const i = p.investimento!;
     const r = await registrarOperacaoInvestimento(e, {
@@ -532,6 +542,13 @@ export function descreverProposta(p: FinComandoProposta): string {
       o = `A conta fixa "${p.descricao}"${v} (${p.periodicidade}) será registrada a partir de ${dataBr(p.data)}${grupo ? `, em ${grupo}` : ""}`;
       falta ||= !grupo;
       break;
+    case "posicao": {
+      const i = p.investimento;
+      const qtd = i?.quantidade != null ? `${qtdBr(i.quantidade)} ` : "";
+      o = `A posição inicial de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${brl(i.preco)} (preço médio)` : ""} em ${dataBr(p.data)} será registrada${conta ? ` na ${conta}` : ""}, sem mexer no caixa da corretora`;
+      falta = !i?.ticker || !i?.quantidade || (!i?.preco && p.valor == null) || !conta;
+      break;
+    }
     case "compra":
     case "venda": {
       const i = p.investimento;

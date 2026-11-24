@@ -1192,7 +1192,8 @@ Convidar uma pessoa por e-mail e acompanhar os convites (enviado, aceito, expira
 | Não é possível excluir o plano | Existem assinaturas ligadas a ele. Passar os usuários para outro plano antes. |
 ## Tabelas do banco (suporte)
 Admin → Sistema → **Tabelas do banco** mostra o conteúdo das tabelas do banco (Postgres), **só para leitura**. Serve para conferir o que foi gravado.
-- **Escolher a tabela:** a lista à esquerda traz todas as tabelas e views, com o número aproximado de linhas. O campo no topo filtra a lista pelo nome.
+- **No topo:** o tamanho do banco inteiro (dados e índices), o número de tabelas e de views e a hora da medição. O botão **Medir de novo** atualiza.
+- **Escolher a tabela:** a lista à esquerda traz todas as tabelas e views, com o número aproximado de linhas e o tamanho de cada tabela. O campo no topo filtra a lista pelo nome.
 - **Lotes de 1000:** os registros vêm de 1000 em 1000. Use "Próximo lote" e "Lote anterior" para navegar; o topo mostra "1–1000 de N".
 - **Ordem:**
   - **Última modificação primeiro** (padrão): usa a coluna de atualização da tabela (`updatedat`, `atualizado_em`…) ou, na falta dela, a de criação;

@@ -6,7 +6,17 @@ import Header from "../components/Header";
 import adminStyles from "./AdminPage.module.css";
 import styles from "./AdminTabelasPage.module.css";
 
-type Tabela = { nome: string; tipo: "tabela" | "view"; linhas: number | null };
+type Tabela = { nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes?: number | null };
+
+/** 1.234.567 → "1,2 MB" */
+function tamanho(b: number | null | undefined): string {
+  if (b == null) return "";
+  const u = ["B", "KB", "MB", "GB", "TB"];
+  let v = b;
+  let i = 0;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return `${v.toLocaleString("pt-BR", { maximumFractionDigits: v < 10 && i > 0 ? 1 : 0 })} ${u[i]}`;
+}
 type Coluna = { nome: string; tipo: string; mascarada: boolean };
 type Lote = {
   tabela: string;
@@ -79,8 +89,21 @@ export default function AdminTabelasPage() {
 
   useEffect(() => {
     if (me?.role !== "admin") return;
-    apiGet<{ tabelas: Tabela[] }>("/api/admin/tabelas").then((r) => setTabelas(r.tabelas)).catch((e) => setErro(String(e)));
+    void recarregarLista();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [me]);
+
+  // Lista de tabelas + tamanho do banco (medido a cada abertura e no botão Medir de novo)
+  const [banco, setBanco] = useState<{ bytes: number; medidoEm: string } | null>(null);
+  const recarregarLista = useCallback(async () => {
+    try {
+      const r = await apiGet<{ tabelas: Tabela[]; banco?: { bytes: number; medidoEm: string } }>("/api/admin/tabelas");
+      setTabelas(r.tabelas);
+      setBanco(r.banco ?? null);
+    } catch (e) {
+      setErro(String(e));
+    }
+  }, []);
 
   const carregar = useCallback(async (nome: string, off: number, ord: "ultima" | "natural") => {
     setCarregando(true); setErro(null); setCelula(null);
@@ -144,6 +167,12 @@ export default function AdminTabelasPage() {
       <Header />
       <main className={adminStyles.main} style={{ maxWidth: "none" }}>
         <h1 className={adminStyles.title}>Tabelas do banco</h1>
+        <p style={{ margin: "-4px 0 6px", fontSize: 14 }}>
+          {banco ? <>Tamanho do banco: <b>{tamanho(banco.bytes)}</b> · </> : null}
+          <b>{tabelas.filter((t) => t.tipo === "tabela").length}</b> tabelas e <b>{tabelas.filter((t) => t.tipo === "view").length}</b> views
+          {banco ? <span className="mm-muted"> · medido às {new Date(banco.medidoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}{" "}
+          <button type="button" className="mm-btn" style={{ marginLeft: 6 }} onClick={() => void recarregarLista()}>Medir de novo</button>
+        </p>
         <p className="mm-muted" style={{ marginTop: -6 }}>
           Só leitura. Senhas, hashes, tokens e chaves aparecem mascarados; textos longos e vetores, resumidos.
         </p>
@@ -155,7 +184,9 @@ export default function AdminTabelasPage() {
             {tabelasVisiveis.map((t) => (
               <button key={t.nome} type="button" className={`${styles.itemTabela} ${sel === t.nome ? styles.itemAtivo : ""}`} onClick={() => escolher(t.nome)}>
                 <span>{t.nome}{t.tipo === "view" ? " (view)" : ""}</span>
-                <span className={styles.contagem}>{t.linhas != null ? `~${fmt(t.linhas)}` : ""}</span>
+                <span className={styles.contagem} title="Linhas (estimativa do Postgres) · tamanho com índices">
+                  {t.linhas != null ? `~${fmt(t.linhas)}` : ""}{t.bytes ? ` · ${tamanho(t.bytes)}` : ""}
+                </span>
               </button>
             ))}
           </div>

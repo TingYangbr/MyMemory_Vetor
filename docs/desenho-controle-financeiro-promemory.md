@@ -609,6 +609,18 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **O que guarda** (`fin_precos_historico`, chave ticker + data, dado público igual para todos): abertura, máxima, mínima, fechamento e volume. Só o mercado à vista (código 010) e só os papéis que alguém da base tem ou já teve (contas de investimento em reais). O preço vem dividido pelo fator de cotação. Os preços **não** são ajustados por desdobramento ou proventos. Estimativa: ~70 MB para 500 papéis em 5 anos.
 - **Carga:** Admin → Sistema → **Histórico de preços (B3)**, com os anos escolhidos, em segundo plano. Repetir depois de cadastrar papéis novos: o que já existe é atualizado, sem duplicar.
 - **Robô:** a partir das 20h, de hora em hora, importa o arquivo diário de cada dia útil dos últimos 7 dias que ainda não entrou. Sem pregão (feriado), a B3 não tem o arquivo, e o dia é marcado. O registro de cada arquivo fica em `fin_precos_importacoes`.
-- **Leitura do zip:** em pedaços de 1 MB com `fflate`, devolvendo a vez ao servidor entre eles, para a API não travar.
+- **Leitura do zip:** a posição do .TXT vem do **índice no fim do zip** (central directory). Os arquivos de 2025 em diante vêm sem o tamanho no cabeçalho local ("data descriptor"), e a leitura em fluxo parava no meio ("unexpected EOF"). A descompactação usa `fflate` em pedaços de 1 MB, devolvendo a vez ao servidor entre eles, para a API não travar.
 - **Fale comigo:** nova consulta **"Histórico de preços"** (categoria Saldos e investimentos). Traz data, papel, fechamento, abertura, máxima, mínima, volume e `variacao_pct_periodo`, a variação sobre o primeiro pregão do período. Responde a "quanto a PETR4 subiu no mês", "evolução do preço do ITSA4 em 2026" e "maior preço do HGLG11 no ano". Sem período, os últimos 30 dias. Migration 215.
+
+### 13.24 Posição inicial de papéis (24/11/2026)
+
+- **Para quem já investia** (ex.: desde 2017) e quer acompanhar só a partir de uma data (ex.: 31/12/2025): a posição de cada papel nessa data entra como **posição inicial**, com quantidade e preço médio (ou custo total). Ela vem do **Saldo inicial** (patrimônio) e **não tira dinheiro do caixa da corretora**, como uma compra faria. Fica registrada como operação `evento`/`posicao_inicial`, e Desfazer apaga o lote. Papel em outra moeda: o custo na moeda e, em reais, o informado ou a cotação PTAX da data.
+- **Daí em diante:** as vendas calculam o ganho pelo preço médio informado (o mesmo da declaração de IR). Compras, proventos e eventos seguem normais. Ficam de fora o histórico de 2017 a 2025, o lucro já realizado e os proventos antes da data.
+- **Três portas:**
+  - **cadastro do papel** (Contas e saldos → + Conta → Investimento): Quantidade, Preço médio e Data da posição;
+  - **Fale comigo:** tipo **posicao** ("tenho 800 BBDC4 com preço médio 14,25 na Clear em 31/12/2025");
+  - **em lote:** botão **Posição inicial de papéis**, com corretora, data e a lista colada ou o CSV do relatório de posição.
+
+  O lote reconhece cabeçalho por nome (ativo/ticker/código, quantidade/qtd, preço médio/PM, custo total/valor investido), separador `;`, tab, `,` ou espaços, números em pt-BR ("1.500" = 1.500; "32,10" = 32,10) e ticker fracionário (CYRE3F = CYRE3). O papel que ainda não existe na corretora é cadastrado.
+- **API:** `POST /api/fin/investimentos/posicao-inicial` e `POST /api/fin/investimentos/posicao-inicial/lote`.
 

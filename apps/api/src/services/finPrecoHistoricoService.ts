@@ -4,7 +4,7 @@
  * (contas de investimento em reais) e só o mercado à vista. Carga dos anos pelo Admin; fechamento de cada dia pelo robô.
  * Preços NÃO ajustados por desdobramento/grupamento/proventos.
  */
-import { Unzip, UnzipInflate } from "fflate";
+import { Inflate } from "fflate";
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 
@@ -71,6 +71,32 @@ async function gravarLote(linhas: LinhaCotahist[]): Promise<void> {
   );
 }
 
+/**
+ * Primeiro arquivo do zip pelo índice do fim (End of Central Directory → Central Directory): início dos dados
+ * compactados, tamanho compactado e método (8 = deflate, 0 = sem compressão). Não depende dos tamanhos do cabeçalho
+ * local, que vêm zerados quando o zip usa "data descriptor".
+ */
+export function localizarArquivoNoZip(zip: Uint8Array): { inicio: number; tamanho: number; metodo: number } {
+  const dv = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+  let eocd = -1;
+  for (let i = zip.length - 22; i >= Math.max(0, zip.length - 22 - 65535); i--) {
+    if (dv.getUint32(i, true) === 0x06054b50) {
+      eocd = i;
+      break;
+    }
+  }
+  if (eocd < 0) throw new Error("Zip sem índice (End of Central Directory).");
+  const cd = dv.getUint32(eocd + 16, true);
+  if (dv.getUint32(cd, true) !== 0x02014b50) throw new Error("Índice do zip inválido.");
+  const metodo = dv.getUint16(cd + 10, true);
+  const tamanho = dv.getUint32(cd + 20, true);
+  const local = dv.getUint32(cd + 42, true);
+  if (dv.getUint32(local, true) !== 0x04034b50) throw new Error("Cabeçalho do arquivo no zip inválido.");
+  const nome = dv.getUint16(local + 26, true);
+  const extra = dv.getUint16(local + 28, true);
+  return { inicio: local + 30 + nome + extra, tamanho, metodo };
+}
+
 /** Lê o .ZIP (um .TXT dentro) em partes, sem descompactar tudo na memória; grava só os tickers pedidos. */
 async function importarZip(zip: Uint8Array, tickers: Set<string>): Promise<number> {
   let resto = "";
@@ -93,27 +119,26 @@ async function importarZip(zip: Uint8Array, tickers: Set<string>): Promise<numbe
       }
     }
   };
-  let erro: unknown = null;
+  // Onde está o conteúdo do .TXT: pelo índice no fim do zip (central directory). Os arquivos de 2025 em diante vêm
+  // sem o tamanho no cabeçalho local (bit 3, "data descriptor") e a leitura em fluxo do zip parava no meio.
+  const { inicio, tamanho, metodo } = localizarArquivoNoZip(zip);
+  const dados = zip.subarray(inicio, inicio + tamanho);
   let terminou = false;
-  const un = new Unzip((arq) => {
-    arq.ondata = (err, dado, final) => {
-      if (err) {
-        erro = err;
-        return;
-      }
-      processar(dec.decode(dado, { stream: !final }), final);
-      if (final) terminou = true;
-    };
-    arq.start();
+  const fluxo = new Inflate((dado, final) => {
+    processar(dec.decode(dado, { stream: !final }), final);
+    if (final) terminou = true;
   });
-  un.register(UnzipInflate);
   // Em pedaços de 1 MB, devolvendo a vez ao servidor entre eles (o anual tem ~90 MB compactado): a API não trava
   const PEDACO = 1024 * 1024;
-  for (let i = 0; i < zip.length && !erro; i += PEDACO) {
-    un.push(zip.subarray(i, i + PEDACO), i + PEDACO >= zip.length);
-    await new Promise((r) => setImmediate(r));
+  if (metodo === 0) {
+    processar(dec.decode(dados), true);
+    terminou = true;
+  } else {
+    for (let i = 0; i < dados.length; i += PEDACO) {
+      fluxo.push(dados.subarray(i, i + PEDACO), i + PEDACO >= dados.length);
+      await new Promise((r) => setImmediate(r));
+    }
   }
-  if (erro) throw erro;
   if (!terminou) processar("", true);
   if (pendentes.length) gravacoes.push(gravarLote(pendentes));
   await Promise.all(gravacoes);
