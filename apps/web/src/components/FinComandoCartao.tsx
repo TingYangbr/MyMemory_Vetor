@@ -20,6 +20,7 @@ const TIPOS: { valor: FinComandoTipo; rotulo: string }[] = [
   { valor: "venda", rotulo: "Venda de ação / papel" },
   { valor: "transferencia", rotulo: "Transferência entre contas" },
   { valor: "provento", rotulo: "Provento (dividendo, JCP, rendimento)" },
+  { valor: "cambio", rotulo: "Câmbio (compra/venda de moeda)" },
 ];
 
 const ROTULO_DATA: Record<FinComandoTipo, string> = {
@@ -32,6 +33,7 @@ const ROTULO_DATA: Record<FinComandoTipo, string> = {
   venda: "Data",
   transferencia: "Data",
   provento: "Data",
+  cambio: "Data",
 };
 
 
@@ -75,6 +77,8 @@ export default function FinComandoCartao({
   const [periodicidade, setPeriodicidade] = useState<FinPeriodicidade>(proposta.periodicidade);
   const [contaId, setContaId] = useState(proposta.contaId != null ? String(proposta.contaId) : "");
   const [destinoId, setDestinoId] = useState(proposta.contaDestinoId != null ? String(proposta.contaDestinoId) : "");
+  const [valorMoeda, setValorMoeda] = useState(proposta.cambio?.valorMoeda != null ? String(proposta.cambio.valorMoeda).replace(".", ",") : "");
+  const [iof, setIof] = useState(proposta.cambio?.iof != null ? String(proposta.cambio.iof).replace(".", ",") : "");
   const [grupoId, setGrupoId] = useState(proposta.grupoId != null ? String(proposta.grupoId) : "");
   const [alvo, setAlvo] = useState(proposta.alvoChave ?? "");
   const [estado, setEstado] = useState<"edicao" | "gravando" | "gravado" | "desfeito" | "cancelado">(proposta.gravado ? "gravado" : "edicao");
@@ -123,9 +127,20 @@ export default function FinComandoCartao({
   const ehInv = tipo === "compra" || tipo === "venda";
   const ehProv = tipo === "provento";
   const ehTransf = tipo === "transferencia";
-  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv || ehTransf;
+  const ehCambio = tipo === "cambio";
+  const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv || ehTransf || ehCambio;
+  // Câmbio: qual lado está em moeda, custo médio (venda) e cotação efetiva
+  const contaOrig = contasOpc.find((c) => String(c.id) === contaId) ?? null;
+  const contaDest = contasOpc.find((c) => String(c.id) === destinoId) ?? null;
+  const compraMoeda = (contaOrig?.moeda ?? "BRL") === "BRL";
+  const moedaCambio = compraMoeda ? contaDest?.moeda ?? "" : contaOrig?.moeda ?? "";
+  const reaisNum = lerValor(valor);
+  const vmNum = lerValor(valorMoeda);
+  const iofNum = lerValor(iof) ?? 0;
+  const reaisEfetivo = reaisNum == null ? null : Math.round((compraMoeda ? reaisNum + iofNum : reaisNum - iofNum) * 100) / 100;
+  const ganhoEstimado = !compraMoeda && reaisEfetivo != null && vmNum && contaOrig?.custoMedio ? reaisEfetivo - vmNum * contaOrig.custoMedio : null;
   const contaObrigatoria = tipo !== "fixa";
-  const pedeGrupo = tipo !== "pagamento" && !ehInv && !ehTransf && !ehProv;
+  const pedeGrupo = tipo !== "pagamento" && !ehInv && !ehTransf && !ehProv && !ehCambio;
   // Papéis da corretora escolhida (sem corretora: todos)
   const papeisOpc = (proposta.opcoes.papeis ?? []).filter((x) => !contaId || x.corretoraId === Number(contaId));
   const papelItem = papelSel && papelSel !== "novo" ? (proposta.opcoes.papeis ?? []).find((x) => x.id === Number(papelSel)) ?? null : null;
@@ -206,7 +221,30 @@ export default function FinComandoCartao({
     if (tipo === "pagamento" && pagouMenos && !decMenor) return setErro("Pagou menos que o previsto: escolha Parcial ou Quitar assim mesmo.");
     if (tipo === "pagamento" && pagouMais && !decMaior) return setErro("Pagou mais que o previsto: escolha Quitar assim mesmo ou o grupo do excedente.");
     if (tipo === "pagamento" && pagouMais && decMaior === "grupo" && !excGrupoId) return setErro("Escolha o grupo do excedente.");
-    if (ehTransf && (destinoId === "" || destinoId === contaId)) return setErro("Escolha para qual conta vai (diferente da de origem).");
+    if ((ehTransf || ehCambio) && (destinoId === "" || destinoId === contaId)) return setErro("Escolha para qual conta vai (diferente da de origem).");
+    if (ehCambio) {
+      if (!contaOrig || !contaDest) return setErro("Escolha as duas contas.");
+      if (contaOrig.moeda === contaDest.moeda || (contaOrig.moeda !== "BRL" && contaDest.moeda !== "BRL")) {
+        return setErro("Câmbio é entre uma conta em reais e uma conta em outra moeda.");
+      }
+      if (vmNum == null) return setErro(`Informe o valor em ${moedaCambio || "moeda"}.`);
+      if (reaisEfetivo == null || !(reaisEfetivo > 0)) return setErro("Informe o valor em reais.");
+      setEstado("gravando");
+      try {
+        const r = await apiPostJson<{ id?: number | null; resultado: number | null }>("/api/fin/lancamentos", {
+          data, descricao: descricao.trim() || `Câmbio ${moedaCambio}`, valor: reaisEfetivo, valorMoeda: vmNum,
+          contaOrigemId: Number(contaId), contaDestinoId: Number(destinoId),
+        });
+        setDesfazer(r.id != null ? { tipo: "lancamento", id: r.id } : null);
+        const res = r.resultado != null && Math.abs(r.resultado) >= 0.005 ? ` ${r.resultado > 0 ? "Ganho" : "Perda"} cambial de ${brl(Math.abs(r.resultado))}.` : "";
+        setFeito(`Câmbio de ${vmNum.toLocaleString("pt-BR", { minimumFractionDigits: 2 })} ${moedaCambio} por ${brl(reaisEfetivo)} gravado.${res}`);
+        setEstado("gravado");
+      } catch (e) {
+        setEstado("edicao");
+        setErro(e instanceof Error ? e.message : "Não foi possível gravar.");
+      }
+      return;
+    }
     setEstado("gravando");
     try {
       if (ehTransf) {
@@ -517,7 +555,7 @@ export default function FinComandoCartao({
 
       <div style={{ ...linha, display: ehInv ? "none" : "flex" }}>
         <label style={rot}>
-          <span>Valor (R$){marca((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)}</span>
+          <span>{ehCambio ? (compraMoeda ? "Valor em reais (sem IOF)" : "Valor recebido em reais") : "Valor (R$)"}{marca((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)}</span>
           <input className="mm-field" style={falta((tipo !== "pagamento" && lerValor(valor) == null) || valorPendente)} inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} placeholder="0,00" />
         </label>
         <label style={rot}>
@@ -620,7 +658,24 @@ export default function FinComandoCartao({
             ) : null}
           </label>
         ) : null}
-        {ehTransf ? (
+        {ehCambio ? (
+          <>
+            <label style={rot}>
+              <span>Valor em {moedaCambio || "moeda"}{marca(vmNum == null)}</span>
+              <input className="mm-field" style={falta(vmNum == null)} inputMode="decimal" value={valorMoeda} onChange={(e) => setValorMoeda(e.target.value)} placeholder="0,00" />
+            </label>
+            <label style={rot}>
+              <span>IOF / tarifa em reais (opcional)</span>
+              <input className="mm-field" inputMode="decimal" value={iof} onChange={(e) => setIof(e.target.value)} placeholder="0,00" />
+            </label>
+            <small style={{ color: "var(--mm-muted)", alignSelf: "end" }}>
+              {reaisEfetivo != null && vmNum ? `Cotação efetiva: ${(reaisEfetivo / vmNum).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}` : ""}
+              {compraMoeda && iofNum ? " (IOF incluído no custo)" : ""}
+              {ganhoEstimado != null ? ` · ${ganhoEstimado >= 0 ? "ganho" : "perda"} cambial estimado ${brl(Math.abs(ganhoEstimado))}` : ""}
+            </small>
+          </>
+        ) : null}
+        {ehTransf || ehCambio ? (
           <label style={rot}>
             <span>Vai para{marca(!destinoId || destinoId === contaId)}</span>
             <select className="mm-field" style={falta(!destinoId || destinoId === contaId)} value={destinoId} onChange={(e) => setDestinoId(e.target.value)}>

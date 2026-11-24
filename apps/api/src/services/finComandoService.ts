@@ -24,7 +24,7 @@ import {
 import { obterFinConfig } from "./finConfigService.js";
 import { normalizarTicker, registrarOperacaoInvestimento, registrarProvento } from "./finInvestimentosService.js";
 
-const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda", "transferencia", "provento"];
+const TIPOS: FinComandoTipo[] = ["gasto", "receita", "conta", "fixa", "pagamento", "compra", "venda", "transferencia", "provento", "cambio"];
 const qtdBr = (v: number) => v.toLocaleString("pt-BR", { maximumFractionDigits: 6 });
 const PERIODICIDADES = FIN_PERIODICIDADES.map((p) => p.valor);
 
@@ -86,7 +86,15 @@ export async function montarPropostaFin(input: {
   const e: Espaco = { groupId: input.groupId, userId: input.userId };
   const hoje = hojeSaoPaulo();
   const contasTodas = (await listarContasComSaldo(e, hoje, hoje)).filter((c) => c.ativo);
-  const contas = contasTodas.filter((c) => c.tipo === "banco" || c.tipo === "cartao" || c.tipo === "corretora").map((c) => ({ id: c.id, nome: c.nome, tipo: c.tipo }));
+  const contas = contasTodas
+    .filter((c) => c.tipo === "banco" || c.tipo === "cartao" || c.tipo === "corretora")
+    .map((c) => ({
+      id: c.id,
+      nome: c.nome,
+      tipo: c.tipo,
+      moeda: c.moeda,
+      custoMedio: c.moeda !== "BRL" && c.saldoMoeda && c.saldoMoeda > 0 ? Math.round((c.saldo / c.saldoMoeda) * 1e6) / 1e6 : null,
+    }));
   const gruposDespesa = contasTodas.filter((c) => c.tipo === "despesa").map((c) => ({ id: c.id, nome: c.nome }));
   const gruposReceita = contasTodas.filter((c) => c.tipo === "receita").map((c) => ({ id: c.id, nome: c.nome }));
   const nomeConta = new Map(contasTodas.map((c) => [c.id, c.nome]));
@@ -135,14 +143,16 @@ export async function montarPropostaFin(input: {
         compra: "compra de ação, FII, ETF, BDR ou outro papel (comprei 100 PETR4 a 38,50 na XP): sai da corretora para o papel. NÃO é gasto",
         venda: "venda de papel (vendi 50 ITSA4 a 10,20): sai do papel para a corretora",
         provento: "provento recebido de um papel (recebi 120 de dividendos de PETR4, JCP de ITSA4 de 85, rendimento do HGLG11 de 42): NÃO é receita comum",
-        transferencia: "dinheiro entre contas suas (transferi do Itaú para a XP, mandei para a poupança, apliquei/resgatei na corretora, saque; fatura de cartão é pagamento): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
+        cambio: "compra ou venda de moeda estrangeira entre uma conta em reais e uma em outra moeda (comprei 1.000 dólares a 5,40 na Avenue; mandei 10 mil para a Avenue e chegaram 1.850 dólares; comprei 500 euros em espécie; vendi 500 dólares a 5,60 para o Itaú)",
+        transferencia: "dinheiro entre contas suas NA MESMA MOEDA (transferi do Itaú para a XP, mandei para a poupança, apliquei/resgatei na corretora, saque; fatura de cartão é pagamento; reais para dólar é câmbio): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
       },
     },
     null,
     2
   );
-  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"contaDestinoId":null,"proventoTipo":null,"valorBruto":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
+  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"contaDestinoId":null,"proventoTipo":null,"valorBruto":null,"valorMoeda":null,"cotacao":null,"iof":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
 Provento: ticker/papelContaId do papel, valor = o que caiu (líquido), proventoTipo = dividendo|jcp|rendimento|juros (FII = rendimento), valorBruto só se dito (JCP bruto), contaId = a corretora se citada.
+Câmbio: contaId = de onde sai, contaDestinoId = para onde vai (uma em reais, outra na moeda; veja "moeda" em contas_bancos_cartoes), valor = reais (o que saiu ou entrou em reais, sem IOF), valorMoeda = quantia na moeda, cotacao se dita, iof em reais se dito.
 Transferência: contaId = de onde sai, contaDestinoId = para onde vai (ids de contas_bancos_cartoes), grupoId null.
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
 Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
@@ -256,7 +266,33 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
     duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
   }
   const cAmb = escolhaAmbigua(proposta.contaId, contas, input.texto);
-  if (tipo === "transferencia") {
+  // Transferência entre moedas diferentes é câmbio
+  if (tipo === "transferencia" || tipo === "cambio") {
+    const mO = contas.find((c) => c.id === proposta.contaId)?.moeda;
+    const mD = contas.find((c) => c.id === proposta.contaDestinoId)?.moeda;
+    if (tipo === "transferencia" && mO && mD && mO !== mD) proposta.tipo = "cambio";
+  }
+  if (proposta.tipo === "cambio") {
+    const num = (x: unknown) => {
+      const n = Number(x);
+      return Number.isFinite(n) && n > 0 ? n : null;
+    };
+    let vm = num(j.valorMoeda);
+    const cot = num(j.cotacao);
+    let reais = proposta.valor;
+    if (reais == null && vm != null && cot != null) reais = Math.round(vm * cot * 100) / 100;
+    if (vm == null && reais != null && cot != null) vm = Math.round((reais / cot) * 100) / 100;
+    proposta.valor = reais;
+    proposta.cambio = { valorMoeda: vm, cotacao: cot, iof: num(j.iof) };
+    proposta.grupoId = null;
+    if (proposta.contaDestinoId === proposta.contaId) proposta.contaDestinoId = null;
+    const dAmb = escolhaAmbigua(proposta.contaDestinoId ?? null, contas, input.texto);
+    if (dAmb) {
+      proposta.contaDestinoId = null;
+      duvidas.push(`Mais de uma conta de destino combina (${dAmb.join(", ")})`);
+    }
+  }
+  if (proposta.tipo === "transferencia") {
     proposta.grupoId = null;
     if (proposta.contaDestinoId === proposta.contaId) proposta.contaDestinoId = null;
     const dAmb = escolhaAmbigua(proposta.contaDestinoId ?? null, contas, input.texto);
@@ -299,6 +335,11 @@ function completa(p: FinComandoProposta): boolean {
       return p.valor != null && p.contaId != null && p.contaDestinoId != null && p.contaId !== p.contaDestinoId;
     case "provento":
       return p.valor != null && !!p.investimento?.papelContaId;
+    case "cambio": {
+      const o = p.opcoes.contas.find((c) => c.id === p.contaId);
+      const d = p.opcoes.contas.find((c) => c.id === p.contaDestinoId);
+      return !!o && !!d && o.moeda !== d.moeda && (o.moeda === "BRL" || d.moeda === "BRL") && p.valor != null && p.cambio?.valorMoeda != null;
+    }
     case "compra":
     case "venda": {
       const i = p.investimento;
@@ -354,6 +395,19 @@ async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComa
       mensagem: `${p.tipo === "gasto" ? "Gasto" : "Receita"} de ${brl(v)} gravado.`,
       desfazer: id != null ? { tipo: "lancamento", id } : null,
     };
+  }
+  if (p.tipo === "cambio") {
+    const o = p.opcoes.contas.find((c) => c.id === p.contaId)!;
+    const iof = p.cambio?.iof ?? 0;
+    const compra = o.moeda === "BRL";
+    // Compra: o IOF/tarifa soma ao custo da moeda; venda: sai do que entrou em reais
+    const reais = Math.round((compra ? v + iof : v - iof) * 100) / 100;
+    const r = await criarLancamento(e, {
+      data: p.data, descricao: p.descricao, valor: reais, valorMoeda: p.cambio!.valorMoeda!, contaOrigemId: p.contaId!, contaDestinoId: p.contaDestinoId!,
+    });
+    const id = await ultimoLancamentoId(e, { data: p.data, origem: p.contaId!, destino: p.contaDestinoId! });
+    const res = r.resultado != null && Math.abs(r.resultado) >= 0.005 ? ` ${r.resultado > 0 ? "Ganho" : "Perda"} cambial de ${brl(Math.abs(r.resultado))}.` : "";
+    return { mensagem: `Câmbio de ${brl(reais)} gravado.${res}`, desfazer: id != null ? { tipo: "lancamento", id } : null };
   }
   if (p.tipo === "provento") {
     const r = await registrarProvento(e, {
@@ -432,6 +486,26 @@ export function descreverProposta(p: FinComandoProposta): string {
       o = `A receita${v} será registrada ${grupo ? `em ${grupo}` : "nas receitas"}${conta ? `, entrando em ${conta}` : ""}`;
       falta ||= !grupo || !conta;
       break;
+    case "cambio": {
+      const or = p.opcoes.contas.find((c) => c.id === p.contaId);
+      const de = p.opcoes.contas.find((c) => c.id === p.contaDestinoId);
+      const moeda = or?.moeda && or.moeda !== "BRL" ? or.moeda : de?.moeda ?? "";
+      const vm = p.cambio?.valorMoeda;
+      const qtd = vm != null && moeda && moeda !== "BRL" ? `${vm.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${moeda}` : "a moeda";
+      const iof = p.cambio?.iof ?? 0;
+      if (or?.moeda === "BRL") {
+        const total = p.valor != null ? p.valor + iof : null;
+        o = `A compra de ${qtd}${total != null ? ` por ${brl(total)}` : ""}${iof ? ` (IOF/tarifa de ${brl(iof)} incluído no custo)` : ""}` +
+          `${total != null && vm ? `, cotação efetiva ${(total / vm).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}` : ""} sairá ${or ? `de ${or.nome}` : ""}${de ? ` para ${de.nome}` : ""}`;
+      } else {
+        const recebe = p.valor != null ? p.valor - iof : null;
+        const ganho = recebe != null && vm && or?.custoMedio ? recebe - vm * or.custoMedio : null;
+        o = `A venda de ${qtd}${recebe != null ? ` por ${brl(recebe)}` : ""} sairá ${or ? `de ${or.nome}` : ""}${de ? ` para ${de.nome}` : ""}` +
+          (ganho != null ? ` (${ganho >= 0 ? "ganho" : "perda"} cambial estimado de ${brl(Math.abs(ganho))}, pelo custo médio)` : "");
+      }
+      falta ||= !or || !de || vm == null;
+      break;
+    }
     case "provento":
       o = `${p.descricao}${v} será registrado${conta ? ` na ${conta}` : ""} (não muda o preço médio)`;
       falta ||= !p.investimento?.papelContaId;
