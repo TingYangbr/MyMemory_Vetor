@@ -407,15 +407,23 @@ LIMIT 200`,
     nome: "Financeiro — Posição de investimentos",
     descricao:
       "Investimentos por papel e corretora numa data (sem data: hoje): quantidade, custo total e preço médio em reais; " +
-      "papel em outra moeda (ex.: AAPL na Avenue) traz também custo e preço médio na moeda. Não tem cotação de mercado do papel. " +
+      "papel em outra moeda (ex.: AAPL na Avenue) traz também custo e preço médio na moeda. Papel da B3 em reais traz preco_atual " +
+      "(cotação brapi ou digitada, com preco_em), valor_mercado (quantidade × preço atual) e resultado (valor de mercado − custo, " +
+      "não realizado) e resultado_pct; sem cotação esses campos vêm vazios. 'Quanto valem meus investimentos' = soma de valor_mercado. " +
       "Use para: quantas ações tenho, preço médio, quanto investi, investimentos no Brasil ou no exterior. papel = ticker (PETR4) ou nome." +
       " mercado: 'local' (Brasil) ou 'exterior'. Ao responder, separe por mercado e por moeda; NUNCA some valores de moedas diferentes (saldo_moeda, custo_moeda). Valores em reais (saldo_reais, custo_reais, valor_hoje_reais) podem ser somados.",
     sql: `SELECT c.papel, c.nome AS conta, cr.nome AS corretora, COALESCE(c.mercado, 'local') AS mercado, c.moeda, s.qtd AS quantidade, s.custo AS custo_reais,
   CASE WHEN s.qtd > 0 THEN ROUND(s.custo / s.qtd, 4) END AS preco_medio_reais,
   CASE WHEN c.moeda <> 'BRL' THEN s.custo_m END AS custo_moeda,
-  CASE WHEN c.moeda <> 'BRL' AND s.qtd > 0 THEN ROUND(s.custo_m / s.qtd, 4) END AS preco_medio_moeda
+  CASE WHEN c.moeda <> 'BRL' AND s.qtd > 0 THEN ROUND(s.custo_m / s.qtd, 4) END AS preco_medio_moeda,
+  CASE WHEN c.moeda = 'BRL' THEN q.preco END AS preco_atual,
+  CASE WHEN c.moeda = 'BRL' THEN to_char(q.momento AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') END AS preco_em,
+  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL THEN ROUND(s.qtd * q.preco, 2) END AS valor_mercado,
+  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL THEN ROUND(s.qtd * q.preco - s.custo, 2) END AS resultado,
+  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL AND s.custo > 0 THEN ROUND(100.0 * (s.qtd * q.preco - s.custo) / s.custo, 2) END AS resultado_pct
 FROM fin_contas c
 LEFT JOIN fin_contas cr ON cr.id = c.corretora_contaid
+LEFT JOIN fin_cotacoes_papel q ON q.ticker = UPPER(c.papel)
 CROSS JOIN LATERAL (
   SELECT COALESCE(SUM(l.quantidade), 0) AS qtd,
          COALESCE(SUM(CASE WHEN l.conta_destinoid = c.id THEN l.valor ELSE 0 END), 0)
