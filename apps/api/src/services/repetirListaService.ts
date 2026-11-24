@@ -201,7 +201,7 @@ export async function prepararRepeticaoLista(input: {
             .map((e) => `${fora[e]} ${NOME_ESTADO[e][fora[e] === 1 ? 0 : 1]}`);
           return partes.length ? ` (${partes.join(" e ")} de fora)` : "";
         })()}. ` +
-        `A lista anterior continua como está. Confira no cartão e toque em Salvar registro.`,
+        `A lista anterior continua como está. Confira no Form e toque em Salvar registro.`,
       groupId: input.groupId,
       categoria: cat.name,
       campos,

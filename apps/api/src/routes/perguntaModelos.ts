@@ -353,7 +353,7 @@ const plugin: FastifyPluginAsync = async (app) => {
           resposta: r.criacao.mensagem,
           tipo_resposta: "semantica",
           dados_usados: [],
-          limitacoes: ["Registro novo ainda não gravado: confira no cartão e salve."],
+          limitacoes: ["Registro novo ainda não gravado: confira no Form e salve."],
           confianca_estimada: 1,
         },
         classificacao: {
