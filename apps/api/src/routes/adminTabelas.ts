@@ -20,12 +20,13 @@ const MAX_TEXTO = 2000;
 
 const q = (nome: string) => `"${nome.replace(/"/g, '""')}"`;
 
-async function tabelasPublicas(): Promise<{ nome: string; tipo: "tabela" | "view"; linhas: number | null }[]> {
+async function tabelasPublicas(): Promise<{ nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes: number | null }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
-    `SELECT t.table_name AS "nome", t.table_type AS "tipo",
-       (SELECT c.reltuples::bigint FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-        WHERE n.nspname = 'public' AND c.relname = t.table_name) AS "linhas"
+    `SELECT t.table_name AS "nome", t.table_type AS "tipo", c.reltuples::bigint AS "linhas",
+       CASE WHEN t.table_type = 'BASE TABLE' THEN pg_total_relation_size(c.oid) END AS "bytes"
      FROM information_schema.tables t
+     LEFT JOIN pg_namespace n ON n.nspname = 'public'
+     LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relname = t.table_name
      WHERE t.table_schema = 'public' AND t.table_type IN ('BASE TABLE', 'VIEW')
      ORDER BY t.table_name`
   );
@@ -33,7 +34,14 @@ async function tabelasPublicas(): Promise<{ nome: string; tipo: "tabela" | "view
     nome: String(r.nome),
     tipo: r.tipo === "VIEW" ? ("view" as const) : ("tabela" as const),
     linhas: r.linhas == null || Number(r.linhas) < 0 ? null : Number(r.linhas),
+    bytes: r.bytes == null ? null : Number(r.bytes),
   }));
+}
+
+/** Tamanho do banco inteiro (dados, índices, TOAST) e quando foi medido. */
+async function tamanhoBanco(): Promise<{ bytes: number; medidoEm: string }> {
+  const [r] = await pool.query<RowDataPacket[]>(`SELECT pg_database_size(current_database()) AS "b"`);
+  return { bytes: Number(r[0]?.b ?? 0), medidoEm: new Date().toISOString() };
 }
 
 /** Valor para a tela: data em ISO, JSON em texto, binário/vetor resumido, texto longo cortado, sensível mascarado. */
@@ -71,7 +79,8 @@ const plugin: FastifyPluginAsync = async (app) => {
 
   app.get("/api/admin/tabelas", async (req, reply) => {
     if ((await requireAdmin(req, reply)) == null) return;
-    return { tabelas: await tabelasPublicas() };
+    const [tabelas, banco] = await Promise.all([tabelasPublicas(), tamanhoBanco()]);
+    return { tabelas, banco };
   });
 
   app.get("/api/admin/tabelas/:nome", async (req, reply) => {
