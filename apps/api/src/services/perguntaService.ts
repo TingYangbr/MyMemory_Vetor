@@ -589,7 +589,8 @@ export async function perguntarMemory(input: {
         finComando: fin.proposta,
       };
     }
-    if (classificacao.acao === "criar") {
+    // Registro novo (o mesmo do Catalogar): usado pelo "criar" e pelo "alterar" quando não há registro aberto
+    const criarRegistro = async () => {
       if (soConsulta) {
         return {
           resposta: respostaComando(
@@ -636,7 +637,7 @@ export async function perguntarMemory(input: {
             limitacoes: [],
             confianca_estimada: 1,
           },
-          classificacao: { ...classificacao, acao: "alterar" },
+          classificacao: { ...classificacao, acao: "alterar" as const },
           apiCost: totalCost,
           comando: junta.comando,
         };
@@ -650,7 +651,8 @@ export async function perguntarMemory(input: {
         apiCost: totalCost,
         criacao,
       };
-    }
+    };
+    if (classificacao.acao === "criar") return criarRegistro();
     const cmd = await withSpan("Comando de alteração", () => executarComandoAlteracao({
       texto: input.pergunta,
       userId: input.userId,
@@ -659,6 +661,20 @@ export async function perguntarMemory(input: {
       categories: cats,
       classificacao,
     }));
+    // "Incluir 2 kg de feijão na lista" sem lista aberta: em vez de mandar ao Catalogar, prepara o registro novo com o
+    // pedido (o cartão abre para conferir e salvar), como em "criar lista de compras com…"
+    if (cmd && cmd.comando.status === "nao_encontrado") {
+      totalCost += cmd.costUsd;
+      const r = await criarRegistro();
+      if ("criacao" in r && r.criacao) {
+        const cat = classificacao.categorias[0] ?? "registro";
+        r.resposta = {
+          ...r.resposta,
+          resposta: `Não há ${cat} aberta para alterar: preparei um registro novo com o seu pedido. ${r.resposta.resposta}`,
+        };
+      }
+      return r;
+    }
     if (cmd) {
       totalCost += cmd.costUsd;
       return { resposta: cmd.resposta, classificacao, apiCost: totalCost, comando: cmd.comando };
