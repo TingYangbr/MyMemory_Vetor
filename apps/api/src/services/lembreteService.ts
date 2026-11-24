@@ -576,6 +576,9 @@ export type CompromissoSino = {
   regraId: number;
   memoId: number;
   categoria: string;
+  /** Nome do grupo do memo (o sino mostra de qual grupo vem). */
+  grupo: string | null;
+  groupId: number;
   momento: Date;
   /** Já entrou no prazo do primeiro lembrete (maior antecedência) — conta no número do sino. */
   noPrazo: boolean;
@@ -637,6 +640,8 @@ export async function compromissosDoUsuario(userId: number, email: string, dias 
         regraId: id,
         memoId: c0.memoId,
         categoria: calc.ctx.categoria,
+        grupo: null,
+        groupId: calc.ctx.groupId,
         momento: c0.momento,
         noPrazo: agora.getTime() >= c0.momento.getTime() - maiorAnt * 60_000,
         hora: c0.hora ?? "",
@@ -645,6 +650,12 @@ export async function compromissosDoUsuario(userId: number, email: string, dias 
           .sort((a, b) => a.enviarEm.getTime() - b.enviarEm.getTime()),
       });
     }
+  }
+  const gids = [...new Set(out.map((c) => c.groupId))];
+  if (gids.length) {
+    const [gs] = await pool.query<RowDataPacket[]>(`SELECT id, name FROM groups WHERE id = ANY(?::int[])`, [gids]);
+    const nomes = new Map(gs.map((g) => [Number(g.id), String(g.name)]));
+    for (const c of out) c.grupo = nomes.get(c.groupId) ?? null;
   }
   return out.sort((a, b) => a.momento.getTime() - b.momento.getTime());
 }

@@ -59,7 +59,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const lembretes: LembreteRow[] = compromissos.map((c) => ({
       id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
       memoId: c.memoId,
-      categoria: c.categoria,
+      categoria: c.grupo ? `${c.categoria} · ${c.grupo}` : c.categoria,
       titulo: infoMemo.get(c.memoId)?.titulo ?? null,
       texto: infoMemo.get(c.memoId)?.texto ?? null,
       momento: c.momento,
@@ -131,7 +131,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       lembretes: compromissos.map((c) => ({
         id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
         memoId: c.memoId,
-        categoria: c.categoria,
+        categoria: c.grupo ? `${c.categoria} · ${c.grupo}` : c.categoria,
         titulo: infoMemo.get(c.memoId)?.titulo ?? null,
         texto: infoMemo.get(c.memoId)?.texto ?? null,
         momento: iso(c.momento),
