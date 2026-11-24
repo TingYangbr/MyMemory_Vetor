@@ -290,7 +290,7 @@ export function MemoAlteracaoCartao({
         {/* Mesmo padrão dos outros cartões: título, Salvar e Cancelar no topo */}
         <div className={styles.topo} style={{ alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }}>
           <div style={{ marginRight: "auto" }}>
-            <strong>{dados?.categoria ?? "Memo"}</strong> <span className={styles.id}>#{memoId}</span>
+            <strong className={styles.categoria}>{dados?.categoria ?? "Memo"}</strong> <span className={styles.id}>#{memoId}</span>
             {dados ? (
               <span className={encerrado ? styles.situacaoEncerrada : styles.situacao}>
                 {SIMBOLO_SITUACAO[estadoAtual]} {rot[estadoAtual]}
