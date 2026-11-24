@@ -6,7 +6,7 @@ import Header from "../components/Header";
 import adminStyles from "./AdminPage.module.css";
 import styles from "./AdminTabelasPage.module.css";
 
-type Tabela = { nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes?: number | null };
+type Tabela = { nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes?: number | null; temGrupo?: boolean; linhasGrupo?: number };
 
 /** 1.234.567 → "1,2 MB" */
 function tamanho(b: number | null | undefined): string {
@@ -25,6 +25,8 @@ type Lote = {
   offset: number;
   limite: number;
   criterio: string;
+  compartilhada?: boolean;
+  filtradaPorGrupo?: boolean;
   colunas: Coluna[];
   linhas: Record<string, unknown>[];
 };
@@ -87,28 +89,50 @@ export default function AdminTabelasPage() {
       .finally(() => setCarregandoMe(false));
   }, []);
 
+  // Grupo em análise: "todos", "pessoal" (espaços pessoais) ou o id de um grupo
+  const [grupo, setGrupo] = useState("todos");
+  const [grupos, setGrupos] = useState<{ id: number; nome: string }[]>([]);
+  const [grupoAtivo, setGrupoAtivo] = useState<number | null>(null);
+  const [porGrupo, setPorGrupo] = useState<{ compartilhadoBytes: number; grupos: { grupo: string; groupId: number | null; linhas: number; bytes: number }[] } | null>(null);
+  const [verPorGrupo, setVerPorGrupo] = useState(false);
+
   useEffect(() => {
     if (me?.role !== "admin") return;
     void recarregarLista();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [me]);
+  }, [me, grupo]);
 
   // Lista de tabelas + tamanho do banco (medido a cada abertura e no botão Medir de novo)
   const [banco, setBanco] = useState<{ bytes: number; medidoEm: string } | null>(null);
   const recarregarLista = useCallback(async () => {
     try {
-      const r = await apiGet<{ tabelas: Tabela[]; banco?: { bytes: number; medidoEm: string } }>("/api/admin/tabelas");
+      const r = await apiGet<{ tabelas: Tabela[]; banco?: { bytes: number; medidoEm: string }; grupos?: { id: number; nome: string }[]; grupoAtivo?: number | null }>(
+        `/api/admin/tabelas?grupo=${encodeURIComponent(grupo)}`
+      );
       setTabelas(r.tabelas);
       setBanco(r.banco ?? null);
+      setGrupos(r.grupos ?? []);
+      setGrupoAtivo(r.grupoAtivo ?? null);
     } catch (e) {
       setErro(String(e));
     }
-  }, []);
+  }, [grupo]);
+
+  const abrirPorGrupo = async () => {
+    setVerPorGrupo((v) => !v);
+    if (!porGrupo) {
+      try {
+        setPorGrupo(await apiGet("/api/admin/tabelas-grupos"));
+      } catch (e) {
+        setErro(String(e));
+      }
+    }
+  };
 
   const carregar = useCallback(async (nome: string, off: number, ord: "ultima" | "natural") => {
     setCarregando(true); setErro(null); setCelula(null);
     try {
-      const r = await apiGet<Lote>(`/api/admin/tabelas/${encodeURIComponent(nome)}?offset=${off}&limite=${LOTE}&ordem=${ord}`);
+      const r = await apiGet<Lote>(`/api/admin/tabelas/${encodeURIComponent(nome)}?offset=${off}&limite=${LOTE}&ordem=${ord}&grupo=${encodeURIComponent(grupo)}`);
       setLote(r);
     } catch (e) {
       setErro(e instanceof Error ? e.message : String(e));
@@ -116,7 +140,7 @@ export default function AdminTabelasPage() {
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [grupo]);
 
   useEffect(() => {
     if (sel) void carregar(sel, offset, ordem);
@@ -171,8 +195,55 @@ export default function AdminTabelasPage() {
           {banco ? <>Tamanho do banco: <b>{tamanho(banco.bytes)}</b> · </> : null}
           <b>{tabelas.filter((t) => t.tipo === "tabela").length}</b> tabelas e <b>{tabelas.filter((t) => t.tipo === "view").length}</b> views
           {banco ? <span className="mm-muted"> · medido às {new Date(banco.medidoEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span> : null}{" "}
-          <button type="button" className="mm-btn" style={{ marginLeft: 6 }} onClick={() => void recarregarLista()}>Medir de novo</button>
+          <button type="button" className="mm-btn" style={{ marginLeft: 6 }} onClick={() => { setPorGrupo(null); void recarregarLista(); }}>Medir de novo</button>
+          <button type="button" className="mm-btn" style={{ marginLeft: 6 }} onClick={() => void abrirPorGrupo()}>Armazenagem por grupo</button>
         </p>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "0 0 8px", fontSize: 14 }}>
+          <label>
+            Ver{" "}
+            <select className="mm-field" value={grupo} onChange={(e) => { setGrupo(e.target.value); setOffset(0); }}>
+              <option value="todos">Todos os grupos</option>
+              {grupoAtivo != null ? <option value={String(grupoAtivo)}>Grupo ativo: {grupos.find((g) => g.id === grupoAtivo)?.nome ?? grupoAtivo}</option> : null}
+              <option value="pessoal">Espaços pessoais (sem grupo)</option>
+              {grupos.filter((g) => g.id !== grupoAtivo).map((g) => <option key={g.id} value={String(g.id)}>{g.nome}</option>)}
+            </select>
+          </label>
+          <span className="mm-muted" style={{ fontSize: 12 }}>
+            * = tabela compartilhada (sem coluna de grupo): aparece inteira em qualquer filtro.
+          </span>
+        </div>
+        {verPorGrupo ? (
+          <div className={styles.detalhe} style={{ marginBottom: 10 }}>
+            <b>Armazenagem por grupo (estimativa)</b>
+            <span className="mm-muted" style={{ fontSize: 12 }}> — em cada tabela com grupo, o tamanho é repartido pela proporção de linhas de cada grupo. Arquivos (S3/disco) não entram.</span>
+            {!porGrupo ? <p className="mm-muted">Calculando…</p> : (
+              <table style={{ borderCollapse: "collapse", marginTop: 6, fontSize: 13 }}>
+                <thead><tr>
+                  <th style={{ textAlign: "left", padding: "3px 10px 3px 0" }}>Grupo</th>
+                  <th style={{ textAlign: "right", padding: "3px 10px" }}>Linhas</th>
+                  <th style={{ textAlign: "right", padding: "3px 10px" }}>Armazenagem</th>
+                  <th style={{ textAlign: "right", padding: "3px 0 3px 10px" }}>% do banco</th>
+                </tr></thead>
+                <tbody>
+                  {[...porGrupo.grupos, { grupo: "Compartilhado (tabelas *)", groupId: -1, linhas: 0, bytes: porGrupo.compartilhadoBytes }].map((g) => (
+                    <tr key={`${g.groupId}-${g.grupo}`}>
+                      <td style={{ padding: "3px 10px 3px 0" }}>
+                        {g.groupId != null && g.groupId > 0 ? (
+                          <button type="button" className="mm-btn" style={{ padding: "0 6px" }} onClick={() => { setGrupo(String(g.groupId)); setOffset(0); }}>{g.grupo}</button>
+                        ) : g.grupo}
+                      </td>
+                      <td style={{ textAlign: "right", padding: "3px 10px" }}>{g.linhas ? fmt(g.linhas) : ""}</td>
+                      <td style={{ textAlign: "right", padding: "3px 10px" }}>{tamanho(g.bytes)}</td>
+                      <td style={{ textAlign: "right", padding: "3px 0 3px 10px" }}>
+                        {banco?.bytes ? `${((100 * g.bytes) / banco.bytes).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : ""}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        ) : null}
         <p className="mm-muted" style={{ marginTop: -6 }}>
           Só leitura. Senhas, hashes, tokens e chaves aparecem mascarados; textos longos e vetores, resumidos.
         </p>
@@ -183,9 +254,13 @@ export default function AdminTabelasPage() {
             </div>
             {tabelasVisiveis.map((t) => (
               <button key={t.nome} type="button" className={`${styles.itemTabela} ${sel === t.nome ? styles.itemAtivo : ""}`} onClick={() => escolher(t.nome)}>
-                <span>{t.nome}{t.tipo === "view" ? " (view)" : ""}</span>
+                <span title={t.temGrupo ? "Tem coluna de grupo: filtra pelo grupo escolhido" : "Compartilhada: sem coluna de grupo"}>
+                  {t.nome}{t.temGrupo ? "" : " *"}{t.tipo === "view" ? " (view)" : ""}
+                </span>
                 <span className={styles.contagem} title="Linhas (estimativa do Postgres) · tamanho com índices">
-                  {t.linhas != null ? `~${fmt(t.linhas)}` : ""}{t.bytes ? ` · ${tamanho(t.bytes)}` : ""}
+                  {grupo !== "todos" && t.linhasGrupo != null
+                    ? `${fmt(t.linhasGrupo)} do grupo`
+                    : `${t.linhas != null ? `~${fmt(t.linhas)}` : ""}${t.bytes ? ` · ${tamanho(t.bytes)}` : ""}`}
                 </span>
               </button>
             ))}
@@ -217,7 +292,7 @@ export default function AdminTabelasPage() {
                 ) : null}
               </div>
             ) : null}
-            {lote ? <p className="mm-muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Ordenado no banco por: {lote.criterio}. Filtros, busca e clique no título valem para o lote carregado.</p> : null}
+            {lote ? <p className="mm-muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Ordenado no banco por: {lote.criterio}.{grupo !== "todos" ? (lote.filtradaPorGrupo ? " Só as linhas do grupo escolhido." : " Tabela compartilhada (*): todas as linhas.") : ""} Filtros, busca e clique no título valem para o lote carregado.</p> : null}
             {erro ? <p className="mm-error">{erro}</p> : null}
             {carregando ? <p className="mm-muted">Carregando…</p> : null}
             {lote && !carregando ? (
