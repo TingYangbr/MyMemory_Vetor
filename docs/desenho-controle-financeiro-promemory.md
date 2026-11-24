@@ -519,7 +519,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 | 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | feito (13.19) |
 | 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | etapa 1 (OFX) feita (13.20); API a fazer |
 | 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | feito (13.21) |
-| 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
+| 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | feito (13.22) |
 | 6 | **Orçamento e metas** por grupo (orçado × realizado, alerta de estouro) | a fazer |
 | 7 | **Várias operações numa frase** ("paguei 50 de mercado e recebi 800 do freela") | a fazer |
 | 8 | **Editar lançamento** (hoje é desfazer e lançar de novo) e **apagar em lote** com confirmação | a fazer |
@@ -553,7 +553,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 ### 13.19 Lembrete de vencimento (24/11/2026)
 
 - **O que avisa:** contas a pagar e a receber em aberto, as mesmas da aba Previstos: títulos (parcelas e contas a prazo), recorrentes previstas e faturas de cartão.
-- **Sino:** mostra as contas atrasadas e as que vencem de hoje até o maior dos "dias antes" configurados (padrão 3), do espaço pessoal e do grupo em que o usuário está. Elas contam no número do sino e o clique abre Contas a pagar e receber.
+- **Sino:** mostra as contas atrasadas e as que vencem de hoje até o maior dos "dias antes" configurados (padrão 3), do espaço pessoal e de todos os grupos do usuário (membro ou dono) em que ele está entre quem recebe, igual aos lembretes de memo. A etiqueta traz o nome do grupo; o que já venceu aparece como "atrasado". Elas contam no número do sino e o clique abre Contas a pagar e receber.
 - **E-mail:** um por dia e por espaço, a partir das 8h de São Paulo, com o que vence hoje, nos dias configurados (padrão 3 dias antes e no dia) e o que atrasou ontem. No espaço pessoal vai para o usuário. No grupo, vai para quem recebe: só o dono (padrão), todos os membros ou membros escolhidos. A mesma escolha vale para o sino. Também podem ser informados e-mails a mais, que recebem só o e-mail. Sem conta no dia, não manda nada. O robô roda junto com o dos lembretes de memo (a cada 5 minutos), e `fin_config.lembrete_ultimo_dia` garante um envio por dia.
 - **Ajustes** (aba Fale comigo da tela, por espaço): Lembrete de vencimento (ligado por padrão), Lembrete também por e-mail (ligado por padrão) e "Avisar quantos dias antes" (ex.: 3, 0); no grupo, "Quem recebe" e "E-mails a mais". No grupo, só o dono muda. Migration 212.
 
@@ -589,4 +589,17 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Tela Contas e saldos**, em cada papel: preço (B3 ou digitado, com data e hora), **valor de mercado**, **resultado não realizado** (R$ e %) e **proventos dos últimos 12 meses**. Os botões são **Provento**, **Desdobramento / bonificação** e **Preço**.
 - **Fale comigo:** "recebi 120 de dividendos de PETR4", "JCP de ITSA4 de 85" e "rendimento do HGLG11 de 42" são o tipo **provento**, com papel, tipo e bruto opcional. A consulta "Posição de investimentos" ganhou `preco_atual`, `preco_em`, `valor_mercado`, `resultado` e `resultado_pct` ("quanto valem meus investimentos hoje?"). Os proventos aparecem na consulta de lançamentos (grupos Dividendos, JCP…). Eventos são registrados só pela tela.
 - **Migration 214.**
+
+### 13.22 Câmbio por frase (24/11/2026)
+
+- **Fale comigo:** novo tipo **câmbio**, para compra e venda de moeda entre uma conta em reais e uma conta em outra moeda. Exemplos: "comprei 1.000 dólares a 5,40 na Avenue", "mandei 10 mil para a Avenue, chegaram 1.850 dólares", "vendi 500 dólares a 5,60 para o Itaú". Uma transferência entre contas de moedas diferentes vira câmbio sozinha.
+- **Card:** Sai de, Vai para, valor em reais, valor na moeda e IOF/tarifa (opcional). Com só um dos valores e a cotação, o outro é calculado. A **cotação efetiva** aparece no card.
+- **IOF/tarifa:**
+  - **na compra, soma ao custo da moeda** (decisão de 24/11): o custo médio em reais é tudo o que saiu do banco;
+  - na venda, sai do valor que entrou em reais.
+- **Gravação:** pelo mesmo `criarLancamento` da tela (13.10).
+  - **Compra:** guarda os reais (com IOF) e a quantia na moeda.
+  - **Venda:** sai pelo custo médio, e a diferença vira **ganho ou perda cambial** (contas do sistema), no mesmo lote.
+
+  O card mostra o ganho ou a perda estimado antes de gravar; "Desfazer" apaga o lote.
 

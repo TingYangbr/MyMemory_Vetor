@@ -441,7 +441,7 @@ export interface FinConferencia {
 }
 
 /** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
-export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia" | "provento";
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia" | "provento" | "cambio";
 
 export type FinTipoProvento = "dividendo" | "jcp" | "rendimento" | "juros";
 
@@ -531,6 +531,11 @@ export interface FinComandoProposta {
   contaDestinoId?: number | null;
   /** Provento: tipo e, no JCP, o valor bruto (antes do IR retido), se dito. */
   provento?: { tipo: FinTipoProvento; valorBruto: number | null } | null;
+  /**
+   * Câmbio (contaId → contaDestinoId, uma em reais e a outra em moeda): valor = reais (sem o IOF), valorMoeda = quantia
+   * na moeda, cotação se dita, IOF/tarifa em reais (na compra soma ao custo da moeda; na venda sai do que entrou).
+   */
+  cambio?: { valorMoeda: number | null; cotacao: number | null; iof: number | null } | null;
   /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
   alvoChave: string | null;
   /** Compra/venda de papel (contaId = corretora; valor = valor total, se dito). */
@@ -541,7 +546,8 @@ export interface FinComandoProposta {
   /** Já gravado direto (cartão completo e "gravar direto" ligado): o cartão abre no estado gravado. */
   gravado?: FinComandoGravado | null;
   opcoes: {
-    contas: { id: number; nome: string; tipo: FinTipoConta }[];
+    /** moeda e custo médio em reais por unidade (contas em moeda), para o câmbio. */
+    contas: { id: number; nome: string; tipo: FinTipoConta; moeda?: string; custoMedio?: number | null }[];
     gruposDespesa: { id: number; nome: string }[];
     gruposReceita: { id: number; nome: string }[];
     abertos: { chave: string; descricao: string; vencimento: string; valor: number; sentido: "pagar" | "receber"; atrasado: boolean; grupo?: string | null }[];

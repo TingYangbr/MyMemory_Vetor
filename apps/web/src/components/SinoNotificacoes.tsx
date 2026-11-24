@@ -39,6 +39,12 @@ function tempoAtras(isoStr: string): string {
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
+/** Já passou: compromisso com hora antes de agora; conta do financeiro com vencimento antes de hoje. */
+function atrasado(l: { memoId: number; momento: string; categoria: string | null }): boolean {
+  if (!l.memoId) return /atrasad/i.test(l.categoria ?? "");
+  return new Date(l.momento).getTime() < Date.now();
+}
+
 /** "hoje, 10:00", "amanhã, 10:00", "sex 15/11, 10:00" */
 function quandoCompromisso(isoStr: string): string {
   const d = new Date(isoStr);
@@ -181,9 +187,12 @@ export function SinoNotificacoes() {
                   </span>
                   <span className={styles.corpo}>
                     <b>{l.categoria ? `${l.categoria}: ` : "Lembrete: "}{l.titulo ?? (l.texto ?? "").slice(0, 60)}</b>
-                    <p>{quandoCompromisso(l.momento)}</p>
+                    {/* Conta do financeiro (sem memo): o texto já diz quando vence, sem hora */}
+                    <p>{l.memoId ? quandoCompromisso(l.momento) : l.texto ?? ""}</p>
                   </span>
-                  <small className={styles.quando}>{l.noPrazo ? "em breve" : "agendado"}</small>
+                  <small className={styles.quando} style={atrasado(l) ? { color: "var(--mm-danger)" } : undefined}>
+                    {atrasado(l) ? "atrasado" : l.noPrazo ? "em breve" : "agendado"}
+                  </small>
                 </Link>
               ))
             ) : (
