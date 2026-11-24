@@ -4,6 +4,7 @@
  * Nada é gravado aqui: a tela mostra a proposta num cartão editável e grava pelas rotas /api/fin/* ao confirmar.
  * A IA só escolhe entre ids que existem; o que ela não souber fica vazio para a pessoa escolher no cartão.
  */
+import { precosPapeis } from "./finCotacaoPapelService.js";
 import type { FinComandoGravado, FinComandoProposta, FinComandoTipo, FinPapelOpcao, FinPeriodicidade } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
@@ -108,6 +109,7 @@ export async function montarPropostaFin(input: {
       quantidade: Number(c.quantidade ?? 0),
       custoMedio: c.custoMedio ?? null,
       moeda: c.moeda,
+      precoAtual: c.precoAtual ?? null,
     }));
   const ag = await agenda(e, somarDias(hoje, -90), somarDias(hoje, 60));
   const abertos = ag.itens
@@ -252,7 +254,13 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
       quantidade: num(j.quantidade),
       preco: num(j.preco),
       taxas: num(j.taxas),
+      precoAtual: papel?.precoAtual ?? null,
     };
+    // Papel novo (ainda não está em carteira): busca o preço pelo ticker, só para mostrar no card
+    if (!proposta.investimento.precoAtual && proposta.investimento.ticker) {
+      const t = proposta.investimento.ticker;
+      proposta.investimento.precoAtual = (await precosPapeis([t]).catch(() => new Map())).get(t) ?? null;
+    }
     proposta.descricao = `${tipo === "compra" ? "Compra" : "Venda"} ${proposta.investimento.ticker ?? ""}`.trim();
     proposta.grupoId = null;
     const v = proposta.investimento;
