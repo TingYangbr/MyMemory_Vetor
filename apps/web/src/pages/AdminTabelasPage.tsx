@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type { MeResponse } from "@mymemory/shared";
 import { apiGet, apiGetOptional } from "../api";
@@ -54,6 +54,22 @@ export default function AdminTabelasPage() {
   const [filtros, setFiltros] = useState<Record<string, string>>({});
   const [ordenar, setOrdenar] = useState<{ coluna: string; desc: boolean } | null>(null);
   const [celula, setCelula] = useState<{ linha: number; coluna: string } | null>(null);
+  // Grade como janela: ocupa o que sobra da tela até o rodapé, então a barra de rolagem horizontal (no pé da grade)
+  // fica sempre à vista; com o detalhe de uma célula aberto, a grade encolhe para ele caber embaixo.
+  const gradeRef = useRef<HTMLDivElement | null>(null);
+  const [alturaGrade, setAlturaGrade] = useState<number | null>(null);
+  useLayoutEffect(() => {
+    const medir = () => {
+      const el = gradeRef.current;
+      if (!el) return;
+      const topo = el.getBoundingClientRect().top + window.scrollY;
+      const reserva = celula ? 220 : 0;
+      setAlturaGrade(Math.max(220, window.innerHeight - (topo - window.scrollY) - 16 - reserva));
+    };
+    medir();
+    window.addEventListener("resize", medir);
+    return () => window.removeEventListener("resize", medir);
+  }, [lote, celula, carregando, erro]);
 
   useEffect(() => {
     apiGetOptional<MeResponse>("/api/me")
@@ -174,7 +190,7 @@ export default function AdminTabelasPage() {
             {erro ? <p className="mm-error">{erro}</p> : null}
             {carregando ? <p className="mm-muted">Carregando…</p> : null}
             {lote && !carregando ? (
-              <div className={styles.grade}>
+              <div className={styles.grade} ref={gradeRef} style={alturaGrade ? { height: alturaGrade, maxHeight: "none" } : undefined}>
                 <table>
                   <thead>
                     <tr>

@@ -9,6 +9,8 @@ type SinoLembrete = {
   id: string;
   memoId: number;
   categoria: string | null;
+  /** Grupo de origem do lembrete. */
+  grupo?: string | null;
   titulo: string | null;
   texto: string | null;
   momento: string;
@@ -186,6 +188,7 @@ export function SinoNotificacoes() {
                     <IconCalendar size={16} />
                   </span>
                   <span className={styles.corpo}>
+                    {l.grupo ? <span className={styles.grupo} title={`Do grupo ${l.grupo}`}>{l.grupo}</span> : null}
                     <b>{l.categoria ? `${l.categoria}: ` : "Lembrete: "}{l.titulo ?? (l.texto ?? "").slice(0, 60)}</b>
                     {/* Conta do financeiro (sem memo): o texto já diz quando vence, sem hora */}
                     <p>{l.memoId ? quandoCompromisso(l.momento) : l.texto ?? ""}</p>
