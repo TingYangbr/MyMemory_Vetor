@@ -169,3 +169,14 @@
   display: grid;
   gap: 0.25rem;
 }
+
+/* Categoria no título dos cards de registro (novo e alteração): etiqueta verde para ver de relance onde vai gravar */
+.categoria {
+  display: inline-block;
+  padding: 0.12rem 0.6rem;
+  border-radius: 999px;
+  background: #0d9488;
+  color: #ffffff;
+  font-weight: 700;
+  line-height: 1.4;
+}

@@ -126,7 +126,7 @@ export function MemoNovoCartao({
         {/* Salvar e Cancelar no topo, na linha do título: não precisa rolar o cartão para gravar */}
         <div className={styles.topo} style={{ alignItems: "center", justifyContent: "flex-start", flexWrap: "wrap" }}>
           <div style={{ marginRight: "auto" }}>
-            <strong>{criacao.categoria ?? "Memo"}</strong> <span className={styles.id}>novo</span>
+            <strong className={styles.categoria}>{criacao.categoria ?? "Memo"}</strong> <span className={styles.id}>novo</span>
           </div>
           <button type="button" className="mm-btn mm-btn--primary" onClick={() => void salvar()} disabled={salvando}>
             {salvando ? "Salvando…" : "Salvar"}
