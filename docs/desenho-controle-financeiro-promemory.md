@@ -503,3 +503,26 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
 - **Parcelado / a prazo em regime de caixa:** nos títulos novos (`fin_titulos.caixa = 1`, migration 209), o cadastro grava só os títulos. Não há registro na data da compra. Cada pagamento lança direto conta → grupo (no recebimento, grupo → conta) pelo valor pago até o valor da parcela. Acima disso, o excedente vai ao grupo escolhido ou a juros/multa. Desconto não gera lançamento, porque a despesa é o que saiu. O pagamento parcial cria o saldo com o mesmo regime. A conferência de Contas a pagar/receber (13.8) só soma os títulos em competência (`caixa = 0`). Os títulos antigos foram convertidos (migration 210): os registros saíram, os descontos dos pagamentos saíram e os pagamentos passaram a ir direto ao grupo do título. Todos os relatórios de gastos e receitas são em regime de caixa. A tela de parcelado não pede mais a data da compra.
 - **Transferência entre contas no Fale comigo:** novo tipo "transferência" ("transferi do Itaú para a XP", "paguei a fatura do cartão com o Itaú", aplicação ou resgate na corretora, saque). O card mostra "Sai de" e "Vai para", sem grupo, e grava um lançamento conta → conta. Ela não entra em gastos nem em receitas.
+
+### 13.17 Situação em 24/11/2026: decisões fechadas e pendências
+
+**Decisões fechadas** (respondem perguntas de 12.5, 12.6 e 13.6):
+- **Visão padrão: regime de caixa.** Gastos e receitas contam na data em que o dinheiro sai ou entra, no grupo do título (13.16). Para olhar pelo compromisso, use a aba Previstos e as consultas de contas a pagar e receber, pelo vencimento.
+- **Categorias:** três, separadas pelo tempo da pergunta: *Gastos e lançamentos* (o passado), *A pagar e receber* (o futuro) e *Saldos e investimentos* (a posição), sobre as mesmas tabelas `fin_`.
+- **Investimentos não criam memo:** o Fale comigo grava a operação direto em `fin_operacoes_inv`, pela porta única (13.14). O memo fica só como comprovante, quando vem de um documento.
+
+**Pendências, na ordem combinada:**
+
+| # | Pendência | Situação |
+|---|---|---|
+| 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | em andamento |
+| 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | a fazer |
+| 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | a fazer |
+| 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
+| 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
+| 6 | **Orçamento e metas** por grupo (orçado × realizado, alerta de estouro) | a fazer |
+| 7 | **Várias operações numa frase** ("paguei 50 de mercado e recebi 800 do freela") | a fazer |
+| 8 | **Editar lançamento** (hoje é desfazer e lançar de novo) e **apagar em lote** com confirmação | a fazer |
+| 9 | **Modelo pronto no catálogo** (plano de contas e grupos iniciais) para outros usuários e grupos | a fazer |
+
+**Continuam em aberto:** plano de contas inicial da pessoa física; catálogo de eventos (estorno, empréstimo a terceiros, adiantamento); se o mesmo núcleo vira a base do financeiro do Softing-erp.
