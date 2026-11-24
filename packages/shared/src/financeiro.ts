@@ -426,11 +426,25 @@ export interface FinConfig {
   criarGrupo: boolean;
   /** O cartão mostra "+ nova" ao lado da conta/cartão, para cadastrar na hora. */
   criarConta: boolean;
+  /** Lembrete de vencimento: no sino e por e-mail (contas a pagar/receber, faturas, recorrentes). */
+  lembreteAtivo: boolean;
+  /** Quantos dias antes do vencimento avisar (0 = no dia). Ex.: [3, 0]. */
+  lembreteDias: number[];
+  /** Manda e-mail (de manhã) além do sino. */
+  lembreteEmail: boolean;
+  /** No grupo, quem recebe (sino e e-mail): o dono, todos os membros ou os escolhidos. No pessoal, sempre o próprio. */
+  lembreteQuem: "dono" | "membros" | "escolhidos";
+  /** Membros escolhidos (ids), quando lembreteQuem = "escolhidos". */
+  lembreteMembros: number[];
+  /** E-mails a mais, separados por vírgula (só e-mail). */
+  lembreteEmails: string;
 }
 
 export interface FinConfigResposta extends FinConfig {
   /** Pode mudar os ajustes (dono do grupo, admin, ou o próprio usuário no espaço pessoal). */
   podeEditar: boolean;
+  /** No grupo: os membros, para escolher quem recebe o lembrete. */
+  membros?: { id: number; nome: string; email: string | null; dono: boolean }[];
 }
 
 export type FinComandoDesfazer =
