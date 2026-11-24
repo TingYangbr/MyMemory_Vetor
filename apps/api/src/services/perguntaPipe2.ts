@@ -1467,7 +1467,7 @@ async function executarConsultasPlano(input: {
         }
         throw registrarFalhaSql(template, finalSql, values, err);
       }
-      linhas = rows as Record<string, unknown>[];
+      linhas = numerosDoPostgres(rows as Record<string, unknown>[]);
       colunasQuery = linhas.length > 0 ? Object.keys(linhas[0]) : [];
       sqlParts.push(finalSql);
       allValues.push(...values);
@@ -2252,4 +2252,23 @@ export async function executarConsultaDireta(input: {
     avisos,
     ms: Date.now() - t0,
   };
+}
+
+/**
+ * O Postgres devolve NUMERIC como texto com todas as casas ("800.000000"). Na resposta, a IA lia o ponto como
+ * separador de milhar ("800 mil ações"). Texto no formato decimal do banco vira número; códigos com zero à esquerda
+ * e inteiros em texto ficam como estão.
+ */
+export function numerosDoPostgres(linhas: Record<string, unknown>[]): Record<string, unknown>[] {
+  const re = /^-?(0|[1-9]\d{0,14})\.\d{1,10}$/;
+  for (const l of linhas) {
+    for (const k of Object.keys(l)) {
+      const v = l[k];
+      if (typeof v === "string" && re.test(v)) {
+        const n = Number(v);
+        if (Number.isFinite(n)) l[k] = n;
+      }
+    }
+  }
+  return linhas;
 }
