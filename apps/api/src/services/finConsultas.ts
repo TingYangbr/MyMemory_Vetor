@@ -427,16 +427,21 @@ LIMIT 200`,
   {
     nome: "Financeiro — Posição de investimentos",
     descricao:
-      "Investimentos por papel e corretora numa data (sem data: hoje): quantidade, custo total e preço médio em reais; " +
+      "Investimentos por papel e corretora numa data (sem data: hoje): quantidade, custo_total_reais e custo_medio_reais. " +
+      "ATENÇÃO aos termos: custo_medio_reais = custo MÉDIO POR AÇÃO/COTA (preço médio, ex.: 14,25); custo_total_reais = " +
+      "quantidade × custo médio = o que foi pago pela posição inteira (ex.: 800 × 14,25 = 11.400). 'Custo total', 'total do " +
+      "custo', 'total custo médio', 'quanto investi', 'quanto paguei', 'valor investido' = custo_total_reais (some essa coluna " +
+      "para o total da carteira); só 'custo médio' ou 'preço médio' (por ação) = custo_medio_reais — NUNCA some custo_medio_reais. " +
+      "Para comparar com o valor de mercado, use custo_total_reais. " +
       "papel em outra moeda (ex.: AAPL na Avenue) traz também custo e preço médio na moeda. Papel da B3 em reais traz preco_atual " +
       "(cotação brapi ou digitada, com preco_em), valor_mercado (quantidade × preço atual) e resultado (valor de mercado − custo, " +
       "não realizado) e resultado_pct; sem cotação esses campos vêm vazios. 'Quanto valem meus investimentos' = soma de valor_mercado. " +
       "Use para: quantas ações tenho, preço médio, quanto investi, investimentos no Brasil ou no exterior. papel = ticker (PETR4) ou nome." +
-      " mercado: 'local' (Brasil) ou 'exterior'. Ao responder, separe por mercado e por moeda; NUNCA some valores de moedas diferentes (saldo_moeda, custo_moeda). Valores em reais (saldo_reais, custo_reais, valor_hoje_reais) podem ser somados.",
-    sql: `SELECT c.papel, c.nome AS conta, cr.nome AS corretora, COALESCE(c.mercado, 'local') AS mercado, c.moeda, s.qtd AS quantidade, s.custo AS custo_reais,
-  CASE WHEN s.qtd > 0 THEN ROUND(s.custo / s.qtd, 4) END AS preco_medio_reais,
+      " mercado: 'local' (Brasil) ou 'exterior'. Ao responder, separe por mercado e por moeda; NUNCA some valores de moedas diferentes (saldo_moeda, custo_moeda). Valores em reais totais (custo_total_reais, valor_mercado, resultado) podem ser somados; custo_medio_reais e preco_atual (por ação) não.",
+    sql: `SELECT c.papel, c.nome AS conta, cr.nome AS corretora, COALESCE(c.mercado, 'local') AS mercado, c.moeda, s.qtd AS quantidade, s.custo AS custo_total_reais,
+  CASE WHEN s.qtd > 0 THEN ROUND(s.custo / s.qtd, 4) END AS custo_medio_reais,
   CASE WHEN c.moeda <> 'BRL' THEN s.custo_m END AS custo_moeda,
-  CASE WHEN c.moeda <> 'BRL' AND s.qtd > 0 THEN ROUND(s.custo_m / s.qtd, 4) END AS preco_medio_moeda,
+  CASE WHEN c.moeda <> 'BRL' AND s.qtd > 0 THEN ROUND(s.custo_m / s.qtd, 4) END AS custo_medio_moeda,
   CASE WHEN c.moeda = 'BRL' THEN q.preco END AS preco_atual,
   CASE WHEN c.moeda = 'BRL' THEN to_char(q.momento AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') END AS preco_em,
   CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL THEN ROUND(s.qtd * q.preco, 2) END AS valor_mercado,
