@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
 import { compromissosDoUsuario } from "../services/lembreteService.js";
+import { lembretesFinanceiroDoUsuario } from "../services/finLembreteService.js";
 
 /**
  * Sino do cabeçalho.
@@ -64,6 +65,20 @@ const plugin: FastifyPluginAsync = async (app) => {
       momento: c.momento,
       noPrazo: c.noPrazo,
     }));
+    // Contas a pagar/receber (financeiro): atrasadas e as que vencem nos dias do lembrete — todas contam no número
+    const fin = await lembretesFinanceiroDoUsuario(userId).catch(() => []);
+    for (const f of fin) {
+      lembretes.push({
+        id: f.id,
+        memoId: 0,
+        categoria: f.atrasado ? "Conta atrasada" : "Conta",
+        titulo: f.titulo,
+        texto: f.texto,
+        momento: new Date(`${f.vencimento}T12:00:00-03:00`),
+        noPrazo: true,
+      });
+    }
+    lembretes.sort((a, b) => iso(a.momento).localeCompare(iso(b.momento)));
     const lembretesNoPrazo = lembretes.filter((l) => l.noPrazo).length;
 
     const avisosNaoLidos = avisos.filter((a) => !a.lido).length;
