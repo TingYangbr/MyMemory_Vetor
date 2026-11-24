@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { executarLembretesPendentes } from "./lembreteService.js";
 import { executarLembretesFinanceiro } from "./finLembreteService.js";
 import { atualizarCotacoesEmCarteira } from "./finCotacaoPapelService.js";
+import { executarHistoricoDiario } from "./finPrecoHistoricoService.js";
 
 let iniciado = false;
 let rodando = false;
@@ -26,6 +27,10 @@ export function iniciarLembreteScheduler(): void {
       // Cotações dos papéis em carteira (brapi, renova o que tem mais de 30 min)
       await atualizarCotacoesEmCarteira().catch((err) =>
         console.error("[lembreteScheduler] cotações:", err instanceof Error ? err.message : err)
+      );
+      // Histórico de preços: fechamento do dia pelo arquivo da B3 (a partir das 20h, de hora em hora)
+      await executarHistoricoDiario().catch((err) =>
+        console.error("[lembreteScheduler] histórico de preços:", err instanceof Error ? err.message : err)
       );
     } catch (err) {
       console.error("[lembreteScheduler] erro:", err instanceof Error ? err.message : err);

@@ -1211,6 +1211,19 @@ Admin → Sistema → **Tabelas do banco** mostra o conteúdo das tabelas do ban
   - vetores (embeddings) e binários aparecem resumidos;
   - nada pode ser alterado por esta tela.
 
+## Histórico de preços (B3)
+Admin → Sistema → **Histórico de preços (B3)** guarda o fechamento de cada pregão dos papéis da bolsa, pelo arquivo oficial e gratuito da B3. Com ele, o Fale comigo responde a "quanto a PETR4 subiu no mês?" e "evolução do preço do ITSA4 em 2026".
+- **Carga dos anos anteriores:** marque os anos e clique em **Carregar**. Cada ano tem ~90 MB e leva alguns minutos; a tela se atualiza sozinha enquanto carrega.
+- **Dias novos:** entram sozinhos todo dia, a partir das 20h.
+- **Papéis guardados:** só os que alguém da base tem ou já teve. Depois de cadastrar papéis novos, carregue de novo os anos desejados; o que já existe não duplica.
+- **Tabela de importações:** mostra cada arquivo lido com a situação:
+  - **importado**;
+  - **sem arquivo**: feriado, sem pregão;
+  - **sem papéis**;
+  - **erro**, com a mensagem.
+
+NOTA: Os preços não são ajustados por desdobramento, grupamento ou proventos. Num desdobramento, o preço "cai" no dia do evento.
+
 # SEÇÃO 20 — Admin: Mídia por plano
 Rota: /admin/midia
 ## Propósito
