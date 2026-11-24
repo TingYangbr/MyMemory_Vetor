@@ -20,10 +20,22 @@ const MAX_TEXTO = 2000;
 
 const q = (nome: string) => `"${nome.replace(/"/g, '""')}"`;
 
-async function tabelasPublicas(): Promise<{ nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes: number | null }[]> {
+/** Filtro de grupo da tela: id do grupo, ou "pessoal" (groupid vazio = espaço pessoal). Vazio/"todos" = sem filtro. */
+function filtroGrupo(v: string | undefined): { sql: string; params: unknown[] } | null {
+  if (!v || v === "todos") return null;
+  if (v === "pessoal") return { sql: `groupid IS NULL`, params: [] };
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? { sql: `groupid = ?`, params: [n] } : null;
+}
+
+async function tabelasPublicas(): Promise<
+  { nome: string; tipo: "tabela" | "view"; linhas: number | null; bytes: number | null; temGrupo: boolean }[]
+> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT t.table_name AS "nome", t.table_type AS "tipo", c.reltuples::bigint AS "linhas",
-       CASE WHEN t.table_type = 'BASE TABLE' THEN pg_total_relation_size(c.oid) END AS "bytes"
+       CASE WHEN t.table_type = 'BASE TABLE' THEN pg_total_relation_size(c.oid) END AS "bytes",
+       EXISTS (SELECT 1 FROM information_schema.columns k
+               WHERE k.table_schema = 'public' AND k.table_name = t.table_name AND k.column_name = 'groupid') AS "temGrupo"
      FROM information_schema.tables t
      LEFT JOIN pg_namespace n ON n.nspname = 'public'
      LEFT JOIN pg_class c ON c.relnamespace = n.oid AND c.relname = t.table_name
@@ -35,6 +47,7 @@ async function tabelasPublicas(): Promise<{ nome: string; tipo: "tabela" | "view
     tipo: r.tipo === "VIEW" ? ("view" as const) : ("tabela" as const),
     linhas: r.linhas == null || Number(r.linhas) < 0 ? null : Number(r.linhas),
     bytes: r.bytes == null ? null : Number(r.bytes),
+    temGrupo: r.temGrupo === true || r.temGrupo === "t",
   }));
 }
 
@@ -77,10 +90,76 @@ const plugin: FastifyPluginAsync = async (app) => {
     return { ok: true, carga: cargaEmAndamento() };
   });
 
+  /**
+   * Lista + tamanho do banco + grupos. Com ?grupo=<id>|pessoal, cada tabela com coluna groupid traz também quantas
+   * linhas são daquele grupo (ou do espaço pessoal, groupid vazio). Tabela sem groupid é compartilhada (*).
+   */
   app.get("/api/admin/tabelas", async (req, reply) => {
+    const adminId = await requireAdmin(req, reply);
+    if (adminId == null) return;
+    const grupo = filtroGrupo((req.query as { grupo?: string }).grupo);
+    const [tabelas, banco, [gs], [me]] = await Promise.all([
+      tabelasPublicas(),
+      tamanhoBanco(),
+      pool.query<RowDataPacket[]>(`SELECT id, name FROM groups ORDER BY name`),
+      pool.query<RowDataPacket[]>(`SELECT lastworkspacegroupid AS "g" FROM users WHERE id = ?`, [adminId]),
+    ]);
+    if (grupo) {
+      for (const t of tabelas) {
+        if (!t.temGrupo || t.tipo !== "tabela") continue;
+        const [c] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*)::bigint AS "n" FROM ${q(t.nome)} WHERE ${grupo.sql}`, grupo.params);
+        (t as typeof t & { linhasGrupo?: number }).linhasGrupo = Number(c[0]?.n ?? 0);
+      }
+    }
+    return {
+      tabelas,
+      banco,
+      grupos: gs.map((g) => ({ id: Number(g.id), nome: String(g.name) })),
+      grupoAtivo: me[0]?.g == null ? null : Number(me[0].g),
+    };
+  });
+
+  /**
+   * Armazenagem por grupo (estimativa): em cada tabela com groupid, o tamanho dela é repartido pela proporção de linhas
+   * de cada grupo; groupid vazio = espaço pessoal. Tabelas sem groupid somam em "compartilhado".
+   */
+  app.get("/api/admin/tabelas-grupos", async (req, reply) => {
     if ((await requireAdmin(req, reply)) == null) return;
-    const [tabelas, banco] = await Promise.all([tabelasPublicas(), tamanhoBanco()]);
-    return { tabelas, banco };
+    const tabelas = (await tabelasPublicas()).filter((t) => t.tipo === "tabela");
+    const porGrupo = new Map<string, { linhas: number; bytes: number }>();
+    let compartilhado = 0;
+    for (const t of tabelas) {
+      const bytes = t.bytes ?? 0;
+      if (!t.temGrupo) {
+        compartilhado += bytes;
+        continue;
+      }
+      const [rows] = await pool.query<RowDataPacket[]>(`SELECT groupid AS "g", COUNT(*)::bigint AS "n" FROM ${q(t.nome)} GROUP BY groupid`);
+      const total = rows.reduce((s, r) => s + Number(r.n), 0);
+      for (const r of rows) {
+        const k = r.g == null ? "pessoal" : String(r.g);
+        const atual = porGrupo.get(k) ?? { linhas: 0, bytes: 0 };
+        atual.linhas += Number(r.n);
+        atual.bytes += total ? (bytes * Number(r.n)) / total : 0;
+        porGrupo.set(k, atual);
+      }
+      if (!rows.length) compartilhado += bytes;
+    }
+    const [gs] = await pool.query<RowDataPacket[]>(`SELECT id, name FROM groups`);
+    const nomes = new Map(gs.map((g) => [String(g.id), String(g.name)]));
+    const banco = await tamanhoBanco();
+    return {
+      banco,
+      compartilhadoBytes: compartilhado,
+      grupos: [...porGrupo.entries()]
+        .map(([k, v]) => ({
+          grupo: k === "pessoal" ? "Espaços pessoais (sem grupo)" : nomes.get(k) ?? `Grupo ${k}`,
+          groupId: k === "pessoal" ? null : Number(k),
+          linhas: v.linhas,
+          bytes: Math.round(v.bytes),
+        }))
+        .sort((a, b) => b.bytes - a.bytes),
+    };
   });
 
   app.get("/api/admin/tabelas/:nome", async (req, reply) => {
@@ -91,8 +170,10 @@ const plugin: FastifyPluginAsync = async (app) => {
         offset: z.coerce.number().int().min(0).default(0),
         limite: z.coerce.number().int().min(1).max(1000).default(1000),
         ordem: z.enum(["ultima", "natural"]).default("ultima"),
+        grupo: z.string().max(20).optional(),
       })
       .parse(req.query);
+    const grupoF = filtroGrupo(qs.grupo);
     const tabela = (await tabelasPublicas()).find((t) => t.nome === nome);
     if (!tabela) return reply.code(404).send({ error: "not_found", message: "Tabela não encontrada no schema public." });
 
@@ -128,15 +209,20 @@ const plugin: FastifyPluginAsync = async (app) => {
     }
     const extra = ehTabela && comTimestamp ? `, pg_xact_commit_timestamp(xmin) AS "_gravado_em"` : "";
 
+    // Filtro de grupo: só em tabela/view com coluna groupid (as compartilhadas vêm inteiras)
+    const onde = grupoF && tabela.temGrupo ? ` WHERE ${grupoF.sql}` : "";
+    const pg = grupoF && tabela.temGrupo ? grupoF.params : [];
     const [[cnt], [rows]] = await Promise.all([
-      pool.query<RowDataPacket[]>(`SELECT COUNT(*)::bigint AS "n" FROM ${q(nome)}`),
-      pool.query<RowDataPacket[]>(`SELECT *${extra} FROM ${q(nome)}${ordem} LIMIT ${qs.limite} OFFSET ${qs.offset}`),
+      pool.query<RowDataPacket[]>(`SELECT COUNT(*)::bigint AS "n" FROM ${q(nome)}${onde}`, pg),
+      pool.query<RowDataPacket[]>(`SELECT *${extra} FROM ${q(nome)}${onde}${ordem} LIMIT ${qs.limite} OFFSET ${qs.offset}`, pg),
     ]);
     const tipos = new Map(colunas.map((c) => [c.nome, c.tipo]));
     const colunasSaida = [...(extra ? [{ nome: "_gravado_em", tipo: "timestamp" }] : []), ...colunas];
     return {
       tabela: nome,
       tipo: tabela.tipo,
+      compartilhada: !tabela.temGrupo,
+      filtradaPorGrupo: !!onde,
       total: Number(cnt[0]?.n ?? 0),
       offset: qs.offset,
       limite: qs.limite,
