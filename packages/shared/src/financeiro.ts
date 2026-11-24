@@ -354,6 +354,51 @@ export interface FinLancamento {
   registro?: boolean;
   /** Lançamento de cartão: vencimento da fatura em que caiu. */
   fatura?: string | null;
+  /** Conferido com o extrato do banco (veio de um extrato ou foi ligado a uma linha dele). */
+  conferido?: boolean;
+}
+
+/** O que fazer com uma linha do extrato. */
+export type FinExtratoAcao = "ligar" | "baixar" | "novo" | "ignorar";
+
+export interface FinExtratoItem {
+  /** Identificação da linha no banco (FITID do OFX). */
+  fitid: string;
+  data: string;
+  /** Com sinal: negativo = saiu da conta; positivo = entrou. */
+  valor: number;
+  descricao: string;
+  /** importado/ignorado: já tratado antes; existe: já lançado (liga); baixa: paga uma conta em aberto; novo: lançar. */
+  situacao: "importado" | "ignorado" | "existe" | "baixa" | "novo";
+  lancamentoId?: number | null;
+  lancamentoDescricao?: string | null;
+  alvoChave?: string | null;
+  alvoDescricao?: string | null;
+  /** Sugestão para "novo": grupo ou conta do outro lado (pelo histórico da mesma descrição). */
+  contraContaId?: number | null;
+}
+
+export interface FinExtratoPrevia {
+  contaId: number;
+  conta: string;
+  inicio: string | null;
+  fim: string | null;
+  /** Saldo final informado pelo banco no arquivo, e o calculado pelo proMemory na mesma data. */
+  saldoBanco: number | null;
+  saldoEm: string | null;
+  saldoSistema: number | null;
+  itens: FinExtratoItem[];
+}
+
+export interface FinExtratoDecisao {
+  fitid: string;
+  data: string;
+  valor: number;
+  descricao: string;
+  acao: FinExtratoAcao;
+  lancamentoId?: number | null;
+  alvoChave?: string | null;
+  contraContaId?: number | null;
 }
 
 /** Uma fatura de cartão: as compras, estornos e pagamentos dela. */
