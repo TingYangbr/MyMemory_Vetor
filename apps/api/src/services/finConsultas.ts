@@ -264,7 +264,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       "investimentos (ações, fundos, Tesouro): quantidade, preço médio, quanto investi em cada papel.",
     resumo: "Quanto tem em cada conta, quanto deve no cartão, quanto vale o dólar guardado e a posição dos investimentos.",
     exemplos: ["Quanto tenho no banco?", "Quanto devo no cartão?", "Quanto vale meu dólar hoje?", "Quantas PETR4 tenho e a que preço médio?", "Quanto tenho investido?"].join("\n"),
-    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas"],
+    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas", "Financeiro — Histórico de preços"],
   },
 ];
 
@@ -274,6 +274,27 @@ const periodo = (_desc: string): FinConsultaDef["params"] => [
 ];
 
 export const FIN_CONSULTAS: FinConsultaDef[] = [
+  {
+    nome: "Financeiro — Histórico de preços",
+    descricao:
+      "Preço de fechamento de cada pregão dos papéis da B3 (arquivo oficial da B3), dos papéis que alguém da base tem ou já " +
+      "teve: data, papel (ticker), fechamento, abertura, maxima, minima, volume e variacao_pct_periodo (variação do fechamento " +
+      "sobre o primeiro pregão do período, em %). Use para: quanto PETR4 subiu ou caiu no mês/ano, evolução do preço, maior e " +
+      "menor preço no período, preço em uma data. Preços não ajustados por desdobramento ou proventos. papel = ticker (PETR4); " +
+      "sem período: os últimos 30 dias. 'Quanto subiu' = variacao_pct_periodo da última data do período.",
+    sql: `SELECT p.data, p.ticker AS papel, p.fechamento, p.abertura, p.maxima, p.minima, p.volume,
+  ROUND(100.0 * (p.fechamento / NULLIF(FIRST_VALUE(p.fechamento) OVER (PARTITION BY p.ticker ORDER BY p.data), 0) - 1), 2) AS variacao_pct_periodo
+FROM fin_precos_historico p
+WHERE (:papel IS NULL OR p.ticker = UPPER(:papel))
+  AND p.data BETWEEN COALESCE(:data_ini, ${HOJE} - 30) AND COALESCE(:data_fin, ${HOJE})
+ORDER BY p.ticker, p.data
+LIMIT 5000`,
+    params: [
+      { campo: "papel", tipo: "string", operadorSql: "=" },
+      { campo: "data_ini", tipo: "date", operadorSql: ">=" },
+      { campo: "data_fin", tipo: "date", operadorSql: "<=" },
+    ],
+  },
   {
     nome: "Financeiro — Contas a pagar e receber (previstos)",
     descricao:

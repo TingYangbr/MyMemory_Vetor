@@ -603,3 +603,12 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
   O card mostra o ganho ou a perda estimado antes de gravar; "Desfazer" apaga o lote.
 
+### 13.23 Histórico de preços pela B3 (24/11/2026)
+
+- **Fonte:** o arquivo oficial e gratuito da B3, "Séries Históricas" (COTAHIST), com uma linha de 245 posições por papel e pregão. O arquivo **anual** (`COTAHIST_A2025.ZIP`) tem ~90 MB e o **diário** (`COTAHIST_D21112025.ZIP`) ~470 KB. O endereço pode ser trocado por `B3_SERHIST_URL`.
+- **O que guarda** (`fin_precos_historico`, chave ticker + data, dado público igual para todos): abertura, máxima, mínima, fechamento e volume. Só o mercado à vista (código 010) e só os papéis que alguém da base tem ou já teve (contas de investimento em reais). O preço vem dividido pelo fator de cotação. Os preços **não** são ajustados por desdobramento ou proventos. Estimativa: ~70 MB para 500 papéis em 5 anos.
+- **Carga:** Admin → Sistema → **Histórico de preços (B3)**, com os anos escolhidos, em segundo plano. Repetir depois de cadastrar papéis novos: o que já existe é atualizado, sem duplicar.
+- **Robô:** a partir das 20h, de hora em hora, importa o arquivo diário de cada dia útil dos últimos 7 dias que ainda não entrou. Sem pregão (feriado), a B3 não tem o arquivo, e o dia é marcado. O registro de cada arquivo fica em `fin_precos_importacoes`.
+- **Leitura do zip:** em pedaços de 1 MB com `fflate`, devolvendo a vez ao servidor entre eles, para a API não travar.
+- **Fale comigo:** nova consulta **"Histórico de preços"** (categoria Saldos e investimentos). Traz data, papel, fechamento, abertura, máxima, mínima, volume e `variacao_pct_periodo`, a variação sobre o primeiro pregão do período. Responde a "quanto a PETR4 subiu no mês", "evolução do preço do ITSA4 em 2026" e "maior preço do HGLG11 no ano". Sem período, os últimos 30 dias. Migration 215.
+

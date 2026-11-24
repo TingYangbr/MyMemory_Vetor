@@ -21,6 +21,7 @@ import UserPreferencesPage from "./pages/UserPreferencesPage";
 import VerifyEmailPage from "./pages/VerifyEmailPage";
 import AdminSubscriptionsPage from "./pages/AdminSubscriptionsPage";
 import AdminTabelasPage from "./pages/AdminTabelasPage";
+import AdminPrecosPage from "./pages/AdminPrecosPage";
 import AdminStoragePage from "./pages/AdminStoragePage";
 import RevisarMemoPage from "./pages/RevisarMemoPage";
 import EditarMemoNovoPage from "./pages/EditarMemoNovoPage";
@@ -50,6 +51,7 @@ export default function App() {
       <Route path="/admin/assinaturas" element={<AdminLayout><AdminSubscriptionsPage /></AdminLayout>} />
       <Route path="/admin/storage" element={<AdminLayout><AdminStoragePage /></AdminLayout>} />
       <Route path="/admin/tabelas" element={<AdminLayout><AdminTabelasPage /></AdminLayout>} />
+      <Route path="/admin/precos" element={<AdminLayout><AdminPrecosPage /></AdminLayout>} />
       <Route path="/estrutura-memo" element={<EstruturaAntigaRedirect />} />
       <Route path="/buscar" element={<Navigate to="/?tab=buscar" replace />} />
       <Route path="/perguntar" element={<Navigate to="/?tab=perguntar" replace />} />

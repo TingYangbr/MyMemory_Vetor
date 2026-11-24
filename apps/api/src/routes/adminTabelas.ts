@@ -3,6 +3,7 @@ import { z } from "zod";
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { requireAdmin } from "../lib/adminContext.js";
+import { cargaEmAndamento, iniciarCargaAnos, situacaoHistorico } from "../services/finPrecoHistoricoService.js";
 
 /**
  * Suporte (Admin → Sistema → Tabelas do banco): ver o conteúdo das tabelas do Postgres, só leitura.
@@ -51,6 +52,23 @@ function valorTela(v: unknown, coluna: string, tipo: string): unknown {
 }
 
 const plugin: FastifyPluginAsync = async (app) => {
+  /** Histórico de preços (B3): situação e carga de anos inteiros (em segundo plano). */
+  app.get("/api/admin/precos", async (req, reply) => {
+    if ((await requireAdmin(req, reply)) == null) return;
+    return { ...(await situacaoHistorico()), carga: cargaEmAndamento() };
+  });
+
+  app.post("/api/admin/precos/carregar", async (req, reply) => {
+    if ((await requireAdmin(req, reply)) == null) return;
+    const b = z.object({ anos: z.array(z.number().int().min(1990).max(2100)).min(1).max(30) }).parse(req.body);
+    try {
+      iniciarCargaAnos(b.anos);
+    } catch (e) {
+      return reply.code(409).send({ error: "em_andamento", message: e instanceof Error ? e.message : String(e) });
+    }
+    return { ok: true, carga: cargaEmAndamento() };
+  });
+
   app.get("/api/admin/tabelas", async (req, reply) => {
     if ((await requireAdmin(req, reply)) == null) return;
     return { tabelas: await tabelasPublicas() };

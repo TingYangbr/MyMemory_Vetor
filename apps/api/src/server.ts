@@ -126,6 +126,7 @@ import { FinCartaoFatura1700000000211 } from "./migrations/1700000000211-FinCart
 import { FinLembreteVencimento1700000000212 } from "./migrations/1700000000212-FinLembreteVencimento.js";
 import { FinExtratoImportador1700000000213 } from "./migrations/1700000000213-FinExtratoImportador.js";
 import { FinInvestimentosParte2_1700000000214 } from "./migrations/1700000000214-FinInvestimentosParte2.js";
+import { FinPrecosHistorico1700000000215 } from "./migrations/1700000000215-FinPrecosHistorico.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -301,6 +302,7 @@ assertMediaStorageEnv();
       FinLembreteVencimento1700000000212,
       FinExtratoImportador1700000000213,
       FinInvestimentosParte2_1700000000214,
+      FinPrecosHistorico1700000000215,
     ],
   });
   const ds = await AppDataSource.initialize();
