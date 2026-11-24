@@ -59,7 +59,10 @@ export const GRUPOS_ADMIN: Grupo[] = [
   },
   {
     nome: "Sistema",
-    itens: [{ rotulo: "Configurações", to: "/admin/system-config" }],
+    itens: [
+      { rotulo: "Configurações", to: "/admin/system-config" },
+      { rotulo: "Tabelas do banco", to: "/admin/tabelas" },
+    ],
   },
 ];
 

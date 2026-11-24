@@ -1190,6 +1190,27 @@ Convidar uma pessoa por e-mail e acompanhar os convites (enviado, aceito, expira
 | Botão Eliminar desabilitado | O mês é o atual, ou não há memos nele. |
 | Falha ao carregar custos | Nenhum registro no período: resultado vazio é normal. |
 | Não é possível excluir o plano | Existem assinaturas ligadas a ele. Passar os usuários para outro plano antes. |
+## Tabelas do banco (suporte)
+Admin → Sistema → **Tabelas do banco** mostra o conteúdo das tabelas do banco (Postgres), **só para leitura**. Serve para conferir o que foi gravado.
+- **Escolher a tabela:** a lista à esquerda traz todas as tabelas e views, com o número aproximado de linhas. O campo no topo filtra a lista pelo nome.
+- **Lotes de 1000:** os registros vêm de 1000 em 1000. Use "Próximo lote" e "Lote anterior" para navegar; o topo mostra "1–1000 de N".
+- **Ordem:**
+  - **Última modificação primeiro** (padrão): usa a coluna de atualização da tabela (`updatedat`, `atualizado_em`…) ou, na falta dela, a de criação;
+  - sem nenhuma coluna de data, usa a ordem interna de gravação do Postgres, que é aproximada: o que foi gravado ou alterado por último vem antes;
+  - **Ordem natural** mostra a ordem em que o banco devolve os registros.
+
+  A linha "Ordenado no banco por…" diz qual critério foi usado.
+- **No lote carregado:**
+  - o campo "Buscar em todas as colunas" procura em tudo;
+  - a caixa embaixo de cada título filtra só aquela coluna (contém o texto);
+  - clicar no título ordena: crescente, decrescente e de novo a ordem do banco.
+- **Ver um valor inteiro:** clique na célula. O valor aparece embaixo da grade, com JSON formatado e o botão **Copiar**.
+- **Proteções:**
+  - senhas, hashes, tokens e chaves de API aparecem como "••••••";
+  - textos com mais de 2.000 caracteres aparecem cortados;
+  - vetores (embeddings) e binários aparecem resumidos;
+  - nada pode ser alterado por esta tela.
+
 # SEÇÃO 20 — Admin: Mídia por plano
 Rota: /admin/midia
 ## Propósito
