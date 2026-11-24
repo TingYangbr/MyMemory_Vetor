@@ -18,7 +18,62 @@ const FIM_MES = "(date_trunc('month', now() AT TIME ZONE 'America/Sao_Paulo') + 
 /** "Sem data final" na agenda: títulos sem limite; a previsão das recorrências vai até 12 meses à frente (fin_agenda). */
 export const SEM_FIM = "DATE '9999-12-31'";
 
-/** Função do motor em SQL: títulos + ocorrências previstas das recorrências, como a aba Previstos da tela. */
+/**
+ * Fatura de cartão: vencimento da fatura em que cai uma compra feita em "d", com fechamento no dia "fech" e vencimento
+ * no dia "venc" (dia além do fim do mês = último dia). Compra até o dia do fechamento entra no fechamento do mês; depois
+ * dele, no do mês seguinte. Vencimento depois do fechamento = mesmo mês; antes ou igual = mês seguinte.
+ */
+export const SQL_FUNCOES_FATURA = `
+CREATE OR REPLACE FUNCTION public.fin_fatura_de(d date, fech int, venc int) RETURNS date
+LANGUAGE sql IMMUTABLE AS $f$
+  WITH a AS (
+    SELECT CASE WHEN EXTRACT(DAY FROM d)::int <= LEAST(fech, EXTRACT(DAY FROM (date_trunc('month', d) + interval '1 month - 1 day'))::int)
+                THEN date_trunc('month', d)::date ELSE (date_trunc('month', d) + interval '1 month')::date END AS mf
+  ), b AS (
+    SELECT CASE WHEN venc > fech THEN mf ELSE (mf + interval '1 month')::date END AS mv FROM a
+  )
+  SELECT mv + (LEAST(venc, EXTRACT(DAY FROM (mv + interval '1 month - 1 day'))::int) - 1) FROM b
+$f$;
+CREATE OR REPLACE FUNCTION public.fin_fatura_pagamento(d date, fech int, venc int) RETURNS date
+LANGUAGE sql IMMUTABLE AS $f$
+  SELECT public.fin_fatura_de(
+    CASE WHEN EXTRACT(DAY FROM d)::int >= fech THEN date_trunc('month', d)::date
+         ELSE (date_trunc('month', d) - interval '1 month')::date END, fech, venc)
+$f$;
+CREATE OR REPLACE FUNCTION public.fin_lanc_fatura() RETURNS trigger
+LANGUAGE plpgsql AS $f$
+DECLARE o record; dd record;
+BEGIN
+  IF NEW.fatura IS NOT NULL THEN RETURN NEW; END IF;
+  SELECT tipo, dia_fechamento, dia_vencimento INTO o FROM public.fin_contas WHERE id = NEW.conta_origemid;
+  IF o.tipo = 'cartao' AND o.dia_fechamento IS NOT NULL AND o.dia_vencimento IS NOT NULL THEN
+    NEW.fatura := public.fin_fatura_de(NEW.data, o.dia_fechamento, o.dia_vencimento);
+    RETURN NEW;
+  END IF;
+  SELECT tipo, dia_fechamento, dia_vencimento INTO dd FROM public.fin_contas WHERE id = NEW.conta_destinoid;
+  IF dd.tipo = 'cartao' AND dd.dia_fechamento IS NOT NULL AND dd.dia_vencimento IS NOT NULL THEN
+    NEW.fatura := CASE WHEN o.tipo IN ('banco', 'corretora')
+      THEN public.fin_fatura_pagamento(NEW.data, dd.dia_fechamento, dd.dia_vencimento)
+      ELSE public.fin_fatura_de(NEW.data, dd.dia_fechamento, dd.dia_vencimento) END;
+  END IF;
+  RETURN NEW;
+END
+$f$;
+DROP TRIGGER IF EXISTS fin_lanc_fatura ON public.fin_lancamentos;
+CREATE TRIGGER fin_lanc_fatura BEFORE INSERT ON public.fin_lancamentos FOR EACH ROW EXECUTE FUNCTION public.fin_lanc_fatura()`;
+
+/** Recalcula a fatura dos lançamentos de um cartão (exceto os mudados à mão). Sem dias, tira a fatura. Parâmetro: id do cartão. */
+export const SQL_RECALCULAR_FATURAS = `
+UPDATE fin_lancamentos l SET fatura = CASE
+    WHEN c.dia_fechamento IS NULL OR c.dia_vencimento IS NULL THEN NULL
+    WHEN l.conta_origemid = c.id THEN public.fin_fatura_de(l.data, c.dia_fechamento, c.dia_vencimento)
+    WHEN o.tipo IN ('banco', 'corretora') THEN public.fin_fatura_pagamento(l.data, c.dia_fechamento, c.dia_vencimento)
+    ELSE public.fin_fatura_de(l.data, c.dia_fechamento, c.dia_vencimento) END
+FROM fin_contas c, fin_contas o
+WHERE c.id = $1 AND o.id = l.conta_origemid AND (l.conta_origemid = c.id OR l.conta_destinoid = c.id)
+  AND l.fatura_manual = 0`;
+
+/** Função do motor em SQL: títulos + ocorrências previstas das recorrências + faturas de cartão, como a aba Previstos da tela. */
 export const SQL_FUNCAO_FIN_AGENDA = `
 CREATE OR REPLACE FUNCTION public.fin_agenda(p_de date, p_ate date)
 RETURNS TABLE (vencimento date, situacao text, tipo text, descricao text, valor numeric, grupo text,
@@ -67,10 +122,38 @@ AS $fn$
       AND COALESCE(x.pular, 0) = 0
       AND NOT EXISTS (SELECT 1 FROM fin_titulos t2 WHERE t2.recorrenciaid = oc.id AND t2.referencia = oc.ref)
       AND ((oc.ref < oc.hoje AND oc.ref >= oc.piso) OR (oc.ref >= oc.hoje AND oc.ref >= p_de))
+  ),
+  fat AS (
+    SELECT c.id AS cid, c.nome AS cn, c.dia_fechamento AS fe, c.dia_vencimento AS ve, l.fatura AS fv,
+           SUM(CASE WHEN l.conta_origemid = c.id THEN l.valor WHEN o.tipo IN ('banco', 'corretora') THEN 0 ELSE -l.valor END) AS compras,
+           SUM(CASE WHEN l.conta_destinoid = c.id AND o.tipo IN ('banco', 'corretora') THEN l.valor ELSE 0 END) AS pago,
+           MAX(CASE WHEN l.conta_destinoid = c.id AND o.tipo IN ('banco', 'corretora') THEN l.data END) AS ult
+    FROM fin_contas c
+    JOIN fin_lancamentos l ON c.id IN (l.conta_origemid, l.conta_destinoid) AND l.fatura IS NOT NULL
+    JOIN fin_contas o ON o.id = l.conta_origemid
+    WHERE c.tipo = 'cartao'
+    GROUP BY c.id, c.nome, c.dia_fechamento, c.dia_vencimento, l.fatura
+  ),
+  fat2 AS (SELECT fat.*, SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS aberto FROM fat),
+  fatr AS (
+    SELECT fv AS v,
+           CASE WHEN aberto <= 0.005 THEN 'pago'
+                WHEN fv < h.d THEN 'atraso'
+                WHEN fe IS NOT NULL AND public.fin_fatura_de(h.d, fe, ve) <= fv THEN 'previsto'
+                ELSE 'confirmado' END AS s,
+           'pagar'::text AS tp, 'Fatura ' || cn AS ds,
+           CASE WHEN aberto <= 0.005 THEN pago ELSE aberto END AS vl, cn AS gr, 'fatura'::text AS og,
+           NULL::int AS pc, NULL::int AS pcs, CASE WHEN aberto <= 0.005 THEN ult END AS pe,
+           CASE WHEN pago > 0 THEN pago END AS vp
+    FROM fat2 CROSS JOIN h
+    WHERE (aberto > 0.005 AND fv <= p_ate AND (fv >= p_de OR fv < h.d))
+       OR (aberto <= 0.005 AND pago > 0 AND fv BETWEEN p_de AND p_ate)
   )
   SELECT v, s, tp, ds, vl, gr, og, pc, pcs, pe, vp FROM tit
   UNION ALL
   SELECT v, s, tp, ds, vl, gr, og, pc, pcs, pe, vp FROM prev
+  UNION ALL
+  SELECT v, s, tp, ds, vl, gr, og, pc, pcs, pe, vp FROM fatr
 $fn$`;
 
 /**
@@ -95,7 +178,7 @@ SELECT l.id, l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.d
   (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
     - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
   l.moeda, l.valor_moeda, l.quantidade, l.preco,
-  ti.descricao AS titulo, ti.vencimento AS titulo_vencimento, l.tituloid AS titulo_id
+  ti.descricao AS titulo, ti.vencimento AS titulo_vencimento, l.tituloid AS titulo_id, l.fatura
 FROM fin_lancamentos l
 JOIN fin_contas o ON o.id = l.conta_origemid
 JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -194,7 +277,9 @@ export const FIN_CONSULTAS: FinConsultaDef[] = [
   {
     nome: "Financeiro — Contas a pagar e receber (previstos)",
     descricao:
-      "Vencimentos do período: títulos (parcelas, contas a prazo) e a PREVISÃO das contas recorrentes (aluguel, salário). " +
+      "Vencimentos do período: títulos (parcelas, contas a prazo), a PREVISÃO das contas recorrentes (aluguel, salário) e as " +
+      "FATURAS dos cartões (descricao 'Fatura <cartão>', valor = o que falta pagar; previsto = fatura ainda aberta, confirmado = " +
+      "fechada). " +
       "Use para: o que vence, quanto vou pagar/receber em um mês, contas atrasadas, o que já foi pago. " +
       "Colunas: vencimento, situacao (previsto = recorrente ainda não pago; confirmado = título a vencer; atraso = vencido e não pago; pago), " +
       "tipo (pagar ou receber), descricao, valor, grupo, pago_em, valor_pago. " +
@@ -237,13 +322,15 @@ LIMIT 500`,
       "investimento, outro), conta (banco ou cartão do lado do dinheiro, para despesa/receita), receita, despesa, " +
       "resultado (= receita − despesa, já com sinal: estorno subtrai), moeda e valor_moeda (conta em outra moeda), " +
       "quantidade e preco (investimento), titulo e titulo_vencimento (conta a pagar/receber que o lançamento pagou; " +
-      "'lançamentos do título X', 'o que já paguei do aluguel de dezembro' → parâmetro titulo). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
+      "'lançamentos do título X', 'o que já paguei do aluguel de dezembro' → parâmetro titulo), fatura (vencimento da fatura do " +
+      "cartão em que a compra caiu; 'o que tem na fatura de dezembro do Itaú' → fatura = '2026-12' e conta = Itaú; compra no " +
+      "cartão é gasto na data da compra). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
       "resultado; quanto SAIU de uma conta = soma de valor com saiu_de = conta; quanto ENTROU = soma de valor com " +
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
       "investimento ('pagamentos', 'pagamentos efetuados', 'o que paguei', 'compras' = despesa, igual a gastos). Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
     sql: `SELECT data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
-  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento
+  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento, fatura
 FROM fin_v_lancamentos
 WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
@@ -259,6 +346,7 @@ WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM
   AND (:valor_min IS NULL OR valor >= :valor_min)
   AND (:valor_max IS NULL OR valor <= :valor_max)
   AND (:titulo IS NULL OR titulo ILIKE '%' || :titulo || '%')
+  AND (:fatura IS NULL OR to_char(fatura, 'YYYY-MM') = left(:fatura, 7))
 ORDER BY data, id`,
     params: [
       ...periodo(""),
@@ -271,6 +359,7 @@ ORDER BY data, id`,
       { campo: "valor_min", tipo: "number", operadorSql: ">=" },
       { campo: "valor_max", tipo: "number", operadorSql: "<=" },
       { campo: "titulo", tipo: "string", operadorSql: "LIKE" },
+      { campo: "fatura", tipo: "string", operadorSql: "=" },
     ],
   },
   {

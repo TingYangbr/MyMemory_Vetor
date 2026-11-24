@@ -18,6 +18,8 @@ import {
   ultimoLancamentoId,
   type Espaco,
   ocorrenciaNoMes,
+  pagarFatura,
+  parceladoNoCartao,
 } from "./financeiroService.js";
 import { obterFinConfig } from "./finConfigService.js";
 import { normalizarTicker, registrarOperacaoInvestimento } from "./finInvestimentosService.js";
@@ -125,14 +127,14 @@ export async function montarPropostaFin(input: {
       em_aberto: abertos,
       papeis_cadastrados: papeis.map((p) => ({ id: p.id, ticker: p.ticker, corretoraId: p.corretoraId, corretora: p.corretoraNome, quantidade: p.quantidade })),
       tipos: {
-        gasto: "despesa já feita (gastei, comprei, paguei algo que não estava em aberto): sai de uma conta/cartão para um grupo de despesa",
+        gasto: "despesa já feita (gastei, comprei, paguei algo que não estava em aberto): sai de uma conta/cartão para um grupo de despesa. Compra PARCELADA NO CARTÃO (comprei uma TV de 3.000 em 10x no Nubank) também é gasto: parcelas = 10 e contaId = o cartão (não é conta)",
         receita: "dinheiro recebido que não estava em aberto (recebi, entrou, salário caiu): de um grupo de receita para uma conta",
         conta: "conta a pagar ou a receber futura, única ou parcelada (vence dia 10, em 3x, boleto de…)",
         fixa: "conta que se repete (todo mês, todo dia 5, mensal, semanal, anual) — aluguel, salário, assinatura",
-        pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
+        pagamento: "pagou ou recebeu (passado) algo que JÁ ESTÁ em em_aberto (paguei o aluguel, recebi do Joaquim, paguei a fatura do Itaú = o item 'Fatura <cartão>'). \"Pagamento a fazer\", \"a pagar\", \"vou pagar\" ou data futura NÃO é pagamento: é conta",
         compra: "compra de ação, FII, ETF, BDR ou outro papel (comprei 100 PETR4 a 38,50 na XP): sai da corretora para o papel. NÃO é gasto",
         venda: "venda de papel (vendi 50 ITSA4 a 10,20): sai do papel para a corretora",
-        transferencia: "dinheiro entre contas suas (transferi do Itaú para a XP, mandei para a poupança, paguei a fatura do cartão com o Itaú, apliquei/resgatei na corretora, saque): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
+        transferencia: "dinheiro entre contas suas (transferi do Itaú para a XP, mandei para a poupança, apliquei/resgatei na corretora, saque; fatura de cartão é pagamento): sai de uma conta/cartão/corretora e entra em outra. NÃO é gasto nem receita: não tem grupo",
       },
     },
     null,
@@ -145,7 +147,9 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
 
-  const tipo: FinComandoTipo = TIPOS.includes(j.tipo as FinComandoTipo) ? (j.tipo as FinComandoTipo) : "gasto";
+  let tipo: FinComandoTipo = TIPOS.includes(j.tipo as FinComandoTipo) ? (j.tipo as FinComandoTipo) : "gasto";
+  // "Conta" paga com cartão de crédito é compra (parcelada) no cartão: entra nas faturas, não é título a pagar
+  if (tipo === "conta" && contas.some((c) => c.id === Number(j.contaId) && c.tipo === "cartao")) tipo = "gasto";
   const idValido = (v: unknown, lista: { id: number }[]) => {
     const n = Number(v);
     return Number.isFinite(n) && lista.some((x) => x.id === n) ? n : null;
@@ -285,6 +289,8 @@ function completa(p: FinComandoProposta): boolean {
     case "pagamento": {
       // Valor diferente do previsto pede decisão (parcial, desconto, excedente): não grava direto
       const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave);
+      // Fatura de cartão: pagar menos é normal (o resto passa para a próxima)
+      if (a?.chave.startsWith("f:")) return p.contaId != null;
       return a != null && p.contaId != null && (p.valor == null || Math.abs(p.valor - a.valor) < 0.005);
     }
   }
@@ -310,6 +316,14 @@ async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComa
     return {
       mensagem: `${p.tipo === "compra" ? "Compra" : "Venda"} de ${qtdBr(i.quantidade!)} ${r.ticker} (${brl(r.valorTotal)}) gravada.`,
       desfazer: { tipo: "operacao", id: r.operacaoId },
+    };
+  }
+  const ehCartao = p.opcoes.contas.some((c) => c.id === p.contaId && c.tipo === "cartao");
+  if (p.tipo === "gasto" && ehCartao && p.parcelas > 1) {
+    const r = await parceladoNoCartao(e, { cartaoId: p.contaId!, grupoId: p.grupoId!, descricao: p.descricao, valorTotal: v, parcelas: p.parcelas, data: p.data });
+    return {
+      mensagem: `Compra de ${brl(v)} em ${p.parcelas}x de ${brl(Math.round((v / p.parcelas) * 100) / 100)} no cartão gravada (uma parcela em cada fatura).`,
+      desfazer: { tipo: "lancamento", id: r.primeiroId },
     };
   }
   if (p.tipo === "gasto" || p.tipo === "receita") {
@@ -355,6 +369,10 @@ async function gravarProposta(e: Espaco, p: FinComandoProposta): Promise<FinComa
   }
   const a = p.opcoes.abertos.find((x) => x.chave === p.alvoChave)!;
   const partes = a.chave.split(":");
+  if (partes[0] === "f") {
+    const r = await pagarFatura(e, { cartaoId: Number(partes[1]), vencimento: partes[2], data: p.data, valor: p.valor ?? a.valor, contaPagamentoId: p.contaId! });
+    return { mensagem: `Pagamento de ${brl(p.valor ?? a.valor)} da "${a.descricao}" gravado.`, desfazer: { tipo: "lancamento", id: r.id } };
+  }
   const corpo = partes[0] === "t" ? { tituloId: Number(partes[1]) } : { recorrenciaId: Number(partes[1]), referencia: partes.slice(2).join(":") };
   const r = await baixar(e, { ...corpo, data: p.data, valorPago: p.valor ?? a.valor, contaPagamentoId: p.contaId! });
   return {
@@ -376,7 +394,8 @@ export function descreverProposta(p: FinComandoProposta): string {
   let o = "";
   switch (p.tipo) {
     case "gasto":
-      o = `O gasto${v} será registrado ${grupo ? `em ${grupo}` : "nas despesas"}${conta ? `, saindo de ${conta}` : ""}`;
+      o = `O gasto${v}${p.parcelas > 1 ? ` em ${p.parcelas}x` : ""} será registrado ${grupo ? `em ${grupo}` : "nas despesas"}${conta ? `, saindo de ${conta}` : ""}` +
+        (p.parcelas > 1 && p.opcoes.contas.some((c) => c.id === p.contaId && c.tipo === "cartao") ? " (uma parcela em cada fatura)" : "");
       falta ||= !grupo || !conta;
       break;
     case "receita":

@@ -515,7 +515,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
 | # | Pendência | Situação |
 |---|---|---|
-| 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | em andamento |
+| 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | feito (13.18) |
 | 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | a fazer |
 | 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | a fazer |
 | 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
@@ -526,3 +526,27 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 | 9 | **Modelo pronto no catálogo** (plano de contas e grupos iniciais) para outros usuários e grupos | a fazer |
 
 **Continuam em aberto:** plano de contas inicial da pessoa física; catálogo de eventos (estorno, empréstimo a terceiros, adiantamento); se o mesmo núcleo vira a base do financeiro do Softing-erp.
+
+### 13.18 Cartão de crédito com fatura (24/11/2026)
+
+- **Decisão:** a compra no cartão conta como gasto **na data da compra**, no grupo da compra. Essa é a única exceção ao regime de caixa. O pagamento da fatura só quita a dívida do cartão (banco → cartão), por isso o gasto nunca é contado duas vezes.
+- **Cadastro:** o cartão tem **dia de fechamento** e **dia de vencimento** (`fin_contas.dia_fechamento`, `dia_vencimento`), na criação ou em Contas e saldos → "Fechamento e vencimento". Sem esses dias, o cartão não tem fatura.
+- **Fatura de cada lançamento:** `fin_lancamentos.fatura` guarda o vencimento da fatura em que o lançamento caiu. Um gatilho preenche esse campo na inclusão:
+  - **compra** (cartão → grupo): fecha no mesmo mês se foi até o dia do fechamento, senão no mês seguinte; o vencimento é o do mês do fechamento ou do seguinte;
+  - **pagamento** (banco → cartão): vai para a última fatura já fechada;
+  - **estorno** (grupo → cartão): vai para a fatura da data.
+
+  Funções `fin_fatura_de` e `fin_fatura_pagamento`; migration 211.
+- **Saldo que passa:** a fatura em aberto é o que sobrou das anteriores mais as compras e menos os estornos e pagamentos dela. Pagou menos: o resto vai para a próxima. Pagou mais ou adiantou: vira crédito.
+- **Aba Previstos:** cada fatura aparece como "Fatura <cartão>":
+  - **aberta**: o ciclo ainda recebe compras;
+  - **fechada**: já fechou e ainda não venceu;
+  - **em atraso**;
+  - **paga**.
+
+  Os botões são **Compras** (a janela da fatura) e **Pagar**. `fin_agenda` também devolve as faturas, então as perguntas sobre contas a pagar as incluem.
+- **Correção de fatura:** na janela da fatura, cada compra tem "‹ anterior" e "próxima ›". A compra muda de fatura e fica marcada como mudada à mão (`fatura_manual`). Ao trocar o fechamento ou o vencimento do cartão, todas as compras são redistribuídas, menos as mudadas à mão.
+- **Compra parcelada no cartão:** "comprei uma TV de 3.000 em 10x no Nubank" gera 10 compras de 300, cada uma na data do seu mês, e portanto uma em cada fatura. Elas ficam ligadas por lote: excluir uma exclui todas. No Fale comigo é tipo gasto com parcelas; uma "conta" com cartão vira gasto parcelado no cartão.
+- **Fale comigo:** "paguei a fatura do Itaú" paga o item da fatura; pagar menos não pede decisão. Na consulta de lançamentos, `fatura` serve de coluna e de filtro ("o que tem na fatura de dezembro do Itaú").
+- **API:** `GET /api/fin/faturas/:cartaoId/:vencimento`, `POST /api/fin/faturas/pagamento`, `PATCH /api/fin/lancamentos/:id/fatura` e `POST /api/fin/cartao/parcelado`.
+
