@@ -59,7 +59,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     const lembretes: LembreteRow[] = compromissos.map((c) => ({
       id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
       memoId: c.memoId,
-      categoria: c.categoria,
+      categoria: c.grupo ? `${c.categoria} · ${c.grupo}` : c.categoria,
       titulo: infoMemo.get(c.memoId)?.titulo ?? null,
       texto: infoMemo.get(c.memoId)?.texto ?? null,
       momento: c.momento,
@@ -71,7 +71,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       lembretes.push({
         id: f.id,
         memoId: 0,
-        categoria: f.atrasado ? "Conta atrasada" : "Conta",
+        categoria: `${f.atrasado ? "Conta atrasada" : "Conta"}${f.espaco ? ` · ${f.espaco}` : ""}`,
         titulo: f.titulo,
         texto: f.texto,
         momento: new Date(`${f.vencimento}T12:00:00-03:00`),
@@ -131,7 +131,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       lembretes: compromissos.map((c) => ({
         id: `${c.regraId}:${c.memoId}:${c.momento.getTime()}`,
         memoId: c.memoId,
-        categoria: c.categoria,
+        categoria: c.grupo ? `${c.categoria} · ${c.grupo}` : c.categoria,
         titulo: infoMemo.get(c.memoId)?.titulo ?? null,
         texto: infoMemo.get(c.memoId)?.texto ?? null,
         momento: iso(c.momento),
