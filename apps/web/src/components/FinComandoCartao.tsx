@@ -135,8 +135,12 @@ export default function FinComandoCartao({
   const alvoItem = tipo === "pagamento" ? abertos.find((a) => a.chave === alvo) ?? null : null;
   const valorInf = lerValor(valor) ?? alvoItem?.valor ?? null;
   const dif = alvoItem && valorInf != null ? Math.round((valorInf - alvoItem.valor) * 100) / 100 : 0;
-  const pagouMenos = dif < 0;
-  const pagouMais = dif > 0;
+  // Fatura de cartão: pagar menos ou mais só muda o saldo da próxima fatura — nada a decidir
+  const ehFaturaAlvo = alvoItem?.chave.startsWith("f:") ?? false;
+  const pagouMenos = dif < 0 && !ehFaturaAlvo;
+  const pagouMais = dif > 0 && !ehFaturaAlvo;
+  const contaEhCartao = contasOpc.some((c) => String(c.id) === contaId && c.tipo === "cartao");
+  const parcCartao = tipo === "gasto" && contaEhCartao ? Math.max(1, Math.min(48, Math.trunc(Number(parcelas) || 1))) : 1;
   const ehRecorrencia = alvoItem?.chave.startsWith("r:") ?? false;
   const valorPendente = (pagouMenos && !decMenor) || (pagouMais && (!decMaior || (decMaior === "grupo" && !excGrupoId)));
 
@@ -193,6 +197,12 @@ export default function FinComandoCartao({
         });
         setDesfazer(r.id != null ? { tipo: "lancamento", id: r.id } : null);
         setFeito(`Transferência de ${brl(v!)} gravada.`);
+      } else if (tipo === "gasto" && parcCartao > 1) {
+        const r = await apiPostJson<{ lote: string; primeiroId: number }>("/api/fin/cartao/parcelado", {
+          cartaoId: conta, grupoId: grupo, descricao: descricao.trim() || "Compra no cartão", valorTotal: v, parcelas: parcCartao, data,
+        });
+        setDesfazer({ tipo: "lancamento", id: r.primeiroId });
+        setFeito(`Compra de ${brl(v!)} em ${parcCartao}x no cartão gravada (uma parcela em cada fatura).`);
       } else if (tipo === "gasto" || tipo === "receita") {
         const r = await apiPostJson<{ id?: number | null }>("/api/fin/lancamentos", {
           data,
@@ -231,6 +241,15 @@ export default function FinComandoCartao({
       } else {
         const a = abertos.find((x) => x.chave === alvo)!;
         const partes = a.chave.split(":");
+        if (partes[0] === "f") {
+          const r = await apiPostJson<{ id: number }>("/api/fin/faturas/pagamento", {
+            cartaoId: Number(partes[1]), vencimento: partes[2], data, valor: v ?? a.valor, contaPagamentoId: conta,
+          });
+          setDesfazer({ tipo: "lancamento", id: r.id });
+          setFeito(`Pagamento de ${brl(v ?? a.valor)} da "${a.descricao}" gravado.` + (v != null && v < a.valor ? ` Os ${brl(a.valor - v)} restantes passam para a próxima fatura.` : ""));
+          setEstado("gravado");
+          return;
+        }
         const corpo =
           partes[0] === "t"
             ? { tituloId: Number(partes[1]) }
@@ -456,9 +475,9 @@ export default function FinComandoCartao({
           {ROTULO_DATA[tipo]}
           <input className="mm-field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </label>
-        {tipo === "conta" ? (
+        {tipo === "conta" || (tipo === "gasto" && contaEhCartao) ? (
           <label style={rot}>
-            Parcelas
+            Parcelas{tipo === "gasto" ? " (no cartão)" : ""}
             <input className="mm-field" type="number" min={1} max={360} value={parcelas} onChange={(e) => setParcelas(e.target.value)} />
           </label>
         ) : null}

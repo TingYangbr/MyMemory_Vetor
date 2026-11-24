@@ -11,6 +11,7 @@ import {
   type FinConferencia,
   type FinContaSaldo,
   type FinHistoricoTitulo,
+  type FinFatura,
   type FinOcorrenciasRecorrencia,
   type FinItemAgenda,
   type FinLancamento,
@@ -256,12 +257,14 @@ function AbaAgenda({ ctx, agenda }: { ctx: Ctx; agenda: FinAgendaResposta }) {
 function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; aberto: boolean; abrir: (v: boolean) => void }) {
   const [modo, setModo] = useState<"baixa" | "excecao" | null>(null);
   const [historico, setHistorico] = useState(false);
+  const [verFatura, setVerFatura] = useState(false);
+  const ehFatura = i.origem === "fatura";
   const pagar = i.sentido === "pagar";
   const tag =
     i.situacao === "atraso" ? <span className={`${styles.tag} ${styles.tagAtraso}`}>em atraso</span>
     : i.situacao === "pago" ? <span className={`${styles.tag} ${styles.tagPago}`}>{pagar ? "pago" : "recebido"} {dataBr(i.quitadoEm)}</span>
-    : i.situacao === "confirmado" ? <span className={`${styles.tag} ${styles.tagConfirmado}`}>confirmado</span>
-    : <span className={styles.tag}>previsto</span>;
+    : i.situacao === "confirmado" ? <span className={`${styles.tag} ${styles.tagConfirmado}`}>{ehFatura ? "fechada" : "confirmado"}</span>
+    : <span className={styles.tag}>{ehFatura ? "aberta" : "previsto"}</span>;
   const abrirModo = (m: "baixa" | "excecao") => { setModo(m); abrir(true); };
   return (
     <div className={styles.linha}>
@@ -270,14 +273,17 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         <b>{i.descricao}</b>
         {i.parcela ? ` ${i.parcela}/${i.parcelas}` : ""}
         {tag}
-        <small>{pagar ? "Pagamento" : "Recebimento"} · {i.contaGrupoNome}{i.recorrenciaId ? " · recorrente" : ""}</small>
+        <small>{ehFatura ? "Fatura do cartão" : pagar ? "Pagamento" : "Recebimento"}{ehFatura ? "" : ` · ${i.contaGrupoNome}`}{i.recorrenciaId ? " · recorrente" : ""}</small>
         <div className={styles.acoes}>
+          {ehFatura ? (
+            <button type="button" className={styles.link} onClick={() => setVerFatura(true)}>Compras</button>
+          ) : null}
           {i.tituloId != null ? (
             <button type="button" className={styles.link} onClick={() => setHistorico(true)}>Histórico</button>
           ) : null}
           {i.situacao !== "pago" ? (
             <button type="button" className={styles.link} onClick={() => abrirModo("baixa")}>{pagar ? "Pagar" : "Receber"}</button>
-          ) : (
+          ) : ehFatura ? null : (
             <button type="button" className={`${styles.link} ${styles.linkPerigo}`} disabled={ctx.ocupado}
               onClick={() => { if (confirm("Desfazer este pagamento? Os lançamentos dele são apagados.")) void ctx.agir(() => apiDeleteJson(`/api/fin/baixas/${i.tituloId}`), "Pagamento desfeito."); }}>
               Desfazer pagamento
@@ -302,11 +308,98 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         {aberto && modo === "baixa" ? <FormBaixa ctx={ctx} i={i} fechar={() => abrir(false)} /> : null}
         {aberto && modo === "excecao" ? <FormExcecao ctx={ctx} i={i} fechar={() => abrir(false)} /> : null}
         {historico && i.tituloId != null ? <HistoricoTitulo tituloId={i.tituloId} fechar={() => setHistorico(false)} /> : null}
+        {verFatura && i.cartaoId != null ? <FaturaCartao ctx={ctx} cartaoId={i.cartaoId} vencimento={i.vencimento} fechar={() => setVerFatura(false)} /> : null}
       </div>
       <span className={`${styles.valor} ${pagar ? styles.valorPagar : styles.valorReceber}`}>
         {brl(i.situacao === "pago" ? i.valorPago ?? i.valor : i.valor)}
       </span>
     </div>
+  );
+}
+
+/** Janela da fatura do cartão: compras, estornos e pagamentos; cada compra pode ir para a fatura anterior ou a próxima. */
+function FaturaCartao({ ctx, cartaoId, vencimento, fechar }: { ctx: Ctx; cartaoId: number; vencimento: string; fechar: () => void }) {
+  const [f, setF] = useState<FinFatura | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [ocupado, setOcupado] = useState(false);
+  const carregar = useCallback(() => {
+    apiGet<FinFatura>(`/api/fin/faturas/${cartaoId}/${vencimento}`).then(setF).catch((e) => setErro(msgErro(e)));
+  }, [cartaoId, vencimento]);
+  useEffect(() => { carregar(); }, [carregar]);
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape") fechar(); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [fechar]);
+  const mover = async (id: number, direcao: "anterior" | "proxima") => {
+    setOcupado(true); setErro(null);
+    try {
+      await apiPatchJson(`/api/fin/lancamentos/${id}/fatura`, { direcao });
+      carregar();
+      await ctx.recarregar();
+    } catch (e) {
+      setErro(msgErro(e));
+    } finally {
+      setOcupado(false);
+    }
+  };
+  const cel: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid var(--mm-border-muted)", textAlign: "left", fontSize: 13 };
+  const num_: React.CSSProperties = { ...cel, textAlign: "right", whiteSpace: "nowrap" };
+  return createPortal(
+    <div className={janela.overlay} onClick={fechar}>
+      <div className={janela.cartao} role="dialog" aria-label="Fatura do cartão" style={{ width: "min(720px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className={janela.topo}>
+          <div>
+            <b>Fatura {f?.cartao ?? ""} — vence {dataBr(vencimento)}</b>
+            {f?.fechamento ? <div className={janela.id}>Fecha em {dataBr(f.fechamento)}</div> : null}
+          </div>
+          <button type="button" className={janela.fechar} onClick={fechar} aria-label="Fechar">×</button>
+        </div>
+        {erro ? <div className={styles.erro}>{erro}</div> : null}
+        {!f && !erro ? <div className={janela.carregando}>Carregando…</div> : null}
+        {f ? (
+          <>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: 14 }}>
+              {f.anterior ? <span>{f.anterior > 0 ? "Saldo anterior" : "Crédito anterior"} <b>{brl(Math.abs(f.anterior))}</b></span> : null}
+              <span>Compras <b>{brl(f.compras)}</b></span>
+              <span>Pago <b>{brl(f.pago)}</b></span>
+              <span>Em aberto <b style={{ color: f.emAberto > 0.005 ? "var(--mm-danger)" : undefined }}>{brl(Math.max(0, f.emAberto))}</b></span>
+            </div>
+            {f.itens.length === 0 ? <div className={styles.vazio}>Nada nesta fatura.</div> : (
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead><tr>
+                    <th style={cel}>Data</th><th style={cel}>Descrição</th><th style={cel}>{"Grupo / conta"}</th><th style={num_}>Valor</th><th style={cel}>Mudar de fatura</th>
+                  </tr></thead>
+                  <tbody>
+                    {f.itens.map((l) => (
+                      <tr key={l.id}>
+                        <td style={cel}>{dataBr(l.data)}</td>
+                        <td style={cel}>
+                          {l.descricao}
+                          {l.tipo !== "compra" ? <small style={{ display: "block", color: "var(--mm-muted)" }}>{l.tipo}</small> : null}
+                          {l.manual ? <small style={{ display: "block", color: "var(--mm-muted)" }}>mudada à mão</small> : null}
+                        </td>
+                        <td style={cel}>{l.contraparte}</td>
+                        <td style={num_}>{l.tipo === "compra" ? "" : "−"}{brl(l.valor)}</td>
+                        <td style={cel}>
+                          <button type="button" className={styles.link} disabled={ocupado} onClick={() => void mover(l.id, "anterior")} title="Mandar para a fatura anterior">‹ anterior</button>{" "}
+                          <button type="button" className={styles.link} disabled={ocupado} onClick={() => void mover(l.id, "proxima")} title="Mandar para a próxima fatura">próxima ›</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className={styles.dica} style={{ marginTop: 8 }}>
+              A compra cai na fatura pela data e pelo dia de fechamento do cartão. Se o banco colocou uma compra em outra fatura, mude aqui: ela fica marcada como mudada à mão e não volta se o fechamento for alterado.
+            </p>
+          </>
+        ) : null}
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -417,9 +510,12 @@ function FormBaixa({ ctx, i, fechar }: { ctx: Ctx; i: FinItemAgenda; fechar: () 
   const [data, setData] = useState(ctx.hoje);
   const [valor, setValor] = useState(String(i.valor).replace(".", ","));
   const [conta, setConta] = useState(i.contaPagamentoId ? String(i.contaPagamentoId) : "");
+  const ehFatura = i.origem === "fatura";
   const salvar = async () => {
     const ok = await ctx.agir(
-      () => apiPostJson("/api/fin/baixas", {
+      () => ehFatura
+        ? apiPostJson("/api/fin/faturas/pagamento", { cartaoId: i.cartaoId, vencimento: i.vencimento, data, valor: num(valor), contaPagamentoId: Number(conta) })
+        : apiPostJson("/api/fin/baixas", {
         tituloId: i.tituloId, recorrenciaId: i.tituloId ? null : i.recorrenciaId, referencia: i.tituloId ? null : i.referencia,
         data, valorPago: num(valor), contaPagamentoId: Number(conta),
       }),
@@ -433,9 +529,10 @@ function FormBaixa({ ctx, i, fechar }: { ctx: Ctx; i: FinItemAgenda; fechar: () 
         <label className={styles.campo}>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
         <label className={styles.campo}>Valor {pagar ? "pago" : "recebido"}<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
         <label className={styles.campo}>{pagar ? "Saiu de" : "Entrou em"}
-          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={pagar ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} soReal />
+          <SelConta valor={conta} onChange={setConta} contas={ctx.contas} tipos={pagar && !ehFatura ? ["banco", "corretora", "cartao"] : ["banco", "corretora"]} soReal />
         </label>
       </div>
+      {ehFatura && num(valor) < i.valor ? <p className={styles.dica}>O que faltar passa para a próxima fatura.</p> : null}
       {i.tituloId && num(valor) !== i.valor ? (
         <p className={styles.dica}>A diferença vai para {num(valor) > i.valor ? "juros e multas" : "descontos"}.</p>
       ) : null}
@@ -607,6 +704,7 @@ function AbaLancamentos({ ctx, lancs }: { ctx: Ctx; lancs: FinLancamento[] }) {
               <b>{l.descricao}</b>
               {l.registro ? <span className={`${styles.tag} ${styles.tagConfirmado}`} title="Compra/venda a prazo: a despesa ou receita nasce aqui, contra Contas a pagar/receber. O dinheiro só sai no pagamento.">registro</span> : null}
               <small>{l.contaOrigemNome} → {l.contaDestinoNome}{l.quantidade ? ` · qtd ${l.quantidade > 0 ? "+" : ""}${l.quantidade}${l.preco ? ` a ${l.moeda ? emMoeda(l.preco, l.moeda) : brl(l.preco)}` : ""}` : ""}</small>
+              {l.fatura ? <small>Fatura de {dataBr(l.fatura)}</small> : null}
               {l.moeda && l.valorMoeda != null ? <small>{emMoeda(l.valorMoeda, l.moeda)}{l.cotacao ? ` · cotação ${cot(l.cotacao)}` : ""}</small> : null}
               {!l.tituloId && !l.registro ? (
                 <div className={styles.acoes}>
@@ -787,6 +885,9 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                         Quantidade {c.quantidade ?? 0} · custo médio {c.moeda !== "BRL" && c.custoMedioMoeda != null ? `${emMoeda(c.custoMedioMoeda, c.moeda)} (${c.custoMedio != null ? brl(c.custoMedio) : "—"})` : c.custoMedio != null ? brl(c.custoMedio) : "—"}
                       </small>
                     ) : null}
+                    {c.tipo === "cartao" ? (
+                      <small>{c.diaFechamento && c.diaVencimento ? `Fecha dia ${c.diaFechamento} · vence dia ${c.diaVencimento}` : "Sem fechamento e vencimento: a fatura não é calculada"}</small>
+                    ) : null}
                     {c.moeda !== "BRL" && c.saldoMoeda != null ? (
                       <small>
                         {emMoeda(c.saldoMoeda, c.moeda)} · custo {brl(c.saldo)}
@@ -803,6 +904,19 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                           onClick={() => void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, { ativo: !c.ativo }))}>
                           {c.ativo ? "Desativar" : "Reativar"}
                         </button>
+                        {c.tipo === "cartao" ? (
+                          <button type="button" className={styles.link} disabled={ctx.ocupado}
+                            onClick={() => {
+                              const v = prompt("Dia do fechamento e dia do vencimento da fatura (ex.: 3/10):", c.diaFechamento && c.diaVencimento ? `${c.diaFechamento}/${c.diaVencimento}` : "");
+                              if (v === null) return;
+                              const m = /^\s*(\d{1,2})\s*[/,;-]\s*(\d{1,2})\s*$/.exec(v);
+                              if (!m && v.trim()) { alert("Use o formato fechamento/vencimento, ex.: 3/10."); return; }
+                              void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, m ? { diaFechamento: Number(m[1]), diaVencimento: Number(m[2]) } : { diaFechamento: null, diaVencimento: null }),
+                                "Fechamento e vencimento salvos. As compras já lançadas foram distribuídas nas faturas.");
+                            }}>
+                            Fechamento e vencimento
+                          </button>
+                        ) : null}
                         {c.mercado ? (
                           <button type="button" className={styles.link} disabled={ctx.ocupado}
                             onClick={() => void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, { mercado: c.mercado === "exterior" ? "local" : "exterior" }))}>
@@ -833,6 +947,8 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [moeda, setMoeda] = useState("BRL");
   const [mercado, setMercado] = useState<"local" | "exterior">("local");
   const [dataSaldo, setDataSaldo] = useState(ctx.hoje);
+  const [diaFech, setDiaFech] = useState("");
+  const [diaVenc, setDiaVenc] = useState("");
   const comSaldo = tipo === "banco" || tipo === "corretora" || tipo === "cartao";
   const comMoeda = ehDinheiro(tipo);
   const salvar = async () => {
@@ -844,6 +960,8 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
       mercado: comMoeda ? mercado : null,
       saldoInicial: comSaldo && saldo ? num(saldo) : null, dataSaldo: comSaldo && saldo ? dataSaldo : null,
       saldoInicialReais: comSaldo && saldo && moeda !== "BRL" && saldoReais ? num(saldoReais) : null,
+      diaFechamento: tipo === "cartao" && diaFech ? Number(diaFech) : null,
+      diaVencimento: tipo === "cartao" && diaVenc ? Number(diaVenc) : null,
     }), "Conta criada.");
     if (ok) fechar();
   };
@@ -876,6 +994,12 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
               <option value="exterior">Exterior</option>
             </select>
           </label>
+        ) : null}
+        {tipo === "cartao" ? (
+          <>
+            <label className={styles.campo}>Dia do fechamento<input type="number" min={1} max={31} value={diaFech} onChange={(e) => setDiaFech(e.target.value)} placeholder="ex.: 3" /></label>
+            <label className={styles.campo}>Dia do vencimento<input type="number" min={1} max={31} value={diaVenc} onChange={(e) => setDiaVenc(e.target.value)} placeholder="ex.: 10" /></label>
+          </>
         ) : null}
         <label className={styles.campo}>Nome{tipo === "investimento" ? " (opcional)" : ""}<input value={nome} onChange={(e) => setNome(e.target.value)} placeholder={tipo === "investimento" ? "PETR4 – Clear" : ""} /></label>
         {comSaldo ? (

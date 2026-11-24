@@ -7,6 +7,10 @@ import {
   FinErro,
   agenda,
   historicoTitulo,
+  faturaDetalhe,
+  pagarFatura,
+  moverParaFatura,
+  parceladoNoCartao,
   ocorrenciasRecorrencia,
   atualizarConta,
   atualizarRecorrencia,
@@ -100,12 +104,20 @@ const plugin: FastifyPluginAsync = async (app) => {
       saldoInicial: z.number().finite().nullish(),
       saldoInicialReais: z.number().finite().positive().nullish(),
       dataSaldo: data.nullish(),
+      diaFechamento: z.number().int().min(1).max(31).nullish(),
+      diaVencimento: z.number().int().min(1).max(31).nullish(),
     }).parse(req.body);
     return { conta: await criarConta(e, b) };
   }));
 
   app.patch("/api/fin/contas/:id", rota(async (e, req) => {
-    const b = z.object({ nome: z.string().max(120).optional(), ativo: z.boolean().optional(), mercado: z.enum(["local", "exterior"]).optional() }).parse(req.body);
+    const b = z.object({
+      nome: z.string().max(120).optional(),
+      ativo: z.boolean().optional(),
+      mercado: z.enum(["local", "exterior"]).optional(),
+      diaFechamento: z.number().int().min(1).max(31).nullable().optional(),
+      diaVencimento: z.number().int().min(1).max(31).nullable().optional(),
+    }).parse(req.body);
     await atualizarConta(e, id.parse((req.params as { id: string }).id), b);
     return { ok: true };
   }));
@@ -214,6 +226,31 @@ const plugin: FastifyPluginAsync = async (app) => {
       modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
+  }));
+
+  /** Fatura do cartão: compras, estornos e pagamentos. */
+  app.get("/api/fin/faturas/:cartaoId/:vencimento", rota(async (e, req) => {
+    const p = req.params as { cartaoId: string; vencimento: string };
+    return faturaDetalhe(e, id.parse(p.cartaoId), data.parse(p.vencimento));
+  }));
+
+  app.post("/api/fin/faturas/pagamento", rota(async (e, req) => {
+    const b = z.object({ cartaoId: id, vencimento: data, data, valor: valor.positive(), contaPagamentoId: id }).parse(req.body);
+    return pagarFatura(e, b);
+  }));
+
+  /** Corrige a fatura de uma compra: para a anterior ou a próxima. */
+  app.patch("/api/fin/lancamentos/:id/fatura", rota(async (e, req) => {
+    const b = z.object({ direcao: z.enum(["anterior", "proxima"]) }).parse(req.body);
+    return moverParaFatura(e, id.parse((req.params as { id: string }).id), b.direcao);
+  }));
+
+  app.post("/api/fin/cartao/parcelado", rota(async (e, req) => {
+    const b = z.object({
+      cartaoId: id, grupoId: id, descricao: z.string().max(200), valorTotal: valor.positive(),
+      parcelas: z.number().int().min(1).max(48), data,
+    }).parse(req.body);
+    return parceladoNoCartao(e, b);
   }));
 
   app.get("/api/fin/recorrencias/:id/ocorrencias", rota(async (e, req) => {
