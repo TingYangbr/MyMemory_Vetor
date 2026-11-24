@@ -518,7 +518,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 | 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | feito (13.18) |
 | 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | feito (13.19) |
 | 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | etapa 1 (OFX) feita (13.20); API a fazer |
-| 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
+| 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | feito (13.21) |
 | 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
 | 6 | **Orçamento e metas** por grupo (orçado × realizado, alerta de estouro) | a fazer |
 | 7 | **Várias operações numa frase** ("paguei 50 de mercado e recebi 800 do freela") | a fazer |
@@ -576,4 +576,17 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
   Cada lançamento guarda `chave_externa` (o FITID) e `extrato_contaid`, com índice único: importar o mesmo arquivo de novo não duplica. Na aba Lançamentos aparece "✓ conferido com o banco". Migration 213.
 - **Próximo passo:** a API (Open Finance, via agregador) entra pela mesma porta, com a chave do agregador no lugar do FITID. CSV e a fatura do cartão em OFX usam o mesmo importador.
+
+### 13.21 Investimentos, parte 2: proventos, eventos e valor de mercado (24/11/2026)
+
+- **Proventos** (`registrarProvento`, operação `provento` em `fin_operacoes_inv` com `subtipo` dividendo, jcp, rendimento ou juros): o valor é o **líquido**, que é o que caiu na corretora. O lançamento vai do grupo de receita **Dividendos**, **JCP**, **Rendimentos** ou **Juros** (criados na primeira vez) → corretora. No JCP, com o bruto informado, a diferença fica em `ir_retido`. Não muda o custo médio.
+- **Eventos** (`registrarEvento`, operação `evento`):
+  - **desdobramento e grupamento** ("de:para"): mudam só a quantidade (lançamento do papel nele mesmo, valor 0); o custo total fica e o preço médio se ajusta;
+  - **bonificação** (%): entram floor(quantidade × %) ações; o custo atribuído por ação soma ao custo, contra o grupo de receita **Bonificações**.
+
+  A operação guarda `fator`. Desfazer apaga o lote, como na compra e venda.
+- **Cotação** (`fin_cotacoes_papel`, um preço por ticker): **brapi.dev** com o token `BRAPI_TOKEN` do servidor, renovado a cada 30 minutos (pelo robô dos lembretes e na hora de mostrar as contas). Sem token, ou se a consulta falhar, vale o último preço guardado, inclusive o **digitado** (botão Preço, ou `PUT /api/fin/cotacoes/:ticker`). Só papéis da B3 em reais; o exterior fica para depois.
+- **Tela Contas e saldos**, em cada papel: preço (B3 ou digitado, com data e hora), **valor de mercado**, **resultado não realizado** (R$ e %) e **proventos dos últimos 12 meses**. Os botões são **Provento**, **Desdobramento / bonificação** e **Preço**.
+- **Fale comigo:** "recebi 120 de dividendos de PETR4", "JCP de ITSA4 de 85" e "rendimento do HGLG11 de 42" são o tipo **provento**, com papel, tipo e bruto opcional. A consulta "Posição de investimentos" ganhou `preco_atual`, `preco_em`, `valor_mercado`, `resultado` e `resultado_pct` ("quanto valem meus investimentos hoje?"). Os proventos aparecem na consulta de lançamentos (grupos Dividendos, JCP…). Eventos são registrados só pela tela.
+- **Migration 214.**
 

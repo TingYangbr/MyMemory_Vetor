@@ -19,6 +19,7 @@ const TIPOS: { valor: FinComandoTipo; rotulo: string }[] = [
   { valor: "compra", rotulo: "Compra de ação / papel" },
   { valor: "venda", rotulo: "Venda de ação / papel" },
   { valor: "transferencia", rotulo: "Transferência entre contas" },
+  { valor: "provento", rotulo: "Provento (dividendo, JCP, rendimento)" },
 ];
 
 const ROTULO_DATA: Record<FinComandoTipo, string> = {
@@ -30,6 +31,7 @@ const ROTULO_DATA: Record<FinComandoTipo, string> = {
   compra: "Data",
   venda: "Data",
   transferencia: "Data",
+  provento: "Data",
 };
 
 
@@ -107,6 +109,8 @@ export default function FinComandoCartao({
   const precoIni = inv0?.preco ?? (inv0?.quantidade && proposta.valor ? Math.round((proposta.valor / inv0.quantidade) * 1e6) / 1e6 : null);
   const [preco, setPreco] = useState(precoIni != null ? String(precoIni).replace(".", ",") : "");
   const [taxas, setTaxas] = useState(inv0?.taxas != null ? String(inv0.taxas).replace(".", ",") : "");
+  const [provTipo, setProvTipo] = useState<"dividendo" | "jcp" | "rendimento" | "juros">(proposta.provento?.tipo ?? "dividendo");
+  const [provBruto, setProvBruto] = useState(proposta.provento?.valorBruto != null ? String(proposta.provento.valorBruto).replace(".", ",") : "");
 
   // Gasto é sempre a pagar; receita, a receber; pagamento segue o item escolhido
   const sentidoEfetivo: "pagar" | "receber" =
@@ -117,10 +121,11 @@ export default function FinComandoCartao({
   const cfg = proposta.config ?? { gravarDireto: false, criarGrupo: false, criarConta: false };
   const abertos = useMemo(() => proposta.opcoes.abertos, [proposta]);
   const ehInv = tipo === "compra" || tipo === "venda";
+  const ehProv = tipo === "provento";
   const ehTransf = tipo === "transferencia";
   const pedeConta = tipo === "gasto" || tipo === "receita" || tipo === "pagamento" || tipo === "fixa" || ehInv || ehTransf;
   const contaObrigatoria = tipo !== "fixa";
-  const pedeGrupo = tipo !== "pagamento" && !ehInv && !ehTransf;
+  const pedeGrupo = tipo !== "pagamento" && !ehInv && !ehTransf && !ehProv;
   // Papéis da corretora escolhida (sem corretora: todos)
   const papeisOpc = (proposta.opcoes.papeis ?? []).filter((x) => !contaId || x.corretoraId === Number(contaId));
   const papelItem = papelSel && papelSel !== "novo" ? (proposta.opcoes.papeis ?? []).find((x) => x.id === Number(papelSel)) ?? null : null;
@@ -149,6 +154,23 @@ export default function FinComandoCartao({
     const v = lerValor(valor);
     const conta = contaId ? Number(contaId) : null;
     const grupo = grupoId ? Number(grupoId) : null;
+    if (ehProv) {
+      if (!papelItem) return setErro("Escolha o papel.");
+      if (!(lerValor(valor) ?? 0)) return setErro("Informe o valor recebido.");
+      setEstado("gravando");
+      try {
+        const r = await apiPostJson<{ operacaoId: number; ticker: string }>("/api/fin/investimentos/provento", {
+          papelContaId: papelItem.id, tipo: provTipo, data, valor: lerValor(valor), valorBruto: lerValor(provBruto), origem: "falecomigo",
+        });
+        setDesfazer({ tipo: "operacao", id: r.operacaoId });
+        setFeito(`Provento de ${brl(lerValor(valor)!)} de ${r.ticker} gravado.`);
+        setEstado("gravado");
+      } catch (e) {
+        setEstado("edicao");
+        setErro(e instanceof Error ? e.message : "Não foi possível gravar.");
+      }
+      return;
+    }
     if (ehInv) {
       if (conta == null) return setErro("Escolha a corretora.");
       if (papelFalta) return setErro(tipo === "venda" ? "Escolha o papel vendido." : "Escolha o papel ou digite o ticker.");
@@ -406,6 +428,33 @@ export default function FinComandoCartao({
             );
           })()}
         </label>
+      ) : ehProv ? (
+        <div style={linha}>
+          <label style={rot}>
+            <span>Papel{marca(!papelItem)}</span>
+            <select className="mm-field" style={falta(!papelItem)} value={papelSel} onChange={(e) => setPapelSel(e.target.value)}>
+              <option value="">— escolha —</option>
+              {(proposta.opcoes.papeis ?? []).map((x) => (
+                <option key={x.id} value={x.id}>{x.ticker}{x.corretoraNome ? ` · ${x.corretoraNome}` : ""}</option>
+              ))}
+            </select>
+          </label>
+          <label style={rot}>
+            <span>Tipo</span>
+            <select className="mm-field" value={provTipo} onChange={(e) => setProvTipo(e.target.value as typeof provTipo)}>
+              <option value="dividendo">Dividendo</option>
+              <option value="jcp">JCP</option>
+              <option value="rendimento">Rendimento (FII)</option>
+              <option value="juros">Juros</option>
+            </select>
+          </label>
+          {provTipo === "jcp" ? (
+            <label style={rot}>
+              <span>Valor bruto (opcional, antes do IR)</span>
+              <input className="mm-field" inputMode="decimal" value={provBruto} onChange={(e) => setProvBruto(e.target.value)} />
+            </label>
+          ) : null}
+        </div>
       ) : ehInv ? (
         <div style={linha}>
           <label style={rot}>

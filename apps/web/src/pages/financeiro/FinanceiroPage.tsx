@@ -496,6 +496,85 @@ function ImportarExtrato({ ctx, conta, fechar }: { ctx: Ctx; conta: FinContaSald
   );
 }
 
+/** Provento ou evento (desdobramento, grupamento, bonificação) de um papel. */
+function FormInvestimento({ ctx, conta, tipo, fechar }: { ctx: Ctx; conta: FinContaSaldo; tipo: "provento" | "evento"; fechar: () => void }) {
+  const [data, setData] = useState(ctx.hoje);
+  const [provTipo, setProvTipo] = useState<"dividendo" | "jcp" | "rendimento" | "juros">(/11$/.test(conta.papel ?? "") ? "rendimento" : "dividendo");
+  const [valor, setValor] = useState("");
+  const [bruto, setBruto] = useState("");
+  const [evTipo, setEvTipo] = useState<"desdobramento" | "grupamento" | "bonificacao">("desdobramento");
+  const [de, setDe] = useState("1");
+  const [para, setPara] = useState("2");
+  const [pct, setPct] = useState("");
+  const [custo, setCusto] = useState("");
+  const salvar = async () => {
+    const ok = tipo === "provento"
+      ? await ctx.agir(() => apiPostJson("/api/fin/investimentos/provento", {
+          papelContaId: conta.id, tipo: provTipo, data, valor: num(valor), valorBruto: bruto ? num(bruto) : null,
+        }), "Provento registrado.")
+      : await ctx.agir(() => apiPostJson("/api/fin/investimentos/evento", {
+          papelContaId: conta.id, tipo: evTipo, data,
+          de: evTipo === "bonificacao" ? null : num(de), para: evTipo === "bonificacao" ? null : num(para),
+          percentual: evTipo === "bonificacao" ? num(pct) : null, custoUnitario: evTipo === "bonificacao" && custo ? num(custo) : null,
+        }), "Evento registrado.");
+    if (ok) fechar();
+  };
+  return (
+    <div className={styles.form} style={{ marginTop: 8 }}>
+      <h3 className={styles.formTitulo}>{tipo === "provento" ? `Provento de ${conta.papel}` : `Evento de ${conta.papel}`}</h3>
+      <div className={styles.grade}>
+        <label className={styles.campo}>Data<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
+        {tipo === "provento" ? (
+          <>
+            <label className={styles.campo}>Tipo
+              <select value={provTipo} onChange={(e) => setProvTipo(e.target.value as typeof provTipo)}>
+                <option value="dividendo">Dividendo</option><option value="jcp">JCP</option>
+                <option value="rendimento">Rendimento (FII)</option><option value="juros">Juros</option>
+              </select>
+            </label>
+            <label className={styles.campo}>Valor recebido (líquido)<input inputMode="decimal" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
+            {provTipo === "jcp" ? (
+              <label className={styles.campo}>Valor bruto (opcional)<input inputMode="decimal" value={bruto} onChange={(e) => setBruto(e.target.value)} placeholder="antes dos 15% de IR" /></label>
+            ) : null}
+          </>
+        ) : (
+          <>
+            <label className={styles.campo}>Evento
+              <select value={evTipo} onChange={(e) => { const v = e.target.value as typeof evTipo; setEvTipo(v); if (v === "grupamento") { setDe("10"); setPara("1"); } else if (v === "desdobramento") { setDe("1"); setPara("2"); } }}>
+                <option value="desdobramento">Desdobramento</option><option value="grupamento">Grupamento</option><option value="bonificacao">Bonificação</option>
+              </select>
+            </label>
+            {evTipo === "bonificacao" ? (
+              <>
+                <label className={styles.campo}>Percentual (%)<input inputMode="decimal" value={pct} onChange={(e) => setPct(e.target.value)} placeholder="ex.: 10" /></label>
+                <label className={styles.campo}>Custo atribuído por ação (opcional)<input inputMode="decimal" value={custo} onChange={(e) => setCusto(e.target.value)} placeholder="informado pela empresa" /></label>
+              </>
+            ) : (
+              <>
+                <label className={styles.campo}>De<input inputMode="decimal" value={de} onChange={(e) => setDe(e.target.value)} /></label>
+                <label className={styles.campo}>Para<input inputMode="decimal" value={para} onChange={(e) => setPara(e.target.value)} /></label>
+              </>
+            )}
+          </>
+        )}
+      </div>
+      <p className={styles.dica}>
+        {tipo === "provento"
+          ? "Entra como receita (grupos Dividendos, JCP, Rendimentos ou Juros, criados na primeira vez) e cai na corretora. Não muda o preço médio."
+          : "Desdobramento e grupamento mudam só a quantidade (o custo total fica; o preço médio se ajusta). Na bonificação entram as ações novas e o custo atribuído soma ao custo."}
+      </p>
+      <div className={styles.formAcoes}>
+        <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>
+        <button type="button" className={`${styles.btn} ${styles.btnP}`}
+          disabled={ctx.ocupado || (tipo === "provento" ? !(num(valor) > 0) : evTipo === "bonificacao" ? !(num(pct) > 0) : !(num(de) > 0 && num(para) > 0))}
+          onClick={() => void salvar()}>
+          Registrar
+        </button>
+      </div>
+    </div>
+  );
+}
+
 /** Janela da fatura do cartão: compras, estornos e pagamentos; cada compra pode ir para a fatura anterior ou a próxima. */
 function FaturaCartao({ ctx, cartaoId, vencimento, fechar }: { ctx: Ctx; cartaoId: number; vencimento: string; fechar: () => void }) {
   const [f, setF] = useState<FinFatura | null>(null);
@@ -1035,6 +1114,7 @@ const ORDEM_TIPOS: FinTipoConta[] = ["banco", "cartao", "corretora", "investimen
 
 function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
   const [extrato, setExtrato] = useState<FinContaSaldo | null>(null);
+  const [invAcao, setInvAcao] = useState<{ conta: FinContaSaldo; tipo: "provento" | "evento" } | null>(null);
   const [nova, setNova] = useState(false);
   return (
     <>
@@ -1061,6 +1141,19 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                   <span className={styles.data}>{c.papel ?? ""}</span>
                   <div className={styles.desc}>
                     <b>{c.nome}</b>{c.moeda !== "BRL" ? <span className={styles.tag}>{c.moeda}</span> : null}{c.mercado === "exterior" ? <span className={styles.tag}>exterior</span> : null}{c.ativo ? "" : <span className={styles.tag}>inativa</span>}
+                    {c.tipo === "investimento" && c.precoAtual ? (
+                      <small>
+                        Preço {brl(c.precoAtual.preco)} ({c.precoAtual.fonte === "brapi" ? "B3" : "digitado"}, {dataBr(c.precoAtual.em.slice(0, 10))} {c.precoAtual.em.slice(11)})
+                        {c.valorMercado != null ? <> · valor de mercado <b>{brl(c.valorMercado)}</b></> : null}
+                        {c.resultadoNaoRealizado != null ? (
+                          <b style={{ color: c.resultadoNaoRealizado >= 0 ? "var(--mm-primary, #0d9488)" : "var(--mm-danger)" }}>
+                            {" "}{c.resultadoNaoRealizado >= 0 ? "+" : "−"}{brl(Math.abs(c.resultadoNaoRealizado))}
+                            {c.saldo > 0 ? ` (${((c.resultadoNaoRealizado / c.saldo) * 100).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%)` : ""}
+                          </b>
+                        ) : null}
+                      </small>
+                    ) : null}
+                    {c.tipo === "investimento" && c.proventos12m ? <small>Proventos em 12 meses: {brl(c.proventos12m)}</small> : null}
                     {c.tipo === "investimento" ? (
                       <small>
                         Quantidade {c.quantidade ?? 0} · custo médio {c.moeda !== "BRL" && c.custoMedioMoeda != null ? `${emMoeda(c.custoMedioMoeda, c.moeda)} (${c.custoMedio != null ? brl(c.custoMedio) : "—"})` : c.custoMedio != null ? brl(c.custoMedio) : "—"}
@@ -1087,6 +1180,21 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                         </button>
                         {c.tipo === "banco" || c.tipo === "corretora" || c.tipo === "cartao" ? (
                           <button type="button" className={styles.link} onClick={() => setExtrato(c)}>Importar extrato</button>
+                        ) : null}
+                        {c.tipo === "investimento" && c.papel ? (
+                          <>
+                            <button type="button" className={styles.link} onClick={() => setInvAcao({ conta: c, tipo: "provento" })}>Provento</button>
+                            <button type="button" className={styles.link} onClick={() => setInvAcao({ conta: c, tipo: "evento" })}>Desdobramento / bonificação</button>
+                            {c.moeda === "BRL" ? (
+                              <button type="button" className={styles.link} disabled={ctx.ocupado}
+                                onClick={() => {
+                                  const v = prompt(`Preço atual de ${c.papel} (fica até a próxima cotação automática):`, c.precoAtual ? String(c.precoAtual.preco).replace(".", ",") : "");
+                                  if (v && num(v) > 0) void ctx.agir(() => apiPutJson(`/api/fin/cotacoes/${encodeURIComponent(c.papel!)}`, { preco: num(v) }), "Preço atualizado.");
+                                }}>
+                                Preço
+                              </button>
+                            ) : null}
+                          </>
                         ) : null}
                         {c.tipo === "cartao" ? (
                           <button type="button" className={styles.link} disabled={ctx.ocupado}
@@ -1118,6 +1226,7 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
         );
       })}
       {extrato ? <ImportarExtrato ctx={ctx} conta={extrato} fechar={() => setExtrato(null)} /> : null}
+      {invAcao ? createPortal(<div className={janela.overlay} onClick={() => setInvAcao(null)}><div className={janela.cartao} style={{ width: "min(640px, 100%)" }} onClick={(e) => e.stopPropagation()}><FormInvestimento ctx={ctx} conta={invAcao.conta} tipo={invAcao.tipo} fechar={() => setInvAcao(null)} /></div></div>, document.body) : null}
     </>
   );
 }

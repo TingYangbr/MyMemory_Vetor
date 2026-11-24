@@ -35,7 +35,8 @@ import {
   type Espaco,
 } from "../services/financeiroService.js";
 import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
-import { desfazerOperacaoInvestimento, registrarOperacaoInvestimento } from "../services/finInvestimentosService.js";
+import { desfazerOperacaoInvestimento, registrarEvento, registrarOperacaoInvestimento, registrarProvento } from "../services/finInvestimentosService.js";
+import { definirPrecoManual } from "../services/finCotacaoPapelService.js";
 import { montarPropostaFin } from "../services/finComandoService.js";
 import { importarExtrato, previaExtrato } from "../services/finExtratoService.js";
 
@@ -237,6 +238,33 @@ const plugin: FastifyPluginAsync = async (app) => {
       modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
+  }));
+
+  /** Proventos e eventos dos papéis (parte 2). */
+  app.post("/api/fin/investimentos/provento", rota(async (e, req) => {
+    const b = z.object({
+      papelContaId: id.nullish(), ticker: z.string().max(20).nullish(), corretoraId: id.nullish(),
+      tipo: z.enum(["dividendo", "jcp", "rendimento", "juros"]), data, valor: valor.positive(),
+      valorBruto: valor.positive().nullish(), origem: z.enum(["falecomigo", "tela"]).default("tela"),
+    }).parse(req.body);
+    return registrarProvento(e, b);
+  }));
+
+  app.post("/api/fin/investimentos/evento", rota(async (e, req) => {
+    const b = z.object({
+      papelContaId: id.nullish(), ticker: z.string().max(20).nullish(), corretoraId: id.nullish(),
+      tipo: z.enum(["desdobramento", "grupamento", "bonificacao"]), data,
+      de: z.number().positive().nullish(), para: z.number().positive().nullish(),
+      percentual: z.number().positive().max(1000).nullish(), custoUnitario: z.number().min(0).nullish(),
+      origem: z.enum(["falecomigo", "tela"]).default("tela"),
+    }).parse(req.body);
+    return registrarEvento(e, b);
+  }));
+
+  /** Preço digitado de um papel (vale até a próxima cotação da brapi). */
+  app.put("/api/fin/cotacoes/:ticker", rota(async (_e, req) => {
+    const b = z.object({ preco: z.number().positive() }).parse(req.body);
+    return definirPrecoManual((req.params as { ticker: string }).ticker, b.preco);
   }));
 
   /** Extrato OFX: prévia da conciliação (nada é gravado) e importação das decisões. Arquivo até 5 MB. */
