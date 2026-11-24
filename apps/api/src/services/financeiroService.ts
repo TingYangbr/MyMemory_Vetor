@@ -81,7 +81,7 @@ export async function resolverEspaco(userId: number): Promise<Espaco> {
 }
 
 /** Filtro SQL do espaço (alias opcional). */
-function esp(e: Espaco, alias = ""): { sql: string; params: unknown[] } {
+export function esp(e: Espaco, alias = ""): { sql: string; params: unknown[] } {
   const p = alias ? `${alias}.` : "";
   return e.groupId != null
     ? { sql: `${p}groupid = ?`, params: [e.groupId] }
@@ -164,7 +164,7 @@ interface ContaRow {
   moeda: string;
 }
 
-async function obterConta(c: Conn, e: Espaco, id: number, tipos?: FinTipoConta[], campo = "conta"): Promise<ContaRow> {
+export async function obterConta(c: Conn, e: Espaco, id: number, tipos?: FinTipoConta[], campo = "conta"): Promise<ContaRow> {
   const f = esp(e);
   const [r] = await c.query<RowDataPacket[]>(
     `SELECT id, tipo, nome, chave, ativo, moeda FROM fin_contas WHERE id = ? AND ${f.sql} LIMIT 1`,
@@ -1307,7 +1307,7 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
        l.conta_destinoid AS "contaDestinoId", d.nome AS "contaDestinoNome",
        l.quantidade, l.preco, l.tituloid AS "tituloId", l.valor_moeda AS "valorMoeda", l.moeda, l.cotacao,
        (l.tituloid IS NULL AND (o.tipo IN ('a_pagar', 'a_receber') OR d.tipo IN ('a_pagar', 'a_receber'))) AS "registro",
-       to_char(l.fatura, 'YYYY-MM-DD') AS "fatura"
+       to_char(l.fatura, 'YYYY-MM-DD') AS "fatura", (l.chave_externa IS NOT NULL) AS "conferido"
      FROM fin_lancamentos l
      JOIN fin_contas o ON o.id = l.conta_origemid
      JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -1333,6 +1333,7 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     cotacao: nOuNull(r.cotacao),
     registro: r.registro === true || r.registro === 1 || r.registro === "t",
     fatura: r.fatura ?? null,
+    conferido: r.conferido === true || r.conferido === "t",
   }));
 }
 

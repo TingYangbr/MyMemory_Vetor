@@ -12,6 +12,8 @@ import {
   type FinContaSaldo,
   type FinHistoricoTitulo,
   type FinFatura,
+  type FinExtratoAcao,
+  type FinExtratoPrevia,
   type FinOcorrenciasRecorrencia,
   type FinItemAgenda,
   type FinLancamento,
@@ -314,6 +316,183 @@ function ItemAgenda({ ctx, i, aberto, abrir }: { ctx: Ctx; i: FinItemAgenda; abe
         {brl(i.situacao === "pago" ? i.valorPago ?? i.valor : i.valor)}
       </span>
     </div>
+  );
+}
+
+const SIT_EXTRATO: Record<string, string> = {
+  importado: "já importado",
+  ignorado: "ignorado antes",
+  existe: "já lançado",
+  baixa: "paga conta em aberto",
+  novo: "novo",
+};
+
+/** Lê o arquivo OFX no encoding certo (a maioria dos bancos manda Windows-1252). */
+async function lerArquivoOfx(arq: File): Promise<string> {
+  const buf = await arq.arrayBuffer();
+  const cabecalho = new TextDecoder("latin1").decode(buf.slice(0, 600));
+  if (/CHARSET:\s*1252|ENCODING:\s*USASCII/i.test(cabecalho)) return new TextDecoder("windows-1252").decode(buf);
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buf);
+  } catch {
+    return new TextDecoder("windows-1252").decode(buf);
+  }
+}
+
+/** Importar extrato (OFX) de uma conta: confere cada linha com o que já está lançado e grava as decisões. */
+function ImportarExtrato({ ctx, conta, fechar }: { ctx: Ctx; conta: FinContaSaldo; fechar: () => void }) {
+  const [previa, setPrevia] = useState<FinExtratoPrevia | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+  const [lendo, setLendo] = useState(false);
+  const [gravando, setGravando] = useState(false);
+  const [feito, setFeito] = useState<string | null>(null);
+  const [dec, setDec] = useState<Record<string, { acao: FinExtratoAcao | "nada"; contra: string }>>({});
+  useEffect(() => {
+    const esc = (e: KeyboardEvent) => { if (e.key === "Escape" && !gravando) fechar(); };
+    window.addEventListener("keydown", esc);
+    return () => window.removeEventListener("keydown", esc);
+  }, [fechar, gravando]);
+
+  async function escolher(arq: File | undefined) {
+    if (!arq) return;
+    setErro(null); setFeito(null); setPrevia(null); setLendo(true);
+    try {
+      const conteudo = await lerArquivoOfx(arq);
+      const p = await apiPostJson<FinExtratoPrevia>("/api/fin/extrato/previa", { contaId: conta.id, conteudo });
+      const d: Record<string, { acao: FinExtratoAcao | "nada"; contra: string }> = {};
+      for (const i of p.itens) {
+        d[i.fitid] = {
+          acao: i.situacao === "existe" ? "ligar" : i.situacao === "baixa" ? "baixar" : i.situacao === "novo" ? "novo" : "nada",
+          contra: i.contraContaId ? String(i.contraContaId) : "",
+        };
+      }
+      setDec(d);
+      setPrevia(p);
+    } catch (e) {
+      setErro(msgErro(e));
+    } finally {
+      setLendo(false);
+    }
+  }
+
+  const pendentes = previa ? previa.itens.filter((i) => dec[i.fitid] && dec[i.fitid].acao !== "nada") : [];
+  const semGrupo = pendentes.filter((i) => dec[i.fitid].acao === "novo" && !dec[i.fitid].contra).length;
+
+  async function importar() {
+    if (!previa) return;
+    setGravando(true); setErro(null);
+    try {
+      const r = await apiPostJson<{ ligados: number; baixados: number; novos: number; ignorados: number; erros: string[] }>("/api/fin/extrato/importar", {
+        contaId: conta.id,
+        itens: pendentes
+          .filter((i) => !(dec[i.fitid].acao === "novo" && !dec[i.fitid].contra))
+          .map((i) => ({
+            fitid: i.fitid, data: i.data, valor: i.valor, descricao: i.descricao, acao: dec[i.fitid].acao,
+            lancamentoId: i.lancamentoId ?? null, alvoChave: i.alvoChave ?? null,
+            contraContaId: dec[i.fitid].contra ? Number(dec[i.fitid].contra) : null,
+          })),
+      });
+      setFeito(`${r.novos} novo(s), ${r.ligados} ligado(s) a lançamentos que já existiam, ${r.baixados} conta(s) baixada(s), ${r.ignorados} ignorado(s).` +
+        (r.erros.length ? ` Não entraram: ${r.erros.join("; ")}.` : ""));
+      setPrevia(null);
+      await ctx.recarregar();
+    } catch (e) {
+      setErro(msgErro(e));
+    } finally {
+      setGravando(false);
+    }
+  }
+
+  const cel: React.CSSProperties = { padding: "4px 6px", borderBottom: "1px solid var(--mm-border-muted)", textAlign: "left", fontSize: 13, verticalAlign: "top" };
+  const num_: React.CSSProperties = { ...cel, textAlign: "right", whiteSpace: "nowrap" };
+  const tiposContra = (saida: boolean): FinTipoConta[] =>
+    conta.tipo === "cartao" ? (saida ? ["despesa"] : ["receita", "banco", "corretora"]) : saida ? ["despesa", "banco", "corretora", "cartao", "investimento"] : ["receita", "banco", "corretora", "investimento"];
+  const dif = previa && previa.saldoBanco != null && previa.saldoSistema != null ? Math.round((previa.saldoBanco - previa.saldoSistema) * 100) / 100 : null;
+  return createPortal(
+    <div className={janela.overlay} onClick={() => !gravando && fechar()}>
+      <div className={janela.cartao} role="dialog" aria-label="Importar extrato" style={{ width: "min(960px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className={janela.topo}>
+          <div>
+            <b>Importar extrato — {conta.nome}</b>
+            <div className={janela.id}>Arquivo OFX exportado do internet banking (Extrato → Exportar/Salvar → OFX)</div>
+          </div>
+          <button type="button" className={janela.fechar} onClick={fechar} disabled={gravando} aria-label="Fechar">×</button>
+        </div>
+        <input type="file" accept=".ofx,.OFX,application/x-ofx" disabled={lendo || gravando} onChange={(e) => void escolher(e.target.files?.[0])} />
+        {lendo ? <div className={janela.carregando}>Lendo e conferindo…</div> : null}
+        {erro ? <div className={styles.erro}>{erro}</div> : null}
+        {feito ? <div className={styles.ok}>{feito}</div> : null}
+        {previa ? (
+          <>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", margin: "10px 0", fontSize: 14 }}>
+              <span>Período <b>{previa.inicio ? dataBr(previa.inicio) : "?"} a {previa.fim ? dataBr(previa.fim) : "?"}</b></span>
+              <span>{previa.itens.length} linha(s)</span>
+              {previa.saldoBanco != null ? (
+                <span>
+                  Saldo no banco <b>{brl(previa.saldoBanco)}</b>{previa.saldoEm ? ` em ${dataBr(previa.saldoEm)}` : ""}
+                  {previa.saldoSistema != null ? <> · no proMemory <b>{brl(previa.saldoSistema)}</b></> : null}
+                  {dif != null ? <b style={{ color: Math.abs(dif) < 0.005 ? "var(--mm-primary, #0d9488)" : "var(--mm-danger)" }}> {Math.abs(dif) < 0.005 ? "✓ confere" : ` diferença ${brl(dif)}`}</b> : null}
+                </span>
+              ) : null}
+            </div>
+            <div style={{ overflowX: "auto", maxHeight: "55vh" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead><tr>
+                  <th style={cel}>Data</th><th style={cel}>Descrição no banco</th><th style={num_}>Valor</th><th style={cel}>Situação</th><th style={cel}>O que fazer</th>
+                </tr></thead>
+                <tbody>
+                  {previa.itens.map((i) => {
+                    const d = dec[i.fitid] ?? { acao: "nada", contra: "" };
+                    const mudar = (p: Partial<{ acao: FinExtratoAcao | "nada"; contra: string }>) => setDec((x) => ({ ...x, [i.fitid]: { ...d, ...p } }));
+                    const tratada = i.situacao === "importado" || i.situacao === "ignorado";
+                    return (
+                      <tr key={i.fitid} style={{ opacity: tratada ? 0.5 : 1 }}>
+                        <td style={cel}>{dataBr(i.data)}</td>
+                        <td style={cel}>{i.descricao}</td>
+                        <td style={{ ...num_, color: i.valor < 0 ? "var(--mm-danger)" : "var(--mm-primary, #0d9488)" }}>{brl(i.valor)}</td>
+                        <td style={cel}>
+                          {SIT_EXTRATO[i.situacao]}
+                          {i.lancamentoDescricao ? <small style={{ display: "block", color: "var(--mm-muted)" }}>{i.lancamentoDescricao}</small> : null}
+                          {i.alvoDescricao ? <small style={{ display: "block", color: "var(--mm-muted)" }}>{i.alvoDescricao}</small> : null}
+                        </td>
+                        <td style={cel}>
+                          {tratada ? "—" : (
+                            <div style={{ display: "grid", gap: 4 }}>
+                              <select value={d.acao} onChange={(e) => mudar({ acao: e.target.value as FinExtratoAcao | "nada" })}>
+                                {i.situacao === "existe" ? <option value="ligar">Ligar ao lançamento</option> : null}
+                                {i.situacao === "baixa" ? <option value="baixar">Baixar a conta</option> : null}
+                                <option value="novo">Lançar como novo</option>
+                                <option value="ignorar">Ignorar (não volta)</option>
+                                <option value="nada">Deixar para depois</option>
+                              </select>
+                              {d.acao === "novo" ? (
+                                <SelConta valor={d.contra} onChange={(v) => mudar({ contra: v })} contas={ctx.contas.filter((c) => c.id !== conta.id)}
+                                  tipos={tiposContra(i.valor < 0)} vazio="— grupo ou conta —" />
+                              ) : null}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className={styles.dica} style={{ marginTop: 8 }}>
+              "Já lançado": você já tinha registrado (pelo Fale comigo ou pela tela) — ligar marca como conferido, sem duplicar. "Paga conta em aberto": dá baixa no título, conta fixa ou fatura. "Novo": escolha o grupo (gasto/receita) ou a conta (transferência); o grupo vem sugerido pelo que você usou antes para a mesma descrição. Importar o mesmo arquivo de novo não duplica.
+            </p>
+            <div className={styles.formAcoes}>
+              <button type="button" className={styles.btn} onClick={fechar} disabled={gravando}>Cancelar</button>
+              <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={gravando || !pendentes.length} onClick={() => void importar()}>
+                {gravando ? "Importando…" : `Importar ${pendentes.length - semGrupo} linha(s)`}
+              </button>
+            </div>
+            {semGrupo ? <p className={styles.dica}>{semGrupo} linha(s) "novo" sem grupo ou conta escolhidos ficam de fora desta vez.</p> : null}
+          </>
+        ) : null}
+      </div>
+    </div>,
+    document.body
   );
 }
 
@@ -705,6 +884,7 @@ function AbaLancamentos({ ctx, lancs }: { ctx: Ctx; lancs: FinLancamento[] }) {
               {l.registro ? <span className={`${styles.tag} ${styles.tagConfirmado}`} title="Compra/venda a prazo: a despesa ou receita nasce aqui, contra Contas a pagar/receber. O dinheiro só sai no pagamento.">registro</span> : null}
               <small>{l.contaOrigemNome} → {l.contaDestinoNome}{l.quantidade ? ` · qtd ${l.quantidade > 0 ? "+" : ""}${l.quantidade}${l.preco ? ` a ${l.moeda ? emMoeda(l.preco, l.moeda) : brl(l.preco)}` : ""}` : ""}</small>
               {l.fatura ? <small>Fatura de {dataBr(l.fatura)}</small> : null}
+              {l.conferido ? <small title="Conferido com o extrato do banco">✓ conferido com o banco</small> : null}
               {l.moeda && l.valorMoeda != null ? <small>{emMoeda(l.valorMoeda, l.moeda)}{l.cotacao ? ` · cotação ${cot(l.cotacao)}` : ""}</small> : null}
               {!l.tituloId && !l.registro ? (
                 <div className={styles.acoes}>
@@ -854,6 +1034,7 @@ function FormVenda({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
 const ORDEM_TIPOS: FinTipoConta[] = ["banco", "cartao", "corretora", "investimento", "a_receber", "a_pagar", "receita", "despesa", "patrimonio"];
 
 function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
+  const [extrato, setExtrato] = useState<FinContaSaldo | null>(null);
   const [nova, setNova] = useState(false);
   return (
     <>
@@ -904,6 +1085,9 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
                           onClick={() => void ctx.agir(() => apiPatchJson(`/api/fin/contas/${c.id}`, { ativo: !c.ativo }))}>
                           {c.ativo ? "Desativar" : "Reativar"}
                         </button>
+                        {c.tipo === "banco" || c.tipo === "corretora" || c.tipo === "cartao" ? (
+                          <button type="button" className={styles.link} onClick={() => setExtrato(c)}>Importar extrato</button>
+                        ) : null}
                         {c.tipo === "cartao" ? (
                           <button type="button" className={styles.link} disabled={ctx.ocupado}
                             onClick={() => {
@@ -933,6 +1117,7 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
           </div>
         );
       })}
+      {extrato ? <ImportarExtrato ctx={ctx} conta={extrato} fechar={() => setExtrato(null)} /> : null}
     </>
   );
 }

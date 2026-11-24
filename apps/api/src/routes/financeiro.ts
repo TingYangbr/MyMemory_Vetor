@@ -37,6 +37,7 @@ import {
 import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
 import { desfazerOperacaoInvestimento, registrarOperacaoInvestimento } from "../services/finInvestimentosService.js";
 import { montarPropostaFin } from "../services/finComandoService.js";
+import { importarExtrato, previaExtrato } from "../services/finExtratoService.js";
 
 /** Controle financeiro — etapa 1 do núcleo (contas, livro, títulos, motor de recorrência). Espaço = o atual do usuário. */
 
@@ -236,6 +237,29 @@ const plugin: FastifyPluginAsync = async (app) => {
       modo: z.enum(["quitar", "parcial"]).nullish(), excedenteGrupoId: id.nullish(),
     }).parse(req.body);
     return baixar(e, b);
+  }));
+
+  /** Extrato OFX: prévia da conciliação (nada é gravado) e importação das decisões. Arquivo até 5 MB. */
+  app.post("/api/fin/extrato/previa", { bodyLimit: 6 * 1024 * 1024 }, rota(async (e, req) => {
+    const b = z.object({ contaId: id, conteudo: z.string().min(10).max(5 * 1024 * 1024) }).parse(req.body);
+    return previaExtrato(e, b.contaId, b.conteudo);
+  }));
+
+  app.post("/api/fin/extrato/importar", { bodyLimit: 2 * 1024 * 1024 }, rota(async (e, req) => {
+    const b = z.object({
+      contaId: id,
+      itens: z.array(z.object({
+        fitid: z.string().min(1).max(120),
+        data,
+        valor: z.number().finite(),
+        descricao: z.string().max(200),
+        acao: z.enum(["ligar", "baixar", "novo", "ignorar"]),
+        lancamentoId: id.nullish(),
+        alvoChave: z.string().max(80).nullish(),
+        contraContaId: id.nullish(),
+      })).max(5000),
+    }).parse(req.body);
+    return importarExtrato(e, b.contaId, b.itens);
   }));
 
   /** Fatura do cartão: compras, estornos e pagamentos. */

@@ -517,7 +517,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 |---|---|---|
 | 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | feito (13.18) |
 | 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | feito (13.19) |
-| 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | a fazer |
+| 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | etapa 1 (OFX) feita (13.20); API a fazer |
 | 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
 | 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
 | 6 | **Orçamento e metas** por grupo (orçado × realizado, alerta de estouro) | a fazer |
@@ -556,4 +556,24 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Sino:** mostra as contas atrasadas e as que vencem de hoje até o maior dos "dias antes" configurados (padrão 3), do espaço pessoal e do grupo em que o usuário está. Elas contam no número do sino e o clique abre Contas a pagar e receber.
 - **E-mail:** um por dia e por espaço, a partir das 8h de São Paulo, com o que vence hoje, nos dias configurados (padrão 3 dias antes e no dia) e o que atrasou ontem. No espaço pessoal vai para o usuário. No grupo, vai para quem recebe: só o dono (padrão), todos os membros ou membros escolhidos. A mesma escolha vale para o sino. Também podem ser informados e-mails a mais, que recebem só o e-mail. Sem conta no dia, não manda nada. O robô roda junto com o dos lembretes de memo (a cada 5 minutos), e `fin_config.lembrete_ultimo_dia` garante um envio por dia.
 - **Ajustes** (aba Fale comigo da tela, por espaço): Lembrete de vencimento (ligado por padrão), Lembrete também por e-mail (ligado por padrão) e "Avisar quantos dias antes" (ex.: 3, 0); no grupo, "Quem recebe" e "E-mails a mais". No grupo, só o dono muda. Migration 212.
+
+### 13.20 Importador de extrato OFX com conciliação (24/11/2026)
+
+- **Onde:** Contas e saldos → **Importar extrato** em cada banco, corretora ou cartão. Você envia o arquivo `.ofx` exportado do internet banking; a tela lê o arquivo no encoding certo (Windows-1252 ou UTF-8).
+- **Leitura:** OFX nos formatos SGML e XML. De cada linha saem data (`DTPOSTED`), valor com sinal (`TRNAMT`, com vírgula ou ponto), descrição (`MEMO` ou `NAME`) e a identificação do banco (`FITID`; se vier repetida, a segunda vira `#2`). Do arquivo saem também o período (`DTSTART`/`DTEND`) e o saldo final (`LEDGERBAL`).
+- **Conciliação (prévia, sem gravar)** para cada linha:
+  - **já importado** ou **ignorado antes**: aparece apagado;
+  - **já lançado**: mesmo valor, mesmo lado da conta, até 3 dias de diferença; sugere **ligar**;
+  - **paga conta em aberto**: título, recorrente ou fatura com o mesmo valor e sentido, vencimento até 10 dias; sugere **baixar**;
+  - **novo**: o grupo ou a conta do outro lado vem sugerido pelo último lançamento com a mesma descrição (sem números nem palavras como pix, ted, compra).
+
+  A tela compara o saldo do banco com o do proMemory na mesma data.
+- **Importar:**
+  - **ligar** marca o lançamento existente com a identificação do banco;
+  - **baixar** usa a mesma baixa da tela (ou o pagamento da fatura) e marca o lançamento gerado;
+  - **novo** grava conta → grupo (ou o contrário, se entrou dinheiro); com uma conta do outro lado, vira transferência;
+  - **ignorar** guarda a linha em `fin_extrato_ignorados`, e ela não volta.
+
+  Cada lançamento guarda `chave_externa` (o FITID) e `extrato_contaid`, com índice único: importar o mesmo arquivo de novo não duplica. Na aba Lançamentos aparece "✓ conferido com o banco". Migration 213.
+- **Próximo passo:** a API (Open Finance, via agregador) entra pela mesma porta, com a chave do agregador no lugar do FITID. CSV e a fatura do cartão em OFX usam o mesmo importador.
 
