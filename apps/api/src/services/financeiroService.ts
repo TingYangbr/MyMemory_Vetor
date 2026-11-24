@@ -1,3 +1,4 @@
+import { SQL_RECALCULAR_FATURAS } from "./finConsultas.js";
 import { randomUUID } from "node:crypto";
 import {
   FIN_CONTAS_SISTEMA,
@@ -11,6 +12,7 @@ import {
   finOcorrencias,
   finSomarDias,
   type FinAgendaResposta,
+  type FinFatura,
   type FinHistoricoTitulo,
   type FinOcorrenciasRecorrencia,
   type FinChaveSistema,
@@ -184,6 +186,7 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
   // Despesa/receita: total do período. Demais: posição acumulada até "ate".
   const [rows] = await pool.query<RowDataPacket[]>(
     `SELECT c.id, c.nome, c.tipo, c.chave, c.papel, c.corretora_contaid AS "corretoraContaId", c.ativo, c.moeda, c.mercado,
+       c.dia_fechamento AS "diaFechamento", c.dia_vencimento AS "diaVencimento",
        COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?), 0) AS "entradasMoeda",
        COALESCE((SELECT SUM(l.valor_moeda) FROM fin_lancamentos l WHERE l.conta_origemid = c.id AND l.data <= ?), 0) AS "saidasMoeda",
        COALESCE((SELECT SUM(l.valor) FROM fin_lancamentos l WHERE l.conta_destinoid = c.id AND l.data <= ?
@@ -228,6 +231,8 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
       custoMedio: qtd && qtd > 0 ? Math.round((saldo / qtd) * 1e6) / 1e6 : null,
       moeda,
       mercado: (r.mercado as FinMercado | null) ?? null,
+      diaFechamento: nOuNull(r.diaFechamento),
+      diaVencimento: nOuNull(r.diaVencimento),
       saldoMoeda,
       custoMedioMoeda: estrangeira && qtd && qtd > 0 && saldoMoeda != null ? Math.round((saldoMoeda / qtd) * 1e6) / 1e6 : null,
       cotacao: cot,
@@ -242,6 +247,7 @@ export async function criarConta(
   inp: {
     nome: string; tipo: FinTipoConta; papel?: string | null; corretoraContaId?: number | null; moeda?: string | null;
     mercado?: FinMercado | null; saldoInicial?: number | null; saldoInicialReais?: number | null; dataSaldo?: string | null;
+    diaFechamento?: number | null; diaVencimento?: number | null;
   }
 ): Promise<FinConta> {
   const def = FIN_TIPOS_CONTA.find((t) => t.tipo === inp.tipo);
@@ -259,8 +265,10 @@ export async function criarConta(
       corretora = (await obterConta(conn, e, inp.corretoraContaId, ["corretora", "banco"], "corretora")).id;
     }
     const [ins] = await conn.query<RowDataPacket[]>(
-      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid, moeda, mercado) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora, moeda, mercado]
+      `INSERT INTO fin_contas (groupid, userid, nome, tipo, papel, corretora_contaid, moeda, mercado, dia_fechamento, dia_vencimento)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+      [e.groupId, e.userId, nome, inp.tipo, inp.tipo === "investimento" ? inp.papel?.trim().toUpperCase() || null : null, corretora, moeda, mercado,
+        inp.tipo === "cartao" ? diaValido(inp.diaFechamento) : null, inp.tipo === "cartao" ? diaValido(inp.diaVencimento) : null]
     );
     const id = Number(ins[0].id);
     const si = inp.saldoInicial ?? 0;
@@ -290,7 +298,11 @@ export async function criarConta(
       );
     }
     await conn.commit();
-    return { id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, moeda, mercado, ativo: true };
+    return {
+      id, nome, tipo: inp.tipo, chave: null, papel: inp.papel ?? null, corretoraContaId: corretora, moeda, mercado, ativo: true,
+      diaFechamento: inp.tipo === "cartao" ? diaValido(inp.diaFechamento) : null,
+      diaVencimento: inp.tipo === "cartao" ? diaValido(inp.diaVencimento) : null,
+    };
   } catch (err) {
     await conn.rollback();
     throw err;
@@ -299,7 +311,19 @@ export async function criarConta(
   }
 }
 
-export async function atualizarConta(e: Espaco, id: number, inp: { nome?: string; ativo?: boolean; mercado?: FinMercado }): Promise<void> {
+/** Dia do mês (1 a 31) ou nulo. */
+function diaValido(v: number | null | undefined): number | null {
+  if (v == null) return null;
+  const d = Math.trunc(Number(v));
+  if (!(d >= 1 && d <= 31)) throw new FinErro("dia", "Dia de fechamento e de vencimento: de 1 a 31.");
+  return d;
+}
+
+export async function atualizarConta(
+  e: Espaco,
+  id: number,
+  inp: { nome?: string; ativo?: boolean; mercado?: FinMercado; diaFechamento?: number | null; diaVencimento?: number | null }
+): Promise<void> {
   const c = await obterConta(pool, e, id);
   if (c.chave) throw new FinErro("conta_sistema", "Contas do sistema não podem ser alteradas.");
   if (inp.nome !== undefined && inp.nome.trim()) await pool.query(`UPDATE fin_contas SET nome = ? WHERE id = ?`, [inp.nome.trim(), id]);
@@ -307,6 +331,15 @@ export async function atualizarConta(e: Espaco, id: number, inp: { nome?: string
   if (inp.mercado !== undefined) {
     if (!finContaEhDinheiro(c.tipo)) throw new FinErro("mercado", "Só banco, corretora, cartão e investimento têm mercado.");
     await pool.query(`UPDATE fin_contas SET mercado = ? WHERE id = ?`, [inp.mercado, id]);
+  }
+  if (inp.diaFechamento !== undefined || inp.diaVencimento !== undefined) {
+    if (c.tipo !== "cartao") throw new FinErro("dia", "Só cartão tem fechamento e vencimento.");
+    const fe = inp.diaFechamento === undefined ? undefined : diaValido(inp.diaFechamento);
+    const ve = inp.diaVencimento === undefined ? undefined : diaValido(inp.diaVencimento);
+    if (fe !== undefined) await pool.query(`UPDATE fin_contas SET dia_fechamento = ? WHERE id = ?`, [fe, id]);
+    if (ve !== undefined) await pool.query(`UPDATE fin_contas SET dia_vencimento = ? WHERE id = ?`, [ve, id]);
+    // As compras e pagamentos já lançados mudam de fatura (menos os que a pessoa mudou à mão)
+    await pool.query(SQL_RECALCULAR_FATURAS.replace("$1", "?"), [id]);
   }
 }
 
@@ -940,6 +973,192 @@ export async function historicoTitulo(e: Espaco, tituloId: number): Promise<FinH
   };
 }
 
+/* ---------------- Cartão de crédito: faturas ---------------- */
+
+interface ResumoFatura {
+  cartaoId: number;
+  cartao: string;
+  vencimento: string;
+  compras: number;
+  pago: number;
+  /** Depois desta fatura: o que ficou devendo (negativo = crédito). */
+  emAberto: number;
+  /** O ciclo ainda está aberto (compras de hoje caem nesta fatura). */
+  aberta: boolean;
+  ultimoPagamento: string | null;
+}
+
+/** Todas as faturas dos cartões do espaço, com o saldo que passa de uma para a outra. */
+async function faturasDoEspaco(e: Espaco, hoje: string, cartaoId?: number): Promise<ResumoFatura[]> {
+  const f = esp(e, "c");
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `WITH fat AS (
+       SELECT c.id AS cid, c.nome AS cn, c.dia_fechamento AS fe, c.dia_vencimento AS ve, l.fatura AS fv,
+              SUM(CASE WHEN l.conta_origemid = c.id THEN l.valor WHEN o.tipo IN ('banco', 'corretora') THEN 0 ELSE -l.valor END) AS compras,
+              SUM(CASE WHEN l.conta_destinoid = c.id AND o.tipo IN ('banco', 'corretora') THEN l.valor ELSE 0 END) AS pago,
+              MAX(CASE WHEN l.conta_destinoid = c.id AND o.tipo IN ('banco', 'corretora') THEN l.data END) AS ult
+       FROM fin_contas c
+       JOIN fin_lancamentos l ON c.id IN (l.conta_origemid, l.conta_destinoid) AND l.fatura IS NOT NULL
+       JOIN fin_contas o ON o.id = l.conta_origemid
+       WHERE c.tipo = 'cartao' AND ${f.sql} ${cartaoId ? "AND c.id = ?" : ""}
+       GROUP BY c.id, c.nome, c.dia_fechamento, c.dia_vencimento, l.fatura
+     )
+     SELECT cid, cn, to_char(fv, 'YYYY-MM-DD') AS "fv", compras, pago, to_char(ult, 'YYYY-MM-DD') AS "ult",
+            SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS "aberto",
+            (fe IS NOT NULL AND ve IS NOT NULL AND public.fin_fatura_de(?::date, fe, ve) <= fv) AS "aberta"
+     FROM fat ORDER BY cid, fv`,
+    [...f.params, ...(cartaoId ? [cartaoId] : []), hoje]
+  );
+  return rows.map((r) => ({
+    cartaoId: Number(r.cid),
+    cartao: String(r.cn),
+    vencimento: String(r.fv),
+    compras: r2(n(r.compras)),
+    pago: r2(n(r.pago)),
+    emAberto: r2(n(r.aberto)),
+    aberta: r.aberta === true || r.aberta === "t",
+    ultimoPagamento: r.ult ?? null,
+  }));
+}
+
+/** Uma fatura: compras, estornos e pagamentos, com o saldo que veio da anterior. */
+export async function faturaDetalhe(e: Espaco, cartaoId: number, vencimento: string): Promise<FinFatura> {
+  exigirData(vencimento, "vencimento da fatura");
+  const cartao = await obterConta(pool, e, cartaoId, ["cartao"], "cartão");
+  const todas = await faturasDoEspaco(e, hojeSaoPaulo(), cartaoId);
+  const i = todas.findIndex((x) => x.vencimento === vencimento);
+  const esta = i >= 0 ? todas[i] : null;
+  const anterior = i > 0 ? todas[i - 1].emAberto : todas.filter((x) => x.vencimento < vencimento).at(-1)?.emAberto ?? 0;
+  const [ls] = await pool.query<RowDataPacket[]>(
+    `SELECT l.id, to_char(l.data, 'YYYY-MM-DD') AS "data", l.descricao, l.valor, l.fatura_manual AS "manual",
+       l.conta_origemid AS "origem", o.nome AS "oNome", o.tipo AS "oTipo", d.nome AS "dNome"
+     FROM fin_lancamentos l
+     JOIN fin_contas o ON o.id = l.conta_origemid
+     JOIN fin_contas d ON d.id = l.conta_destinoid
+     WHERE l.fatura = ? AND (l.conta_origemid = ? OR l.conta_destinoid = ?)
+     ORDER BY l.data, l.id`,
+    [vencimento, cartaoId, cartaoId]
+  );
+  const [fe] = await pool.query<RowDataPacket[]>(`SELECT dia_fechamento AS "fe" FROM fin_contas WHERE id = ?`, [cartaoId]);
+  const diaFe = nOuNull(fe[0]?.fe);
+  let fechamento: string | null = null;
+  if (diaFe) {
+    // Fechamento: o último dia diaFe antes (ou no dia) do vencimento
+    const [a, m] = vencimento.split("-").map(Number);
+    const mes = (ano: number, mm: number) => {
+      const ult = new Date(Date.UTC(ano, mm, 0)).getUTCDate();
+      return `${ano}-${String(mm).padStart(2, "0")}-${String(Math.min(diaFe, ult)).padStart(2, "0")}`;
+    };
+    fechamento = mes(a, m);
+    if (fechamento >= vencimento) fechamento = m === 1 ? mes(a - 1, 12) : mes(a, m - 1);
+  }
+  return {
+    cartaoId,
+    cartao: cartao.nome,
+    vencimento,
+    fechamento,
+    compras: esta?.compras ?? 0,
+    anterior: r2(anterior),
+    pago: esta?.pago ?? 0,
+    emAberto: esta?.emAberto ?? r2(anterior),
+    itens: ls.map((l) => {
+      const compra = Number(l.origem) === cartaoId;
+      const pagamento = !compra && ["banco", "corretora"].includes(String(l.oTipo));
+      return {
+        id: Number(l.id),
+        data: String(l.data),
+        descricao: String(l.descricao),
+        valor: n(l.valor),
+        tipo: compra ? ("compra" as const) : pagamento ? ("pagamento" as const) : ("estorno" as const),
+        contraparte: compra ? String(l.dNome) : String(l.oNome),
+        manual: n(l.manual) === 1,
+      };
+    }),
+  };
+}
+
+/** Paga (ou adianta) uma fatura: dinheiro da conta para o cartão, marcado na fatura escolhida. */
+export async function pagarFatura(
+  e: Espaco,
+  inp: { cartaoId: number; vencimento: string; data: string; valor: number; contaPagamentoId: number }
+): Promise<{ id: number }> {
+  exigirData(inp.data, "data do pagamento");
+  exigirData(inp.vencimento, "vencimento da fatura");
+  if (!(inp.valor > 0)) throw new FinErro("valor", "Informe o valor pago.");
+  const cartao = await obterConta(pool, e, inp.cartaoId, ["cartao"], "cartão");
+  const conta = exigirReal(await obterConta(pool, e, inp.contaPagamentoId, ["banco", "corretora"], "conta de pagamento"));
+  const [ins] = await pool.query<RowDataPacket[]>(
+    `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, fatura, fatura_manual)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0) RETURNING id`,
+    [e.groupId, e.userId, inp.data, `Pagamento da fatura ${cartao.nome} (${inp.vencimento.slice(8, 10)}/${inp.vencimento.slice(5, 7)})`,
+      r2(inp.valor), conta.id, cartao.id, inp.vencimento]
+  );
+  return { id: Number(ins[0].id) };
+}
+
+/** Muda um lançamento de cartão para a fatura anterior ou a próxima (correção à mão; não volta com o recálculo). */
+export async function moverParaFatura(e: Espaco, lancamentoId: number, direcao: "anterior" | "proxima"): Promise<{ fatura: string }> {
+  const f = esp(e, "l");
+  const [ls] = await pool.query<RowDataPacket[]>(
+    `SELECT l.id, to_char(l.fatura, 'YYYY-MM-DD') AS "fatura",
+       CASE WHEN o.tipo = 'cartao' THEN o.dia_vencimento ELSE d.dia_vencimento END AS "ve"
+     FROM fin_lancamentos l JOIN fin_contas o ON o.id = l.conta_origemid JOIN fin_contas d ON d.id = l.conta_destinoid
+     WHERE l.id = ? AND ${f.sql} AND 'cartao' IN (o.tipo, d.tipo)`,
+    [lancamentoId, ...f.params]
+  );
+  const l = ls[0];
+  if (!l) throw new FinErro("nao_encontrado", "Lançamento de cartão não encontrado.");
+  if (!l.fatura) throw new FinErro("sem_fatura", "Este cartão não tem dia de fechamento e vencimento: cadastre em Contas e saldos.");
+  const [a, m] = String(l.fatura).split("-").map(Number);
+  const delta = direcao === "proxima" ? 1 : -1;
+  const alvo = new Date(Date.UTC(a, m - 1 + delta, 1));
+  const ano = alvo.getUTCFullYear();
+  const mes = alvo.getUTCMonth() + 1;
+  const ult = new Date(Date.UTC(ano, mes, 0)).getUTCDate();
+  const dia = Math.min(nOuNull(l.ve) ?? Number(String(l.fatura).slice(8, 10)), ult);
+  const nova = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+  await pool.query(`UPDATE fin_lancamentos SET fatura = ?, fatura_manual = 1 WHERE id = ?`, [nova, lancamentoId]);
+  return { fatura: nova };
+}
+
+/**
+ * Compra parcelada no cartão ("TV de 3.000 em 10x no Nubank"): uma compra por parcela, cada uma no mês dela (gasto na
+ * data da parcela, entra na fatura daquele mês), ligadas pelo lote — excluir uma exclui todas.
+ */
+export async function parceladoNoCartao(
+  e: Espaco,
+  inp: { cartaoId: number; grupoId: number; descricao: string; valorTotal: number; parcelas: number; data: string }
+): Promise<{ lote: string; primeiroId: number }> {
+  exigirData(inp.data, "data da compra");
+  if (inp.parcelas < 1 || inp.parcelas > 48) throw new FinErro("parcelas", "Parcelas entre 1 e 48.");
+  if (!(inp.valorTotal > 0)) throw new FinErro("valor", "Informe o valor total.");
+  const cartao = await obterConta(pool, e, inp.cartaoId, ["cartao"], "cartão");
+  const grupo = await obterConta(pool, e, inp.grupoId, ["despesa"], "grupo de despesa");
+  const lote = randomUUID();
+  const parcelas = finGerarParcelas(inp.valorTotal, inp.parcelas, inp.data, "mensal");
+  const desc = inp.descricao.trim() || "Compra no cartão";
+  const conn = await pool.getConnection();
+  let primeiroId = 0;
+  try {
+    await conn.beginTransaction();
+    for (const p of parcelas) {
+      const [ins] = await conn.query<RowDataPacket[]>(
+        `INSERT INTO fin_lancamentos (groupid, userid, data, descricao, valor, conta_origemid, conta_destinoid, lote)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        [e.groupId, e.userId, p.vencimento, parcelas.length > 1 ? `${desc} (${p.parcela}/${parcelas.length})` : desc, p.valor, cartao.id, grupo.id, lote]
+      );
+      if (!primeiroId) primeiroId = Number(ins[0].id);
+    }
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+  return { lote, primeiroId };
+}
+
 /* ---------------- Agenda: títulos + projeção do motor ---------------- */
 
 export async function agenda(e: Espaco, de: string, ate: string): Promise<FinAgendaResposta> {
@@ -1030,6 +1249,32 @@ export async function agenda(e: Espaco, de: string, ate: string): Promise<FinAge
     }
   }
 
+  // Faturas de cartão: compras − estornos do ciclo, menos o que foi pago, com o saldo da fatura anterior
+  for (const ft of await faturasDoEspaco(e, hoje)) {
+    const pago = ft.emAberto <= 0.005;
+    if (pago ? !(ft.pago > 0 && ft.vencimento >= de && ft.vencimento <= ate) : !(ft.vencimento <= ate && (ft.vencimento >= de || ft.vencimento < hoje))) continue;
+    itens.push({
+      chave: `f:${ft.cartaoId}:${ft.vencimento}`,
+      origem: "fatura",
+      cartaoId: ft.cartaoId,
+      situacao: pago ? "pago" : ft.vencimento < hoje ? "atraso" : ft.aberta ? "previsto" : "confirmado",
+      sentido: "pagar",
+      descricao: `Fatura ${ft.cartao}`,
+      vencimento: ft.vencimento,
+      valor: pago ? ft.pago : ft.emAberto,
+      contaGrupoNome: ft.cartao,
+      tituloId: null,
+      recorrenciaId: null,
+      referencia: ft.vencimento,
+      parcela: null,
+      parcelas: null,
+      lote: null,
+      quitadoEm: pago ? ft.ultimoPagamento : null,
+      valorPago: ft.pago > 0 ? ft.pago : null,
+      contaPagamentoId: null,
+    });
+  }
+
   itens.sort((a, b) => (a.situacao === "pago" ? a.quitadoEm ?? "" : a.vencimento).localeCompare(b.situacao === "pago" ? b.quitadoEm ?? "" : b.vencimento));
   const soma = (fn: (i: FinItemAgenda) => boolean, campo: (i: FinItemAgenda) => number = (i) => i.valor) =>
     r2(itens.filter(fn).reduce((s, i) => s + campo(i), 0));
@@ -1061,7 +1306,8 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
        l.conta_origemid AS "contaOrigemId", o.nome AS "contaOrigemNome",
        l.conta_destinoid AS "contaDestinoId", d.nome AS "contaDestinoNome",
        l.quantidade, l.preco, l.tituloid AS "tituloId", l.valor_moeda AS "valorMoeda", l.moeda, l.cotacao,
-       (l.tituloid IS NULL AND (o.tipo IN ('a_pagar', 'a_receber') OR d.tipo IN ('a_pagar', 'a_receber'))) AS "registro"
+       (l.tituloid IS NULL AND (o.tipo IN ('a_pagar', 'a_receber') OR d.tipo IN ('a_pagar', 'a_receber'))) AS "registro",
+       to_char(l.fatura, 'YYYY-MM-DD') AS "fatura"
      FROM fin_lancamentos l
      JOIN fin_contas o ON o.id = l.conta_origemid
      JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -1086,6 +1332,7 @@ export async function listarLancamentos(e: Espaco, de: string, ate: string, cont
     moeda: r.moeda ? String(r.moeda).trim() : null,
     cotacao: nOuNull(r.cotacao),
     registro: r.registro === true || r.registro === 1 || r.registro === "t",
+    fatura: r.fatura ?? null,
   }));
 }
 

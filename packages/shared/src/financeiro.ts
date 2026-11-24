@@ -207,6 +207,9 @@ export interface FinConta {
   /** Banco, corretora, cartão e investimento: Brasil ou exterior (BDR é local em reais; Avenue é exterior). */
   mercado: FinMercado | null;
   ativo: boolean;
+  /** Cartão: dia do fechamento e do vencimento da fatura (sem eles, o cartão não tem fatura). */
+  diaFechamento?: number | null;
+  diaVencimento?: number | null;
 }
 
 export interface FinContaSaldo extends FinConta {
@@ -238,9 +241,11 @@ export interface FinRecorrencia {
 export type FinSituacaoAgenda = "previsto" | "confirmado" | "atraso" | "pago";
 
 export interface FinItemAgenda {
-  /** "t:<id>" para título, "r:<recorrenciaId>:<referencia>" para ocorrência ainda sem título. */
+  /** "t:<id>" título, "r:<recorrenciaId>:<referencia>" ocorrência sem título, "f:<cartaoId>:<vencimento>" fatura. */
   chave: string;
-  origem: "titulo" | "recorrencia";
+  origem: "titulo" | "recorrencia" | "fatura";
+  /** Fatura: o cartão. */
+  cartaoId?: number | null;
   situacao: FinSituacaoAgenda;
   sentido: "pagar" | "receber";
   descricao: string;
@@ -347,6 +352,33 @@ export interface FinLancamento {
   cotacao: number | null;
   /** Registro da compra/venda a prazo (despesa/receita contra Contas a pagar/receber): não é movimento de dinheiro. */
   registro?: boolean;
+  /** Lançamento de cartão: vencimento da fatura em que caiu. */
+  fatura?: string | null;
+}
+
+/** Uma fatura de cartão: as compras, estornos e pagamentos dela. */
+export interface FinFatura {
+  cartaoId: number;
+  cartao: string;
+  /** Vencimento (identifica a fatura). */
+  vencimento: string;
+  fechamento: string | null;
+  compras: number;
+  /** Saldo que veio da fatura anterior (positivo = dívida; negativo = crédito). */
+  anterior: number;
+  pago: number;
+  emAberto: number;
+  itens: {
+    id: number;
+    data: string;
+    descricao: string;
+    valor: number;
+    /** compra: entra na fatura; estorno: abate; pagamento: quita. */
+    tipo: "compra" | "estorno" | "pagamento";
+    contraparte: string;
+    /** Mudada de fatura à mão. */
+    manual: boolean;
+  }[];
 }
 
 export interface FinConferencia {

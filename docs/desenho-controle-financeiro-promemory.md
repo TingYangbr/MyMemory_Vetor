@@ -503,3 +503,50 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 
 - **Parcelado / a prazo em regime de caixa:** nos títulos novos (`fin_titulos.caixa = 1`, migration 209), o cadastro grava só os títulos. Não há registro na data da compra. Cada pagamento lança direto conta → grupo (no recebimento, grupo → conta) pelo valor pago até o valor da parcela. Acima disso, o excedente vai ao grupo escolhido ou a juros/multa. Desconto não gera lançamento, porque a despesa é o que saiu. O pagamento parcial cria o saldo com o mesmo regime. A conferência de Contas a pagar/receber (13.8) só soma os títulos em competência (`caixa = 0`). Os títulos antigos foram convertidos (migration 210): os registros saíram, os descontos dos pagamentos saíram e os pagamentos passaram a ir direto ao grupo do título. Todos os relatórios de gastos e receitas são em regime de caixa. A tela de parcelado não pede mais a data da compra.
 - **Transferência entre contas no Fale comigo:** novo tipo "transferência" ("transferi do Itaú para a XP", "paguei a fatura do cartão com o Itaú", aplicação ou resgate na corretora, saque). O card mostra "Sai de" e "Vai para", sem grupo, e grava um lançamento conta → conta. Ela não entra em gastos nem em receitas.
+
+### 13.17 Situação em 24/11/2026: decisões fechadas e pendências
+
+**Decisões fechadas** (respondem perguntas de 12.5, 12.6 e 13.6):
+- **Visão padrão: regime de caixa.** Gastos e receitas contam na data em que o dinheiro sai ou entra, no grupo do título (13.16). Para olhar pelo compromisso, use a aba Previstos e as consultas de contas a pagar e receber, pelo vencimento.
+- **Categorias:** três, separadas pelo tempo da pergunta: *Gastos e lançamentos* (o passado), *A pagar e receber* (o futuro) e *Saldos e investimentos* (a posição), sobre as mesmas tabelas `fin_`.
+- **Investimentos não criam memo:** o Fale comigo grava a operação direto em `fin_operacoes_inv`, pela porta única (13.14). O memo fica só como comprovante, quando vem de um documento.
+
+**Pendências, na ordem combinada:**
+
+| # | Pendência | Situação |
+|---|---|---|
+| 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | feito (13.18) |
+| 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | a fazer |
+| 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | a fazer |
+| 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
+| 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
+| 6 | **Orçamento e metas** por grupo (orçado × realizado, alerta de estouro) | a fazer |
+| 7 | **Várias operações numa frase** ("paguei 50 de mercado e recebi 800 do freela") | a fazer |
+| 8 | **Editar lançamento** (hoje é desfazer e lançar de novo) e **apagar em lote** com confirmação | a fazer |
+| 9 | **Modelo pronto no catálogo** (plano de contas e grupos iniciais) para outros usuários e grupos | a fazer |
+
+**Continuam em aberto:** plano de contas inicial da pessoa física; catálogo de eventos (estorno, empréstimo a terceiros, adiantamento); se o mesmo núcleo vira a base do financeiro do Softing-erp.
+
+### 13.18 Cartão de crédito com fatura (24/11/2026)
+
+- **Decisão:** a compra no cartão conta como gasto **na data da compra**, no grupo da compra. Essa é a única exceção ao regime de caixa. O pagamento da fatura só quita a dívida do cartão (banco → cartão), por isso o gasto nunca é contado duas vezes.
+- **Cadastro:** o cartão tem **dia de fechamento** e **dia de vencimento** (`fin_contas.dia_fechamento`, `dia_vencimento`), na criação ou em Contas e saldos → "Fechamento e vencimento". Sem esses dias, o cartão não tem fatura.
+- **Fatura de cada lançamento:** `fin_lancamentos.fatura` guarda o vencimento da fatura em que o lançamento caiu. Um gatilho preenche esse campo na inclusão:
+  - **compra** (cartão → grupo): fecha no mesmo mês se foi até o dia do fechamento, senão no mês seguinte; o vencimento é o do mês do fechamento ou do seguinte;
+  - **pagamento** (banco → cartão): vai para a última fatura já fechada;
+  - **estorno** (grupo → cartão): vai para a fatura da data.
+
+  Funções `fin_fatura_de` e `fin_fatura_pagamento`; migration 211.
+- **Saldo que passa:** a fatura em aberto é o que sobrou das anteriores mais as compras e menos os estornos e pagamentos dela. Pagou menos: o resto vai para a próxima. Pagou mais ou adiantou: vira crédito.
+- **Aba Previstos:** cada fatura aparece como "Fatura <cartão>":
+  - **aberta**: o ciclo ainda recebe compras;
+  - **fechada**: já fechou e ainda não venceu;
+  - **em atraso**;
+  - **paga**.
+
+  Os botões são **Compras** (a janela da fatura) e **Pagar**. `fin_agenda` também devolve as faturas, então as perguntas sobre contas a pagar as incluem.
+- **Correção de fatura:** na janela da fatura, cada compra tem "‹ anterior" e "próxima ›". A compra muda de fatura e fica marcada como mudada à mão (`fatura_manual`). Ao trocar o fechamento ou o vencimento do cartão, todas as compras são redistribuídas, menos as mudadas à mão.
+- **Compra parcelada no cartão:** "comprei uma TV de 3.000 em 10x no Nubank" gera 10 compras de 300, cada uma na data do seu mês, e portanto uma em cada fatura. Elas ficam ligadas por lote: excluir uma exclui todas. No Fale comigo é tipo gasto com parcelas; uma "conta" com cartão vira gasto parcelado no cartão.
+- **Fale comigo:** "paguei a fatura do Itaú" paga o item da fatura; pagar menos não pede decisão. Na consulta de lançamentos, `fatura` serve de coluna e de filtro ("o que tem na fatura de dezembro do Itaú").
+- **API:** `GET /api/fin/faturas/:cartaoId/:vencimento`, `POST /api/fin/faturas/pagamento`, `PATCH /api/fin/lancamentos/:id/fatura` e `POST /api/fin/cartao/parcelado`.
+
