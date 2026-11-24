@@ -71,7 +71,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       lembretes.push({
         id: f.id,
         memoId: 0,
-        categoria: f.atrasado ? "Conta atrasada" : "Conta",
+        categoria: `${f.atrasado ? "Conta atrasada" : "Conta"}${f.espaco ? ` · ${f.espaco}` : ""}`,
         titulo: f.titulo,
         texto: f.texto,
         momento: new Date(`${f.vencimento}T12:00:00-03:00`),

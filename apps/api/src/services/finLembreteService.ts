@@ -8,7 +8,7 @@ import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { sendLembreteEmail } from "../lib/mail.js";
-import { agenda, hojeSaoPaulo, resolverEspaco, type Espaco } from "./financeiroService.js";
+import { agenda, hojeSaoPaulo, type Espaco } from "./financeiroService.js";
 import { chaveEspaco, membrosDoGrupo, obterFinConfig } from "./finConfigService.js";
 import type { FinConfig } from "@mymemory/shared";
 
@@ -29,6 +29,8 @@ export async function vencimentosDoEspaco(e: Espaco, hoje: string, ateDias: numb
 
 export interface LembreteFinSino {
   id: string;
+  /** "Conta" + o grupo (vazio no espaço pessoal). */
+  espaco: string | null;
   titulo: string;
   texto: string;
   vencimento: string;
@@ -66,12 +68,27 @@ async function emailsDestinatarios(e: Espaco, cfg: FinConfig): Promise<string[]>
     .filter((x) => (vistos.has(x.toLowerCase()) ? false : (vistos.add(x.toLowerCase()), true)));
 }
 
-/** Sino: do espaço pessoal e do grupo em que o usuário está, com o lembrete ligado e ele entre os destinatários. */
+/** Grupos do usuário: membro ou dono (pela assinatura). */
+async function gruposDoUsuario(userId: number): Promise<{ id: number; nome: string }[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT g.id, g.name AS "nome" FROM groups g
+     WHERE EXISTS (SELECT 1 FROM group_members gm WHERE gm.groupid = g.id AND gm.userid = ?)
+        OR EXISTS (SELECT 1 FROM subscriptions s WHERE s.id = g.subscriptionid AND s.ownerid = ?)
+     ORDER BY g.name`,
+    [userId, userId]
+  );
+  return rows.map((r) => ({ id: Number(r.id), nome: String(r.nome) }));
+}
+
+/**
+ * Sino: contas do espaço pessoal e de TODOS os grupos do usuário (como os lembretes de memos), com o lembrete ligado e
+ * ele entre quem recebe naquele grupo.
+ */
 export async function lembretesFinanceiroDoUsuario(userId: number): Promise<LembreteFinSino[]> {
   const hoje = hojeSaoPaulo();
-  const espacos: Espaco[] = [{ groupId: null, userId }];
-  const atual = await resolverEspaco(userId);
-  if (atual.groupId != null) espacos.push(atual);
+  const grupos = await gruposDoUsuario(userId);
+  const nomeGrupo = new Map(grupos.map((g) => [g.id, g.nome]));
+  const espacos: Espaco[] = [{ groupId: null, userId }, ...grupos.map((g) => ({ groupId: g.id, userId }))];
   const out: LembreteFinSino[] = [];
   for (const e of espacos) {
     const cfg = await obterFinConfig(e);
@@ -83,6 +100,7 @@ export async function lembretesFinanceiroDoUsuario(userId: number): Promise<Lemb
       const quando = i.situacao === "atraso" ? `venceu em ${dataBr(i.vencimento)}` : dias === 0 ? "vence hoje" : dias === 1 ? "vence amanhã" : `vence em ${dataBr(i.vencimento)}`;
       out.push({
         id: `fin:${chaveEspaco(e)}:${i.chave}`,
+        espaco: e.groupId != null ? nomeGrupo.get(e.groupId) ?? null : null,
         titulo: `${i.descricao} — ${brl(i.valor)}`,
         texto: `${i.sentido === "pagar" ? "A pagar" : "A receber"}, ${quando}`,
         vencimento: i.vencimento,
