@@ -73,6 +73,13 @@ FROM fin_contas c, fin_contas o
 WHERE c.id = $1 AND o.id = l.conta_origemid AND (l.conta_origemid = c.id OR l.conta_destinoid = c.id)
   AND l.fatura_manual = 0`;
 
+/**
+ * Em aberto de cada fatura (sobre "s" = soma acumulada de compras − pagos por cartão, em ordem de vencimento): cada fatura
+ * fica com a dívida dela, e só o crédito (pago a mais) passa para as seguintes. Pagar uma fatura não baixa as outras.
+ * Fórmula fechada de saldo_i = d_i + min(saldo_(i−1), 0): s_i − max(0, maior s anterior).
+ */
+export const SQL_ABERTO_FATURA = `(s - GREATEST(0, COALESCE(MAX(s) OVER (PARTITION BY cid ORDER BY fv ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING), 0)))`;
+
 /** Função do motor em SQL: títulos + ocorrências previstas das recorrências + faturas de cartão, como a aba Previstos da tela. */
 export const SQL_FUNCAO_FIN_AGENDA = `
 CREATE OR REPLACE FUNCTION public.fin_agenda(p_de date, p_ate date)
@@ -134,7 +141,8 @@ AS $fn$
     WHERE c.tipo = 'cartao'
     GROUP BY c.id, c.nome, c.dia_fechamento, c.dia_vencimento, l.fatura
   ),
-  fat2 AS (SELECT fat.*, SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS aberto FROM fat),
+  fat1 AS (SELECT fat.*, SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS s FROM fat),
+  fat2 AS (SELECT fat1.*, ${SQL_ABERTO_FATURA} AS aberto FROM fat1),
   fatr AS (
     SELECT fv AS v,
            CASE WHEN aberto <= 0.005 THEN 'pago'

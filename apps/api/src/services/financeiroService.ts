@@ -1,5 +1,5 @@
 import { precosPapeis } from "./finCotacaoPapelService.js";
-import { SQL_RECALCULAR_FATURAS } from "./finConsultas.js";
+import { SQL_ABERTO_FATURA, SQL_RECALCULAR_FATURAS } from "./finConsultas.js";
 import { randomUUID } from "node:crypto";
 import {
   FIN_CONTAS_SISTEMA,
@@ -1028,10 +1028,11 @@ async function faturasDoEspaco(e: Espaco, hoje: string, cartaoId?: number): Prom
        WHERE c.tipo = 'cartao' AND ${f.sql} ${cartaoId ? "AND c.id = ?" : ""}
        GROUP BY c.id, c.nome, c.dia_fechamento, c.dia_vencimento, l.fatura
      )
+     , acum AS (SELECT fat.*, SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS s FROM fat)
      SELECT cid, cn, to_char(fv, 'YYYY-MM-DD') AS "fv", compras, pago, to_char(ult, 'YYYY-MM-DD') AS "ult",
-            SUM(compras - pago) OVER (PARTITION BY cid ORDER BY fv) AS "aberto",
+            ${SQL_ABERTO_FATURA} AS "aberto",
             (fe IS NOT NULL AND ve IS NOT NULL AND public.fin_fatura_de(?::date, fe, ve) <= fv) AS "aberta"
-     FROM fat ORDER BY cid, fv`,
+     FROM acum ORDER BY cid, fv`,
     [...f.params, ...(cartaoId ? [cartaoId] : []), hoje]
   );
   return rows.map((r) => ({
@@ -1053,7 +1054,8 @@ export async function faturaDetalhe(e: Espaco, cartaoId: number, vencimento: str
   const todas = await faturasDoEspaco(e, hojeSaoPaulo(), cartaoId);
   const i = todas.findIndex((x) => x.vencimento === vencimento);
   const esta = i >= 0 ? todas[i] : null;
-  const anterior = i > 0 ? todas[i - 1].emAberto : todas.filter((x) => x.vencimento < vencimento).at(-1)?.emAberto ?? 0;
+  // Só crédito (pago a mais) passa de uma fatura para a outra; dívida fica na fatura dela
+  const anterior = Math.min(0, i > 0 ? todas[i - 1].emAberto : todas.filter((x) => x.vencimento < vencimento).at(-1)?.emAberto ?? 0);
   const [ls] = await pool.query<RowDataPacket[]>(
     `SELECT l.id, to_char(l.data, 'YYYY-MM-DD') AS "data", l.descricao, l.valor, l.fatura_manual AS "manual",
        l.conta_origemid AS "origem", o.nome AS "oNome", o.tipo AS "oTipo", d.nome AS "dNome"
