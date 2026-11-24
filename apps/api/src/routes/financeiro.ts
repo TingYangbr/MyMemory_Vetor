@@ -177,6 +177,9 @@ const plugin: FastifyPluginAsync = async (app) => {
       lembreteAtivo: z.boolean().optional(),
       lembreteDias: z.array(z.number().int().min(0).max(30)).max(5).optional(),
       lembreteEmail: z.boolean().optional(),
+      lembreteQuem: z.enum(["dono", "membros", "escolhidos"]).optional(),
+      lembreteMembros: z.array(z.number().int().positive()).max(100).optional(),
+      lembreteEmails: z.string().max(500).optional(),
     }).parse(req.body);
     return salvarFinConfig(e, b);
   }));

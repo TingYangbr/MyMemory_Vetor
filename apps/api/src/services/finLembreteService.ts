@@ -9,7 +9,8 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { config } from "../config.js";
 import { sendLembreteEmail } from "../lib/mail.js";
 import { agenda, hojeSaoPaulo, resolverEspaco, type Espaco } from "./financeiroService.js";
-import { chaveEspaco, obterFinConfig } from "./finConfigService.js";
+import { chaveEspaco, membrosDoGrupo, obterFinConfig } from "./finConfigService.js";
+import type { FinConfig } from "@mymemory/shared";
 
 const somarDias = (d: string, n: number): string => {
   const t = new Date(`${d}T12:00:00Z`);
@@ -34,7 +35,38 @@ export interface LembreteFinSino {
   atrasado: boolean;
 }
 
-/** Sino: do espaço pessoal e do grupo em que o usuário está, com o lembrete ligado. */
+const RE_EMAIL = /[^\s,;<>"']+@[^\s,;<>"']+\.[^\s,;<>"']+/g;
+
+/** Ids dos membros que recebem o lembrete do grupo (dono, todos ou escolhidos). */
+async function idsDestinatariosGrupo(groupId: number, cfg: FinConfig): Promise<{ ids: Set<number>; emails: Map<number, string | null> }> {
+  const membros = await membrosDoGrupo(groupId);
+  const emails = new Map(membros.map((m) => [m.id, m.email]));
+  const ids =
+    cfg.lembreteQuem === "membros" ? membros.map((m) => m.id)
+    : cfg.lembreteQuem === "escolhidos" ? membros.filter((m) => cfg.lembreteMembros.includes(m.id)).map((m) => m.id)
+    : membros.filter((m) => m.dono).map((m) => m.id);
+  return { ids: new Set(ids), emails };
+}
+
+/** E-mails que recebem o lembrete do espaço: pessoal = o próprio; grupo = conforme "quem recebe"; mais os e-mails a mais. */
+async function emailsDestinatarios(e: Espaco, cfg: FinConfig): Promise<string[]> {
+  const lista: (string | null)[] = [];
+  if (e.groupId == null) {
+    const [u] = await pool.query<RowDataPacket[]>(`SELECT email FROM users WHERE id = ?`, [e.userId]);
+    lista.push(u[0]?.email ?? null);
+  } else {
+    const { ids, emails } = await idsDestinatariosGrupo(e.groupId, cfg);
+    for (const id of ids) lista.push(emails.get(id) ?? null);
+  }
+  lista.push(...(cfg.lembreteEmails.match(RE_EMAIL) ?? []));
+  const vistos = new Set<string>();
+  return lista
+    .filter((x): x is string => !!x && x.includes("@"))
+    .map((x) => x.trim())
+    .filter((x) => (vistos.has(x.toLowerCase()) ? false : (vistos.add(x.toLowerCase()), true)));
+}
+
+/** Sino: do espaço pessoal e do grupo em que o usuário está, com o lembrete ligado e ele entre os destinatários. */
 export async function lembretesFinanceiroDoUsuario(userId: number): Promise<LembreteFinSino[]> {
   const hoje = hojeSaoPaulo();
   const espacos: Espaco[] = [{ groupId: null, userId }];
@@ -44,6 +76,7 @@ export async function lembretesFinanceiroDoUsuario(userId: number): Promise<Lemb
   for (const e of espacos) {
     const cfg = await obterFinConfig(e);
     if (!cfg.lembreteAtivo) continue;
+    if (e.groupId != null && !(await idsDestinatariosGrupo(e.groupId, cfg)).ids.has(userId)) continue;
     const ate = Math.max(0, ...cfg.lembreteDias);
     for (const i of await vencimentosDoEspaco(e, hoje, ate)) {
       const dias = Math.round((Date.parse(i.vencimento) - Date.parse(hoje)) / 86400000);
@@ -60,8 +93,8 @@ export async function lembretesFinanceiroDoUsuario(userId: number): Promise<Lemb
   return out.sort((a, b) => a.vencimento.localeCompare(b.vencimento));
 }
 
-/** Espaços com contas no financeiro: o pessoal de cada usuário e cada grupo (com o e-mail de quem recebe). */
-async function espacosComContas(): Promise<{ e: Espaco; email: string | null; nome: string }[]> {
+/** Espaços com contas no financeiro: o pessoal de cada usuário e cada grupo (no grupo, o dono responde pelo espaço). */
+async function espacosComContas(): Promise<{ e: Espaco; nome: string }[]> {
   const [rows] = await pool.query<RowDataPacket[]>(
     `WITH esp AS (
        SELECT groupid, CASE WHEN groupid IS NULL THEN userid END AS uid FROM fin_titulos WHERE situacao = 'aberto'
@@ -69,17 +102,15 @@ async function espacosComContas(): Promise<{ e: Espaco; email: string | null; no
        UNION SELECT groupid, CASE WHEN groupid IS NULL THEN userid END FROM fin_contas
              WHERE tipo = 'cartao' AND dia_fechamento IS NOT NULL AND ativo = 1
      )
-     SELECT esp.groupid AS "gid", COALESCE(esp.uid, s.ownerid) AS "uid", u.email, g.name AS "grupo"
+     SELECT esp.groupid AS "gid", COALESCE(esp.uid, s.ownerid) AS "uid", g.name AS "grupo"
      FROM esp
      LEFT JOIN groups g ON g.id = esp.groupid
-     LEFT JOIN subscriptions s ON s.id = g.subscriptionid
-     LEFT JOIN users u ON u.id = COALESCE(esp.uid, s.ownerid)`
+     LEFT JOIN subscriptions s ON s.id = g.subscriptionid`
   );
   return rows
     .filter((r) => r.uid != null)
     .map((r) => ({
       e: { groupId: r.gid == null ? null : Number(r.gid), userId: Number(r.uid) },
-      email: r.email ? String(r.email) : null,
       nome: r.gid == null ? "espaço pessoal" : `grupo ${String(r.grupo ?? r.gid)}`,
     }));
 }
@@ -93,10 +124,10 @@ function horaSP(): number {
 export async function executarLembretesFinanceiro(): Promise<void> {
   if (horaSP() < 8) return;
   const hoje = hojeSaoPaulo();
-  for (const { e, email, nome } of await espacosComContas()) {
+  for (const { e, nome } of await espacosComContas()) {
     try {
       const cfg = await obterFinConfig(e);
-      if (!cfg.lembreteAtivo || !cfg.lembreteEmail || !email) continue;
+      if (!cfg.lembreteAtivo || !cfg.lembreteEmail) continue;
       const k = chaveEspaco(e);
       const [u] = await pool.query<RowDataPacket[]>(
         `SELECT to_char(lembrete_ultimo_dia, 'YYYY-MM-DD') AS "d" FROM fin_config WHERE espaco = ?`,
@@ -116,8 +147,13 @@ export async function executarLembretesFinanceiro(): Promise<void> {
         [k, hoje]
       );
       if (!itens.length) continue;
-      await enviarEmail(email, nome, hoje, itens);
-      console.info(`[lembretes-fin] ${k}: ${itens.length} conta(s) → ${email}`);
+      const para = await emailsDestinatarios(e, cfg);
+      for (const email of para) {
+        await enviarEmail(email, nome, hoje, itens).catch((err) =>
+          console.error(`[lembretes-fin] ${k} → ${email}:`, err instanceof Error ? err.message : err)
+        );
+      }
+      console.info(`[lembretes-fin] ${k}: ${itens.length} conta(s) → ${para.join(", ") || "ninguém"}`);
     } catch (err) {
       console.error(`[lembretes-fin] erro no espaço ${chaveEspaco(e)}:`, err instanceof Error ? err.message : err);
     }

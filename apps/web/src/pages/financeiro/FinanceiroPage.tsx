@@ -1191,7 +1191,17 @@ function AbaFaleComigo() {
   }
 
   if (!cfg) return erro ? <div className={styles.erro}>{erro}</div> : <div className={styles.vazio}>Carregando…</div>;
-  const itens: [Exclude<keyof FinConfig, "lembreteDias">, string, string][] = [
+  async function mudarCfg(patch: Partial<FinConfig>) {
+    setErro(null);
+    setSalvo(false);
+    try {
+      setCfg(await apiPatchJson<FinConfigResposta>("/api/fin/config", patch));
+      setSalvo(true);
+    } catch (e) {
+      setErro(msgErro(e));
+    }
+  }
+  const itens: [Exclude<keyof FinConfig, "lembreteDias" | "lembreteQuem" | "lembreteMembros" | "lembreteEmails">, string, string][] = [
     ["gravarDireto", "Gravar sem confirmar quando estiver completo",
       "Se a frase trouxer tudo (valor, grupo, conta…) sem dúvida, grava na hora e o cartão já vem gravado, com Desfazer. Faltando algo, o cartão abre para conferir."],
     ["criarGrupo", "Cadastrar grupo de despesa/receita pelo cartão",
@@ -1201,7 +1211,7 @@ function AbaFaleComigo() {
     ["lembreteAtivo", "Lembrete de vencimento",
       "Contas a pagar e a receber, faturas de cartão e contas fixas aparecem no sino quando estão perto de vencer ou atrasadas."],
     ["lembreteEmail", "Lembrete também por e-mail",
-      "Um e-mail por dia, de manhã, com o que vence hoje, nos dias escolhidos abaixo e o que atrasou ontem. No grupo, vai para o dono."],
+      "Um e-mail por dia, de manhã, com o que vence hoje, nos dias escolhidos abaixo e o que atrasou ontem, para quem recebe (abaixo)."],
   ];
   return (
     <div style={{ display: "grid", gap: 14, maxWidth: 640 }}>
@@ -1226,6 +1236,42 @@ function AbaFaleComigo() {
             onBlur={() => { if (dias != null) void mudarDias(dias); }}
             onKeyDown={(e) => { if (e.key === "Enter" && dias != null) void mudarDias(dias); }}
             placeholder="3, 0"
+          />
+        </label>
+      ) : null}
+      {cfg.lembreteAtivo && cfg.membros ? (
+        <div style={{ display: "grid", gap: 6 }}>
+          <b>Quem recebe o lembrete (sino e e-mail)</b>
+          {([["dono", "Só o dono do grupo"], ["membros", "Todos os membros"], ["escolhidos", "Membros escolhidos"]] as const).map(([v, r]) => (
+            <label key={v} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input type="radio" name="lembreteQuem" checked={cfg.lembreteQuem === v} disabled={!cfg.podeEditar}
+                onChange={() => void mudarCfg({ lembreteQuem: v })} />
+              {r}
+            </label>
+          ))}
+          {cfg.lembreteQuem === "escolhidos" ? (
+            <div style={{ display: "grid", gap: 4, paddingLeft: 24 }}>
+              {cfg.membros.map((m) => (
+                <label key={m.id} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <input type="checkbox" checked={cfg.lembreteMembros.includes(m.id)} disabled={!cfg.podeEditar}
+                    onChange={(e) => void mudarCfg({
+                      lembreteMembros: e.target.checked ? [...cfg.lembreteMembros, m.id] : cfg.lembreteMembros.filter((x) => x !== m.id),
+                    })} />
+                  {m.nome}{m.dono ? " (dono)" : ""}{m.email ? <small style={{ color: "var(--mm-muted)" }}> · {m.email}</small> : null}
+                </label>
+              ))}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+      {cfg.lembreteAtivo && cfg.lembreteEmail ? (
+        <label className={styles.campo} style={{ maxWidth: 480 }}>
+          E-mails a mais (opcional, separados por vírgula) — recebem só o e-mail
+          <input
+            defaultValue={cfg.lembreteEmails}
+            disabled={!cfg.podeEditar}
+            onBlur={(e) => { if (e.target.value !== cfg.lembreteEmails) void mudarCfg({ lembreteEmails: e.target.value }); }}
+            placeholder="contador@exemplo.com"
           />
         </label>
       ) : null}

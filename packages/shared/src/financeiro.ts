@@ -432,11 +432,19 @@ export interface FinConfig {
   lembreteDias: number[];
   /** Manda e-mail (de manhã) além do sino. */
   lembreteEmail: boolean;
+  /** No grupo, quem recebe (sino e e-mail): o dono, todos os membros ou os escolhidos. No pessoal, sempre o próprio. */
+  lembreteQuem: "dono" | "membros" | "escolhidos";
+  /** Membros escolhidos (ids), quando lembreteQuem = "escolhidos". */
+  lembreteMembros: number[];
+  /** E-mails a mais, separados por vírgula (só e-mail). */
+  lembreteEmails: string;
 }
 
 export interface FinConfigResposta extends FinConfig {
   /** Pode mudar os ajustes (dono do grupo, admin, ou o próprio usuário no espaço pessoal). */
   podeEditar: boolean;
+  /** No grupo: os membros, para escolher quem recebe o lembrete. */
+  membros?: { id: number; nome: string; email: string | null; dono: boolean }[];
 }
 
 export type FinComandoDesfazer =
