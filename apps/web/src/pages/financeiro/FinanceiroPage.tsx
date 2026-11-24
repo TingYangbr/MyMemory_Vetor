@@ -1651,11 +1651,11 @@ function AbaFaleComigo() {
   }
   const itens: [Exclude<keyof FinConfig, "lembreteDias" | "lembreteQuem" | "lembreteMembros" | "lembreteEmails">, string, string][] = [
     ["gravarDireto", "Gravar sem confirmar quando estiver completo",
-      "Se a frase trouxer tudo (valor, grupo, conta…) sem dúvida, grava na hora e o cartão já vem gravado, com Desfazer. Faltando algo, o cartão abre para conferir."],
-    ["criarGrupo", "Cadastrar grupo de despesa/receita pelo cartão",
-      "Mostra \"+ novo grupo\" ao lado do grupo no cartão, para cadastrar na hora o que ainda não existe."],
-    ["criarConta", "Cadastrar conta ou cartão pelo cartão",
-      "Mostra \"+ nova conta\" ao lado da conta no cartão (banco, cartão de crédito ou corretora)."],
+      "Se a frase trouxer tudo (valor, grupo, conta…) sem dúvida, grava na hora e o Form já vem gravado, com Desfazer. Faltando algo, o Form abre para conferir."],
+    ["criarGrupo", "Cadastrar grupo de despesa/receita pelo Form",
+      "Mostra \"+ novo grupo\" ao lado do grupo no Form, para cadastrar na hora o que ainda não existe."],
+    ["criarConta", "Cadastrar conta ou cartão pelo Form",
+      "Mostra \"+ nova conta\" ao lado da conta no Form (banco, cartão de crédito ou corretora)."],
     ["lembreteAtivo", "Lembrete de vencimento",
       "Contas a pagar e a receber, faturas de cartão e contas fixas aparecem no sino quando estão perto de vencer ou atrasadas."],
     ["lembreteEmail", "Lembrete também por e-mail",

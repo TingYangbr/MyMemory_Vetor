@@ -583,7 +583,7 @@ export async function perguntarMemory(input: {
       }));
       totalCost += fin.costUsd;
       return {
-        resposta: respostaComando(fin.proposta.mensagem, fin.proposta.gravado ? "Gravado direto (ajuste do Fale comigo no financeiro)." : "Nada foi salvo ainda: confira no cartão e toque em Salvar."),
+        resposta: respostaComando(fin.proposta.mensagem, fin.proposta.gravado ? "Gravado direto (ajuste do Fale comigo no financeiro)." : "Nada foi salvo ainda: confira no Form e toque em Salvar."),
         classificacao,
         apiCost: totalCost,
         finComando: fin.proposta,
@@ -645,7 +645,7 @@ export async function perguntarMemory(input: {
       return {
         resposta: respostaComando(
           criacao.mensagem,
-          "Registro novo ainda não gravado: confira no cartão e salve."
+          "Registro novo ainda não gravado: confira no Form e salve."
         ),
         classificacao,
         apiCost: totalCost,
