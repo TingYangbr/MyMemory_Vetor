@@ -1,3 +1,4 @@
+import { precosPapeis } from "./finCotacaoPapelService.js";
 import { SQL_RECALCULAR_FATURAS } from "./finConsultas.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -196,11 +197,19 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
        CASE WHEN c.tipo = 'investimento' THEN
          (SELECT COALESCE(SUM(l.quantidade), 0) FROM fin_lancamentos l
           WHERE (l.conta_destinoid = c.id OR l.conta_origemid = c.id) AND l.data <= ?)
-       END AS "qtd"
+       END AS "qtd",
+       CASE WHEN c.tipo = 'investimento' THEN
+         (SELECT COALESCE(SUM(o.valor_total), 0) FROM fin_operacoes_inv o
+          WHERE o.papel_contaid = c.id AND o.operacao = 'provento' AND o.data > (?::date - 365) AND o.data <= ?)
+       END AS "prov12"
      FROM fin_contas c WHERE ${f.sql}
      ORDER BY c.tipo, c.nome`,
-    [ate, ate, ate, de, ate, de, ate, ...f.params]
+    [ate, ate, ate, de, ate, de, ate, ate, ate, ...f.params]
   );
+  // Preço atual dos papéis da B3 em reais (cache de 30 min; brapi com token, senão o digitado)
+  const precos = await precosPapeis(
+    rows.filter((r) => r.tipo === "investimento" && String(r.moeda).trim() === "BRL" && r.papel).map((r) => String(r.papel))
+  ).catch(() => new Map());
   // Cotação de cada moeda estrangeira na data final (ou hoje, se o período ainda não acabou)
   const dataCot = ate < hojeSaoPaulo() ? ate : hojeSaoPaulo();
   const cotacoes = new Map<string, { data: string; valor: number } | null>();
@@ -236,8 +245,19 @@ export async function listarContasComSaldo(e: Espaco, de: string, ate: string): 
       saldoMoeda,
       custoMedioMoeda: estrangeira && qtd && qtd > 0 && saldoMoeda != null ? Math.round((saldoMoeda / qtd) * 1e6) / 1e6 : null,
       cotacao: cot,
-      // Valor de hoje só para dinheiro em moeda (o preço de um papel não temos)
+      // Valor de hoje só para dinheiro em moeda (papel: valor de mercado, abaixo)
       valorHoje: estrangeira && cot && saldoMoeda != null && tipo !== "investimento" ? r2(saldoMoeda * cot.valor) : null,
+      ...(() => {
+        if (tipo !== "investimento" || estrangeira || !r.papel) return {};
+        const p = precos.get(String(r.papel).trim().toUpperCase()) ?? null;
+        const vm = p && qtd != null ? r2(qtd * p.preco) : null;
+        return {
+          precoAtual: p,
+          valorMercado: vm,
+          resultadoNaoRealizado: vm != null ? r2(vm - saldo) : null,
+          proventos12m: r.prov12 != null ? r2(n(r.prov12)) : null,
+        };
+      })(),
     };
   });
 }

@@ -39,6 +39,7 @@ services:
       UPLOADS_DIR: /data/uploads
 
       RESEND_API_KEY: ${RESEND_API_KEY:-}
+      BRAPI_TOKEN: ${BRAPI_TOKEN:-}
       EMAIL_FROM: ${EMAIL_FROM:-}
 
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}

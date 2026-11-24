@@ -222,6 +222,12 @@ export interface FinContaSaldo extends FinConta {
   custoMedioMoeda: number | null;
   cotacao: { data: string; valor: number } | null;
   valorHoje: number | null;
+  /** Papel da B3 em reais: preço atual (brapi ou digitado), valor de mercado e resultado não realizado. */
+  precoAtual?: { preco: number; em: string; fonte: "brapi" | "manual" } | null;
+  valorMercado?: number | null;
+  resultadoNaoRealizado?: number | null;
+  /** Proventos recebidos nos últimos 12 meses (dividendos, JCP, rendimentos). */
+  proventos12m?: number | null;
 }
 
 export interface FinRecorrencia {
@@ -435,7 +441,9 @@ export interface FinConferencia {
 }
 
 /** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
-export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia";
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia" | "provento";
+
+export type FinTipoProvento = "dividendo" | "jcp" | "rendimento" | "juros";
 
 /** Papel já cadastrado no espaço (conta de investimento), com a posição de hoje. */
 export interface FinPapelOpcao {
@@ -521,6 +529,8 @@ export interface FinComandoProposta {
   grupoId: number | null;
   /** Transferência: para onde vai (contaId = de onde sai). */
   contaDestinoId?: number | null;
+  /** Provento: tipo e, no JCP, o valor bruto (antes do IR retido), se dito. */
+  provento?: { tipo: FinTipoProvento; valorBruto: number | null } | null;
   /** Pagamento: item em aberto da agenda ("t:<id>" ou "r:<recorrenciaId>:<referencia>"). */
   alvoChave: string | null;
   /** Compra/venda de papel (contaId = corretora; valor = valor total, se dito). */

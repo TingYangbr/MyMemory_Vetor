@@ -76,6 +76,8 @@ export const config = {
   jwtSecret: process.env.JWT_SECRET ?? "dev-jwt-secret-change-me",
   cookieSecure: isProd,
   resendApiKey: (process.env.RESEND_API_KEY ?? "").trim(),
+  /** brapi.dev: cotação dos papéis da B3 (valor de mercado dos investimentos). Vazio = só preço digitado. */
+  brapiToken: (process.env.BRAPI_TOKEN ?? "").trim(),
   /** Resend aceita `email@dominio` ou `Nome <email@dominio>`. */
   emailFrom: (process.env.EMAIL_FROM ?? "MyMemory <onboarding@resend.dev>").trim(),
   /** Origem do front (links nos e-mails). Sem barra final. */

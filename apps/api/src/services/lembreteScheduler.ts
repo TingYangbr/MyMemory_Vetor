@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { executarLembretesPendentes } from "./lembreteService.js";
 import { executarLembretesFinanceiro } from "./finLembreteService.js";
+import { atualizarCotacoesEmCarteira } from "./finCotacaoPapelService.js";
 
 let iniciado = false;
 let rodando = false;
@@ -21,6 +22,10 @@ export function iniciarLembreteScheduler(): void {
       await executarLembretesPendentes();
       await executarLembretesFinanceiro().catch((err) =>
         console.error("[lembreteScheduler] financeiro:", err instanceof Error ? err.message : err)
+      );
+      // Cotações dos papéis em carteira (brapi, renova o que tem mais de 30 min)
+      await atualizarCotacoesEmCarteira().catch((err) =>
+        console.error("[lembreteScheduler] cotações:", err instanceof Error ? err.message : err)
       );
     } catch (err) {
       console.error("[lembreteScheduler] erro:", err instanceof Error ? err.message : err);
