@@ -124,3 +124,35 @@
 @media (max-width: 640px) {
   .pop { position: fixed; left: 12px; right: 12px; top: 64px; width: auto; max-width: none; }
 }
+
+/* Grupo de origem do lembrete: etiqueta verde para achar o contexto de relance */
+.grupo {
+  display: inline-block;
+  margin-bottom: 0.2rem;
+  padding: 0.05rem 0.45rem;
+  border: 1px solid #0f766e;
+  border-radius: 999px;
+  background: #ccfbf1;
+  color: #115e59;
+  font-size: 0.7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (prefers-color-scheme: dark) {
+  :global(:root:not([data-theme="light"])) .grupo {
+    background: rgba(20, 184, 166, 0.18);
+    border-color: #2dd4bf;
+    color: #99f6e4;
+  }
+}
+
+:global(:root[data-theme="dark"]) .grupo {
+  background: rgba(20, 184, 166, 0.18);
+  border-color: #2dd4bf;
+  color: #99f6e4;
+}
