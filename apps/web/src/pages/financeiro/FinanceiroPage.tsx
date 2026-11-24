@@ -1165,6 +1165,20 @@ function AbaFaleComigo() {
     apiGet<FinConfigResposta>("/api/fin/config").then(setCfg).catch((e) => setErro(msgErro(e)));
   }, []);
 
+  const [dias, setDias] = useState<string | null>(null);
+  async function mudarDias(texto: string) {
+    const lista = texto.split(/[,;\s]+/).map((x) => Math.trunc(Number(x))).filter((x) => Number.isFinite(x) && x >= 0 && x <= 30);
+    setErro(null);
+    setSalvo(false);
+    try {
+      setCfg(await apiPatchJson<FinConfigResposta>("/api/fin/config", { lembreteDias: [...new Set(lista)].slice(0, 5) }));
+      setDias(null);
+      setSalvo(true);
+    } catch (e) {
+      setErro(msgErro(e));
+    }
+  }
+
   async function mudar(campo: keyof FinConfig, valor: boolean) {
     setErro(null);
     setSalvo(false);
@@ -1177,13 +1191,17 @@ function AbaFaleComigo() {
   }
 
   if (!cfg) return erro ? <div className={styles.erro}>{erro}</div> : <div className={styles.vazio}>Carregando…</div>;
-  const itens: [keyof FinConfig, string, string][] = [
+  const itens: [Exclude<keyof FinConfig, "lembreteDias">, string, string][] = [
     ["gravarDireto", "Gravar sem confirmar quando estiver completo",
       "Se a frase trouxer tudo (valor, grupo, conta…) sem dúvida, grava na hora e o cartão já vem gravado, com Desfazer. Faltando algo, o cartão abre para conferir."],
     ["criarGrupo", "Cadastrar grupo de despesa/receita pelo cartão",
       "Mostra \"+ novo grupo\" ao lado do grupo no cartão, para cadastrar na hora o que ainda não existe."],
     ["criarConta", "Cadastrar conta ou cartão pelo cartão",
       "Mostra \"+ nova conta\" ao lado da conta no cartão (banco, cartão de crédito ou corretora)."],
+    ["lembreteAtivo", "Lembrete de vencimento",
+      "Contas a pagar e a receber, faturas de cartão e contas fixas aparecem no sino quando estão perto de vencer ou atrasadas."],
+    ["lembreteEmail", "Lembrete também por e-mail",
+      "Um e-mail por dia, de manhã, com o que vence hoje, nos dias escolhidos abaixo e o que atrasou ontem. No grupo, vai para o dono."],
   ];
   return (
     <div style={{ display: "grid", gap: 14, maxWidth: 640 }}>
@@ -1198,6 +1216,19 @@ function AbaFaleComigo() {
           </span>
         </label>
       ))}
+      {cfg.lembreteAtivo ? (
+        <label className={styles.campo} style={{ maxWidth: 360 }}>
+          Avisar quantos dias antes (0 = no dia; separe por vírgula)
+          <input
+            value={dias ?? cfg.lembreteDias.join(", ")}
+            disabled={!cfg.podeEditar}
+            onChange={(e) => setDias(e.target.value)}
+            onBlur={() => { if (dias != null) void mudarDias(dias); }}
+            onKeyDown={(e) => { if (e.key === "Enter" && dias != null) void mudarDias(dias); }}
+            placeholder="3, 0"
+          />
+        </label>
+      ) : null}
       {!cfg.podeEditar ? <small style={{ color: "var(--mm-muted)" }}>Só o dono do grupo muda estes ajustes.</small> : null}
       {erro ? <div className={styles.erro}>{erro}</div> : null}
       {salvo ? <div className={styles.ok}>Salvo.</div> : null}

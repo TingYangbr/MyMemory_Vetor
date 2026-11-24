@@ -1,5 +1,6 @@
 import cron from "node-cron";
 import { executarLembretesPendentes } from "./lembreteService.js";
+import { executarLembretesFinanceiro } from "./finLembreteService.js";
 
 let iniciado = false;
 let rodando = false;
@@ -18,6 +19,9 @@ export function iniciarLembreteScheduler(): void {
     rodando = true;
     try {
       await executarLembretesPendentes();
+      await executarLembretesFinanceiro().catch((err) =>
+        console.error("[lembreteScheduler] financeiro:", err instanceof Error ? err.message : err)
+      );
     } catch (err) {
       console.error("[lembreteScheduler] erro:", err instanceof Error ? err.message : err);
     } finally {

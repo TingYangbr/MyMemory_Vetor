@@ -175,7 +175,7 @@ export function SinoNotificacoes() {
               )
             ) : dados?.lembretes.length ? (
               dados.lembretes.map((l) => (
-                <Link key={l.id} to={`/memo/${l.memoId}/editar`} className={`${styles.item} ${l.noPrazo ? styles.naoLido : ""}`}>
+                <Link key={l.id} to={l.memoId ? `/memo/${l.memoId}/editar` : "/financeiro"} className={`${styles.item} ${l.noPrazo ? styles.naoLido : ""}`}>
                   <span className={`${styles.ic} ${styles.icLembrete}`} aria-hidden>
                     <IconCalendar size={16} />
                   </span>

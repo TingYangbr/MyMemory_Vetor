@@ -516,7 +516,7 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 | # | Pendência | Situação |
 |---|---|---|
 | 1 | **Cartão de crédito com fatura:** compra no cartão entra no ciclo da fatura (dia de fechamento e de vencimento do cartão), a fatura aparece como conta a pagar e o pagamento da fatura a quita | feito (13.18) |
-| 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | a fazer |
+| 2 | **Lembrete de vencimento** ("conta vence amanhã") lendo títulos e recorrências | feito (13.19) |
 | 3 | **Importador de extrato bancário com conciliação** (seção 5); depois fatura do cartão, Movimentação da B3 via API e notas de corretagem; baixa via API do banco | a fazer |
 | 4 | **Investimentos, parte 2:** proventos (dividendos, JCP), eventos (desdobramento, grupamento, bonificação), posição a valor de mercado | a fazer |
 | 5 | **Câmbio por frase** ("comprei 1.000 dólares a 5,40 na Avenue") | a fazer |
@@ -549,4 +549,11 @@ No livro de dois lados, **Contas a Receber** e **Contas a Pagar** são contas co
 - **Compra parcelada no cartão:** "comprei uma TV de 3.000 em 10x no Nubank" gera 10 compras de 300, cada uma na data do seu mês, e portanto uma em cada fatura. Elas ficam ligadas por lote: excluir uma exclui todas. No Fale comigo é tipo gasto com parcelas; uma "conta" com cartão vira gasto parcelado no cartão.
 - **Fale comigo:** "paguei a fatura do Itaú" paga o item da fatura; pagar menos não pede decisão. Na consulta de lançamentos, `fatura` serve de coluna e de filtro ("o que tem na fatura de dezembro do Itaú").
 - **API:** `GET /api/fin/faturas/:cartaoId/:vencimento`, `POST /api/fin/faturas/pagamento`, `PATCH /api/fin/lancamentos/:id/fatura` e `POST /api/fin/cartao/parcelado`.
+
+### 13.19 Lembrete de vencimento (24/11/2026)
+
+- **O que avisa:** contas a pagar e a receber em aberto, as mesmas da aba Previstos: títulos (parcelas e contas a prazo), recorrentes previstas e faturas de cartão.
+- **Sino:** mostra as contas atrasadas e as que vencem de hoje até o maior dos "dias antes" configurados (padrão 3), do espaço pessoal e do grupo em que o usuário está. Elas contam no número do sino e o clique abre Contas a pagar e receber.
+- **E-mail:** um por dia e por espaço, a partir das 8h de São Paulo, com o que vence hoje, nos dias configurados (padrão 3 dias antes e no dia) e o que atrasou ontem. No espaço pessoal vai para o usuário; no grupo, para o dono. Sem conta no dia, não manda nada. O robô roda junto com o dos lembretes de memo (a cada 5 minutos), e `fin_config.lembrete_ultimo_dia` garante um envio por dia.
+- **Ajustes** (aba Fale comigo da tela, por espaço): Lembrete de vencimento (ligado por padrão), Lembrete também por e-mail (ligado por padrão) e "Avisar quantos dias antes" (ex.: 3, 0). No grupo, só o dono muda. Migration 212.
 

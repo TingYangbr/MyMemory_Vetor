@@ -170,7 +170,14 @@ const plugin: FastifyPluginAsync = async (app) => {
   }));
 
   app.patch("/api/fin/config", rota(async (e, req) => {
-    const b = z.object({ gravarDireto: z.boolean().optional(), criarGrupo: z.boolean().optional(), criarConta: z.boolean().optional() }).parse(req.body);
+    const b = z.object({
+      gravarDireto: z.boolean().optional(),
+      criarGrupo: z.boolean().optional(),
+      criarConta: z.boolean().optional(),
+      lembreteAtivo: z.boolean().optional(),
+      lembreteDias: z.array(z.number().int().min(0).max(30)).max(5).optional(),
+      lembreteEmail: z.boolean().optional(),
+    }).parse(req.body);
     return salvarFinConfig(e, b);
   }));
 

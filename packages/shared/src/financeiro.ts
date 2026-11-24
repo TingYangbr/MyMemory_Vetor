@@ -426,6 +426,12 @@ export interface FinConfig {
   criarGrupo: boolean;
   /** O cartão mostra "+ nova" ao lado da conta/cartão, para cadastrar na hora. */
   criarConta: boolean;
+  /** Lembrete de vencimento: no sino e por e-mail (contas a pagar/receber, faturas, recorrentes). */
+  lembreteAtivo: boolean;
+  /** Quantos dias antes do vencimento avisar (0 = no dia). Ex.: [3, 0]. */
+  lembreteDias: number[];
+  /** Manda e-mail (de manhã) além do sino. */
+  lembreteEmail: boolean;
 }
 
 export interface FinConfigResposta extends FinConfig {
