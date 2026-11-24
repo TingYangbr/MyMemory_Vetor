@@ -514,6 +514,26 @@ export default function FinComandoCartao({
               </small>
             ) : null}
           </label>
+          {(() => {
+            // Preço atual do papel (só para ver): do papel escolhido, ou o buscado pelo ticker da frase (papel novo)
+            const inv = proposta.investimento;
+            const pa = papelItem?.precoAtual ?? (papelSel === "novo" && inv?.ticker && tickerNovo.trim().toUpperCase() === inv.ticker ? inv.precoAtual : null) ?? null;
+            const amarelo: React.CSSProperties = { background: "#fef9c3", color: "#422006", cursor: "default" };
+            const quando = pa ? `${pa.em.slice(8, 10)}/${pa.em.slice(5, 7)}/${pa.em.slice(0, 4)} ${pa.em.slice(11)}${pa.fonte === "manual" ? " (digitado)" : ""}` : "";
+            return (
+              <>
+                <label style={rot}>
+                  <span>Valor atualizado</span>
+                  <input className="mm-field" readOnly tabIndex={-1} style={amarelo} value={pa ? brl(pa.preco) : "sem cotação"}
+                    title="Preço atual do papel (B3 pela brapi, ou o digitado). Só para conferir: o preço da operação é o do campo Preço." />
+                </label>
+                <label style={rot}>
+                  <span>Horário da cotação</span>
+                  <input className="mm-field" readOnly tabIndex={-1} style={amarelo} value={quando || "—"} />
+                </label>
+              </>
+            );
+          })()}
           {papelSel === "novo" ? (
             <label style={rot}>
               <span>Ticker{marca(!tickerNovo.trim())}</span>

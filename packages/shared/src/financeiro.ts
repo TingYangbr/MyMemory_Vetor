@@ -454,6 +454,8 @@ export interface FinPapelOpcao {
   quantidade: number;
   custoMedio: number | null;
   moeda: string;
+  /** Preço atual (brapi ou digitado) e quando, para mostrar no card. */
+  precoAtual?: { preco: number; em: string; fonte: "brapi" | "manual" } | null;
 }
 
 /** Compra/venda de papel no cartão do Fale comigo. A corretora é o contaId da proposta. */
@@ -464,6 +466,8 @@ export interface FinComandoInvestimento {
   quantidade: number | null;
   preco: number | null;
   taxas: number | null;
+  /** Preço atual do papel (inclusive de papel novo, pelo ticker), só para mostrar. */
+  precoAtual?: { preco: number; em: string; fonte: "brapi" | "manual" } | null;
 }
 
 /**

@@ -9,6 +9,7 @@ import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
 import { FinErro, criarConta, criarLancamento, venderInvestimento, type Espaco } from "./financeiroService.js";
 import type { FinTipoProvento } from "@mymemory/shared";
+import { precosPapeis } from "./finCotacaoPapelService.js";
 
 export type FinOrigemOperacao = "falecomigo" | "tela" | "b3" | "nota";
 
@@ -183,6 +184,8 @@ export async function registrarOperacaoInvestimento(e: Espaco, op: FinOperacaoIn
     await pool.query(`DELETE FROM fin_operacoes_inv WHERE id = ?`, [operacaoId]);
     throw err;
   }
+  // Compra: busca o preço atual do papel já (brapi com token), sem esperar o robô — sem bloquear a resposta
+  if (op.operacao === "compra" && papel.moeda === "BRL") void precosPapeis([papel.ticker]).catch(() => undefined);
   return { operacaoId, papelContaId: papel.id, ticker: papel.ticker, como: "nova", valorTotal };
 }
 
