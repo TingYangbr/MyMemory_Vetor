@@ -1193,6 +1193,13 @@ Convidar uma pessoa por e-mail e acompanhar os convites (enviado, aceito, expira
 ## Tabelas do banco (suporte)
 Admin → Sistema → **Tabelas do banco** mostra o conteúdo das tabelas do banco (Postgres), **só para leitura**. Serve para conferir o que foi gravado.
 - **No topo:** o tamanho do banco inteiro (dados e índices), o número de tabelas e de views e a hora da medição. O botão **Medir de novo** atualiza.
+- **Por grupo:** o seletor **Ver** filtra pelo grupo ativo, por outro grupo ou pelos espaços pessoais (sem grupo).
+  - As tabelas com coluna de grupo mostram só as linhas daquele grupo, e a lista traz quantas são.
+  - As tabelas **compartilhadas**, marcadas com **\***, não têm coluna de grupo e aparecem sempre inteiras.
+- **Armazenagem por grupo:** o botão mostra quanto cada grupo ocupa no banco, com linhas, tamanho estimado e % do banco, além da parte compartilhada.
+  - É uma estimativa: em cada tabela, o tamanho é repartido pela proporção de linhas de cada grupo.
+  - Arquivos guardados no S3 ou em disco não entram.
+  - Clicar no nome de um grupo passa a ver só os dados dele.
 - **Escolher a tabela:** a lista à esquerda traz todas as tabelas e views, com o número aproximado de linhas e o tamanho de cada tabela. O campo no topo filtra a lista pelo nome.
 - **Lotes de 1000:** os registros vêm de 1000 em 1000. Use "Próximo lote" e "Lote anterior" para navegar; o topo mostra "1–1000 de N".
 - **Ordem:**
