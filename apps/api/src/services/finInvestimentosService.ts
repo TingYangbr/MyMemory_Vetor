@@ -7,7 +7,7 @@
 import { randomUUID } from "node:crypto";
 import { pool } from "../db.js";
 import type { RowDataPacket } from "../lib/dbTypes.js";
-import { FinErro, criarConta, criarLancamento, venderInvestimento, type Espaco } from "./financeiroService.js";
+import { FinErro, contaSistemaId, criarConta, criarLancamento, venderInvestimento, type Espaco } from "./financeiroService.js";
 import type { FinTipoProvento } from "@mymemory/shared";
 import { precosPapeis } from "./finCotacaoPapelService.js";
 
@@ -353,4 +353,85 @@ export async function registrarEvento(
       custo || null, fator, inp.origem, lote]
   );
   return { operacaoId: Number(ins[0].id), ticker: papel.ticker, quantidadeAntes: q, quantidadeDepois: Math.round((q + delta) * 1e6) / 1e6 };
+}
+
+
+// ── Posição inicial (quem já investia antes de começar a usar) ──────────────
+
+export interface FinPosicaoInicialEntrada {
+  papelContaId?: number | null;
+  ticker?: string | null;
+  corretoraId?: number | null;
+  /** Data da posição (ex.: 31/12/2025): o acompanhamento começa depois dela. */
+  data: string;
+  quantidade: number;
+  /** Preço médio por unidade (na moeda do papel); sem ele, o custo total. */
+  precoMedio?: number | null;
+  custoTotal?: number | null;
+  /** Papel em outra moeda: quanto o custo vale em reais (sem ele, a cotação PTAX da data). */
+  custoReais?: number | null;
+  origem: FinOrigemOperacao;
+}
+
+/**
+ * Posição inicial de um papel: quantidade e custo (preço médio) numa data, vindos do Saldo inicial (patrimônio) — sem
+ * tirar dinheiro do caixa da corretora, como seria numa compra. Fica como operação "evento/posicao_inicial" (desfaz
+ * pelo lote). Daí em diante, compras, vendas (ganho pelo preço médio informado), proventos e eventos seguem normais.
+ */
+export async function registrarPosicaoInicial(e: Espaco, inp: FinPosicaoInicialEntrada): Promise<{ operacaoId: number; ticker: string; custo: number }> {
+  if (!(inp.quantidade > 0)) throw new FinErro("quantidade", "Informe a quantidade.");
+  let papel: { id: number; ticker: string; moeda: string };
+  let corretoraId: number;
+  if (inp.papelContaId) {
+    const p = await papelDoEvento(e, { papelContaId: inp.papelContaId });
+    papel = { id: p.id, ticker: p.ticker, moeda: (await papelPorId(e, p.id)).moeda };
+    corretoraId = p.corretoraId;
+  } else {
+    if (!inp.corretoraId) throw new FinErro("corretora", "Escolha a corretora.");
+    papel = await resolverPapel(e, inp.ticker ?? "", inp.corretoraId, true);
+    corretoraId = inp.corretoraId;
+  }
+  const custo = inp.custoTotal && inp.custoTotal > 0 ? inp.custoTotal : inp.precoMedio && inp.precoMedio > 0 ? inp.precoMedio * inp.quantidade : 0;
+  if (!(custo > 0)) throw new FinErro("custo", "Informe o preço médio ou o custo total.");
+  const moedaOutra = papel.moeda !== "BRL";
+  const lote = randomUUID();
+  const saldoInicial = await contaSistemaId(e, "saldo_inicial");
+  await criarLancamento(e, {
+    data: inp.data,
+    descricao: `Posição inicial ${papel.ticker}`,
+    valor: moedaOutra ? (inp.custoReais && inp.custoReais > 0 ? r2(inp.custoReais) : null) : r2(custo),
+    valorMoeda: moedaOutra ? r2(custo) : null,
+    contaOrigemId: saldoInicial,
+    contaDestinoId: papel.id,
+    quantidade: inp.quantidade,
+    lote,
+  });
+  const [ins] = await pool.query<RowDataPacket[]>(
+    `INSERT INTO fin_operacoes_inv (groupid, userid, data, operacao, subtipo, ticker, papel_contaid, corretora_contaid,
+       quantidade, preco, valor_total, moeda, origem, situacao, lote)
+     VALUES (?, ?, ?, 'evento', 'posicao_inicial', ?, ?, ?, ?, ?, ?, ?, ?, 'relatada', ?) RETURNING id`,
+    [e.groupId, e.userId, inp.data, papel.ticker, papel.id, corretoraId, inp.quantidade,
+      Math.round((custo / inp.quantidade) * 1e6) / 1e6, r2(custo), papel.moeda, inp.origem, lote]
+  );
+  return { operacaoId: Number(ins[0].id), ticker: papel.ticker, custo: r2(custo) };
+}
+
+/** Várias posições iniciais de uma corretora (lista colada ou CSV do relatório da corretora). */
+export async function registrarPosicoesIniciais(
+  e: Espaco,
+  inp: { corretoraId: number; data: string; itens: { ticker: string; quantidade: number; precoMedio?: number | null; custoTotal?: number | null }[] }
+): Promise<{ gravados: { ticker: string; operacaoId: number }[]; erros: string[] }> {
+  const out = { gravados: [] as { ticker: string; operacaoId: number }[], erros: [] as string[] };
+  for (const it of inp.itens) {
+    try {
+      const r = await registrarPosicaoInicial(e, {
+        ticker: it.ticker, corretoraId: inp.corretoraId, data: inp.data, quantidade: it.quantidade,
+        precoMedio: it.precoMedio ?? null, custoTotal: it.custoTotal ?? null, origem: "tela",
+      });
+      out.gravados.push({ ticker: r.ticker, operacaoId: r.operacaoId });
+    } catch (err) {
+      out.erros.push(`${it.ticker}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+  return out;
 }

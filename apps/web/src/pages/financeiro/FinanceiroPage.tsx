@@ -496,6 +496,143 @@ function ImportarExtrato({ ctx, conta, fechar }: { ctx: Ctx; conta: FinContaSald
   );
 }
 
+/** Número escrito em pt-BR ou en ("1.234,56", "1234.56", "800") → número. */
+function numeroLivre(s: string): number {
+  const t = s.replace(/[^\d,.-]/g, "");
+  if (!t) return NaN;
+  if (t.includes(",") && t.includes(".")) return Number(t.lastIndexOf(",") > t.lastIndexOf(".") ? t.replace(/\./g, "").replace(",", ".") : t.replace(/,/g, ""));
+  if (t.includes(",")) return Number(t.replace(",", "."));
+  // Só pontos: "1.500" / "12.345.678" = milhar (padrão brasileiro); "32.10" = decimal
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) return Number(t.replace(/\./g, ""));
+  return Number(t);
+}
+
+type LinhaPosicao = { ticker: string; quantidade: number; precoMedio: number | null; custoTotal: number | null; erro: string | null };
+
+/**
+ * Lê uma lista colada ou o CSV do relatório de posição da corretora. Separador: ; , tab ou espaços. Com cabeçalho, acha
+ * as colunas pelo nome (ativo/ticker/código, quantidade/qtd, preço médio/PM/custo médio, custo total/valor investido);
+ * sem cabeçalho, a ordem é ticker, quantidade, preço médio.
+ */
+export function lerListaPosicao(texto: string): LinhaPosicao[] {
+  const linhas = texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  if (!linhas.length) return [];
+  // Separador decidido pela 1ª linha (tab, ";" ou ","); linha sem ele é dividida por espaços
+  const primeira = linhas[0];
+  // Vírgula só é separador quando parece cabeçalho ("Código,Qtd") ou a linha não tem espaços ("VALE3,100,5656.00");
+  // em "PETR4 800 32,10" ela é a vírgula decimal
+  const virgulaSep = primeira.includes(",") && (/[^\d\s],|,[^\d\s]/.test(primeira) || !/\s/.test(primeira));
+  const s0 = primeira.includes("\t") ? "\t" : primeira.includes(";") ? ";" : virgulaSep ? "," : null;
+  const sep = (l: string) => (s0 && l.includes(s0) ? l.split(s0) : l.split(/\s{2,}|\s+(?=[\d-])/));
+  const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
+  const cab = sep(linhas[0]).map(norm);
+  const acha = (re: RegExp) => cab.findIndex((c) => re.test(c));
+  const temCab = cab.some((c) => /(ativo|ticker|codigo|papel|quant|qtd|preco|medio|custo)/.test(c));
+  const iT = temCab ? acha(/(ativo|ticker|codigo|papel|produto)/) : 0;
+  const iQ = temCab ? acha(/(quant|qtd|qtde)/) : 1;
+  const iP = temCab ? acha(/(preco medio|pm|custo medio|preco$|medio)/) : 2;
+  const iC = temCab ? acha(/(custo total|valor investido|total investido|custo de aquisicao|valor aplicado)/) : -1;
+  return (temCab ? linhas.slice(1) : linhas).map((l) => {
+    const c = sep(l).map((x) => x.trim());
+    const bruto = (c[iT] ?? "").toUpperCase();
+    const ticker = (/[A-Z]{4}\d{1,2}F?/.exec(bruto)?.[0] ?? bruto).replace(/F$/, "");
+    const quantidade = numeroLivre(c[iQ] ?? "");
+    const pm = iP >= 0 ? numeroLivre(c[iP] ?? "") : NaN;
+    const ct = iC >= 0 ? numeroLivre(c[iC] ?? "") : NaN;
+    const erro = !/^[A-Z0-9]{4,6}\d{0,2}$/.test(ticker) ? "ticker não reconhecido"
+      : !(quantidade > 0) ? "quantidade inválida"
+      : !(pm > 0) && !(ct > 0) ? "falta preço médio ou custo"
+      : null;
+    return { ticker, quantidade, precoMedio: pm > 0 ? pm : null, custoTotal: !(pm > 0) && ct > 0 ? ct : null, erro };
+  });
+}
+
+/** Posição inicial de vários papéis de uma corretora: lista colada ou CSV do relatório de posição. */
+function PosicaoInicialLote({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
+  const [corretora, setCorretora] = useState("");
+  const [data, setData] = useState(`${new Date().getFullYear() - 1}-12-31`);
+  const [texto, setTexto] = useState("");
+  const [res, setRes] = useState<string | null>(null);
+  const [gravando, setGravando] = useState(false);
+  const linhas = useMemo(() => lerListaPosicao(texto), [texto]);
+  const validas = linhas.filter((l) => !l.erro);
+  const total = validas.reduce((s, l) => s + (l.custoTotal ?? l.quantidade * (l.precoMedio ?? 0)), 0);
+  async function arquivo(f: File | undefined) {
+    if (!f) return;
+    const buf = await f.arrayBuffer();
+    let t: string;
+    try { t = new TextDecoder("utf-8", { fatal: true }).decode(buf); } catch { t = new TextDecoder("windows-1252").decode(buf); }
+    setTexto(t);
+  }
+  async function gravar() {
+    setGravando(true); setRes(null);
+    const ok = await ctx.agir(async () => {
+      const r = await apiPostJson<{ gravados: { ticker: string }[]; erros: string[] }>("/api/fin/investimentos/posicao-inicial/lote", {
+        corretoraId: Number(corretora), data,
+        itens: validas.map((l) => ({ ticker: l.ticker, quantidade: l.quantidade, precoMedio: l.precoMedio, custoTotal: l.custoTotal })),
+      });
+      setRes(`${r.gravados.length} papel(éis) registrado(s).${r.erros.length ? ` Não entraram: ${r.erros.join("; ")}.` : ""}`);
+    });
+    setGravando(false);
+    if (ok) setTexto("");
+  }
+  const cel: React.CSSProperties = { padding: "3px 6px", borderBottom: "1px solid var(--mm-border-muted)", textAlign: "left", fontSize: 13 };
+  return createPortal(
+    <div className={janela.overlay} onClick={() => !gravando && fechar()}>
+      <div className={janela.cartao} role="dialog" aria-label="Posição inicial de papéis" style={{ width: "min(820px, 100%)" }} onClick={(e) => e.stopPropagation()}>
+        <div className={janela.topo}>
+          <div>
+            <b>Posição inicial de papéis</b>
+            <div className={janela.id}>Para quem já investia: a carteira numa data (ex.: 31/12/2025), sem lançar todo o histórico.</div>
+          </div>
+          <button type="button" className={janela.fechar} onClick={fechar} disabled={gravando} aria-label="Fechar">×</button>
+        </div>
+        <div className={styles.grade}>
+          <label className={styles.campo}>Corretora
+            <SelConta valor={corretora} onChange={setCorretora} contas={ctx.contas} tipos={["corretora", "banco"]} />
+          </label>
+          <label className={styles.campo}>Data da posição<input type="date" value={data} onChange={(e) => setData(e.target.value)} /></label>
+          <label className={styles.campo}>Arquivo CSV (opcional)<input type="file" accept=".csv,.txt" onChange={(e) => void arquivo(e.target.files?.[0])} /></label>
+        </div>
+        <label className={styles.campo} style={{ marginTop: 8 }}>
+          Cole a lista: uma linha por papel — ticker, quantidade, preço médio (ou o CSV do relatório de posição, com cabeçalho)
+          <textarea rows={7} value={texto} onChange={(e) => setTexto(e.target.value)} placeholder={"PETR4; 800; 32,10\nITSA4; 1.500; 9,85\nHGLG11; 120; 158,40"} style={{ fontFamily: "monospace" }} />
+        </label>
+        {linhas.length ? (
+          <div style={{ maxHeight: 260, overflow: "auto", marginTop: 8 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+              <thead><tr><th style={cel}>Papel</th><th style={cel}>Quantidade</th><th style={cel}>Preço médio</th><th style={cel}>Custo</th><th style={cel}></th></tr></thead>
+              <tbody>
+                {linhas.map((l, i) => (
+                  <tr key={i} style={{ color: l.erro ? "var(--mm-danger)" : undefined }}>
+                    <td style={cel}>{l.ticker || "?"}</td>
+                    <td style={cel}>{Number.isFinite(l.quantidade) ? l.quantidade.toLocaleString("pt-BR") : "?"}</td>
+                    <td style={cel}>{l.precoMedio != null ? brl(l.precoMedio) : l.custoTotal != null ? "—" : "?"}</td>
+                    <td style={cel}>{l.erro ? "" : brl(l.custoTotal ?? l.quantidade * (l.precoMedio ?? 0))}</td>
+                    <td style={cel}>{l.erro ?? ""}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+        <p className={styles.dica}>
+          Cada papel entra como posição inicial vinda do Saldo inicial (não tira dinheiro da corretora); papel que ainda não existe nesta corretora é cadastrado.
+          Informe também o dinheiro parado na corretora nessa data, como saldo inicial da conta da corretora.
+        </p>
+        {res ? <div className={styles.ok}>{res}</div> : null}
+        <div className={styles.formAcoes}>
+          <button type="button" className={styles.btn} onClick={fechar} disabled={gravando}>Fechar</button>
+          <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={gravando || !corretora || !validas.length} onClick={() => void gravar()}>
+            {gravando ? "Registrando…" : `Registrar ${validas.length} papel(éis)${validas.length ? ` · ${brl(total)}` : ""}`}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
 /** Provento ou evento (desdobramento, grupamento, bonificação) de um papel. */
 function FormInvestimento({ ctx, conta, tipo, fechar }: { ctx: Ctx; conta: FinContaSaldo; tipo: "provento" | "evento"; fechar: () => void }) {
   const [data, setData] = useState(ctx.hoje);
@@ -1115,6 +1252,7 @@ const ORDEM_TIPOS: FinTipoConta[] = ["banco", "cartao", "corretora", "investimen
 function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
   const [extrato, setExtrato] = useState<FinContaSaldo | null>(null);
   const [invAcao, setInvAcao] = useState<{ conta: FinContaSaldo; tipo: "provento" | "evento" } | null>(null);
+  const [lotePos, setLotePos] = useState(false);
   const [nova, setNova] = useState(false);
   return (
     <>
@@ -1125,6 +1263,7 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
           </span>
         ) : null}
         <span className={styles.sp} />
+        <button type="button" className={styles.btn} onClick={() => setLotePos(true)} title="Papéis que você já tinha: vários de uma vez (lista colada ou CSV da corretora)">Posição inicial de papéis</button>
         <button type="button" className={styles.btn} onClick={() => setNova(!nova)}>+ Conta</button>
       </div>
       {nova ? <FormConta ctx={ctx} fechar={() => setNova(false)} /> : null}
@@ -1226,6 +1365,7 @@ function AbaContas({ ctx, conf }: { ctx: Ctx; conf: FinConferencia | null }) {
         );
       })}
       {extrato ? <ImportarExtrato ctx={ctx} conta={extrato} fechar={() => setExtrato(null)} /> : null}
+      {lotePos ? <PosicaoInicialLote ctx={ctx} fechar={() => setLotePos(false)} /> : null}
       {invAcao ? createPortal(<div className={janela.overlay} onClick={() => setInvAcao(null)}><div className={janela.cartao} style={{ width: "min(640px, 100%)" }} onClick={(e) => e.stopPropagation()}><FormInvestimento ctx={ctx} conta={invAcao.conta} tipo={invAcao.tipo} fechar={() => setInvAcao(null)} /></div></div>, document.body) : null}
     </>
   );
@@ -1242,11 +1382,15 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
   const [mercado, setMercado] = useState<"local" | "exterior">("local");
   const [dataSaldo, setDataSaldo] = useState(ctx.hoje);
   const [diaFech, setDiaFech] = useState("");
+  const [posQtd, setPosQtd] = useState("");
+  const [posPm, setPosPm] = useState("");
+  const [posData, setPosData] = useState(`${new Date().getFullYear() - 1}-12-31`);
   const [diaVenc, setDiaVenc] = useState("");
   const comSaldo = tipo === "banco" || tipo === "corretora" || tipo === "cartao";
   const comMoeda = ehDinheiro(tipo);
   const salvar = async () => {
-    const ok = await ctx.agir(() => apiPostJson("/api/fin/contas", {
+    const ok = await ctx.agir(async () => {
+      const r = await apiPostJson<{ conta: { id: number } }>("/api/fin/contas", {
       tipo, nome: nome || (tipo === "investimento" ? papel.toUpperCase() : ""),
       papel: tipo === "investimento" ? papel : null,
       corretoraContaId: tipo === "investimento" && corretora ? Number(corretora) : null,
@@ -1256,7 +1400,14 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
       saldoInicialReais: comSaldo && saldo && moeda !== "BRL" && saldoReais ? num(saldoReais) : null,
       diaFechamento: tipo === "cartao" && diaFech ? Number(diaFech) : null,
       diaVencimento: tipo === "cartao" && diaVenc ? Number(diaVenc) : null,
-    }), "Conta criada.");
+      });
+      // Papel que a pessoa já tinha: posição inicial (quantidade × preço médio), do saldo inicial, sem mexer no caixa
+      if (tipo === "investimento" && num(posQtd) > 0 && num(posPm) > 0) {
+        await apiPostJson("/api/fin/investimentos/posicao-inicial", {
+          papelContaId: r.conta.id, data: posData, quantidade: num(posQtd), precoMedio: num(posPm),
+        });
+      }
+    }, "Conta criada.");
     if (ok) fechar();
   };
   return (
@@ -1270,6 +1421,9 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         </label>
         {tipo === "investimento" ? (
           <>
+            <label className={styles.campo}>Quantidade que já tinha (opcional)<input inputMode="decimal" value={posQtd} onChange={(e) => setPosQtd(e.target.value)} placeholder="ex.: 800" /></label>
+            <label className={styles.campo}>Preço médio (opcional)<input inputMode="decimal" value={posPm} onChange={(e) => setPosPm(e.target.value)} placeholder="ex.: 14,25" /></label>
+            <label className={styles.campo}>Data da posição<input type="date" value={posData} onChange={(e) => setPosData(e.target.value)} /></label>
             <label className={styles.campo}>Papel (ticker)<input value={papel} onChange={(e) => setPapel(e.target.value)} placeholder="PETR4, Tesouro IPCA 2035…" /></label>
             <label className={styles.campo}>Corretora<SelConta valor={corretora} onChange={setCorretora} contas={ctx.contas} tipos={["corretora", "banco"]} vazio="— nenhuma —" /></label>
           </>
@@ -1307,7 +1461,7 @@ function FormConta({ ctx, fechar }: { ctx: Ctx; fechar: () => void }) {
         ) : null}
       </div>
       {comMoeda ? <p className={styles.dica}>Mercado: segue a moeda, mas pode trocar — BDR e fundo cambial são do Brasil em reais; Avenue e Nomad são exterior.</p> : null}
-      {tipo === "investimento" ? <p className={styles.dica}>Uma conta por papel em cada corretora. A posição atual entra como lançamento: de Saldo inicial → este papel, com a quantidade.</p> : null}
+      {tipo === "investimento" ? <p className={styles.dica}>Uma conta por papel em cada corretora. Se você já tinha o papel, informe a quantidade e o preço médio na data em que começa a acompanhar (ex.: 31/12/2025, do relatório da corretora ou da declaração de IR): entra como posição inicial, vinda do Saldo inicial, sem tirar dinheiro da corretora. Daí em diante, registre compras, vendas e proventos normalmente.</p> : null}
       <div className={styles.formAcoes}>
         <button type="button" className={styles.btn} onClick={fechar}>Cancelar</button>
         <button type="button" className={`${styles.btn} ${styles.btnP}`} disabled={ctx.ocupado || !(nome.trim() || (tipo === "investimento" && papel.trim()))} onClick={() => void salvar()}>Criar</button>

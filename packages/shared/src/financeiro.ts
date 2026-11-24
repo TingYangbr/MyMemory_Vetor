@@ -441,7 +441,7 @@ export interface FinConferencia {
 }
 
 /** Fale comigo → financeiro (etapa 2b): o que o comando quer gravar. */
-export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia" | "provento" | "cambio";
+export type FinComandoTipo = "gasto" | "receita" | "conta" | "fixa" | "pagamento" | "compra" | "venda" | "transferencia" | "provento" | "cambio" | "posicao";
 
 export type FinTipoProvento = "dividendo" | "jcp" | "rendimento" | "juros";
 

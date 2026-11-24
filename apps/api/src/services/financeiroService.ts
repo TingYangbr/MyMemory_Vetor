@@ -138,6 +138,11 @@ export async function ligarMemoEvidencia(
 
 /* ---------------- Contas ---------------- */
 
+/** Id de uma conta do sistema do espaço (criada se faltar), para outros serviços (ex.: posição inicial de papel). */
+export async function contaSistemaId(e: Espaco, chave: FinChaveSistema): Promise<number> {
+  return contaSistema(pool, e, chave);
+}
+
 async function contaSistema(c: Conn, e: Espaco, chave: FinChaveSistema): Promise<number> {
   const f = esp(e);
   const sel = async () => {

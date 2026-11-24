@@ -35,7 +35,14 @@ import {
   type Espaco,
 } from "../services/financeiroService.js";
 import { lerFinConfig, salvarFinConfig } from "../services/finConfigService.js";
-import { desfazerOperacaoInvestimento, registrarEvento, registrarOperacaoInvestimento, registrarProvento } from "../services/finInvestimentosService.js";
+import {
+  desfazerOperacaoInvestimento,
+  registrarEvento,
+  registrarOperacaoInvestimento,
+  registrarPosicaoInicial,
+  registrarPosicoesIniciais,
+  registrarProvento,
+} from "../services/finInvestimentosService.js";
 import { definirPrecoManual } from "../services/finCotacaoPapelService.js";
 import { montarPropostaFin } from "../services/finComandoService.js";
 import { importarExtrato, previaExtrato } from "../services/finExtratoService.js";
@@ -259,6 +266,28 @@ const plugin: FastifyPluginAsync = async (app) => {
       origem: z.enum(["falecomigo", "tela"]).default("tela"),
     }).parse(req.body);
     return registrarEvento(e, b);
+  }));
+
+  /** Posição inicial de um papel (quem já investia): quantidade e preço médio numa data, sem mexer no caixa. */
+  app.post("/api/fin/investimentos/posicao-inicial", rota(async (e, req) => {
+    const b = z.object({
+      papelContaId: id.nullish(), ticker: z.string().max(20).nullish(), corretoraId: id.nullish(), data,
+      quantidade: z.number().finite().positive(), precoMedio: z.number().finite().positive().nullish(),
+      custoTotal: z.number().finite().positive().nullish(), custoReais: z.number().finite().positive().nullish(),
+      origem: z.enum(["falecomigo", "tela"]).default("tela"),
+    }).parse(req.body);
+    return registrarPosicaoInicial(e, b);
+  }));
+
+  app.post("/api/fin/investimentos/posicao-inicial/lote", rota(async (e, req) => {
+    const b = z.object({
+      corretoraId: id, data,
+      itens: z.array(z.object({
+        ticker: z.string().min(1).max(20), quantidade: z.number().finite().positive(),
+        precoMedio: z.number().finite().positive().nullish(), custoTotal: z.number().finite().positive().nullish(),
+      })).min(1).max(500),
+    }).parse(req.body);
+    return registrarPosicoesIniciais(e, b);
   }));
 
   /** Preço digitado de um papel (vale até a próxima cotação da brapi). */

@@ -21,6 +21,7 @@ const TIPOS: { valor: FinComandoTipo; rotulo: string }[] = [
   { valor: "transferencia", rotulo: "Transferência entre contas" },
   { valor: "provento", rotulo: "Provento (dividendo, JCP, rendimento)" },
   { valor: "cambio", rotulo: "Câmbio (compra/venda de moeda)" },
+  { valor: "posicao", rotulo: "Posição inicial de papel (já tinha)" },
 ];
 
 const ROTULO_DATA: Record<FinComandoTipo, string> = {
@@ -34,6 +35,7 @@ const ROTULO_DATA: Record<FinComandoTipo, string> = {
   transferencia: "Data",
   provento: "Data",
   cambio: "Data",
+  posicao: "Data da posição",
 };
 
 
@@ -124,7 +126,8 @@ export default function FinComandoCartao({
   const grupos = sentidoEfetivo === "pagar" ? gruposDesp : gruposRec;
   const cfg = proposta.config ?? { gravarDireto: false, criarGrupo: false, criarConta: false };
   const abertos = useMemo(() => proposta.opcoes.abertos, [proposta]);
-  const ehInv = tipo === "compra" || tipo === "venda";
+  const ehInv = tipo === "compra" || tipo === "venda" || tipo === "posicao";
+  const ehPosicao = tipo === "posicao";
   const ehProv = tipo === "provento";
   const ehTransf = tipo === "transferencia";
   const ehCambio = tipo === "cambio";
@@ -148,7 +151,7 @@ export default function FinComandoCartao({
   const precoNum = lerValor(preco);
   const taxasNum = lerValor(taxas) ?? 0;
   const totalInv = qtdNum != null && precoNum != null ? Math.round((qtdNum * precoNum + (tipo === "compra" ? taxasNum : -taxasNum)) * 100) / 100 : null;
-  const papelFalta = ehInv && !(papelItem || (tipo === "compra" && papelSel === "novo" && tickerNovo.trim()));
+  const papelFalta = ehInv && !(papelItem || (tipo !== "venda" && papelSel === "novo" && tickerNovo.trim()));
   const vendeMais = tipo === "venda" && papelItem != null && qtdNum != null && qtdNum > papelItem.quantidade + 1e-9;
 
   // Pagamento: compara o valor informado com o previsto do item em aberto
@@ -194,6 +197,21 @@ export default function FinComandoCartao({
       if (vendeMais) return setErro(`A posição é ${papelItem!.quantidade}: não dá para vender ${qtdNum}.`);
       setEstado("gravando");
       try {
+        if (ehPosicao) {
+          const r = await apiPostJson<{ operacaoId: number; ticker: string; custo: number }>("/api/fin/investimentos/posicao-inicial", {
+            papelContaId: papelItem?.id ?? null,
+            ticker: papelItem ? papelItem.ticker : tickerNovo.trim(),
+            corretoraId: conta,
+            data,
+            quantidade: qtdNum,
+            precoMedio: precoNum,
+            origem: "falecomigo",
+          });
+          setDesfazer({ tipo: "operacao", id: r.operacaoId });
+          setFeito(`Posição inicial de ${qtd} ${r.ticker} (custo ${brl(r.custo)}) gravada, sem mexer no caixa da corretora.`);
+          setEstado("gravado");
+          return;
+        }
         const r = await apiPostJson<{ operacaoId: number; ticker: string; valorTotal: number; como: string }>("/api/fin/investimentos/operacoes", {
           operacao: tipo,
           papelContaId: papelItem?.id ?? null,
@@ -504,7 +522,7 @@ export default function FinComandoCartao({
                   {x.ticker} · {x.quantidade.toLocaleString("pt-BR")} un{x.corretoraNome && !contaId ? ` · ${x.corretoraNome}` : ""}
                 </option>
               ))}
-              {tipo === "compra" ? <option value="novo">Outro (papel novo)…</option> : null}
+              {tipo !== "venda" ? <option value="novo">Outro (papel novo)…</option> : null}
             </select>
             {papelItem ? (
               <small style={{ color: vendeMais ? "var(--mm-danger)" : "var(--mm-muted)" }}>
@@ -556,19 +574,22 @@ export default function FinComandoCartao({
             <input className="mm-field" style={falta(qtdNum == null || vendeMais)} inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} />
           </label>
           <label style={rot}>
-            <span>Preço (R$){marca(precoNum == null)}</span>
+            <span>{ehPosicao ? "Preço médio (R$)" : "Preço (R$)"}{marca(precoNum == null)}</span>
             <input className="mm-field" style={falta(precoNum == null)} inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />
           </label>
+          {ehPosicao ? null : (
+            <label style={rot}>
+              Taxas (opcional)
+              <input className="mm-field" inputMode="decimal" value={taxas} onChange={(e) => setTaxas(e.target.value)} placeholder="0,00" />
+            </label>
+          )}
           <label style={rot}>
-            Taxas (opcional)
-            <input className="mm-field" inputMode="decimal" value={taxas} onChange={(e) => setTaxas(e.target.value)} placeholder="0,00" />
-          </label>
-          <label style={rot}>
-            Data
+            {ehPosicao ? "Data da posição" : "Data"}
             <input className="mm-field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </label>
           <span style={{ alignSelf: "center", fontSize: 13 }}>
-            {totalInv != null ? `${tipo === "compra" ? "Custo" : "Líquido"}: ${brl(totalInv)}` : ""}
+            {totalInv != null ? `${tipo === "venda" ? "Líquido" : "Custo"}: ${brl(totalInv)}` : ""}
+            {ehPosicao ? <><br /><small style={{ color: "var(--mm-muted)" }}>Vem do saldo inicial: não tira dinheiro da corretora.</small></> : null}
           </span>
         </div>
       ) : null}
