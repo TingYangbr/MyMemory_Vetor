@@ -77,7 +77,8 @@
 .grade {
   border: 1px solid var(--mm-border-muted);
   border-radius: 10px;
-  overflow: auto;
+  overflow: scroll;
+  overscroll-behavior: contain;
   max-height: calc(100vh - 230px);
   background: var(--mm-card);
 }
