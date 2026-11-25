@@ -61,6 +61,8 @@ export interface UserMemoPreferences {
   ttsRate: number | null;
   /** Botão PDF: true = abre o PDF numa aba; false = baixa o arquivo (o navegador decide o resto). */
   pdfAbrirAba?: boolean;
+  /** Exemplos do Fale comigo: 2 = ainda não viu (abrem sozinhos uma vez), 1 = botão 💡 visível, 0 = desligado. */
+  exemplosFaleComigo?: number;
 }
 
 export interface PatchMePreferencesResponse {
@@ -440,6 +442,8 @@ export interface MeResponse {
   ttsRate?: number | null;
   /** Ver `UserMemoPreferences.pdfAbrirAba`. */
   pdfAbrirAba?: boolean;
+  /** Ver `UserMemoPreferences.exemplosFaleComigo`. */
+  exemplosFaleComigo?: number;
 }
 
 /** Métrica usada / limite para barras de progresso (`GET /api/me/usage`). */
@@ -1761,6 +1765,7 @@ export interface BatchProcessJobStatus extends BatchProcessResponse {
 }
 
 export * from "./financeiro.js";
+export * from "./exemplosFaleComigo.js";
 
 /**
  * Valor padrão de um campo de período do dia ("Período", "Periodo_Medicao", "Turno"): Manhã até 12h, Tarde até 18h,

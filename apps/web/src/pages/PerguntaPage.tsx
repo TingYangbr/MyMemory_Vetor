@@ -29,6 +29,8 @@ import { MemoResultListRow } from "../components/MemoResultListRow";
 import { PerguntaChips } from "../components/PerguntaChips";
 import { MemoAlteracaoCartao } from "../components/MemoAlteracaoCartao";
 import { MemoNovoCartao } from "../components/MemoNovoCartao";
+import { ExemplosFaleComigo } from "../components/ExemplosFaleComigo";
+import { exemplosDasCategorias } from "@mymemory/shared";
 import { RelacaoAposSalvar } from "../components/RelacaoAposSalvar";
 import styles from "./PerguntaPage.module.css";
 
@@ -1859,6 +1861,22 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
   const modeloListRef = useRef<HTMLUListElement>(null);
   const modalSearchInputRef = useRef<HTMLInputElement | null>(null);
   const [contextCategories, setContextCategories] = useState<MemoContextCategory[]>([]);
+  // 💡 Exemplos: frases das categorias habilitadas; abrem sozinhos na primeira vez (exemplosFaleComigo = 2)
+  const exemplos = useMemo(
+    () => exemplosDasCategorias(contextCategories.filter((c) => c.isActive === 1).map((c) => c.name)),
+    [contextCategories]
+  );
+  const [exemplosAbertos, setExemplosAbertos] = useState(false);
+  const salvarExemplos = useCallback((v: number) => {
+    setMe((m) => (m ? { ...m, exemplosFaleComigo: v } : m));
+    void apiPatchJson("/api/me/preferences", { exemplosFaleComigo: v }).catch(() => {});
+  }, []);
+  // Primeira vez (ainda não viu) e sem respostas na tela: abre os exemplos uma vez e marca como visto
+  useEffect(() => {
+    if (me?.exemplosFaleComigo !== 2 || !exemplos.length || respostas.length) return;
+    setExemplosAbertos(true);
+    salvarExemplos(1);
+  }, [me?.exemplosFaleComigo, exemplos.length, respostas.length, salvarExemplos]);
   const [helpHintOpenIdx, setHelpHintOpenIdx] = useState<number | null>(null);
   const [avisoModal, setAvisoModal] = useState<{
     cardIdx: number;
@@ -3189,6 +3207,18 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   <IconStar size={16} /><span className={styles.soDesktop}>Perguntas salvas</span>
                 </button>
               ) : null}
+              {!busy && micState === "idle" && !modeloAtivo && exemplos.length > 0 && me?.exemplosFaleComigo !== 0 ? (
+                <button
+                  type="button"
+                  className={styles.carregarModeloBtn}
+                  onClick={() => setExemplosAbertos((v) => !v)}
+                  title="Exemplos do que dizer"
+                  aria-label="Exemplos"
+                  aria-expanded={exemplosAbertos}
+                >
+                  <span aria-hidden>💡</span><span className={styles.soDesktop}>Exemplos</span>
+                </button>
+              ) : null}
               {/* Pergunta salva aberta: ✎ e ✕ ficam aqui, na linha de ações, e não numa coluna ao lado dos chips
                   (que tirava cerca de um terço da largura da caixa no celular) */}
               {modeloAtivo && !busy ? (
@@ -3239,6 +3269,21 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
               </button>
             ) : null}
           </div>
+          {exemplosAbertos && exemplos.length > 0 && !busy && !modeloAtivo ? (
+            <ExemplosFaleComigo
+              exemplos={exemplos}
+              onFechar={() => setExemplosAbertos(false)}
+              onNaoMostrar={() => {
+                setExemplosAbertos(false);
+                salvarExemplos(0);
+              }}
+              onEscolher={(f) => {
+                setPergunta(f);
+                setExemplosAbertos(false);
+                window.setTimeout(() => textareaRef.current?.focus(), 0);
+              }}
+            />
+          ) : null}
           {fixadas.length > 0 && !busy && micState === "idle" && !modeloAtivo ? (
             <div className={styles.fixadasRow} aria-label="Perguntas fixadas">
               <span className={styles.fixadasLbl}><IconPin size={13} /> Fixadas</span>

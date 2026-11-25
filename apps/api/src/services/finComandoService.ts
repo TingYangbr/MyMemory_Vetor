@@ -153,12 +153,13 @@ export async function montarPropostaFin(input: {
     null,
     2
   );
-  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"contaDestinoId":null,"proventoTipo":null,"valorBruto":null,"valorMoeda":null,"cotacao":null,"iof":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null}
+  const formato = `Retorne {"tipo":"gasto|receita|conta|fixa|pagamento|compra|venda","sentido":"pagar|receber","descricao":"curta, sem o valor","valor":0,"data":"AAAA-MM-DD","parcelas":1,"periodicidade":"${PERIODICIDADES.join("|")}","contaId":null,"grupoId":null,"alvoChave":null,"contaDestinoId":null,"proventoTipo":null,"valorBruto":null,"valorMoeda":null,"cotacao":null,"iof":null,"papelContaId":null,"ticker":null,"quantidade":null,"preco":null,"taxas":null,"contaCitada":null,"grupoCitado":null}
 Provento: ticker/papelContaId do papel, valor = o que caiu (líquido), proventoTipo = dividendo|jcp|rendimento|juros (FII = rendimento), valorBruto só se dito (JCP bruto), contaId = a corretora se citada.
 Câmbio: contaId = de onde sai, contaDestinoId = para onde vai (uma em reais, outra na moeda; veja "moeda" em contas_bancos_cartoes), valor = reais (o que saiu ou entrou em reais, sem IOF), valorMoeda = quantia na moeda, cotacao se dita, iof em reais se dito.
 Transferência: contaId = de onde sai, contaDestinoId = para onde vai (ids de contas_bancos_cartoes), grupoId null.
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
-Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.`;
+Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.
+contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corretora ou grupo que NÃO está nas listas (ex.: "no Nubank" sem conta Nubank), o nome como foi dito ("Nubank"), e o id fica null. Se o citado existe, ou se nada foi citado, null.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
 
@@ -269,6 +270,28 @@ Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da con
   }
   // Escolha da IA que a frase não decide: deixa vazio e diz quais combinam
   const duvidas: string[] = [];
+  // Citado pelo nome e sem cadastro ("no Nubank" sem conta Nubank): diz que não achou e como resolver
+  const citado = (x: unknown) => (typeof x === "string" && x.trim() ? x.trim().slice(0, 60) : null);
+  const contaCitada = proposta.contaId == null ? citado(j.contaCitada) : null;
+  const grupoCitado = proposta.grupoId == null && !["transferencia", "cambio", "compra", "venda", "posicao", "provento"].includes(tipo) ? citado(j.grupoCitado) : null;
+  if (contaCitada || grupoCitado) {
+    proposta.naoAchados = { conta: contaCitada, grupo: grupoCitado };
+    const cfg = proposta.config;
+    if (contaCitada) {
+      duvidas.push(
+        cfg.criarConta
+          ? `Não achei a conta "${contaCitada}": escolha uma ou toque em "+ nova conta"`
+          : `Não achei a conta "${contaCitada}": escolha uma ou cadastre em Contas a pagar e receber`
+      );
+    }
+    if (grupoCitado) {
+      duvidas.push(
+        cfg.criarGrupo
+          ? `Não achei o grupo "${grupoCitado}": escolha um ou toque em "+ novo grupo"`
+          : `Não achei o grupo "${grupoCitado}": escolha um ou cadastre em Contas a pagar e receber`
+      );
+    }
+  }
   const gAmb = escolhaAmbigua(proposta.grupoId, grupos, input.texto);
   if (gAmb) {
     proposta.grupoId = null;
