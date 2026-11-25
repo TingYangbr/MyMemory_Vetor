@@ -1713,8 +1713,9 @@ async function gerarRespostaEstruturada(input: {
           .map((c) => colunas.find((col) => col.toLowerCase() === c))
           .filter((c): c is string => !!c);
         if (!escolhidas.length) return colunas;
-        const id = colunas.find((c) => c.toLowerCase() === "id");
-        return id && !escolhidas.includes(id) ? [id, ...escolhidas] : [...new Set(escolhidas)];
+        // id (memo) e lancamento_id (✎ de corrigir no financeiro) ficam sempre
+        const fixas = colunas.filter((c) => (c.toLowerCase() === "id" || c === "lancamento_id") && !escolhidas.includes(c));
+        return [...fixas, ...new Set(escolhidas)];
       };
       const principais = input.porQuery.filter((r) => !r.auxiliar);
       const comLinhas = (principais.length ? principais : input.porQuery).filter((r) => r.linhas.length > 0);
