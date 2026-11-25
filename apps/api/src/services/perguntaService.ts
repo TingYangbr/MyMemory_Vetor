@@ -34,6 +34,7 @@ import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService
 import { juntarEmListaAberta } from "./listaAbertaService.js";
 import { atualizarRegistroUnico } from "./registroUnicoService.js";
 import { montarPropostaFin } from "./finComandoService.js";
+import { correcaoPelaFrase, fraseDeCorrecao } from "./finCorrecaoService.js";
 import { ordenarColunasDaResposta, type LimitesDatas } from "./colunasRespostaService.js";
 
 /** Período pedido para cada coluna de data (parâmetros data_x_ini / data_x_fin do plano executado). */
@@ -311,6 +312,7 @@ export async function perguntarMemory(input: {
   comando?: import("@mymemory/shared").ComandoAlteracao;
   criacao?: import("@mymemory/shared").ComandoCriacao;
   finComando?: import("@mymemory/shared").FinComandoProposta;
+  finCorrecao?: import("@mymemory/shared").FinCorrecaoEscolha;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -533,6 +535,33 @@ export async function perguntarMemory(input: {
     declaracaoFinanceira(input.pergunta)
   ) {
     classificacao.acao = "criar";
+  }
+
+  // "Corrigir a compra do mercado": correção de lançamento do financeiro (o mesmo Form da confirmação). Corrigir um
+  // memo (Agenda, Lista…) segue o comando de alteração abaixo.
+  if (
+    input.permitirComandos &&
+    input.categories.some((c) => c.isActive === 1 && /^finan[cç]as pessoais/i.test(c.name)) &&
+    fraseDeCorrecao(input.pergunta)
+  ) {
+    const r = await withSpan("Correção no financeiro", () =>
+      correcaoPelaFrase({ texto: input.pergunta, userId: input.userId, groupId: input.groupId })
+    );
+    totalCost += r.costUsd;
+    classificacao.acao = "alterar";
+    return {
+      resposta: {
+        resposta: r.mensagem,
+        tipo_resposta: classificacao.pipe,
+        dados_usados: [],
+        limitacoes: [],
+        confianca_estimada: r.proposta || r.candidatos.length ? 0.8 : 0,
+      },
+      classificacao,
+      apiCost: totalCost,
+      ...(r.proposta ? { finComando: r.proposta } : {}),
+      ...(!r.proposta && r.candidatos.length ? { finCorrecao: { mensagem: r.mensagem, candidatos: r.candidatos, novos: r.novos ?? null } } : {}),
+    };
   }
 
   // Comando ("adiar a reunião para 14h", "acrescentar arroz na lista"): não é pergunta e nunca vai

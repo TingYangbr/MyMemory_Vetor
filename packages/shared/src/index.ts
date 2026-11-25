@@ -1357,6 +1357,8 @@ export interface PerguntaResponse {
   criacao?: ComandoCriacao;
   /** Comando para o financeiro (gasto, conta, fixa, pagamento): cartão para conferir e gravar. */
   finComando?: import("./financeiro.js").FinComandoProposta;
+  /** "Corrigir a compra…" com mais de um lançamento possível (ou nenhum certo): lista para escolher qual corrigir. */
+  finCorrecao?: import("./financeiro.js").FinCorrecaoEscolha;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
