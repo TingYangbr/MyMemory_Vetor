@@ -31,6 +31,7 @@ function prefsFromMe(me: MeResponse): UserMemoPreferences {
     imageOcrVisionMinConfidence: me.imageOcrVisionMinConfidence ?? null,
     ttsRate: me.ttsRate ?? null,
     pdfAbrirAba: me.pdfAbrirAba === true,
+    exemplosFaleComigo: me.exemplosFaleComigo ?? 1,
   };
 }
 
@@ -160,7 +161,7 @@ export default function UserPreferencesPage() {
       try {
         const body: Partial<UserMemoPreferences> = hasPrefsColumns
           ? prefs
-          : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate, pdfAbrirAba: prefs.pdfAbrirAba };
+          : { soundEnabled: prefs.soundEnabled, ttsRate: prefs.ttsRate, pdfAbrirAba: prefs.pdfAbrirAba, exemplosFaleComigo: prefs.exemplosFaleComigo };
         await apiPatchJson<PatchMePreferencesResponse>("/api/me/preferences", body);
         setEstadoSalvar("salvo");
       } catch (e) {
@@ -416,6 +417,18 @@ export default function UserPreferencesPage() {
                     <small>Em vez de baixar o arquivo.</small>
                   </span>
                   <input type="checkbox" role="switch" checked={prefs.pdfAbrirAba} onChange={(e) => mudar("pdfAbrirAba", e.target.checked)} />
+                </label>
+                <label className={styles.opcao}>
+                  <span>
+                    Mostrar exemplos no Fale comigo
+                    <small>Botão 💡 Exemplos com frases prontas das categorias do grupo.</small>
+                  </span>
+                  <input
+                    type="checkbox"
+                    role="switch"
+                    checked={prefs.exemplosFaleComigo !== 0}
+                    onChange={(e) => mudar("exemplosFaleComigo", e.target.checked ? 1 : 0)}
+                  />
                 </label>
               </section>
             </>

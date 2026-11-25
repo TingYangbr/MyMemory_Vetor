@@ -733,6 +733,7 @@ export default function FinComandoCartao({
         <NovoCadastro
           qual={novo === "excedente" ? "grupo" : novo}
           sentido={sentidoEfetivo}
+          nomeInicial={novo === "conta" ? proposta.naoAchados?.conta ?? "" : novo === "grupo" ? proposta.naoAchados?.grupo ?? "" : ""}
           onFechar={() => setNovo(null)}
           onCriado={(c) => {
             if (c.tipo === "despesa") setGruposDesp((l) => [...l, { id: c.id, nome: c.nome }]);
@@ -774,10 +775,12 @@ export default function FinComandoCartao({
 export function NovoCadastro(props: {
   qual: "grupo" | "conta";
   sentido: "pagar" | "receber";
+  /** Nome que a frase citou e não existe (ex.: "Nubank"): o campo já vem com ele. */
+  nomeInicial?: string;
   onFechar: () => void;
   onCriado: (c: { id: number; nome: string; tipo: FinTipoConta }) => void;
 }) {
-  const [nome, setNome] = useState("");
+  const [nome, setNome] = useState(props.nomeInicial ?? "");
   const [tipoConta, setTipoConta] = useState<FinTipoConta>("banco");
   const [erro, setErro] = useState<string | null>(null);
   const [gravando, setGravando] = useState(false);

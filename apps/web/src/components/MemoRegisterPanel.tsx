@@ -97,6 +97,7 @@ function resolveMemoPrefs(p: Partial<UserMemoPreferences> | null | undefined): M
     imageOcrVisionMinConfidence: null,
     ttsRate: null,
     pdfAbrirAba: false,
+    exemplosFaleComigo: 1,
   };
   if (!p) return base;
   return {
@@ -113,6 +114,7 @@ function resolveMemoPrefs(p: Partial<UserMemoPreferences> | null | undefined): M
     imageOcrVisionMinConfidence: p.imageOcrVisionMinConfidence ?? base.imageOcrVisionMinConfidence,
     ttsRate: p.ttsRate ?? base.ttsRate,
     pdfAbrirAba: p.pdfAbrirAba === true,
+    exemplosFaleComigo: p.exemplosFaleComigo ?? 1,
   };
 }
 
