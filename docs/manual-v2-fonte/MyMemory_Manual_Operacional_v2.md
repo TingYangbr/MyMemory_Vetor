@@ -358,6 +358,21 @@ Permite ao usuário fazer perguntas em linguagem natural sobre os memos do espa�
 2. Clicar "Enviar" ou pressionar Enter.
 3. A resposta aparece em um card, com os memos e dados usados.
 4. Clicar em "Memo #id" abre o memo; a tabela de dados estruturados pode ser rolada e ordenada.
+## Exemplos (💡)
+O botão **💡 Exemplos**, ao lado de Perguntas salvas, mostra frases prontas das categorias modelo habilitadas no grupo. Tocar numa frase coloca o texto na caixa, para ajustar e enviar (nada é enviado sozinho).
+- Primeiro aparece uma frase por categoria; **Ver mais exemplos** mostra todas.
+- Na primeira vez, com a tela sem respostas, os exemplos abrem sozinhos (uma vez só).
+- **Não mostrar mais** esconde o botão. Para religar: Preferências → "Mostrar exemplos no Fale comigo".
+- Categoria criada pelo grupo, sem frases cadastradas, não aparece. As frases de cada categoria modelo:
+
+| Categoria | Frases |
+|---|---|
+| Finanças Pessoais - Gastos e lançamentos | "Gastei 85 no mercado no Itaú"; "Quanto gastei com mercado este mês?"; "Comprei uma TV de 3.000 em 10x no Itaú"; "Transferi 2 mil do Itaú para a poupança"; "Qual o % de cada grupo nos meus gastos do mês?"; "Quanto gastei em novembro comparado com outubro?" |
+| Finanças Pessoais - A pagar e receber | "O que tenho para pagar esta semana?"; "Conta de luz de 180 todo dia 10"; "Paguei a conta de luz"; "Quanto devo no cartão?"; "Qual o valor da fatura de dezembro?" |
+| Finanças Pessoais - Saldos e investimentos | "Quanto valem minhas ações hoje?"; "Comprei 100 ações da PETR4 a 38,50"; "Recebi 120 de dividendos da ITSA4"; "Qual a cotação da CYRE3?"; "Quanto recebi de dividendos em 2026?"; "Qual meu saldo em cada conta?" |
+| Agenda | "Marcar reunião com Carlos sexta às 15h por 1 hora"; "Adiar reunião com Carlos para as 16h"; "Qual minha agenda amanhã?"; "Ligar para o contador segunda às 9h" |
+| Lista de compras | "Incluir 2 kg de feijão e leite na lista"; "Comprei o feijão"; "Repete a última lista de compras"; "O que falta comprar?" |
+| Antropometria | "Peso 80,6 kg, IMC 26,1, gordura 28%, visceral 9"; "Como evoluiu meu peso nos últimos 30 dias?"; "Quanto perdi de peso desde o começo do mês?" |
 5. Para reutilizar, salvar a pergunta pelo ícone de salvar do card (ver "Salvar pergunta" abaixo).
 ## Tipos de resposta (pipe)
 | Tipo | Quando é usado |
@@ -391,7 +406,8 @@ Com as categorias **Finanças Pessoais - …** habilitadas no grupo, frases de r
 | "conta de luz de 300 vence dia 10", "geladeira 3.000 em 10x" | Conta a pagar (única ou parcelada) |
 | "aluguel de 2.500 todo dia 5" | Conta fixa (recorrente) |
 | "paguei o aluguel", "recebi do Joaquim" | Pagamento/recebimento de algo em aberto |
-- O Form vem preenchido e tudo pode ser ajustado antes de **Gravar** (tipo, descrição, valor, data, parcelas, repetição, grupo e conta). Grupo ou conta que a IA não reconheceu fica para escolher.
+- O Form vem preenchido e tudo pode ser ajustado antes de **Gravar** (tipo, descrição, valor, data, parcelas, repetição, grupo e conta). Grupo ou conta que a IA não reconheceu fica para escolher: campo obrigatório vazio tem borda vermelha e "· preencher".
+- Conta ou grupo citado que não existe ("no Nubank" sem conta Nubank): a mensagem diz *Não achei a conta "Nubank": escolha uma ou toque em "+ nova conta"*, e o **+ nova conta** abre com o nome "Nubank" preenchido. Com "Cadastrar conta ou cartão pelo Form" desligado, a mensagem manda cadastrar em Contas a pagar e receber. O mesmo vale para grupo ("+ novo grupo").
 - Grava no **grupo escolhido no topo**. Depois de gravar há **↶ Desfazer** (conta, parcelado, conta fixa e pagamento); gasto/receita avulso se apaga na aba Lançamentos.
 - Os grupos e contas precisam existir (cadastre na tela Contas a pagar e receber).
 

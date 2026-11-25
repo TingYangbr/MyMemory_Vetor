@@ -545,6 +545,11 @@ export interface FinComandoProposta {
   /** Compra/venda de papel (contaId = corretora; valor = valor total, se dito). */
   investimento?: FinComandoInvestimento | null;
   mensagem: string;
+  /**
+   * Nome que a frase citou e não existe no cadastro ("no Nubank" sem conta Nubank): a mensagem orienta a escolher ou
+   * cadastrar, e o "+ nova conta" / "+ novo grupo" abre com esse nome.
+   */
+  naoAchados?: { conta?: string | null; grupo?: string | null } | null;
   /** Ajustes do Fale comigo neste espaço (gravar direto, criar grupo/conta pelo cartão). */
   config: FinConfig;
   /** Já gravado direto (cartão completo e "gravar direto" ligado): o cartão abre no estado gravado. */
