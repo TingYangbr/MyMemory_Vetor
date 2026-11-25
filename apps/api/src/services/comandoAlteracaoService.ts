@@ -314,6 +314,7 @@ const SYSTEM = [
   '- lote = true só quando o comando pede explicitamente vários registros ("todas as reuniões de amanhã", "tudo").',
   "- Use somente nomes de campos que existem na categoria do registro, escritos exatamente como na lista. Não invente campos.",
   "- Inclua só os campos que mudam. Não altere o que o comando não menciona.",
+  "- Se o registro já está com o valor pedido (comando repetido), devolva-o em alvos com esse valor mesmo assim: o sistema avisa que já está.",
   "- Datas: formato AAAA-MM-DD. Datas relativas (amanhã, quinta, semana que vem) contam a partir da data de hoje. Horas: HH:MM.",
   "- Adiar ou remarcar muda a data e/ou a hora; mantenha o resto.",
   '- Cancelar, concluir ou reabrir: use o campo de situação da categoria com o valor Cancelado, Concluído ou Pendente. Em categoria com situacao.tipo "registro" os valores são Válido ou Cancelado (não há Concluído). "situacao.concluido" é o nome que a categoria dá ao Concluído (ex.: Comprado, Pago): comprei/paguei/fui = Concluído.',
@@ -326,6 +327,11 @@ export interface ResultadoComando {
   resposta: PerguntaResposta;
   comando: ComandoAlteracao;
   costUsd: number;
+  /**
+   * nao_encontrado: "sem_registro" = nenhum registro corresponde ao pedido (pode virar registro novo, se for lista);
+   * "sem_mudanca" = achou o registro, mas já está como pedido ou não há o que mudar (nunca vira registro novo).
+   */
+  motivo?: "sem_registro" | "sem_mudanca";
 }
 
 /**
@@ -357,7 +363,7 @@ export async function executarComandoAlteracao(input: {
   });
   if (!candidatos.length) {
     const msg = "Não encontrei um registro ativo que você possa alterar para esse pedido. Se é um registro novo (por exemplo, a primeira lista), crie pelo Catalogar.";
-    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd: 0 };
+    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd: 0, motivo: "sem_registro" };
   }
 
   const catPorNome = new Map(alvoCats.map((c) => [c.name, c]));
@@ -459,16 +465,18 @@ export async function executarComandoAlteracao(input: {
   }
 
   if (!alvosIds.length) {
-    const msg = "Não encontrei o registro desse pedido. Tente dizer mais detalhes (data, com quem, nome da lista).";
-    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd };
+    const msg =
+      "Não encontrei o registro desse pedido. Tente dizer mais detalhes (data, com quem, nome da lista). Se é um registro novo, peça com \"marcar\" ou \"criar\" e a data (ex.: marcar reunião com Carlos dia 28 às 15h).";
+    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd, motivo: "sem_registro" };
   }
   if (!propostas.length) {
     const usados = alvosIds.map((id) => porId.get(id)!);
     const notas = [...new Set([...notasLista, ...jaIguais])];
+    // Pedido repetido ("adiar para 15h" de novo): diz que já está assim, com o registro, e não cria outro
     const msg = notas.length
-      ? `Nada a mudar${usados[0]?.categoria ? ` em ${usados[0].categoria}` : ""}: ${notas.join("; ")}.`
+      ? `Já está assim${usados[0]?.categoria ? ` em ${usados[0].categoria}` : ""}: ${notas.join("; ")}.${usados[0]?.resumo ? ` (${usados[0].resumo.slice(0, 100)})` : ""}`
       : "Achei o registro, mas não entendi o que mudar nele. Tente dizer o valor novo.";
-    return { resposta: resposta(msg, usados), comando: { status: "nao_encontrado", mensagem: msg }, costUsd };
+    return { resposta: resposta(msg, usados), comando: { status: "nao_encontrado", mensagem: msg }, costUsd, motivo: "sem_mudanca" };
   }
 
   const descreve = (p: ComandoAlteracaoCandidato) =>

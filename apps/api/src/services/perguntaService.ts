@@ -662,8 +662,12 @@ export async function perguntarMemory(input: {
       classificacao,
     }));
     // "Incluir 2 kg de feijão na lista" sem lista aberta: em vez de mandar ao Catalogar, prepara o registro novo com o
-    // pedido (o cartão abre para conferir e salvar), como em "criar lista de compras com…"
-    if (cmd && cmd.comando.status === "nao_encontrado") {
+    // pedido (o Form abre para conferir e salvar), como em "criar lista de compras com…". Só em categoria de lista e só
+    // quando não há registro: "adiar a reunião" pressupõe uma reunião que existe — sem ela (ou já como pedido), a
+    // resposta diz isso em vez de abrir uma agenda nova sem data.
+    const catAlvo = cats.find((c) => classificacao.categorias.some((n) => n.toLowerCase() === c.name.toLowerCase()));
+    const ehLista = !!catAlvo?.campos.some((f) => f.isActive === 1 && f.tipo === "lista");
+    if (cmd && cmd.comando.status === "nao_encontrado" && cmd.motivo === "sem_registro" && ehLista) {
       totalCost += cmd.costUsd;
       const r = await criarRegistro();
       if ("criacao" in r && r.criacao) {

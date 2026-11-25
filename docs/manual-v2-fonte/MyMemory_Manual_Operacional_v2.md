@@ -1045,9 +1045,11 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 | Mais de um registro pode ser o certo (ex.: duas reuniões com Carlos) | Um quadro por registro, para escolher qual alterar. |
 | Outro registro ativo da categoria fica no mesmo dia e hora | "⚠ Já tem outro registro nesse horário: …" e os botões. |
 | A categoria tem "Confirmar antes de alterar" ligado | Os botões, sempre. |
-| O valor pedido já é o atual (ex.: a reunião já é às 16:00) | Nada é gravado: "Nada a mudar em Agenda: Horario já é 16:00." |
+| O valor pedido já é o atual (ex.: pedido repetido, a reunião já é às 16:00) | Nada é gravado: "Já está assim em Agenda: Horario já é 16:00." |
 
 Sem tocar em Confirmar, nada é gravado.
+- Pedido de alterar sem registro correspondente ("adiar reunião com Carlos" sem reunião com Carlos) não cria registro novo: a resposta diz que não encontrou. Para marcar um novo, use "marcar" ou "criar" com a data. Exceção: incluir item numa lista sem lista aberta prepara a lista nova.
+- Em categoria de compromisso (com data e hora, como Agenda), a data é obrigatória no Form do registro novo: vazia, aparece "· obrigatório" em vermelho e o Salvar avisa.
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
 - Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Painel Owners → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
