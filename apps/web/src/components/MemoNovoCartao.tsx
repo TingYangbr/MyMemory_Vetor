@@ -58,6 +58,11 @@ export function MemoNovoCartao({
   const [valores, setValores] = useState<Record<string, string>>({});
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  // Categoria de compromisso (tem data e hora, como Agenda): a data é obrigatória no registro novo
+  const campoDataObrigatorio =
+    criacao.campos.some((c) => c.tipo !== "date" && /^hor/.test(normNome(c.nome)))
+      ? criacao.campos.find((c) => c.tipo === "date")?.nome ?? null
+      : null;
 
   useEffect(() => {
     const extraidos = lerDados(p.dadosEspecificosJson);
@@ -87,6 +92,10 @@ export function MemoNovoCartao({
       setErro("Escreva um resumo.");
       return;
     }
+    if (campoDataObrigatorio && !(valores[campoDataObrigatorio] ?? "").trim()) {
+      setErro(`Informe ${campoDataObrigatorio}.`);
+      return;
+    }
     setSalvando(true);
     setErro(null);
     // Parte dos campos que a IA extraiu e o cartão não mostra (ex.: situação) segue como veio
@@ -113,7 +122,7 @@ export function MemoNovoCartao({
         matchedCategoryId: p.matchedCategoryId ?? null,
         category: criacao.categoria ?? p.category ?? null,
       });
-      onCriado(memo, `Registrei em ${criacao.categoria ?? "memo"} #${memo.id}.`);
+      onCriado(memo, `Registrei em ${criacao.categoria ?? "memo"}.`);
     } catch (e) {
       setErro(mensagemErro(e));
       setSalvando(false);
@@ -155,7 +164,13 @@ export function MemoNovoCartao({
               <label htmlFor={`novo-${c.nome}`} title={c.descricao ?? undefined}>
                 {c.nome}
                 {/* Vazio: destaque caramelo, sem bloquear (nos memos nenhum campo é obrigatório) */}
-                {!(valores[c.nome] ?? "").trim() ? <span style={{ color: "#ca8a04", fontWeight: 600 }}> · preencher</span> : null}
+                {!(valores[c.nome] ?? "").trim() ? (
+                  c.nome === campoDataObrigatorio ? (
+                    <span style={{ color: "var(--mm-danger, #dc2626)", fontWeight: 600 }}> · obrigatório</span>
+                  ) : (
+                    <span style={{ color: "#ca8a04", fontWeight: 600 }}> · preencher</span>
+                  )
+                ) : null}
               </label>
               {c.tipo === "status" && c.valores?.length ? (
                 <select

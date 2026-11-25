@@ -1221,6 +1221,8 @@ export interface ComandoCriacao {
 export interface ComandoAlteracao {
   status: "alterado" | "confirmar" | "escolher" | "nao_encontrado";
   mensagem: string;
+  /** Em "confirmar": por que não gravou direto (ex.: já tem outro registro nesse horário). */
+  duvida?: string;
   lote?: string | null;
   memoId?: number;
   candidatos?: ComandoAlteracaoCandidato[];
