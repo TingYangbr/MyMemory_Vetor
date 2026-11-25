@@ -63,6 +63,38 @@ export function MemoNovoCartao({
     criacao.campos.some((c) => c.tipo !== "date" && /^hor/.test(normNome(c.nome)))
       ? criacao.campos.find((c) => c.tipo === "date")?.nome ?? null
       : null;
+  /** Compromissos ativos que cruzam com a data/hora/duração do Form (Agenda): avisa, e o Salvar pede confirmação. */
+  const [conflitos, setConflitos] = useState<{ resumo: string; inicio: string; fim: string }[]>([]);
+  const chaveHorario = campoDataObrigatorio
+    ? criacao.campos
+        .filter((c) => c.tipo === "date" || /^(hor|dura|dono)/.test(normNome(c.nome)) || normNome(c.nome) === normNome(criacao.campoDono ?? "-"))
+        .map((c) => `${c.nome}=${valores[c.nome] ?? ""}`)
+        .join("|")
+    : "";
+  useEffect(() => {
+    if (!campoDataObrigatorio || !criacao.categoria) return;
+    let vivo = true;
+    const t = window.setTimeout(() => {
+      const campos: Record<string, string> = {};
+      for (const c of criacao.campos) {
+        const v = (valores[c.nome] ?? "").trim();
+        campos[c.nome] = c.tipo === "date" ? normalizarDataParaIso(v) ?? v : v;
+      }
+      apiPostJson<{ conflitos: { resumo: string; inicio: string; fim: string }[] }>("/api/memos/compromisso/conflitos", {
+        categoria: criacao.categoria,
+        groupId: criacao.groupId,
+        campos,
+        resumo,
+      })
+        .then((r) => vivo && setConflitos(r.conflitos ?? []))
+        .catch(() => vivo && setConflitos([]));
+    }, 400);
+    return () => {
+      vivo = false;
+      window.clearTimeout(t);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chaveHorario, campoDataObrigatorio, criacao, resumo]);
 
   useEffect(() => {
     const extraidos = lerDados(p.dadosEspecificosJson);
@@ -94,6 +126,14 @@ export function MemoNovoCartao({
     }
     if (campoDataObrigatorio && !(valores[campoDataObrigatorio] ?? "").trim()) {
       setErro(`Informe ${campoDataObrigatorio}.`);
+      return;
+    }
+    if (
+      conflitos.length &&
+      !window.confirm(
+        `Conflito de horário com:\n${conflitos.map((c) => `${c.resumo} (${c.inicio}–${c.fim})`).join("\n")}\n\nSalvar mesmo assim?`
+      )
+    ) {
       return;
     }
     setSalvando(true);
@@ -146,6 +186,14 @@ export function MemoNovoCartao({
         </div>
 
         {p.processingWarning ? <p className={criacao.origemModelo ? styles.aviso : styles.dica}>{p.processingWarning}</p> : null}
+        {conflitos.length ? (
+          <p
+            role="alert"
+            style={{ margin: "0.25rem 0 0.5rem", padding: "0.5rem 0.75rem", borderRadius: 8, background: "#fef3c7", color: "#78350f", border: "1px solid #f59e0b", fontSize: "0.9rem" }}
+          >
+            ⚠ Conflito de horário com: {conflitos.map((c) => `${c.resumo} (${c.inicio}–${c.fim})`).join("; ")}
+          </p>
+        ) : null}
 
         <div className={styles.campos}>
           <div className={styles.campo}>
