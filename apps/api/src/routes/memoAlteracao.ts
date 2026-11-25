@@ -7,6 +7,8 @@ import {
   filtrarMemosAlteraveis,
   obterMemoAlteravel,
 } from "../services/memoAlteracaoService.js";
+import { conflitosDeCompromisso } from "../services/compromissoConflitoService.js";
+import { assertUserWorkspaceGroupAccess } from "../services/memoContextService.js";
 
 /** Alteração de memos de categoria atualizável a partir da resposta do Perguntar. */
 const plugin: FastifyPluginAsync = async (app) => {
@@ -35,6 +37,36 @@ const plugin: FastifyPluginAsync = async (app) => {
     const body = z.object({ ids: z.array(z.number().int().positive()).max(500) }).safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
     return { ids: await filtrarMemosAlteraveis(body.data.ids, userId, await getUserIsAdmin(userId)) };
+  });
+
+  // Form de registro novo (Agenda): compromissos ativos que cruzam com a data/hora/duração digitadas
+  app.post("/api/memos/compromisso/conflitos", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const body = z
+      .object({
+        categoria: z.string().trim().min(1).max(200),
+        groupId: z.number().int().positive().nullable(),
+        campos: z.record(z.string().max(4000)),
+        excluirId: z.number().int().positive().nullable().optional(),
+      })
+      .safeParse(req.body);
+    if (!body.success) return reply.code(400).send({ error: "invalid_body" });
+    if (body.data.groupId != null) {
+      try {
+        await assertUserWorkspaceGroupAccess(userId, body.data.groupId, await getUserIsAdmin(userId));
+      } catch {
+        return reply.code(403).send({ error: "forbidden" });
+      }
+    }
+    const conflitos = await conflitosDeCompromisso({
+      categoria: body.data.categoria,
+      groupId: body.data.groupId,
+      userId,
+      dados: body.data.campos,
+      excluirId: body.data.excluirId ?? null,
+    });
+    return { conflitos: conflitos.map(({ resumo, inicio, fim }) => ({ resumo, inicio, fim })) };
   });
 
   app.get("/api/memos/:memoId/alteravel", async (req, reply) => {

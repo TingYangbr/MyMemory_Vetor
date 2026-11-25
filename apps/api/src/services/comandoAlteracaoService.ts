@@ -36,6 +36,7 @@ import type { RowDataPacket } from "../lib/dbTypes.js";
 import { pool } from "../db.js";
 import { invokeLLM } from "../lib/invokeLlm.js";
 import { alterarMemo, filtrarMemosAlteraveis } from "./memoAlteracaoService.js";
+import { conflitosDeCompromisso, descreverConflitos } from "./compromissoConflitoService.js";
 
 /** Quantos memos recentes entram como candidatos (por categoria somada). */
 const MAX_CANDIDATOS = 40;
@@ -224,45 +225,6 @@ function hojeTexto(): string {
 function dataBr(v: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
   return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
-}
-
-/** "16h", "16:00", "9:5" → "16:00"; outra coisa → null. */
-function horaNorm(v: string): string | null {
-  const m = /^\s*(\d{1,2})\s*(?:[:h]\s*(\d{1,2})?)?\s*(?:hs?|hrs?)?\s*$/i.exec(v);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const mi = Number(m[2] ?? 0);
-  return h <= 23 && mi <= 59 ? `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` : null;
-}
-
-/**
- * Conflito de horário: a alteração mexe na data ou na hora e, depois dela, outro registro ativo da mesma categoria
- * fica no mesmo dia e na mesma hora. Campo de data = primeiro campo do tipo data; campo de hora = campo cujo nome
- * fala em hora/horário. Sem os dois, não há como comparar. Devolve o resumo do outro registro, ou null.
- */
-function conflitoDeHorario(p: ComandoAlteracaoCandidato, cat: MemoContextCategory, candidatos: Candidato[]): string | null {
-  const ativos = cat.campos.filter((f) => f.isActive === 1);
-  const campoData = ativos.find((f) => f.tipo === "date");
-  const campoHora = ativos.find((f) => f.tipo !== "date" && /^hor/.test(norm(f.name)));
-  if (!campoData || !campoHora) return null;
-  const mexe = Object.keys(p.propostos).some((k) => norm(k) === norm(campoData.name) || norm(k) === norm(campoHora.name));
-  if (!mexe) return null;
-  const eu = candidatos.find((c) => c.id === p.memoId);
-  const valor = (dados: Record<string, string> | undefined, prop: Record<string, string>, campo: string) => {
-    const k = Object.keys(prop).find((x) => norm(x) === norm(campo));
-    return k != null ? prop[k] : dados ? valorAtual(dados, campo) : "";
-  };
-  const data = valor(eu?.dados, p.propostos, campoData.name).trim();
-  const hora = horaNorm(valor(eu?.dados, p.propostos, campoHora.name));
-  if (!data || !hora) return null;
-  const outro = candidatos.find(
-    (c) =>
-      c.id !== p.memoId &&
-      c.categoria === p.categoria &&
-      valorAtual(c.dados, campoData.name).trim() === data &&
-      horaNorm(valorAtual(c.dados, campoHora.name)) === hora
-  );
-  return outro ? outro.resumo.slice(0, 120) || "outro registro" : null;
 }
 
 async function carregarCandidatos(
@@ -500,9 +462,18 @@ export async function executarComandoAlteracao(input: {
   // Sem dúvida, grava direto e a resposta traz o Desfazer (decisão de 24/11; antes, desde 17/11, tudo pedia
   // confirmação). Pede confirmação só com o marcador "Confirmar antes de alterar" da categoria ou com
   // conflito de horário (outro registro ativo da categoria no mesmo dia e hora).
-  const conflito = conflitoDeHorario(unica, cat, candidatos);
+  // Conflito com outro compromisso ativo (mesmo dia, horários que se cruzam, contando a duração)
+  const eu = porId.get(unica.memoId);
+  const conflitos = await conflitosDeCompromisso({
+    categoria: unica.categoria,
+    groupId: input.groupId,
+    userId: input.userId,
+    dados: { ...(eu?.dados ?? {}), ...unica.propostos },
+    excluirId: unica.memoId,
+  }).catch(() => []);
+  const conflito = conflitos.length ? descreverConflitos(conflitos) : null;
   if (cat.confirmarAlteracao || conflito) {
-    const duvida = conflito ? `Já tem outro registro nesse horário: ${conflito}.` : undefined;
+    const duvida = conflito ? `Conflito de horário com: ${conflito}.` : undefined;
     const msg = duvida
       ? `${duvida} Confirme a alteração em ${unica.categoria}: ${descreve(unica)}.`
       : `Confirme a alteração em ${unica.categoria}: ${descreve(unica)}.`;
