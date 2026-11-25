@@ -576,8 +576,14 @@ Clicar no número de um memo (#id) na resposta abre o cartão dele. Ali:
 - a lixeira pede confirmação ("Mover o memo #id para a lixeira?") e, ao confirmar, move o memo para a lixeira e fecha o cartão. A linha continua na tabela da resposta já exibida; ela some ao refazer a pergunta. Só o autor do memo pode excluir.
 ## Avisos a partir da resposta
 O card pode sugerir "🔔 Me avise quando a resposta desta pergunta mudar". Ver Seção 12.
-## Narração por voz
-Se o áudio estiver habilitado nas preferências, a resposta pode ser narrada pela síntese de voz do navegador. A velocidade é controlável em Minha Conta → Preferências (0.5× a 2.0×).
+## Narração por voz (som, autofalante)
+Com a voz ligada, cada resposta nova é lida em voz alta (narrada) pela voz do navegador, pelo autofalante ou fone do aparelho.
+- **Desligar a voz de vez (desabilitar o som/autofalante):** Minha conta (toque nas iniciais, no canto de cima) → **Preferências** → seção "Voz e respostas" → desligue **Voz ligada**. Salva sozinho. As respostas param de ser lidas; o microfone também deixa de aparecer.
+- **Parar só a resposta que está sendo lida:** toque no **🔊** do card da resposta (ao lado da pergunta) ou em qualquer ponto fora do card.
+- **Ouvir uma resposta de novo** (mesmo com a voz desligada): toque no 🔊 do card.
+- **Velocidade:** em Preferências → **Velocidade da voz**, de 0,5× (lenta) a 2,0× (rápida); aparece só com a voz ligada.
+- **Volume:** é o do aparelho (teclas de volume ou mudo do celular/computador); o proMemory não tem controle de volume próprio.
+Perguntas que este trecho responde: como desabilito o autofalante; como desligar o som; como parar a voz; como tirar a narração; a resposta fala sozinha, como desligo; como ligar a voz de novo.
 ## Custo de IA
 Cada pergunta consome créditos de IA. O custo estimado é exibido no card de resposta quando a preferência de exibir custo está ativa.
 ## Erros frequentes
