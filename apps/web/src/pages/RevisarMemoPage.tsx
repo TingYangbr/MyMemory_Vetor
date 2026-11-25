@@ -689,11 +689,21 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
                   </>
                 ) : null}
                 {fin.fase === "cancelado" ? (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                    <button type="button" className="mm-btn mm-btn--primary" disabled={busy} onClick={() => void guardarSoDocumento()}>
-                      Guardar só o documento
-                    </button>
-                    <button type="button" className="mm-btn" onClick={() => setFin(null)}>Voltar à revisão</button>
+                  <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      <button type="button" className="mm-btn mm-btn--primary" disabled={busy} onClick={() => void descartar()}>
+                        Descartar tudo
+                      </button>
+                      <button type="button" className="mm-btn" disabled={busy} onClick={() => void guardarSoDocumento()}>
+                        Guardar só o documento
+                      </button>
+                      <button type="button" className="mm-btn mm-btn--ghost" disabled={busy} onClick={() => setFin(null)}>
+                        Voltar à revisão
+                      </button>
+                    </div>
+                    <small style={{ color: "var(--mm-muted)" }}>
+                      Descartar tudo: não guarda nada. Guardar só o documento: salva como memo, sem lançamento. Voltar à revisão: corrigir e lançar de novo.
+                    </small>
                   </div>
                 ) : null}
               </>

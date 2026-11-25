@@ -418,7 +418,7 @@ export default function FinComandoCartao({
   if (estado === "cancelado") {
     return (
       <div style={caixa} role="status">
-        <span>Cancelado: nada foi gravado.</span>
+        <span>{embutido ? "Lançamento cancelado: nada foi gravado no financeiro. E o documento?" : "Cancelado: nada foi gravado."}</span>
       </div>
     );
   }
