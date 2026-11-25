@@ -221,6 +221,50 @@ function hojeTexto(): string {
   return `${iso} (${DIAS_SEMANA[d.getDay()]})`;
 }
 
+function dataBr(v: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : v;
+}
+
+/** "16h", "16:00", "9:5" → "16:00"; outra coisa → null. */
+function horaNorm(v: string): string | null {
+  const m = /^\s*(\d{1,2})\s*(?:[:h]\s*(\d{1,2})?)?\s*(?:hs?|hrs?)?\s*$/i.exec(v);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const mi = Number(m[2] ?? 0);
+  return h <= 23 && mi <= 59 ? `${String(h).padStart(2, "0")}:${String(mi).padStart(2, "0")}` : null;
+}
+
+/**
+ * Conflito de horário: a alteração mexe na data ou na hora e, depois dela, outro registro ativo da mesma categoria
+ * fica no mesmo dia e na mesma hora. Campo de data = primeiro campo do tipo data; campo de hora = campo cujo nome
+ * fala em hora/horário. Sem os dois, não há como comparar. Devolve o resumo do outro registro, ou null.
+ */
+function conflitoDeHorario(p: ComandoAlteracaoCandidato, cat: MemoContextCategory, candidatos: Candidato[]): string | null {
+  const ativos = cat.campos.filter((f) => f.isActive === 1);
+  const campoData = ativos.find((f) => f.tipo === "date");
+  const campoHora = ativos.find((f) => f.tipo !== "date" && /^hor/.test(norm(f.name)));
+  if (!campoData || !campoHora) return null;
+  const mexe = Object.keys(p.propostos).some((k) => norm(k) === norm(campoData.name) || norm(k) === norm(campoHora.name));
+  if (!mexe) return null;
+  const eu = candidatos.find((c) => c.id === p.memoId);
+  const valor = (dados: Record<string, string> | undefined, prop: Record<string, string>, campo: string) => {
+    const k = Object.keys(prop).find((x) => norm(x) === norm(campo));
+    return k != null ? prop[k] : dados ? valorAtual(dados, campo) : "";
+  };
+  const data = valor(eu?.dados, p.propostos, campoData.name).trim();
+  const hora = horaNorm(valor(eu?.dados, p.propostos, campoHora.name));
+  if (!data || !hora) return null;
+  const outro = candidatos.find(
+    (c) =>
+      c.id !== p.memoId &&
+      c.categoria === p.categoria &&
+      valorAtual(c.dados, campoData.name).trim() === data &&
+      horaNorm(valorAtual(c.dados, campoHora.name)) === hora
+  );
+  return outro ? outro.resumo.slice(0, 120) || "outro registro" : null;
+}
+
 async function carregarCandidatos(
   cats: MemoContextCategory[],
   userId: number,
@@ -363,6 +407,8 @@ export async function executarComandoAlteracao(input: {
   const propostas: ComandoAlteracaoCandidato[] = [];
   /** Lista sem mudança: o motivo (já está, não achei), para não responder "não entendi". */
   const notasLista: string[] = [];
+  /** Campos que o comando pediu e já estão com esse valor ("adiar para 16h" com a reunião já às 16h). */
+  const jaIguais: string[] = [];
   for (const id of alvosIds) {
     const cand = porId.get(id)!;
     const cat = catPorNome.get(cand.categoria);
@@ -399,6 +445,8 @@ export async function executarComandoAlteracao(input: {
       if (norm(novo) === norm(antes)) {
         if (def.tipo === "lista" && typeof valorBruto === "object" && !Array.isArray(valorBruto)) {
           notasLista.push(...notasOperacoesLista(antes, valorBruto as Record<string, unknown>));
+        } else if (antes) {
+          jaIguais.push(`${def.name} já é ${def.tipo === "date" ? dataBr(antes) : antes}`);
         }
         continue;
       }
@@ -416,7 +464,7 @@ export async function executarComandoAlteracao(input: {
   }
   if (!propostas.length) {
     const usados = alvosIds.map((id) => porId.get(id)!);
-    const notas = [...new Set(notasLista)];
+    const notas = [...new Set([...notasLista, ...jaIguais])];
     const msg = notas.length
       ? `Nada a mudar${usados[0]?.categoria ? ` em ${usados[0].categoria}` : ""}: ${notas.join("; ")}.`
       : "Achei o registro, mas não entendi o que mudar nele. Tente dizer o valor novo.";
@@ -441,15 +489,18 @@ export async function executarComandoAlteracao(input: {
 
   const unica = propostas[0]!;
   const cat = catPorNome.get(unica.categoria)!;
-  // Enquanto os comandos não forem validados com frases reais, todo comando pede confirmação,
-  // mesmo com o marcador desligado (decisão de 17/11). Para liberar a gravação direta nas
-  // categorias sem "Confirmar antes de alterar", trocar para true.
-  const GRAVAR_DIRETO_LIBERADO = false;
-  if (cat.confirmarAlteracao || !GRAVAR_DIRETO_LIBERADO) {
-    const msg = `Confirme a alteração em ${unica.categoria} #${unica.memoId}: ${descreve(unica)}.`;
+  // Sem dúvida, grava direto e a resposta traz o Desfazer (decisão de 24/11; antes, desde 17/11, tudo pedia
+  // confirmação). Pede confirmação só com o marcador "Confirmar antes de alterar" da categoria ou com
+  // conflito de horário (outro registro ativo da categoria no mesmo dia e hora).
+  const conflito = conflitoDeHorario(unica, cat, candidatos);
+  if (cat.confirmarAlteracao || conflito) {
+    const duvida = conflito ? `Já tem outro registro nesse horário: ${conflito}.` : undefined;
+    const msg = duvida
+      ? `${duvida} Confirme a alteração em ${unica.categoria}: ${descreve(unica)}.`
+      : `Confirme a alteração em ${unica.categoria}: ${descreve(unica)}.`;
     return {
       resposta: resposta(msg, usados),
-      comando: { status: "confirmar", mensagem: msg, memoId: unica.memoId, candidatos: [unica] },
+      comando: { status: "confirmar", mensagem: msg, memoId: unica.memoId, candidatos: [unica], ...(duvida ? { duvida } : {}) },
       costUsd,
     };
   }
@@ -466,15 +517,16 @@ export async function executarComandoAlteracao(input: {
   } catch (e) {
     // Gravação recusada (permissão, categoria mudou): devolve a proposta para o usuário revisar no cartão
     console.warn("[comandoAlteracao] gravar:", e instanceof Error ? e.message : e);
-    const msg = `Não consegui gravar direto em ${unica.categoria} #${unica.memoId}. Confira e salve: ${descreve(unica)}.`;
+    const msg = `Não consegui gravar direto em ${unica.categoria}. Confira e confirme: ${descreve(unica)}.`;
+    const duvida = "Não consegui gravar direto. Confira e confirme.";
     return {
       resposta: resposta(msg, usados),
-      comando: { status: "confirmar", mensagem: msg, memoId: unica.memoId, candidatos: [unica] },
+      comando: { status: "confirmar", mensagem: msg, memoId: unica.memoId, candidatos: [unica], duvida },
       costUsd,
     };
   }
   const feitas = r.mudancas.length ? descreve(unica) : "nada mudou";
-  const msg = `Alterei ${unica.categoria} #${unica.memoId}: ${feitas}.`;
+  const msg = `Alterei ${unica.categoria}: ${feitas}.`;
   return {
     resposta: resposta(msg, usados),
     comando: { status: "alterado", mensagem: msg, lote: r.lote, memoId: unica.memoId, candidatos: [unica] },

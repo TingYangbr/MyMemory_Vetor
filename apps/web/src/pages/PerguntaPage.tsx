@@ -817,7 +817,10 @@ function MudancaVisual({ m }: { m: { campo: string; antes: string; depois: strin
  */
 function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
   const { abrir, aplicarLocal } = useContext(AlteracaoCtx);
-  const [estado, setEstado] = useState<Record<number, { situacao: "feito" | "desfeito" | "cancelado"; lote: string | null }>>({});
+  // Gravado direto pelo servidor (sem dúvida): o quadro já nasce "✓ Alterado", com o Desfazer
+  const [estado, setEstado] = useState<Record<number, { situacao: "feito" | "desfeito" | "cancelado"; lote: string | null }>>(() =>
+    comando?.status === "alterado" && comando.memoId != null ? { [comando.memoId]: { situacao: "feito", lote: comando.lote ?? null } } : {}
+  );
   const [ocupado, setOcupado] = useState<number | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   if (!comando) return null;
@@ -871,6 +874,7 @@ function ComandoCartao({ comando }: { comando: ComandoAlteracao | undefined }) {
   return (
     <div className={styles.listaCards}>
       {varios ? <p className={styles.cardRespostaText}>{comando.mensagem}</p> : null}
+      {!varios && comando.duvida ? <p className={styles.cardRespostaText}>⚠ {comando.duvida}</p> : null}
       {comando.candidatos.map((c) => {
         const st = estado[c.memoId];
         const pendente = !st || st.situacao === "desfeito";
@@ -2364,7 +2368,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
       const memoId = cmd.memoId;
       const prop = cmd.candidatos?.find((c) => c.memoId === memoId)?.propostos ?? {};
       setAlteracoesLocais((s) => ({ ...s, [memoId]: { ...(s[memoId] ?? {}), ...prop } }));
-      setAvisoAlteracao({ texto: cmd.mensagem, lote: cmd.lote ?? null, memoId });
+      // O próprio quadro da resposta mostra "✓ Alterado" e o Desfazer (sem aviso solto repetindo)
     }
     // "confirmar" e "escolher": o cartão de comando na própria resposta mostra a mudança e os botões
   }

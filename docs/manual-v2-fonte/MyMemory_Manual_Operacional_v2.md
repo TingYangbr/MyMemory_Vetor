@@ -1037,6 +1037,17 @@ NOTA: Membro com nome de palavra comum (ex.: "Suporte") é reconhecido mesmo qua
 Em "Editar categoria", a opção "Atualizável — os memos mudam de situação" serve para agenda, tarefas, pedidos: registros que depois são remarcados, concluídos ou cancelados.
 - Ao marcar, o sistema usa o campo "Situação" da categoria (ou cria um), com os padrões Ativo, Concluído e Cancelado — as mesmas três situações em todas as categorias atualizáveis. Memo salvo sem situação é gravado como Ativo; os memos antigos com Situação vazia também foram marcados como Ativo.
 - Nas respostas do Fale comigo, os memos da categoria podem ser alterados, concluídos ou cancelados (ver seção 8).
+- Pedido de alteração sem dúvida ("Adiar reunião com Carlos para às 16 hrs") é gravado na hora: a resposta mostra a mudança (valor antigo riscado), "✓ Alterado" e **↶ Desfazer**.
+- O Fale comigo pergunta antes de gravar (botões **✓ Confirmar**, **✎ Ajustar** e **Cancelar**) só quando há dúvida:
+
+| Dúvida | O que aparece |
+|---|---|
+| Mais de um registro pode ser o certo (ex.: duas reuniões com Carlos) | Um quadro por registro, para escolher qual alterar. |
+| Outro registro ativo da categoria fica no mesmo dia e hora | "⚠ Já tem outro registro nesse horário: …" e os botões. |
+| A categoria tem "Confirmar antes de alterar" ligado | Os botões, sempre. |
+| O valor pedido já é o atual (ex.: a reunião já é às 16:00) | Nada é gravado: "Nada a mudar em Agenda: Horario já é 16:00." |
+
+Sem tocar em Confirmar, nada é gravado.
 - Perguntas: a Query padrão esconde Concluído e Cancelado, a menos que a pergunta peça pela situação ("o que foi cancelado este mês?"). Queries editadas à mão não ganham esse filtro automaticamente.
 - Lembretes: memos concluídos ou cancelados não geram aviso. Remarcar (mudar data ou hora) já reprograma o lembrete.
 - Consulta de alterações: a categoria ganha sozinha a consulta "Alterações — Nome da categoria", marcada "Automática · histórico" em Painel Owners → Categorias. Ela lê o registro de alterações e responde "o que foi remarcado/cancelado" (Seção 8). Como a Query padrão, é atualizada quando os campos mudam; editada à mão, deixa de ser tocada; desmarcando Atualizável, ela é desativada.
