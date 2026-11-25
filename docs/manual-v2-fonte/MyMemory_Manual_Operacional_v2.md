@@ -413,6 +413,7 @@ Documentos enviados pelo **Catalogar** (PDF, imagem, e-mail) seguem a mesma regr
 | Boleto, carnê, fatura, cobrança com vencimento | Conta a pagar (ou a receber, se for você quem cobra) |
 | Recibo ou comprovante ("pagamento confirmado", "Payment receipt", "comprovante") | **Gasto (já pago)**, na data do pagamento |
 | Recibo de algo que já está em aberto em Contas a pagar e receber | Pagamento de conta em aberto (dá baixa no item) |
+- Recibo de compra paga no cartão de crédito ("aparecerá na sua fatura", "cartão de crédito final 7803") é **gasto nesse cartão**: entra na fatura, não dá baixa nela. Pagar a fatura de um cartão saindo do próprio cartão não existe; se a IA propuser isso, vira Gasto.
 - "Pagamento de conta em aberto" só é proposto quando existe o item em aberto correspondente; sem ele, o proMemory propõe **Gasto (já pago)** (ou Receita, se for recebimento).
 - Cartão citado pelo final ("Mastercard ••••7803", "cartão final 1890") é escolhido quando o nome de um único cartão cadastrado tem esses dígitos. Dica: inclua o final no nome do cartão (ex.: "Itaú Mastercard 7803").
 - O Form vem preenchido e tudo pode ser ajustado antes de **Gravar** (tipo, descrição, valor, data, parcelas, repetição, grupo e conta). Grupo ou conta que a IA não reconheceu fica para escolher: campo obrigatório vazio tem borda vermelha e "· preencher".

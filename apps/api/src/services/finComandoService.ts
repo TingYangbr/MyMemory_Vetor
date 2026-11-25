@@ -126,7 +126,7 @@ export async function montarPropostaFin(input: {
     }));
 
   const system =
-    "Você converte uma frase de controle financeiro pessoal, ou o texto de um documento (boleto, carnê, fatura, contrato, nota), em UMA operação, escolhendo só entre os ids informados. Documento de cobrança = conta a pagar (ou a receber, se for você quem cobra) com o vencimento e as parcelas do documento; descrição = quem cobra e o quê. Recibo ou comprovante de pagamento (\"pagamento confirmado\", \"payment receipt\", \"comprovante\", \"recibo\", \"pago em\") = algo JÁ PAGO: gasto, com data = a data do pagamento e contaId = o cartão/conta usado; só é pagamento se corresponder a um item de em_aberto. Responda só JSON.";
+    "Você converte uma frase de controle financeiro pessoal, ou o texto de um documento (boleto, carnê, fatura, contrato, nota), em UMA operação, escolhendo só entre os ids informados. Documento de cobrança = conta a pagar (ou a receber, se for você quem cobra) com o vencimento e as parcelas do documento; descrição = quem cobra e o quê. Recibo ou comprovante de pagamento (\"pagamento confirmado\", \"payment receipt\", \"comprovante\", \"recibo\", \"pago em\") = algo JÁ PAGO: gasto, com data = a data do pagamento e contaId = o cartão/conta usado; só é pagamento se corresponder a um item de em_aberto. Recibo de compra paga com cartão de crédito (\"cartão de crédito final 7803\", \"aparecerá na sua fatura\") = gasto NESSE cartão (contaId = o cartão), NÃO é pagamento da fatura: pagamento de fatura é só quando o documento é o pagamento da própria fatura do cartão. Responda só JSON.";
   const user = JSON.stringify(
     {
       frase: input.texto,
@@ -194,6 +194,10 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
       if (doMes) alvo = doMes;
     }
   }
+  // Pagar a FATURA de um cartão saindo de um cartão não existe: é compra no cartão (recibo "pago com cartão de
+  // crédito… aparecerá na sua fatura" — a IA confunde com "paguei a fatura"). Vira gasto nesse cartão.
+  const contaEscolhida = contas.find((c) => c.id === Number(j.contaId));
+  if (tipo === "pagamento" && alvo?.chave.startsWith("f:") && contaEscolhida?.tipo === "cartao") alvo = null;
   // "Pagamento" é baixa de algo que JÁ ESTÁ em aberto. Sem item correspondente (recibo de algo nunca cadastrado,
   // "Payment receipt" do Google Ads), é gasto já pago — ou receita, se for recebimento.
   if (tipo === "pagamento" && !alvo) tipo = j.sentido === "receber" ? "receita" : "gasto";
