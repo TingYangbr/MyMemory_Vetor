@@ -126,7 +126,7 @@ export async function montarPropostaFin(input: {
     }));
 
   const system =
-    "Você converte uma frase de controle financeiro pessoal, ou o texto de um documento (boleto, carnê, fatura, contrato, nota), em UMA operação, escolhendo só entre os ids informados. Documento de cobrança = conta a pagar (ou a receber, se for você quem cobra) com o vencimento e as parcelas do documento; descrição = quem cobra e o quê. Responda só JSON.";
+    "Você converte uma frase de controle financeiro pessoal, ou o texto de um documento (boleto, carnê, fatura, contrato, nota), em UMA operação, escolhendo só entre os ids informados. Documento de cobrança = conta a pagar (ou a receber, se for você quem cobra) com o vencimento e as parcelas do documento; descrição = quem cobra e o quê. Recibo ou comprovante de pagamento (\"pagamento confirmado\", \"payment receipt\", \"comprovante\", \"recibo\", \"pago em\") = algo JÁ PAGO: gasto, com data = a data do pagamento e contaId = o cartão/conta usado; só é pagamento se corresponder a um item de em_aberto. Responda só JSON.";
   const user = JSON.stringify(
     {
       frase: input.texto,
@@ -158,7 +158,7 @@ Provento: ticker/papelContaId do papel, valor = o que caiu (líquido), proventoT
 Câmbio: contaId = de onde sai, contaDestinoId = para onde vai (uma em reais, outra na moeda; veja "moeda" em contas_bancos_cartoes), valor = reais (o que saiu ou entrou em reais, sem IOF), valorMoeda = quantia na moeda, cotacao se dita, iof em reais se dito.
 Transferência: contaId = de onde sai, contaDestinoId = para onde vai (ids de contas_bancos_cartoes), grupoId null.
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
-Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome. Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.
+Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome; citado pelo final ("final 7803", "••••7803") = a conta cujo nome tem esses dígitos (nenhuma ou mais de uma: null). Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.
 contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corretora ou grupo que NÃO está nas listas (ex.: "no Nubank" sem conta Nubank), o nome como foi dito ("Nubank"), e o id fica null. Se o citado existe, ou se nada foi citado, null.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
@@ -194,6 +194,9 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
       if (doMes) alvo = doMes;
     }
   }
+  // "Pagamento" é baixa de algo que JÁ ESTÁ em aberto. Sem item correspondente (recibo de algo nunca cadastrado,
+  // "Payment receipt" do Google Ads), é gasto já pago — ou receita, se for recebimento.
+  if (tipo === "pagamento" && !alvo) tipo = j.sentido === "receber" ? "receita" : "gasto";
   const sentido: "pagar" | "receber" =
     tipo === "gasto" || tipo === "compra" ? "pagar" : tipo === "receita" || tipo === "venda" ? "receber" : alvo ? alvo.sentido : j.sentido === "receber" ? "receber" : "pagar";
   const valorBruto = Number(j.valor);
