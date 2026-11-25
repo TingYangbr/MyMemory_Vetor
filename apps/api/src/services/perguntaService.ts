@@ -35,6 +35,7 @@ import { juntarEmListaAberta } from "./listaAbertaService.js";
 import { atualizarRegistroUnico } from "./registroUnicoService.js";
 import { montarPropostaFin } from "./finComandoService.js";
 import { correcaoPelaFrase, fraseDeCorrecao } from "./finCorrecaoService.js";
+import { configuracaoPelaFrase } from "./configFalaService.js";
 import { ordenarColunasDaResposta, type LimitesDatas } from "./colunasRespostaService.js";
 
 /** Período pedido para cada coluna de data (parâmetros data_x_ini / data_x_fin do plano executado). */
@@ -313,6 +314,7 @@ export async function perguntarMemory(input: {
   criacao?: import("@mymemory/shared").ComandoCriacao;
   finComando?: import("@mymemory/shared").FinComandoProposta;
   finCorrecao?: import("@mymemory/shared").FinCorrecaoEscolha;
+  acaoConfig?: import("@mymemory/shared").AcaoConfig;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -379,6 +381,35 @@ export async function perguntarMemory(input: {
           justificativa: "pergunta sobre os assuntos (categorias), respondida por regra",
         },
         apiCost: r.costUsd,
+      };
+    }
+  }
+
+  // Configuração da conta ("como desabilito o autofalante?", "fala mais devagar"): explica e oferece a mudança
+  // (botões Sim/Não na resposta). Regra, sem IA. Só pela tela do usuário.
+  if (!input.forcePipe && !input.forceAlvo && input.permitirComandos) {
+    const cfg = await configuracaoPelaFrase(input.pergunta, input.userId).catch(() => null);
+    if (cfg) {
+      return {
+        resposta: {
+          resposta: cfg.texto,
+          tipo_resposta: "semantica",
+          dados_usados: [],
+          limitacoes: [],
+          confianca_estimada: 1,
+          alvo: "uso_do_sistema" as const,
+        },
+        classificacao: {
+          pipe: "semantica",
+          categorias: [],
+          multi_categoria: false,
+          intencao: "explicacao",
+          contexto: "nova",
+          escopo_sugerido: "global",
+          justificativa: "configuração da conta (regra)",
+        },
+        apiCost: 0,
+        ...(cfg.acao ? { acaoConfig: cfg.acao } : {}),
       };
     }
   }

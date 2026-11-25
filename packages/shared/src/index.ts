@@ -1359,6 +1359,18 @@ export interface PerguntaResponse {
   finComando?: import("./financeiro.js").FinComandoProposta;
   /** "Corrigir a compra…" com mais de um lançamento possível (ou nenhum certo): lista para escolher qual corrigir. */
   finCorrecao?: import("./financeiro.js").FinCorrecaoEscolha;
+  /** Pergunta sobre configuração da conta ("como desligo o autofalante?"): a mudança oferecida (Sim/Não). */
+  acaoConfig?: AcaoConfig;
+}
+
+/** Mudança de preferência oferecida pelo Fale comigo; só muda com o toque no botão. */
+export interface AcaoConfig {
+  chave: "soundEnabled" | "ttsRate" | "exemplosFaleComigo" | "pdfAbrirAba";
+  valor: boolean | number;
+  /** Texto do botão (ex.: "Sim, desligar a voz"). */
+  rotulo: string;
+  /** Mensagem depois de mudar. */
+  feito: string;
 }
 
 // ── Assinaturas (Admin) ───────────────────────────────────────────────────────
