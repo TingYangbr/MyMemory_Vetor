@@ -21,6 +21,7 @@ import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
 import FinComandoCartao from "../components/FinComandoCartao";
 import { FinCorrecaoEscolher, FinCorrecaoLapis } from "../components/FinCorrecao";
+import { AcaoConfigCartao } from "../components/AcaoConfigCartao";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -3700,6 +3701,16 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   <CriacaoBotao criacao={r.criacao} />
                   {r.finComando ? <FinComandoCartao proposta={r.finComando} /> : null}
                   {r.finCorrecao ? <FinCorrecaoEscolher escolha={r.finCorrecao} /> : null}
+                  {r.acaoConfig ? (
+                    <AcaoConfigCartao
+                      acao={r.acaoConfig}
+                      onAplicada={(a) => {
+                        // Vale na hora nesta tela: a voz desligada para a leitura em curso
+                        setMe((m) => (m ? { ...m, [a.chave]: a.valor } : m));
+                        if (a.chave === "soundEnabled" && a.valor === false) stopTts();
+                      }}
+                    />
+                  ) : null}
                   {r.resposta.refeitoCom ? <p className={styles.alvoUsoNota}>↺ Refeito com: {r.resposta.refeitoCom}</p> : null}
                   {r.resposta.alvo === "uso_do_sistema" ? (
                     <div className={styles.ampliarWrap}>

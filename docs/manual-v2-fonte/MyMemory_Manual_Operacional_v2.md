@@ -584,6 +584,21 @@ Com a voz ligada, cada resposta nova é lida em voz alta (narrada) pela voz do n
 - **Velocidade:** em Preferências → **Velocidade da voz**, de 0,5× (lenta) a 2,0× (rápida); aparece só com a voz ligada.
 - **Volume:** é o do aparelho (teclas de volume ou mudo do celular/computador); o proMemory não tem controle de volume próprio.
 Perguntas que este trecho responde: como desabilito o autofalante; como desligar o som; como parar a voz; como tirar a narração; a resposta fala sozinha, como desligo; como ligar a voz de novo.
+## Configurações pelo Fale comigo
+Algumas preferências da conta mudam pelo próprio Fale comigo. A resposta explica e **oferece** a mudança com os botões **Sim, …** e **Não**; nada muda sem o toque. Depois de mudar, vale na hora e fica igual em Preferências.
+
+| Frase (exemplos) | O que oferece |
+|---|---|
+| "como desabilito o autofalante?", "desligar o som", "para de falar", "sem som" | Desligar **Voz ligada** |
+| "ligar a voz", "ativar o som", "quero ouvir as respostas" | Ligar **Voz ligada** |
+| "fala mais devagar", "fala mais rápido", "velocidade da voz 1,5" | Mudar a **Velocidade da voz** (±0,25× ou o valor dito, de 0,5× a 2,0×) |
+| "aumentar o som", "volume", "não estou ouvindo" | Explica que o volume é o do aparelho; com a voz desligada, oferece ligar |
+| "tira os exemplos", "mostrar os exemplos" | Desligar / ligar o botão **💡 Exemplos** |
+| "abrir o PDF numa aba", "baixar o PDF" | Trocar **Abrir o PDF numa aba nova** |
+
+- Se já está como pedido, a resposta só avisa ("A voz já está desligada").
+- Ficam de fora de propósito (mudar em Preferências): níveis de IA, conferir antes de mandar para a IA, campos fora da categoria, configurações de grupo e do financeiro.
+- Frase sobre dados não dispara ("quanto gastei com som?", "ligar para o Carlos amanhã").
 ## Custo de IA
 Cada pergunta consome créditos de IA. O custo estimado é exibido no card de resposta quando a preferência de exibir custo está ativa.
 ## Erros frequentes
