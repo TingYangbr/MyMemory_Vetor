@@ -470,6 +470,7 @@ export async function executarComandoAlteracao(input: {
     userId: input.userId,
     dados: { ...(eu?.dados ?? {}), ...unica.propostos },
     excluirId: unica.memoId,
+    resumo: eu?.resumo ?? null,
   }).catch(() => []);
   const conflito = conflitos.length ? descreverConflitos(conflitos) : null;
   if (cat.confirmarAlteracao || conflito) {

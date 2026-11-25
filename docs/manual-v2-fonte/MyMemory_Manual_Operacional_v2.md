@@ -1050,7 +1050,7 @@ Em "Editar categoria", a opção "Atualizável — os memos mudam de situação"
 Sem tocar em Confirmar, nada é gravado.
 - Pedido de alterar sem registro correspondente ("adiar reunião com Carlos" sem reunião com Carlos) não cria registro novo: a resposta diz que não encontrou. Para marcar um novo, use "marcar" ou "criar" com a data. Exceção: incluir item numa lista sem lista aberta prepara a lista nova.
 - Em categoria de compromisso (com data e hora, como Agenda), a data é obrigatória no Form do registro novo: vazia, aparece "· obrigatório" em vermelho e o Salvar avisa.
-- Conflito de horário (registro novo e alteração): dois compromissos ativos da categoria no mesmo dia cujos horários se cruzam. Cada um vai da Hora até Hora + Duração ("2 horas", "1h30", "90 min", "meia hora"); sem duração, conta 1 hora. Concluídos e cancelados não contam; na categoria Pessoal, só os do mesmo dono.
+- Conflito de horário (registro novo e alteração): dois compromissos ativos da categoria no mesmo dia cujos horários se cruzam. Cada um vai da Hora até Hora + Duração ("2 horas", "1h30", "90 min", "meia hora"). Sem duração, conta 15 minutos para ligação (ligar, ligação, telefonar, WhatsApp, retornar) e 1 hora para o resto. Mesmo horário de início sempre conflita: 4 ligações às 8:00 dão conflito; ligações às 8:00, 8:15 e 8:30, não. Concluídos e cancelados não contam; na categoria Pessoal, só os do mesmo dono.
   - No Form do registro novo, o aviso "⚠ Conflito de horário com: Reunião com Carlos (16:00–17:00)" aparece no topo e muda conforme data, hora e duração são editadas. Salvar com conflito pede confirmação ("Salvar mesmo assim?").
 
 | Exemplo (Carlos 05/12 às 16:00, sem duração = 16:00–17:00) | Conflito? |

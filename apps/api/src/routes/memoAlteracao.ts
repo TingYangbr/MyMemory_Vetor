@@ -49,6 +49,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         groupId: z.number().int().positive().nullable(),
         campos: z.record(z.string().max(4000)),
         excluirId: z.number().int().positive().nullable().optional(),
+        resumo: z.string().max(4000).optional(),
       })
       .safeParse(req.body);
     if (!body.success) return reply.code(400).send({ error: "invalid_body" });
@@ -65,6 +66,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       userId,
       dados: body.data.campos,
       excluirId: body.data.excluirId ?? null,
+      resumo: body.data.resumo ?? null,
     });
     return { conflitos: conflitos.map(({ resumo, inicio, fim }) => ({ resumo, inicio, fim })) };
   });

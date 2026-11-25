@@ -84,6 +84,7 @@ export function MemoNovoCartao({
         categoria: criacao.categoria,
         groupId: criacao.groupId,
         campos,
+        resumo,
       })
         .then((r) => vivo && setConflitos(r.conflitos ?? []))
         .catch(() => vivo && setConflitos([]));
@@ -93,7 +94,7 @@ export function MemoNovoCartao({
       window.clearTimeout(t);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chaveHorario, campoDataObrigatorio, criacao]);
+  }, [chaveHorario, campoDataObrigatorio, criacao, resumo]);
 
   useEffect(() => {
     const extraidos = lerDados(p.dadosEspecificosJson);

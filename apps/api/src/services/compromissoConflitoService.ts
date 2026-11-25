@@ -2,7 +2,8 @@
  * Conflito de horário em categorias de compromisso (Agenda): categoria com um campo de data e um de hora
  * (nome começando por "hor"). Dois registros ativos conflitam quando caem no mesmo dia e os intervalos se cruzam:
  * início = hora; fim = hora + duração (campo cujo nome começa por "dura": "2 horas", "1h30", "90 min";
- * vazia ou ilegível = 1 hora). Na categoria Pessoal (com campo dono), só compara compromissos do mesmo dono.
+ * vazia ou ilegível = padrão pelo tipo: ligação 15 min, o resto 1 hora). Mesmo horário de início sempre conflita
+ * (4 ligações às 8h não cabem). Na categoria Pessoal (com campo dono), só compara compromissos do mesmo dono.
  */
 import { normalizarDataParaIso } from "@mymemory/shared";
 import type { RowDataPacket } from "../lib/dbTypes.js";
@@ -10,8 +11,11 @@ import { pool } from "../db.js";
 
 const norm = (s: string) => s.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase().trim();
 
-/** Duração padrão quando o registro não diz (minutos). */
-const DURACAO_PADRAO = 60;
+/** Duração padrão quando o registro não diz (minutos): ligação é curta; reunião, visita etc., 1 hora. */
+export function duracaoPadrao(texto: string): number {
+  const t = norm(texto ?? "");
+  return /\b(liga(r|cao|coes)|ligue|telefon\w*|whats\w*|zap|call|retornar)\b/.test(t) ? 15 : 60;
+}
 
 /** "16h", "16:00", "9:5", "16 hrs" → minutos do dia; outra coisa → null. */
 export function horaEmMinutos(v: string): number | null {
@@ -97,13 +101,16 @@ export async function conflitosDeCompromisso(input: {
   userId: number;
   dados: Record<string, unknown>;
   excluirId?: number | null;
+  /** Resumo do registro (ajuda a saber se é ligação, para a duração padrão). */
+  resumo?: string | null;
 }): Promise<ConflitoCompromisso[]> {
   const cc = await camposDeCompromisso(input.categoria, input.groupId);
   if (!cc) return [];
   const data = normalizarDataParaIso(valor(input.dados, cc.data));
   const ini = horaEmMinutos(valor(input.dados, cc.hora));
   if (!data || ini == null) return [];
-  const fim = ini + (duracaoEmMinutos(valor(input.dados, cc.duracao)) ?? DURACAO_PADRAO);
+  const textoDe = (resumo: string, d: Record<string, unknown>) => `${resumo} ${Object.values(d).map((x) => (x == null ? "" : String(x))).join(" ")}`;
+  const fim = ini + (duracaoEmMinutos(valor(input.dados, cc.duracao)) ?? duracaoPadrao(textoDe(input.resumo ?? "", input.dados)));
   const dono = norm(valor(input.dados, cc.dono));
 
   const escopo = input.groupId != null ? "m.groupid = ?" : "(m.groupid IS NULL AND m.userid = ?)";
@@ -128,9 +135,9 @@ export async function conflitosDeCompromisso(input: {
     if (cc.dono && dono && norm(valor(d, cc.dono)) && norm(valor(d, cc.dono)) !== dono) continue;
     const oi = horaEmMinutos(valor(d, cc.hora));
     if (oi == null) continue;
-    const of = oi + (duracaoEmMinutos(valor(d, cc.duracao)) ?? DURACAO_PADRAO);
+    const resumo = String(r.mediaText ?? r.mediatext ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+    const of = oi + (duracaoEmMinutos(valor(d, cc.duracao)) ?? duracaoPadrao(textoDe(resumo, d)));
     if (oi < fim && ini < of) {
-      const resumo = String(r.mediaText ?? r.mediatext ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
       out.push({ id: Number(r.id), resumo, inicio: hhmm(oi), fim: hhmm(of) });
     }
   }
