@@ -1087,9 +1087,22 @@
     display: none;
   }
 
+  /* Celular: a gaveta da categoria abre por cima, em tela cheia (antes ficava no fim da página, depois de todos os
+     cartões, e o toque no cartão parecia não responder). O X fecha; os modais (Editar categoria) ficam acima dela. */
   .drawer {
-    position: static;
+    position: fixed;
+    inset: 0;
+    z-index: 90;
     max-height: none;
+    border-radius: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .drawerBody {
+    flex: 1;
+    min-height: 0;
+    -webkit-overflow-scrolling: touch;
   }
 
   .grid2 {
