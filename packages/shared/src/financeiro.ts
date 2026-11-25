@@ -510,7 +510,36 @@ export type FinComandoDesfazer =
   | { tipo: "baixa"; tituloId: number }
   | { tipo: "lancamento"; id: number }
   | { tipo: "operacao"; id: number }
+  /** Correção de lançamento: volta aos valores de antes. */
+  | { tipo: "correcao"; lancamentoId: number; antes: FinCorrecaoValores }
   | null;
+
+/** Valores de um lançamento que o Form de correção muda (conta e grupo valem para todas as parcelas do lote). */
+export interface FinCorrecaoValores {
+  descricao: string;
+  valor: number;
+  data: string;
+  contaOrigemId: number;
+  contaDestinoId: number;
+}
+
+/** Escolha do lançamento a corrigir: a mensagem, os candidatos e o que a frase já mandou mudar. */
+export interface FinCorrecaoEscolha {
+  mensagem: string;
+  candidatos: FinCorrecaoCandidato[];
+  novos?: { contaId: number | null; grupoId: number | null; valor: number | null; data: string | null; descricao: string | null } | null;
+}
+
+/** Lançamento achado pela frase "corrigir a compra do mercado" (mais de um: a pessoa escolhe). */
+export interface FinCorrecaoCandidato {
+  lancamentoId: number;
+  data: string;
+  descricao: string;
+  valor: number;
+  /** Conta (banco/cartão) e grupo, para a pessoa reconhecer. */
+  conta: string;
+  grupo: string | null;
+}
 
 export interface FinComandoGravado {
   mensagem: string;
@@ -550,6 +579,13 @@ export interface FinComandoProposta {
    * cadastrar, e o "+ nova conta" / "+ novo grupo" abre com esse nome.
    */
   naoAchados?: { conta?: string | null; grupo?: string | null } | null;
+  /**
+   * Form de correção de um lançamento já gravado (✎ na lista ou "corrigir a compra…"): Salvar corrige o mesmo
+   * lançamento em vez de criar outro. `parcelas` > 1 = compra parcelada (conta e grupo mudam em todas as parcelas).
+   */
+  correcao?: { lancamentoId: number; parcelas: number; antes: FinCorrecaoValores } | null;
+  /** Frase "corrigir…" com mais de um lançamento possível: a resposta lista para escolher. */
+  correcaoCandidatos?: FinCorrecaoCandidato[] | null;
   /** Ajustes do Fale comigo neste espaço (gravar direto, criar grupo/conta pelo cartão). */
   config: FinConfig;
   /** Já gravado direto (cartão completo e "gravar direto" ligado): o cartão abre no estado gravado. */

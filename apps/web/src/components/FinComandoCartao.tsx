@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import janela from "./MemoAlteracaoCartao.module.css";
-import type { FinComandoDesfazer, FinComandoProposta, FinComandoTipo, FinPeriodicidade, FinTipoConta } from "@mymemory/shared";
+import type { FinComandoDesfazer, FinComandoProposta, FinComandoTipo, FinCorrecaoValores, FinPeriodicidade, FinTipoConta } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
-import { apiDeleteJson, apiPatchJson, apiPostJson } from "../api";
+import { apiDeleteJson, apiPatchJson, apiPostJson, apiPutJson } from "../api";
 
 /**
  * Fale comigo → financeiro: cartão com o que a IA entendeu da frase, para conferir, ajustar e gravar.
@@ -163,7 +163,9 @@ export default function FinComandoCartao({
   const pagouMenos = dif < 0 && !ehFaturaAlvo;
   const pagouMais = dif > 0 && !ehFaturaAlvo;
   const contaEhCartao = contasOpc.some((c) => String(c.id) === contaId && c.tipo === "cartao");
-  const parcCartao = tipo === "gasto" && contaEhCartao ? Math.max(1, Math.min(48, Math.trunc(Number(parcelas) || 1))) : 1;
+  // Correção de lançamento já gravado: o tipo não muda e não há parcelas novas
+  const corr = proposta.correcao ?? null;
+  const parcCartao = !corr && tipo === "gasto" && contaEhCartao ? Math.max(1, Math.min(48, Math.trunc(Number(parcelas) || 1))) : 1;
   const ehRecorrencia = alvoItem?.chave.startsWith("r:") ?? false;
   const valorPendente = (pagouMenos && !decMenor) || (pagouMais && (!decMaior || (decMaior === "grupo" && !excGrupoId)));
 
@@ -265,6 +267,20 @@ export default function FinComandoCartao({
     }
     setEstado("gravando");
     try {
+      if (corr) {
+        const corpo: FinCorrecaoValores = {
+          descricao: descricao.trim() || corr.antes.descricao,
+          valor: v!,
+          data,
+          contaOrigemId: tipo === "receita" ? grupo! : conta!,
+          contaDestinoId: tipo === "gasto" ? grupo! : tipo === "receita" ? conta! : Number(destinoId),
+        };
+        const r = await apiPutJson<{ antes: FinCorrecaoValores; mensagem: string }>(`/api/fin/lancamentos/${corr.lancamentoId}`, corpo);
+        setDesfazer({ tipo: "correcao", lancamentoId: corr.lancamentoId, antes: r.antes });
+        setFeito(r.mensagem);
+        setEstado("gravado");
+        return;
+      }
       if (ehTransf) {
         const r = await apiPostJson<{ id?: number | null }>("/api/fin/lancamentos", {
           data,
@@ -357,7 +373,8 @@ export default function FinComandoCartao({
   async function desfazerAgora() {
     if (!desfazer) return;
     try {
-      if (desfazer.tipo === "lote") await apiDeleteJson(`/api/fin/parcelados/${desfazer.lote}`);
+      if (desfazer.tipo === "correcao") await apiPutJson(`/api/fin/lancamentos/${desfazer.lancamentoId}`, desfazer.antes);
+      else if (desfazer.tipo === "lote") await apiDeleteJson(`/api/fin/parcelados/${desfazer.lote}`);
       else if (desfazer.tipo === "lancamento") await apiDeleteJson(`/api/fin/lancamentos/${desfazer.id}`);
       else if (desfazer.tipo === "operacao") await apiDeleteJson(`/api/fin/investimentos/operacoes/${desfazer.id}`);
       else if (desfazer.tipo === "recorrencia") await apiPatchJson(`/api/fin/recorrencias/${desfazer.id}`, { ativo: false });
@@ -409,7 +426,7 @@ export default function FinComandoCartao({
   if (estado === "gravado" || estado === "desfeito") {
     return (
       <div style={caixa} role="status">
-        <span>{estado === "gravado" ? `✓ ${feito}` : "Desfeito: nada ficou gravado."}</span>
+        <span>{estado === "gravado" ? `✓ ${feito}` : corr ? "Desfeito: o lançamento voltou ao que era." : "Desfeito: nada ficou gravado."}</span>
         {estado === "gravado" && desfazer ? (
           <button type="button" className="mm-btn" style={{ justifySelf: "start" }} onClick={() => void desfazerAgora()}>
             ↶ Desfazer
@@ -420,7 +437,9 @@ export default function FinComandoCartao({
     );
   }
 
-  const titulo = `Finanças · ${TIPOS.find((t) => t.valor === tipo)?.rotulo ?? "lançamento"}`;
+  const titulo = corr
+    ? `Corrigir ${tipo === "gasto" ? "gasto" : tipo === "receita" ? "receita" : "transferência"}`
+    : `Finanças · ${TIPOS.find((t) => t.valor === tipo)?.rotulo ?? "lançamento"}`;
   const conteudo = (
     <div style={embutido ? caixa : { display: "grid", gap: 8 }}>
       {/* Mesmo padrão do registro novo de memo: título, Salvar e Cancelar no topo */}
@@ -438,7 +457,7 @@ export default function FinComandoCartao({
       <div style={linha}>
         <label style={rot}>
           O que é
-          <select className="mm-field" value={tipo} onChange={(e) => setTipo(e.target.value as FinComandoTipo)}>
+          <select className="mm-field" value={tipo} disabled={!!corr} title={corr ? "A correção não muda o tipo: para trocar, exclua e lance de novo." : undefined} onChange={(e) => setTipo(e.target.value as FinComandoTipo)}>
             {TIPOS.map((t) => (
               <option key={t.valor} value={t.valor}>{t.rotulo}</option>
             ))}
@@ -603,7 +622,7 @@ export default function FinComandoCartao({
           {ROTULO_DATA[tipo]}
           <input className="mm-field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
         </label>
-        {tipo === "conta" || (tipo === "gasto" && contaEhCartao) ? (
+        {!corr && (tipo === "conta" || (tipo === "gasto" && contaEhCartao)) ? (
           <label style={rot}>
             Parcelas{tipo === "gasto" ? " (no cartão)" : ""}
             <input className="mm-field" type="number" min={1} max={360} value={parcelas} onChange={(e) => setParcelas(e.target.value)} />

@@ -411,6 +411,15 @@ Com as categorias **Finanças Pessoais - …** habilitadas no grupo, frases de r
 - Grava no **grupo escolhido no topo**. Depois de gravar há **↶ Desfazer** (conta, parcelado, conta fixa e pagamento); gasto/receita avulso se apaga na aba Lançamentos.
 - Os grupos e contas precisam existir (cadastre na tela Contas a pagar e receber).
 
+### Corrigir um lançamento
+Gasto, receita ou transferência gravado errado (conta, grupo, valor, data ou descrição) se corrige no mesmo Form da confirmação, sem criar outro lançamento:
+- **Pela lista:** "mostrar os lançamentos de novembro" (ou "o que gastei no mercado esta semana") traz a tabela com um **✎** em cada linha. O ✎ abre o Form de correção daquele lançamento.
+- **Pela fala:** "corrigir a compra do mercado", "corrige o gasto de ontem: foi no Itaú", "corrigir o pix de 85 reais". Um lançamento só: o Form abre já com o que a frase mandou mudar. Mais de um possível: a resposta lista os candidatos (data, descrição, valor, conta → grupo) para tocar no certo.
+- Depois de Salvar, **↶ Desfazer** volta o lançamento ao que era. O tipo não muda (gasto continua gasto); para trocar o tipo, exclua e lance de novo.
+- Compra parcelada no cartão: conta e grupo mudam em **todas** as parcelas; valor, data e descrição só na parcela corrigida. Trocar a conta ou a data recalcula a fatura do cartão (menos a fatura mudada à mão).
+- Não se corrigem aqui: pagamento de conta em aberto (desfaça o pagamento na agenda), parcelamento a pagar/receber, investimento e câmbio (exclua e lance de novo).
+- "Corrigir" de memo (Agenda, Lista de compras, Antropometria…) segue a alteração de registros: frases com lista, agenda, reunião, tarefa ou peso não vão para o financeiro.
+
 ## Colunas e linhas da tabela
 - **Ordem das colunas pela categoria:** cada campo tem **Ordem na tabela** (edição do campo). 1, 2, 3… aparecem primeiro, nessa ordem; vazio vem depois, na ordem dos campos; colunas que não são campo (texto, data de registro) por último; **-1 não aparece**, a não ser que a pergunta cite o campo. Com alguma ordem definida na categoria, a tabela mostra todas as colunas da consulta (menos as técnicas), e não só as que a IA escolheu.
 - **Lápis (✎) sempre na primeira coluna; #id e o ícone do arquivo original sempre na última.**

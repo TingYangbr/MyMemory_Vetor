@@ -231,6 +231,7 @@ const plugin: FastifyPluginAsync = async (app) => {
       comando: result.comando,
       criacao: result.criacao,
       finComando: result.finComando,
+      finCorrecao: result.finCorrecao,
     };
 
     sendEvent({ type: "result", data: body });

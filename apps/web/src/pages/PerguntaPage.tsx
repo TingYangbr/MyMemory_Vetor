@@ -20,6 +20,7 @@ import { camposDeModeloCriacao, chipsDeCriacao, derivarChips, ehPlanoCriacao, es
 import type { EstadoItemLista, ItemLista } from "@mymemory/shared";
 import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@mymemory/shared";
 import FinComandoCartao from "../components/FinComandoCartao";
+import { FinCorrecaoEscolher, FinCorrecaoLapis } from "../components/FinCorrecao";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -451,7 +452,7 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
     return vals.length > 0 && vals.every(isNumericCellValue);
   });
   if (!valueCols.length) return null;
-  const labelCol = g.x ?? dados.colunas.find((c) => c.toLowerCase() !== "id" && !valueCols.includes(c));
+  const labelCol = g.x ?? dados.colunas.find((c) => c.toLowerCase() !== "id" && c !== "lancamento_id" && !valueCols.includes(c));
   if (!labelCol) return null;
   const somas = new Map<string, Record<string, string | number>>();
   for (const linha of todas) {
@@ -483,7 +484,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   if (dados.grafico?.y.length) return graficoPelosPapeis(dados, manterOrdem);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;
   const numericCols = dados.colunas.filter((col) => {
-    if (col.toLowerCase() === "id") return false;
+    if (col.toLowerCase() === "id" || col === "lancamento_id") return false;
     // % não vai para o gráfico: barras de % ao lado de valores em R$ ficam invisíveis
     if (/%\s*$/.test(col)) return false;
     const vals = dados.linhas.map((l) => l[col]).filter((v) => v != null);
@@ -505,7 +506,7 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
 
   // Pivô: duas colunas de rótulo (ex.: mês e grupo) e um valor → eixo X = a de tempo (ou a primeira), uma barra
   // por valor da outra (Combustível, Condomínio…) no mesmo período. Antes o rótulo repetia ("10/2026" duas vezes).
-  const textuais = dados.colunas.filter((c) => !numericCols.includes(c) && c.toLowerCase() !== "id" && !isColunaIdentificador(c));
+  const textuais = dados.colunas.filter((c) => !numericCols.includes(c) && c.toLowerCase() !== "id" && c !== "lancamento_id" && !isColunaIdentificador(c));
   if (valueCols.length === 1 && textuais.length === 2) {
     const tempo = textuais.find((c) => dados.linhas.every((l) => isRotuloTemporal(String(l[c] ?? ""))));
     const eixo = tempo ?? textuais[0]!;
@@ -1367,7 +1368,9 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
   const alteracao = useContext(AlteracaoCtx);
   // O id vai para a última coluna (com o arquivo); o lápis, para a primeira
   const temId = dados.colunas.some((c) => c === "id");
-  const inicial = useMemo(() => dados.colunas.filter((c) => c !== "id"), [dados.colunas]);
+  // Lista de lançamentos do financeiro: a coluna lancamento_id vira o ✎ de corrigir (primeira coluna) e não aparece
+  const temLanc = !temId && dados.colunas.some((c) => c === "lancamento_id");
+  const inicial = useMemo(() => dados.colunas.filter((c) => c !== "id" && c !== "lancamento_id"), [dados.colunas]);
   const [ordem, setOrdem] = useState<string[]>(inicial);
   useEffect(() => setOrdem(inicial), [inicial]);
   const [arrastando, setArrastando] = useState<string | null>(null);
@@ -1453,6 +1456,7 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
           <thead>
             <tr>
               {temId ? <th className={styles.tabelaTh} aria-label="Alterar" /> : null}
+              {temLanc ? <th className={styles.tabelaTh} aria-label="Corrigir" /> : null}
               {ordem.map((col) => (
                 <th
                   key={col}
@@ -1500,6 +1504,11 @@ function TabelaEstruturada({ dados, onOpenMemo, onOpenMemoFile, loadingCardId, l
                   title={alteravel ? "Toque para alterar, concluir ou cancelar" : undefined}
                 >
                   {temId ? <td className={styles.tabelaTd}>{idLinha != null ? <BotaoAlterar memoId={idLinha} /> : null}</td> : null}
+                  {temLanc ? (
+                    <td className={styles.tabelaTd}>
+                      {linha["lancamento_id"] != null ? <FinCorrecaoLapis lancamentoId={Number(linha["lancamento_id"])} /> : null}
+                    </td>
+                  ) : null}
                   {ordem.map((col) => {
                     const local = valorLocal(locais, col);
                     const val = local !== undefined ? local : linha[col];
@@ -2674,11 +2683,13 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
             }
           : null;
         const linhas = dTela.linhasCompletas ?? dTela.linhas;
+        // lancamento_id é só o ✎ de corrigir na tela: não vai para o PDF
+        const colsPdf = d.colunas.filter((c) => c !== "lancamento_id");
         tabelas.push({
           titulo: lista.length > 1 ? `Dados ${k + 1}` : "Dados",
-          colunas: d.colunas,
-          rotulos: d.colunas.map((c) => d.rotulos?.[c] ?? COLUNA_LABELS[c] ?? c),
-          linhas: linhas.map((l) => d.colunas.map((c) => textoCelula(c, l[c]))),
+          colunas: colsPdf,
+          rotulos: colsPdf.map((c) => d.rotulos?.[c] ?? COLUNA_LABELS[c] ?? c),
+          linhas: linhas.map((l) => colsPdf.map((c) => textoCelula(c, l[c]))),
           totalLinhas: d.totalLinhas,
           grafico,
         });
@@ -3504,7 +3515,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                 </div>
                 <div className={styles.cardResposta}>
                   {/* Comando (alterar/criar): sem as marcas técnicas da consulta */}
-                  <div className={styles.cardRespostaMeta} style={r.comando || r.criacao || r.finComando ? { display: "none" } : undefined}>
+                  <div className={styles.cardRespostaMeta} style={r.comando || r.criacao || r.finComando || r.finCorrecao ? { display: "none" } : undefined}>
                     <span className={`${styles.pipeBadge} ${styles[`pipe_${r.classificacao.pipe}`]}`}>
                       {renderPipeLabel(r.classificacao.pipe)}
                     </span>
@@ -3658,7 +3669,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                     </p>
                   ) : null}
                   {/* Registro novo já salvo: fica só "✓ Registro salvo em …" (sem o "Confira os dados…") */}
-                  {r.comando || r.finComando || (r.criacao && criados.has(r.criacao)) || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
+                  {r.comando || r.finComando || r.finCorrecao || (r.criacao && criados.has(r.criacao)) || (respostaComLista(r.resposta) && stripMarkdown(r.resposta.resposta).trim().length > MAX_TEXTO_COM_LISTA) ? null : (() => {
                     const texto = stripMarkdown(r.resposta.resposta).trimEnd();
                     // Com tabela logo abaixo, o texto só repete o que ela mostra: fica em 2 linhas com "Mais…"
                     const temTabela = temTabelaNaResposta(r.resposta);
@@ -3688,6 +3699,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   <ComandoCartao comando={r.comando} />
                   <CriacaoBotao criacao={r.criacao} />
                   {r.finComando ? <FinComandoCartao proposta={r.finComando} /> : null}
+                  {r.finCorrecao ? <FinCorrecaoEscolher escolha={r.finCorrecao} /> : null}
                   {r.resposta.refeitoCom ? <p className={styles.alvoUsoNota}>↺ Refeito com: {r.resposta.refeitoCom}</p> : null}
                   {r.resposta.alvo === "uso_do_sistema" ? (
                     <div className={styles.ampliarWrap}>
@@ -3719,7 +3731,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   {r.classificacao.pipe === "semantica" ? (
                     <TabelaSemantica dados_usados={r.resposta.dados_usados} onOpenMemo={(id) => void openMemoCard(id)} onOpenMemoFile={(id) => void openMemoFileDirect(id)} loadingCardId={loadingCardId} loadingFileId={loadingFileId} />
                   ) : null}
-                  {r.resposta.limitacoes.length > 0 && !r.comando && !r.criacao && !r.finComando ? (
+                  {r.resposta.limitacoes.length > 0 && !r.comando && !r.criacao && !r.finComando && !r.finCorrecao ? (
                     <ul className={styles.limitacoes}>
                       {r.resposta.limitacoes.map((l, j) => <li key={j}>{l}</li>)}
                     </ul>

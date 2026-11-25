@@ -1,3 +1,4 @@
+import { corrigirLancamento, propostaDeCorrecao } from "../services/finCorrecaoService.js";
 import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
 import { z } from "zod";
 import { resolveUserId } from "../lib/userContext.js";
@@ -370,6 +371,28 @@ const plugin: FastifyPluginAsync = async (app) => {
     }).parse(req.body);
     const r = await criarLancamento(e, b);
     return { ...r, id: await ultimoLancamentoId(e, { data: b.data, origem: b.contaOrigemId, destino: b.contaDestinoId }) };
+  }));
+
+  /** Form de correção de um lançamento (✎ na lista do Fale comigo): valores atuais, e os novos se a frase disse. */
+  app.post("/api/fin/lancamentos/:id/correcao", rota(async (e, req) => {
+    const b = z
+      .object({
+        novos: z
+          .object({
+            contaId: id.nullish(), grupoId: id.nullish(), valor: valor.nullish(), data: data.nullish(), descricao: z.string().max(200).nullish(),
+          })
+          .nullish(),
+      })
+      .parse(req.body ?? {});
+    return propostaDeCorrecao(e, id.parse((req.params as { id: string }).id), b.novos ?? undefined);
+  }));
+
+  /** Grava a correção (e serve ao Desfazer, com os valores de antes). */
+  app.put("/api/fin/lancamentos/:id", rota(async (e, req) => {
+    const b = z.object({
+      descricao: z.string().max(200), valor: valor.positive(), data, contaOrigemId: id, contaDestinoId: id,
+    }).parse(req.body);
+    return corrigirLancamento(e, id.parse((req.params as { id: string }).id), b);
   }));
 
   app.delete("/api/fin/lancamentos/:id", rota(async (e, req) => {

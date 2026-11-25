@@ -357,8 +357,8 @@ LIMIT 500`,
       "resultado; quanto SAIU de uma conta = soma de valor com saiu_de = conta; quanto ENTROU = soma de valor com " +
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
-      "investimento ('pagamentos', 'pagamentos efetuados', 'o que paguei', 'compras' = despesa, igual a gastos). Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra.",
-    sql: `SELECT data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
+      "investimento ('pagamentos', 'pagamentos efetuados', 'o que paguei', 'compras' = despesa, igual a gastos). Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra. lancamento_id: só identifica a linha (vira o ✎ de corrigir na tela); nunca some, agrupe nem cite.",
+    sql: `SELECT id AS lancamento_id, data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
   receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento, fatura
 FROM fin_v_lancamentos
 WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
