@@ -282,6 +282,8 @@ const SYSTEM = [
   '- Cancelar, concluir ou reabrir: use o campo de situação da categoria com o valor Cancelado, Concluído ou Pendente. Em categoria com situacao.tipo "registro" os valores são Válido ou Cancelado (não há Concluído). "situacao.concluido" é o nome que a categoria dá ao Concluído (ex.: Comprado, Pago): comprei/paguei/fui = Concluído.',
   '- Campos do tipo status: use exatamente um dos "valores" do campo; os "verbos" dizem qual (ex.: "paguei", "recebi" → Baixado). Pagar ou receber não conclui o registro: mude o status, não a situação, a menos que o comando peça.',
   '- Campos do tipo lista: NÃO devolva a lista inteira. Devolva um objeto só com as operações pedidas: {"acrescentar":["item com quantidade"],"remover":["nome do item"],"trocar":[{"de":"nome do item","para":"item novo com quantidade"}]}. Em "remover" e em "de", use só o nome do item (ex.: "banana"). Para mudar a quantidade de um item que já existe, use "trocar". Para marcar itens: "concluir" (comprado, feito), "cancelar" (não vai mais) ou "reabrir" (volta a pendente), cada um com a lista de nomes, ex.: {"concluir":["arroz"]}. "Comprei o arroz" marca o item; "comprei tudo" ou "terminei a lista" é a situação da lista inteira (Concluído). Em "concluir", "cancelar" e "reabrir" use só o nome do item, sem quantidade: "comprei 1 pacote de macarrão" com "2 pacotes de macarrão" na lista → {"concluir":["macarrão"]} (o item é concluído mesmo com quantidade diferente). Inclua só as chaves necessárias.',
+  '- "Na lista de compras", "na lista" ou o nome da categoria NÃO é nome de lista: o alvo é a lista aberta dessa categoria (havendo várias e nada no comando distinguindo, devolva todas). Só um nome que bate com o campo de nome ou tipo de um candidato (ex.: "na lista da farmácia") escolhe uma lista específica.',
+  '- Conjunto conhecido de itens ("itens da cesta básica", "material escolar", "coisas para o churrasco"): acrescente os itens concretos típicos desse conjunto, um por entrada, sem inventar quantidades. Não use o nome do conjunto como item nem como nome de lista.',
   "- motivo: uma frase curta explicando a escolha.",
 ].join("\n");
 
@@ -294,6 +296,8 @@ export interface ResultadoComando {
    * "sem_mudanca" = achou o registro, mas já está como pedido ou não há o que mudar (nunca vira registro novo).
    */
   motivo?: "sem_registro" | "sem_mudanca";
+  /** sem_registro com registros abertos na categoria: nenhum deles correspondeu ao pedido. */
+  haviaAbertos?: boolean;
 }
 
 /**
@@ -429,7 +433,7 @@ export async function executarComandoAlteracao(input: {
   if (!alvosIds.length) {
     const msg =
       "Não encontrei o registro desse pedido. Tente dizer mais detalhes (data, com quem, nome da lista). Se é um registro novo, peça com \"marcar\" ou \"criar\" e a data (ex.: marcar reunião com Carlos dia 28 às 15h).";
-    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd, motivo: "sem_registro" };
+    return { resposta: resposta(msg), comando: { status: "nao_encontrado", mensagem: msg }, costUsd, motivo: "sem_registro", haviaAbertos: true };
   }
   if (!propostas.length) {
     const usados = alvosIds.map((id) => porId.get(id)!);
