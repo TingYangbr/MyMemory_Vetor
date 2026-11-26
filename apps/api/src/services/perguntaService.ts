@@ -734,7 +734,9 @@ export async function perguntarMemory(input: {
         const cat = classificacao.categorias[0] ?? "registro";
         r.resposta = {
           ...r.resposta,
-          resposta: `Não há ${cat} aberta para alterar: preparei um registro novo com o seu pedido. ${r.resposta.resposta}`,
+          resposta: cmd.haviaAbertos
+            ? `Nenhuma ${cat} aberta corresponde ao pedido: preparei um registro novo com ele. ${r.resposta.resposta}`
+            : `Não há ${cat} aberta para alterar: preparei um registro novo com o seu pedido. ${r.resposta.resposta}`,
         };
       }
       return r;

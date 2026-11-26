@@ -557,6 +557,9 @@ Na edição da categoria atualizável com campo do tipo lista, a opção **Lista
 - A data não entra na chave: a lista continua a mesma até ser concluída ou cancelada; depois disso, o próximo registro abre outra.
 - Os itens entram direto, sem perguntar ("Acrescentei na lista aberta de Mercado…"), com ↶ Desfazer. Item que já está na lista não é repetido (a resposta avisa); item já comprado volta a pendente.
 - Tipo não dito ("comprar leite") = o **primeiro valor padronizado** do campo (ex.: Mercado). Sem lista aberta desse Tipo, a lista nova já sai com ele.
+- "Na lista de compras" ou "na lista" não é nome de lista: o pedido vai para a lista aberta da categoria. Só um nome que bate com o Tipo/nome de uma lista ("na lista da farmácia") escolhe outra.
+- Conjunto conhecido de itens ("itens da cesta básica", "material escolar") vira os itens típicos desse conjunto, sem quantidade; confira e use ↶ Desfazer ou edite se não quiser algum.
+- Se havia lista aberta mas nenhuma correspondeu ao pedido, a resposta diz "Nenhuma … aberta corresponde ao pedido" e prepara o registro novo (antes dizia "Não há … aberta", o que confundia).
 - Vale para o que é dito ou digitado no Fale comigo; o Catalogar continua criando um memo novo.
 
 ## Registro único (ex.: Antropometria por Dono + Data + Período)
