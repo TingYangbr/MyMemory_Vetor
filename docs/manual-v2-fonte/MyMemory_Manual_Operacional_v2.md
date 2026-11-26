@@ -1257,6 +1257,8 @@ NOTA: Plano com assinaturas (ativas ou encerradas) não pode ser excluído; o bo
 - Prompts: o texto de instrução de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com ajuste por categoria. O que a IA recebeu de fato aparece em "Último prompt" (Seção 24).
 ## Consulta de memos (/admin/consulta)
 Igual à Consulta de memos de Painel Owners, mas com acesso a todos os grupos. Filtros por grupo de categorias, categoria, grupo de memos e data.
+- Categoria com consultas: abaixo dos filtros aparece um botão **▶ <nome da consulta>** para cada consulta (menos a de Alterações). Ele abre a mesma janela do ▶ Executar da aba Consultas, rodando no **grupo de memos** escolhido (sem ele, no grupo de categorias).
+- Categoria só de consulta (ex.: Finanças Pessoais - Saldos e investimentos, ERP) não guarda memos: "Consultar" volta 0 registros; os dados (ex.: as ações da carteira) aparecem pelos botões ▶ das consultas.
 ## Eliminação definitiva (/admin/eliminacao)
 Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do mês e os arquivos deles (os registros de custo ficam).
 - Para confirmar, é preciso digitar ELIMINAR na janela que aparece.
