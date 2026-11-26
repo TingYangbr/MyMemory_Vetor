@@ -489,6 +489,8 @@ Para usuários com o trace habilitado, o card mostra o botão de trace com o nú
 DICA: Para diagnosticar uma resposta errada, abra "ver etapas" no card da própria pergunta e confira a etapa planejamento_estruturado (parâmetros escolhidos) e consulta_sql (SQL e linhas retornadas).
 ## Modo híbrido tolerante a falha
 Se a parte estruturada falhar (ex.: erro de SQL), a resposta sai com a parte dos memos e a falha aparece nas limitações. Se a busca nos memos falhar, sai a parte estruturada. Quando não há memos relevantes, o botão "Ampliar busca" é oferecido.
+
+Pergunta sobre os dados do grupo ("mostre as contestações", "quais cobranças indevidas?") não busca nos trechos do manual importado (Importar conhecimento), nem com "Ampliar busca". O manual só entra em dúvida de uso ("como faço…?", "onde configuro…?") ou quando a pergunta cita o manual.
 ## Gráfico da resposta estruturada
 - Quando o resultado tem colunas numéricas, aparece um gráfico de barras ao lado da tabela.
 - No máximo 3 séries (as colunas mais relevantes para a pergunta).
