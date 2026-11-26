@@ -14,6 +14,34 @@ const TECNICAS = new Set(["mediatype", "mediafileurl", "attachmentdisplayname", 
 const norm = (s: string) =>
   s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
+/** Palavras sem o plural simples ("pesos" → "peso", "medidas" → "medida"), para citar campo no plural. */
+const singular = (s: string) =>
+  norm(s)
+    .split(" ")
+    .map((w) => (w.length > 3 ? w.replace(/s$/, "") : w))
+    .join(" ");
+
+/** A pergunta cita o campo (nome ou rótulo), aceitando plural: "pesos e IGC" cita Peso e IGC. */
+function citaFlex(pergunta: string): (...nomes: (string | null | undefined)[]) => boolean {
+  const p = ` ${singular(pergunta)} `;
+  return (...nomes) =>
+    nomes.some((n) => {
+      const x = n ? singular(n) : "";
+      return x.length >= 3 && p.includes(` ${x} `);
+    });
+}
+
+/**
+ * Medidas (campos Y do gráfico) que a pergunta NÃO citou, quando ela cita pelo menos uma: "pesos e IGC de novembro"
+ * mostra só Peso e IGC na tabela e no gráfico. Sem citar nenhuma ("medidas de novembro"), todas aparecem.
+ */
+function medidasNaoCitadas(ys: { col: string; nomes: (string | null | undefined)[] }[], pergunta: string): Set<string> {
+  const cita = citaFlex(pergunta);
+  const citadas = ys.filter((y) => cita(...y.nomes));
+  if (!citadas.length || citadas.length === ys.length) return new Set();
+  return new Set(ys.filter((y) => !citadas.includes(y)).map((y) => y.col));
+}
+
 /**
  * Gráfico pelo papel de cada campo: X = rótulos, Y = valores (vários Y = várias cores, automático).
  * Campo sem papel só entra se a pergunta o citar (como Y; ou como X, se ainda não houver X).
@@ -121,7 +149,12 @@ function aplicarConfigConsulta(
   // Com ordem configurada, mostra todas as colunas da consulta (menos as técnicas), não só as que a IA escolheu
   const configurada = cfg.some((c) => c.ordem != null);
   const base = configurada ? chavesLinha.filter((c) => !TECNICAS.has(c.toLowerCase())) : dados.colunas;
-  const visiveis = base.filter((c) => !(de(c)?.c.ordem === -1 && !citada(c)));
+  const colReal = (nome: string) => chavesLinha.find((c) => c.toLowerCase() === nome.toLowerCase());
+  const semCitar = medidasNaoCitadas(
+    cfg.filter((c) => c.papel === "Y" && colReal(c.coluna)).map((c) => ({ col: colReal(c.coluna)!, nomes: [c.coluna, c.rotulo] })),
+    pergunta
+  );
+  const visiveis = base.filter((c) => !(de(c)?.c.ordem === -1 && !citada(c)) && !semCitar.has(c));
   const ordenadas = visiveis
     .map((c, idx) => {
       const o = de(c)?.c.ordem;
@@ -129,9 +162,11 @@ function aplicarConfigConsulta(
     })
     .sort((a, b) => a.k[0] - b.k[0] || a.k[1] - b.k[1])
     .map((x) => x.c);
-  const colReal = (nome: string) => chavesLinha.find((c) => c.toLowerCase() === nome.toLowerCase());
   const x = cfg.filter((c) => c.papel === "X").map((c) => colReal(c.coluna)).find(Boolean);
-  const y = cfg.filter((c) => c.papel === "Y").map((c) => colReal(c.coluna)).filter((c): c is string => !!c);
+  const y = cfg
+    .filter((c) => c.papel === "Y")
+    .map((c) => colReal(c.coluna))
+    .filter((c): c is string => !!c && !semCitar.has(c));
   const unidades: Record<string, string> = {};
   const rotulos: Record<string, string> = {};
   for (const c of cfg) {
@@ -174,7 +209,16 @@ function ordenarUm(
     const n = norm(nome);
     return n.length >= 3 && p.includes(` ${n} `);
   };
+  const colsBase = chavesLinha.length ? chavesLinha : dados.colunas;
+  const semCitar = medidasNaoCitadas(
+    campos
+      .filter((f) => f.papelGrafico === "Y")
+      .map((f) => ({ col: colsBase.find((c) => c.toLowerCase() === toParamName(f.name).toLowerCase()), nomes: [f.name] }))
+      .filter((y): y is { col: string; nomes: string[] } => !!y.col),
+    pergunta
+  );
   const visiveis = base.filter((c) => {
+    if (semCitar.has(c)) return false;
     const info = porParam.get(c.toLowerCase());
     return !(info && info.f.ordemExibicao === -1 && !citada(info.f.name));
   });
@@ -192,7 +236,7 @@ function ordenarUm(
     ...dados,
     colunas: ordenadas,
     ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}),
-    ...graficoPelaCategoria(campos, chavesLinha.length ? chavesLinha : dados.colunas, citada),
+    ...graficoPelaCategoria(campos, colsBase.filter((c) => !semCitar.has(c)), citada),
     ...unidadesDasColunas(campos, chavesLinha.length ? chavesLinha : dados.colunas),
   };
 }
