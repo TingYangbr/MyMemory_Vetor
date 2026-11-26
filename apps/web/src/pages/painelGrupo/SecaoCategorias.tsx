@@ -1045,7 +1045,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
           >
             <option value="">— (só se a pergunta citar)</option>
             <option value="X">X — rótulos (cliente, mês, produto…)</option>
-            <option value="Y">Y — valor (eixo da esquerda)</option>
+            <option value="Y">Y — valor (eixo pela unidade: % à direita)</option>
 
           </select>
         </div>
