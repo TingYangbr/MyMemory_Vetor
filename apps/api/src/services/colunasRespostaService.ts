@@ -30,12 +30,25 @@ const PALAVRAS_VAZIAS = new Set(["com", "sem", "para", "por", "dos", "das", "nos
  */
 function citaFlex(pergunta: string): (...nomes: (string | null | undefined)[]) => boolean {
   const p = ` ${singular(pergunta)} `;
+  const palavras = norm(pergunta).split(" ").filter((w) => w && !LIGACOES.has(w));
   return (...nomes) =>
     nomes.some((n) => {
       const x = n ? singular(n) : "";
       if (x.length >= 3 && p.includes(` ${x} `)) return true;
-      return x.split(" ").some((w) => w.length >= 3 && !PALAVRAS_VAZIAS.has(w) && p.includes(` ${w} `));
+      if (x.split(" ").some((w) => w.length >= 3 && !PALAVRAS_VAZIAS.has(w) && p.includes(` ${w} `))) return true;
+      return siglaPorExtenso(x, palavras);
     });
+}
+
+const LIGACOES = new Set(["de", "da", "do", "das", "dos", "e", "em", "a", "o"]);
+
+/** Sigla dita por extenso: "índice gordura corporal" cita IGC, "índice de massa corporal" cita IMC. */
+function siglaPorExtenso(sigla: string, palavras: string[]): boolean {
+  if (!/^[a-z]{2,5}$/.test(sigla)) return false;
+  for (let i = 0; i + sigla.length <= palavras.length; i++) {
+    if (palavras.slice(i, i + sigla.length).map((w) => w[0]).join("") === sigla) return true;
+  }
+  return false;
 }
 
 /**
@@ -210,18 +223,11 @@ function ordenarUm(
   }
   const campos = cats.flatMap((c) => (c.campos ?? []).filter((f) => f.isActive === 1));
   if (!campos.length || !dadosOriginais.colunas.length) return dadosOriginais;
-  // Dias sem registro (campo de data com "mostrar dias sem registro") antes de ordenar as colunas
-  const dados = completarDias(dadosOriginais, campos, limites);
-  const porParam = new Map(campos.map((f, i) => [toParamName(f.name).toLowerCase(), { f, i }]));
-  const configurada = campos.some((f) => f.ordemExibicao != null);
-  const chavesLinha = dados.linhas[0] ? Object.keys(dados.linhas[0]) : [];
-  const base = configurada && chavesLinha.length ? chavesLinha.filter((c) => !TECNICAS.has(c.toLowerCase())) : dados.colunas;
-  const p = ` ${norm(pergunta)} `;
-  const citada = (nome: string) => {
-    const n = norm(nome);
-    return n.length >= 3 && p.includes(` ${n} `);
-  };
-  const colsBase = chavesLinha.length ? chavesLinha : dados.colunas;
+  // Colunas pelas linhas de verdade (antes dos dias vazios: a 1ª linha podia ser um dia sem registro, só com a data,
+  // e a tabela ficava só com a coluna de data)
+  const todasOrig = dadosOriginais.linhasCompletas?.length ? dadosOriginais.linhasCompletas : dadosOriginais.linhas;
+  const chavesLinha = [...new Set(todasOrig.slice(0, 50).flatMap((l) => Object.keys(l)))];
+  const colsBase = chavesLinha.length ? chavesLinha : dadosOriginais.colunas;
   const semCitar = medidasNaoCitadas(
     campos
       .filter((f) => f.papelGrafico === "Y")
@@ -229,6 +235,22 @@ function ordenarUm(
       .filter((y): y is { col: string; nomes: string[] } => !!y.col),
     pergunta
   );
+  const ysVisiveis = campos
+    .filter((f) => f.papelGrafico === "Y")
+    .map((f) => colsBase.find((c) => c.toLowerCase() === toParamName(f.name).toLowerCase()))
+    .filter((c): c is string => !!c && !semCitar.has(c));
+  // "Quando foi o pico de peso…": só as linhas do pico (ou do mínimo) de cada medida, sem os dias vazios
+  const extremo = linhasDoExtremo(dadosOriginais, ysVisiveis, pergunta);
+  // Dias sem registro (campo de data com "mostrar dias sem registro") antes de ordenar as colunas
+  const dados = extremo ?? completarDias(dadosOriginais, campos, limites);
+  const porParam = new Map(campos.map((f, i) => [toParamName(f.name).toLowerCase(), { f, i }]));
+  const configurada = campos.some((f) => f.ordemExibicao != null);
+  const base = configurada && chavesLinha.length ? chavesLinha.filter((c) => !TECNICAS.has(c.toLowerCase())) : dados.colunas;
+  const p = ` ${norm(pergunta)} `;
+  const citada = (nome: string) => {
+    const n = norm(nome);
+    return n.length >= 3 && p.includes(` ${n} `);
+  };
   const visiveis = base.filter((c) => {
     if (semCitar.has(c)) return false;
     const info = porParam.get(c.toLowerCase());
@@ -249,8 +271,44 @@ function ordenarUm(
     colunas: ordenadas,
     ...(cats.length === 1 ? { categoria: cats[0]!.name } : {}),
     ...graficoPelaCategoria(campos, colsBase.filter((c) => !semCitar.has(c)), citada),
-    ...unidadesDasColunas(campos, chavesLinha.length ? chavesLinha : dados.colunas),
+    ...unidadesDasColunas(campos, colsBase),
   };
+}
+
+/** Número de uma célula ("85,1", "1.234,5", 85.1); null se não for número. */
+function numeroCelula(v: unknown): number | null {
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  let s = String(v ?? "").trim();
+  if (!s) return null;
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  const n = Number(s.replace(/[^\d.+-]/g, ""));
+  return /\d/.test(s) && Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Pergunta pelo pico/máximo ou pelo mínimo ("quando foi o pico de peso", "menor IGC do ano"): fica só com as
+ * linhas em que alguma medida (campo Y visível) atinge o extremo. Null = não é pergunta de extremo (ou não há Y).
+ */
+function linhasDoExtremo(
+  dados: PerguntaResultadoEstruturado,
+  ys: string[],
+  pergunta: string
+): PerguntaResultadoEstruturado | null {
+  if (!ys.length) return null;
+  const p = norm(pergunta);
+  const minimo = /\b(minim[oa]s?|menor(es)?|mais baix[oa]s?)\b/.test(p);
+  const maximo = /\b(pico|picos|maxim[oa]s?|maior(es)?|mais alt[oa]s?|recorde)\b/.test(p);
+  if (minimo === maximo) return null; // nenhum dos dois, ou os dois: deixa como está
+  const todas = dados.linhasCompletas?.length ? dados.linhasCompletas : dados.linhas;
+  const alvos = new Map<string, number>();
+  for (const y of ys) {
+    const vals = todas.map((l) => numeroCelula(l[y])).filter((n): n is number => n != null);
+    if (vals.length) alvos.set(y, minimo ? Math.min(...vals) : Math.max(...vals));
+  }
+  if (!alvos.size) return null;
+  const linhas = todas.filter((l) => [...alvos].some(([y, alvo]) => numeroCelula(l[y]) === alvo));
+  if (!linhas.length || linhas.length === todas.length) return null;
+  return { ...dados, linhas, linhasCompletas: undefined, totalLinhas: linhas.length };
 }
 
 /** Aplica a ordem da categoria às tabelas da resposta (uma ou várias). */
