@@ -41,6 +41,7 @@ const REGRAS_FIDELIDADE = [
   "- Valores de tempo levam SEMPRE a unidade (\"2 horas\", \"30 minutos\", \"1 dia\"), nunca só o número.",
   "- Não confunda grandezas: duração do evento (\"deve demorar 1 hora\") é diferente da antecedência do aviso (\"me avisar 2 horas antes\"). Cada campo recebe só o valor que corresponde à sua descrição.",
   "- Primeira pessoa (eu, me, meu, minha, comigo) refere-se ao AUTOR DO MEMO: em campos de pessoa/dono/responsável que se refiram a ele, preencha com o nome (ou e-mail) do autor.",
+  "- Dois campos de pessoa/parte (ex.: Com quem e Contraparte, Cliente e Fornecedor, Solicitante e Responsável) são papéis DIFERENTES: nunca repita o mesmo nome ou empresa em dois deles. Texto escrito em primeira pessoa (e-mail, carta, reclamação, relato assinado pelo autor) tem duas partes: o AUTOR e a outra parte (a quem ele escreve ou de quem fala). Pela descrição de cada campo, um recebe o autor e o outro a outra parte; se só um campo couber, deixe o outro vazio.",
 ].join("\n");
 
 /** Linha com a identidade de quem registra o memo (para resolver "me", "meu" etc.). */
