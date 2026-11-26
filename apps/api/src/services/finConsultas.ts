@@ -272,7 +272,7 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       "investimentos (ações, fundos, Tesouro): quantidade, preço médio, quanto investi em cada papel.",
     resumo: "Quanto tem em cada conta, quanto deve no cartão, quanto vale o dólar guardado e a posição dos investimentos.",
     exemplos: ["Quanto tenho no banco?", "Quanto devo no cartão?", "Quanto vale meu dólar hoje?", "Quantas PETR4 tenho e a que preço médio?", "Quanto tenho investido?"].join("\n"),
-    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas", "Financeiro — Histórico de preços"],
+    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas", "Financeiro — Histórico de preços", "Financeiro — Rendimento da carteira"],
   },
 ];
 
@@ -442,22 +442,36 @@ LIMIT 200`,
       "para o total da carteira); só 'custo médio' ou 'preço médio' (por ação) = custo_medio_reais — NUNCA some custo_medio_reais. " +
       "Para comparar com o valor de mercado, use custo_total_reais. " +
       "papel em outra moeda (ex.: AAPL na Avenue) traz também custo e preço médio na moeda. Papel da B3 em reais traz preco_atual " +
-      "(cotação brapi ou digitada, com preco_em), valor_mercado (quantidade × preço atual) e resultado (valor de mercado − custo, " +
-      "não realizado) e resultado_pct; sem cotação esses campos vêm vazios. 'Quanto valem meus investimentos' = soma de valor_mercado. " +
+      "(sem data ou data de hoje: cotação brapi ou digitada, ou o último fechamento da B3 se não houver; com data passada: o " +
+      "fechamento da B3 do último pregão até a data; preco_em diz de quando é), valor_mercado (quantidade × preço) e resultado " +
+      "(valor de mercado − custo, não realizado) e resultado_pct; sem preço esses campos vêm vazios. 'Quanto valem meus " +
+      "investimentos' = soma de valor_mercado. Para RENDIMENTO/variação da carteira num período use a consulta 'Rendimento da carteira'. " +
       "Use para: quantas ações tenho, preço médio, quanto investi, investimentos no Brasil ou no exterior. papel = ticker (PETR4) ou nome." +
       " mercado: 'local' (Brasil) ou 'exterior'. Ao responder, separe por mercado e por moeda; NUNCA some valores de moedas diferentes (saldo_moeda, custo_moeda). Valores em reais totais (custo_total_reais, valor_mercado, resultado) podem ser somados; custo_medio_reais e preco_atual (por ação) não.",
     sql: `SELECT c.papel, c.nome AS conta, cr.nome AS corretora, COALESCE(c.mercado, 'local') AS mercado, c.moeda, s.qtd AS quantidade, s.custo AS custo_total_reais,
   CASE WHEN s.qtd > 0 THEN ROUND(s.custo / s.qtd, 4) END AS custo_medio_reais,
   CASE WHEN c.moeda <> 'BRL' THEN s.custo_m END AS custo_moeda,
   CASE WHEN c.moeda <> 'BRL' AND s.qtd > 0 THEN ROUND(s.custo_m / s.qtd, 4) END AS custo_medio_moeda,
-  CASE WHEN c.moeda = 'BRL' THEN q.preco END AS preco_atual,
-  CASE WHEN c.moeda = 'BRL' THEN to_char(q.momento AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI') END AS preco_em,
-  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL THEN ROUND(s.qtd * q.preco, 2) END AS valor_mercado,
-  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL THEN ROUND(s.qtd * q.preco - s.custo, 2) END AS resultado,
-  CASE WHEN c.moeda = 'BRL' AND q.preco IS NOT NULL AND s.custo > 0 THEN ROUND(100.0 * (s.qtd * q.preco - s.custo) / s.custo, 2) END AS resultado_pct
+  CASE WHEN c.moeda = 'BRL' THEN pr.preco END AS preco_atual,
+  CASE WHEN c.moeda = 'BRL' THEN pr.em END AS preco_em,
+  CASE WHEN c.moeda = 'BRL' AND pr.preco IS NOT NULL THEN ROUND(s.qtd * pr.preco, 2) END AS valor_mercado,
+  CASE WHEN c.moeda = 'BRL' AND pr.preco IS NOT NULL THEN ROUND(s.qtd * pr.preco - s.custo, 2) END AS resultado,
+  CASE WHEN c.moeda = 'BRL' AND pr.preco IS NOT NULL AND s.custo > 0 THEN ROUND(100.0 * (s.qtd * pr.preco - s.custo) / s.custo, 2) END AS resultado_pct
 FROM fin_contas c
 LEFT JOIN fin_contas cr ON cr.id = c.corretora_contaid
 LEFT JOIN fin_cotacoes_papel q ON q.ticker = UPPER(c.papel)
+LEFT JOIN LATERAL (
+  SELECT h.fechamento, h.data FROM fin_precos_historico h
+  WHERE h.ticker = UPPER(c.papel) AND h.data <= COALESCE(:data, ${HOJE})
+  ORDER BY h.data DESC LIMIT 1
+) ph ON true
+CROSS JOIN LATERAL (
+  -- Data passada: fechamento da B3 até a data. Hoje (ou sem data): cotação atual; sem ela, o último fechamento
+  SELECT CASE WHEN COALESCE(:data, ${HOJE}) >= ${HOJE} AND q.preco IS NOT NULL THEN q.preco ELSE ph.fechamento END AS preco,
+         CASE WHEN COALESCE(:data, ${HOJE}) >= ${HOJE} AND q.preco IS NOT NULL
+              THEN to_char(q.momento AT TIME ZONE 'America/Sao_Paulo', 'DD/MM/YYYY HH24:MI')
+              ELSE to_char(ph.data, 'DD/MM/YYYY') || ' (fechamento B3)' END AS em
+) pr
 CROSS JOIN LATERAL (
   SELECT COALESCE(SUM(l.quantidade), 0) AS qtd,
          COALESCE(SUM(CASE WHEN l.conta_destinoid = c.id THEN l.valor ELSE 0 END), 0)
@@ -478,6 +492,81 @@ LIMIT 200`,
       { campo: "papel", tipo: "string", operadorSql: "LIKE" },
       { campo: "corretora", tipo: "string", operadorSql: "LIKE" },
       { campo: "mercado", tipo: "string", operadorSql: "=" },
+    ],
+  },
+  {
+    nome: "Financeiro — Rendimento da carteira",
+    descricao:
+      "Rendimento dos investimentos da B3 (em reais) num período, por papel: valor no início (quantidade × fechamento do último " +
+      "pregão ANTES de data_ini), compras e vendas e proventos no período, valor no fim (quantidade × fechamento do último pregão " +
+      "até data_fin; se data_fin é hoje, a cotação atual quando houver) e rendimento = valor_fim − valor_ini − compras + vendas + " +
+      "proventos (compra não é rendimento: é dinheiro posto). rendimento_pct = rendimento / (valor_ini + compras) × 100. " +
+      "Use para: quanto rendeu a carteira no mês passado/no ano, rendimento de um papel, variação da carteira descontando os aportes. " +
+      "Rendimento da CARTEIRA = soma de rendimento; % da carteira = soma de rendimento / soma de base × 100 (NUNCA some nem tire " +
+      "média de rendimento_pct). data_ini/data_fin = período (sem data: do dia 1º do mês atual até hoje; 'mês passado' = 1º ao " +
+      "último dia do mês anterior). Papel sem preço no início ou no fim vem com valor e rendimento vazios (diga isso; sem fechamento " +
+      "da B3 importado para a data). Preços não ajustados por desdobramento.",
+    sql: `WITH per AS (
+  SELECT COALESCE(:data_ini, ${INI_MES}) AS ini, LEAST(COALESCE(:data_fin, ${HOJE}), ${HOJE}) AS fim
+),
+r AS (
+  SELECT c.papel, cr.nome AS corretora, per.ini AS data_ini, per.fim AS data_fin,
+    qi.qtd AS qtd_ini, pi.fechamento AS preco_ini, pi.data AS preco_ini_em,
+    mv.compras, op.vendas, op.proventos,
+    qf.qtd AS qtd_fim,
+    CASE WHEN per.fim >= ${HOJE} AND q.preco IS NOT NULL THEN q.preco ELSE pf.fechamento END AS preco_fim,
+    CASE WHEN per.fim >= ${HOJE} AND q.preco IS NOT NULL THEN (q.momento AT TIME ZONE 'America/Sao_Paulo')::date ELSE pf.data END AS preco_fim_em
+  FROM fin_contas c
+  CROSS JOIN per
+  LEFT JOIN fin_contas cr ON cr.id = c.corretora_contaid
+  LEFT JOIN fin_cotacoes_papel q ON q.ticker = UPPER(c.papel)
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(SUM(l.quantidade), 0) AS qtd FROM fin_lancamentos l
+    WHERE (l.conta_destinoid = c.id OR l.conta_origemid = c.id) AND l.data < per.ini
+  ) qi
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(SUM(l.quantidade), 0) AS qtd FROM fin_lancamentos l
+    WHERE (l.conta_destinoid = c.id OR l.conta_origemid = c.id) AND l.data <= per.fim
+  ) qf
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(SUM(l.valor), 0) AS compras FROM fin_lancamentos l
+    WHERE l.conta_destinoid = c.id AND l.data BETWEEN per.ini AND per.fim
+  ) mv
+  CROSS JOIN LATERAL (
+    SELECT COALESCE(SUM(o.valor_total) FILTER (WHERE o.operacao = 'venda'), 0) AS vendas,
+           COALESCE(SUM(o.valor_total) FILTER (WHERE o.operacao = 'provento'), 0) AS proventos
+    FROM fin_operacoes_inv o WHERE o.papel_contaid = c.id AND o.data BETWEEN per.ini AND per.fim
+  ) op
+  LEFT JOIN LATERAL (
+    SELECT h.fechamento, h.data FROM fin_precos_historico h
+    WHERE h.ticker = UPPER(c.papel) AND h.data < per.ini ORDER BY h.data DESC LIMIT 1
+  ) pi ON true
+  LEFT JOIN LATERAL (
+    SELECT h.fechamento, h.data FROM fin_precos_historico h
+    WHERE h.ticker = UPPER(c.papel) AND h.data <= per.fim ORDER BY h.data DESC LIMIT 1
+  ) pf ON true
+  WHERE c.tipo = 'investimento' AND c.ativo = 1 AND c.moeda = 'BRL'
+    AND (qi.qtd <> 0 OR qf.qtd <> 0 OR mv.compras <> 0 OR op.vendas <> 0 OR op.proventos <> 0)
+    AND (:papel IS NULL OR c.papel ILIKE :papel OR c.nome ILIKE :papel)
+    AND (:corretora IS NULL OR cr.nome ILIKE :corretora)
+)
+SELECT papel, corretora, data_ini, data_fin, qtd_ini, preco_ini, preco_ini_em,
+  CASE WHEN qtd_ini = 0 THEN 0 ELSE ROUND(qtd_ini * preco_ini, 2) END AS valor_ini,
+  compras, vendas, proventos, qtd_fim, preco_fim, preco_fim_em,
+  CASE WHEN qtd_fim = 0 THEN 0 ELSE ROUND(qtd_fim * preco_fim, 2) END AS valor_fim,
+  ROUND(CASE WHEN qtd_fim = 0 THEN 0 ELSE qtd_fim * preco_fim END - CASE WHEN qtd_ini = 0 THEN 0 ELSE qtd_ini * preco_ini END
+        - compras + vendas + proventos, 2) AS rendimento,
+  ROUND(CASE WHEN qtd_ini = 0 THEN 0 ELSE qtd_ini * preco_ini END + compras, 2) AS base,
+  ROUND(100.0 * (CASE WHEN qtd_fim = 0 THEN 0 ELSE qtd_fim * preco_fim END - CASE WHEN qtd_ini = 0 THEN 0 ELSE qtd_ini * preco_ini END
+        - compras + vendas + proventos) / NULLIF(CASE WHEN qtd_ini = 0 THEN 0 ELSE qtd_ini * preco_ini END + compras, 0), 2) AS rendimento_pct
+FROM r
+ORDER BY papel
+LIMIT 200`,
+    params: [
+      { campo: "data_ini", tipo: "date", operadorSql: ">=" },
+      { campo: "data_fin", tipo: "date", operadorSql: "<=" },
+      { campo: "papel", tipo: "string", operadorSql: "LIKE" },
+      { campo: "corretora", tipo: "string", operadorSql: "LIKE" },
     ],
   },
   {

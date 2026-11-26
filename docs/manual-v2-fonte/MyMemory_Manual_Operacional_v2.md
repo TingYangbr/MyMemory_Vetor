@@ -1257,6 +1257,8 @@ NOTA: Plano com assinaturas (ativas ou encerradas) não pode ser excluído; o bo
 - Prompts: o texto de instrução de cada etapa (classificação, planejamento, síntese, extração por tipo de mídia), com ajuste por categoria. O que a IA recebeu de fato aparece em "Último prompt" (Seção 24).
 ## Consulta de memos (/admin/consulta)
 Igual à Consulta de memos de Painel Owners, mas com acesso a todos os grupos. Filtros por grupo de categorias, categoria, grupo de memos e data.
+- Categoria com consultas: abaixo dos filtros aparece um botão **▶ <nome da consulta>** para cada consulta (menos a de Alterações). Ele abre a mesma janela do ▶ Executar da aba Consultas, rodando no **grupo de memos** escolhido (sem ele, no grupo de categorias).
+- Categoria só de consulta (ex.: Finanças Pessoais - Saldos e investimentos, ERP) não guarda memos: "Consultar" volta 0 registros; os dados (ex.: as ações da carteira) aparecem pelos botões ▶ das consultas.
 ## Eliminação definitiva (/admin/eliminacao)
 Memos que foram para a lixeira, por mês. "Eliminar" apaga de vez os memos do mês e os arquivos deles (os registros de custo ficam).
 - Para confirmar, é preciso digitar ELIMINAR na janela que aparece.
@@ -1322,6 +1324,14 @@ Admin → Sistema → **Histórico de preços (B3)** guarda o fechamento de cada
   - **erro**, com a mensagem.
 
 NOTA: Os preços não são ajustados por desdobramento, grupamento ou proventos. Num desdobramento, o preço "cai" no dia do evento.
+
+## Rendimento da carteira
+"Qual foi o rendimento da carteira de ações no mês passado?" usa a consulta **Financeiro — Rendimento da carteira** (Saldos e investimentos), por papel da B3 em reais:
+- **Valor no início:** quantidade × fechamento do último pregão antes do período. **Valor no fim:** quantidade × fechamento do último pregão do período (se o período vai até hoje, a cotação atual, quando houver).
+- **Rendimento** = valor no fim − valor no início − compras + vendas + proventos do período. Compra não é rendimento (é dinheiro posto); venda e provento são dinheiro que saiu do papel.
+- **Rendimento %** = rendimento ÷ (valor no início + compras). O % da carteira é a soma dos rendimentos ÷ a soma das bases, não a média dos %.
+- Papel sem fechamento da B3 importado na data fica com valor e rendimento vazios: carregue o ano em **Histórico de preços (B3)**.
+- A **Posição de investimentos** com data passada ("posição em 31/10") usa o fechamento daquela data; sem data, a cotação atual ou, sem ela, o último fechamento.
 
 # SEÇÃO 20 — Admin: Mídia por plano
 Rota: /admin/midia

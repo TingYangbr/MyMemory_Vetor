@@ -131,6 +131,7 @@ import { FinPosicaoCustoTotal1700000000216 } from "./migrations/1700000000216-Fi
 import { FinFaturaSaldoProprio1700000000217 } from "./migrations/1700000000217-FinFaturaSaldoProprio.js";
 import { UserExemplosFaleComigo1700000000218 } from "./migrations/1700000000218-UserExemplosFaleComigo.js";
 import { FinLancamentoIdNaConsulta1700000000219 } from "./migrations/1700000000219-FinLancamentoIdNaConsulta.js";
+import { FinRendimentoCarteira1700000000220 } from "./migrations/1700000000220-FinRendimentoCarteira.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -311,6 +312,7 @@ assertMediaStorageEnv();
       FinFaturaSaldoProprio1700000000217,
       UserExemplosFaleComigo1700000000218,
       FinLancamentoIdNaConsulta1700000000219,
+      FinRendimentoCarteira1700000000220,
     ],
   });
   const ds = await AppDataSource.initialize();

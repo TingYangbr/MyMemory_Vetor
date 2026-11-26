@@ -32,6 +32,7 @@ import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPu
 import Header from "../components/Header";
 import { PerfisAcessoPanel } from "../components/PerfisAcessoPanel";
 import { GRUPOS_ADMIN, itemDoCaminho } from "../components/AdminLayout";
+import ExecutarConsultaJanela from "./painelGrupo/ExecutarConsultaJanela";
 import styles from "./AdminPage.module.css";
 
 type AdminTab = "inicio" | "invalida" | "chamadas" | "planos" | "outros" | "eliminacao" | "custos" | "consulta" | "prompts" | "ia" | "conexoes_bd" | "perfis" | "convites_usuarios";
@@ -530,6 +531,8 @@ export default function AdminPage() {
   const [consultaGroupsLoaded, setConsultaGroupsLoaded] = useState(false);
   const [consultaCategorias, setConsultaCategorias] = useState<MemoContextCategory[]>([]);
   const [consultaCatNome, setConsultaCatNome] = useState<string>("");
+  /** Consulta da categoria aberta na janela ▶ Executar (categorias só de consulta, ex.: Finanças). */
+  const [consultaExecutando, setConsultaExecutando] = useState<MemoContextCategory["queries"][number] | null>(null);
   const [consultaDataInicio, setConsultaDataInicio] = useState<string>("");
   const [consultaDataFim, setConsultaDataFim] = useState<string>("");
   const [pendingCampoFiltros, setPendingCampoFiltros] = useState<Record<string, string>>({});
@@ -2174,6 +2177,42 @@ export default function AdminPage() {
             </div>
 
             {consultaErr ? <p className="mm-error">{consultaErr}</p> : null}
+
+            {(() => {
+              // Categoria com consultas (ex.: Finanças, ERP): os dados vêm delas, não (só) dos memos
+              const cat = consultaCategorias.find((c) => c.name === consultaCatNome);
+              const consultas = (cat?.queries ?? []).filter((q) => q.isActive === 1 && q.autoTipo !== "alteracoes");
+              if (!cat || !consultas.length) return null;
+              const soConsulta = !cat.campos.some((f) => f.isActive === 1);
+              const grupoExec = consultaFiltroGroupId ?? consultaCatGroupId;
+              return (
+                <div style={{ margin: "0.5rem 0 1rem" }}>
+                  <p className="mm-muted" style={{ margin: "0 0 0.4rem", fontSize: 13.5 }}>
+                    {soConsulta
+                      ? "Esta categoria não guarda memos: os dados vêm das consultas abaixo (tabelas do sistema ou do ERP)."
+                      : "Consultas da categoria (o que o Fale comigo usa):"}
+                    {grupoExec == null ? " Escolha o grupo de memos para executar." : ""}
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {consultas.map((q) => (
+                      <button
+                        key={q.id}
+                        type="button"
+                        className="mm-btn mm-btn--ghost"
+                        disabled={grupoExec == null || q.conexaoPendente}
+                        title={q.descricao ?? q.nome}
+                        onClick={() => setConsultaExecutando(q)}
+                      >
+                        ▶ {q.nome}
+                      </button>
+                    ))}
+                  </div>
+                  {consultaExecutando && grupoExec != null ? (
+                    <ExecutarConsultaJanela query={consultaExecutando} groupId={grupoExec} onFechar={() => setConsultaExecutando(null)} />
+                  ) : null}
+                </div>
+              );
+            })()}
 
             {consultaResult ? (
               <>
