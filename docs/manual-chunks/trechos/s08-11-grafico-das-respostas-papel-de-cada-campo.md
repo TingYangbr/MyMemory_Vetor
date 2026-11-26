@@ -8,7 +8,8 @@ Na edição do campo, **Papel no gráfico**:
 - **Y**: Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática)
 - **Unidade** (caixa ao lado): kg, %, cm, R$… — aparece no título da coluna ("Peso (kg)") e na legenda. No gráfico, **% fica no eixo da direita** e as demais unidades juntas no da esquerda, com elas no título do eixo ("kg · cm"). Sem unidade configurada, coluna com "%" ou "perc" no nome vai para a direita
 - vazio: Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X)
-- Pergunta que cita só alguns campos Y (pelo nome ou rótulo, singular ou plural): a tabela e o gráfico mostram só esses. Ex.: em Antropometria, "pesos e IGC de novembro" mostra Peso e IGC; "medidas de novembro" (nenhum citado) mostra todos.
+- O eixo de cada Y é automático pela unidade: % no eixo da direita, as demais no da esquerda (não há opção de escolher o eixo).
+- Pergunta que cita só alguns campos Y (pelo nome ou rótulo, singular ou plural; basta uma palavra própria do nome, ex.: "peso" cita "Peso Kg"): a tabela e o gráfico mostram só esses. Ex.: em Antropometria, "pesos e IGC de novembro" mostra Peso e IGC; "medidas de novembro" (nenhum citado) mostra todos.
 - Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
 - Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).
 - Categoria sem nenhum papel definido continua escolhendo sozinha, como antes; a barra em pé é usada para datas e meses, e a deitada para os demais rótulos.

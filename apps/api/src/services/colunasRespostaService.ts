@@ -21,13 +21,20 @@ const singular = (s: string) =>
     .map((w) => (w.length > 3 ? w.replace(/s$/, "") : w))
     .join(" ");
 
-/** A pergunta cita o campo (nome ou rótulo), aceitando plural: "pesos e IGC" cita Peso e IGC. */
+/** Palavras que não identificam o campo ("Peso em Kg", "Taxa de juros"). */
+const PALAVRAS_VAZIAS = new Set(["com", "sem", "para", "por", "dos", "das", "nos", "nas", "pelo", "pela", "total", "valor"]);
+
+/**
+ * A pergunta cita o campo (nome ou rótulo), aceitando plural e nome com mais palavras: "pesos e IGC" cita
+ * "Peso Kg" e "IGC" (basta uma palavra própria do nome, de 3+ letras).
+ */
 function citaFlex(pergunta: string): (...nomes: (string | null | undefined)[]) => boolean {
   const p = ` ${singular(pergunta)} `;
   return (...nomes) =>
     nomes.some((n) => {
       const x = n ? singular(n) : "";
-      return x.length >= 3 && p.includes(` ${x} `);
+      if (x.length >= 3 && p.includes(` ${x} `)) return true;
+      return x.split(" ").some((w) => w.length >= 3 && !PALAVRAS_VAZIAS.has(w) && p.includes(` ${w} `));
     });
 }
 
