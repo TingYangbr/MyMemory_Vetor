@@ -1325,6 +1325,14 @@ Admin → Sistema → **Histórico de preços (B3)** guarda o fechamento de cada
 
 NOTA: Os preços não são ajustados por desdobramento, grupamento ou proventos. Num desdobramento, o preço "cai" no dia do evento.
 
+## Rendimento da carteira
+"Qual foi o rendimento da carteira de ações no mês passado?" usa a consulta **Financeiro — Rendimento da carteira** (Saldos e investimentos), por papel da B3 em reais:
+- **Valor no início:** quantidade × fechamento do último pregão antes do período. **Valor no fim:** quantidade × fechamento do último pregão do período (se o período vai até hoje, a cotação atual, quando houver).
+- **Rendimento** = valor no fim − valor no início − compras + vendas + proventos do período. Compra não é rendimento (é dinheiro posto); venda e provento são dinheiro que saiu do papel.
+- **Rendimento %** = rendimento ÷ (valor no início + compras). O % da carteira é a soma dos rendimentos ÷ a soma das bases, não a média dos %.
+- Papel sem fechamento da B3 importado na data fica com valor e rendimento vazios: carregue o ano em **Histórico de preços (B3)**.
+- A **Posição de investimentos** com data passada ("posição em 31/10") usa o fechamento daquela data; sem data, a cotação atual ou, sem ela, o último fechamento.
+
 # SEÇÃO 20 — Admin: Mídia por plano
 Rota: /admin/midia
 ## Propósito
