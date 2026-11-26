@@ -653,6 +653,12 @@ export function bindTemplateParams(
   paramDefs: QueryDisponivel["params"],
   systemParams: { userid: number; groupid: number | null; autor?: number | null }
 ): { sql: string; values: unknown[] } {
+  // "col ILIKE '%' || :p || '%'" (consultas do financeiro) não passava pelo unaccent de "col ILIKE :p": grupo
+  // "Condominio" não achava "condomínio". Os dois lados ficam sem acento (só PostgreSQL interno usa esta função).
+  sentencaSql = sentencaSql.replace(
+    /([A-Za-z_][\w.]*)\s+ILIKE\s+'%'\s*\|\|\s*:(\w+)\s*\|\|\s*'%'/g,
+    (_m, col: string, p: string) => `unaccent(${col}::text) ILIKE '%' || unaccent(CAST(:${p} AS text)) || '%'`
+  );
   // Chaves em lowercase para comparação case-insensitive (SQL usa :groupId, mapa guarda "groupid")
   const paramMap: Record<string, unknown> = {
     userid: systemParams.userid,
