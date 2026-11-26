@@ -454,6 +454,8 @@ Na edição do campo, **Papel no gráfico**:
 | vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
 - O eixo de cada Y é automático pela unidade: % no eixo da direita, as demais no da esquerda (não há opção de escolher o eixo).
 - Pergunta que cita só alguns campos Y (pelo nome ou rótulo, singular ou plural; basta uma palavra própria do nome, ex.: "peso" cita "Peso Kg"): a tabela e o gráfico mostram só esses. Ex.: em Antropometria, "pesos e IGC de novembro" mostra Peso e IGC; "medidas de novembro" (nenhum citado) mostra todos.
+- Sigla dita por extenso também cita o campo: "índice gordura corporal" = IGC, "índice de massa corporal" = IMC.
+- Pergunta de pico ou mínimo ("quando foi o pico de peso e IGC em 2026", "menor peso do ano"): a tabela mostra só as linhas do pico (ou do mínimo) de cada medida citada, sem os dias vazios de "mostrar dias sem registro".
 - Linhas com o mesmo rótulo são somadas (ex.: várias notas do mesmo cliente viram uma barra).
 - Com mais de 20 rótulos, ficam os 20 maiores pelo primeiro Y (ou as 20 primeiras datas).
 - Categoria sem nenhum papel definido continua escolhendo sozinha, como antes; a barra em pé é usada para datas e meses, e a deitada para os demais rótulos.
