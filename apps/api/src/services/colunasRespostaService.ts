@@ -58,7 +58,7 @@ function graficoPelaCategoria(
   campos: MemoContextCategory["campos"],
   colunas: string[],
   citada: (nome: string) => boolean
-): { grafico?: { x?: string; y: string[] } } {
+): { grafico?: { x?: string; y: string[]; dica?: string[] } } {
   if (!campos.some((f) => f.papelGrafico === "X" || f.papelGrafico === "Y")) return {};
   const colDe = (nome: string) => colunas.find((c) => c.toLowerCase() === toParamName(nome).toLowerCase());
   let x: string | undefined;
@@ -75,7 +75,12 @@ function graficoPelaCategoria(
     if (f.tipo === "number") y.push(col);
     else if (!x) x = col;
   }
-  return y.length ? { grafico: { ...(x ? { x } : {}), y } } : {};
+  // Papel D: o campo aparece só na dica (tooltip) da barra (ex.: Observação "iniciei dieta do leite")
+  const dica = campos
+    .filter((f) => f.papelGrafico === "D")
+    .map((f) => colDe(f.name))
+    .filter((c): c is string => !!c && c !== x && !y.includes(c));
+  return y.length ? { grafico: { ...(x ? { x } : {}), y, ...(dica.length ? { dica } : {}) } } : {};
 }
 
 /** Unidade de cada coluna que é campo com unidade (kg, %, cm…). */
