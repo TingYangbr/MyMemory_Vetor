@@ -289,7 +289,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
     ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
-    papelGrafico: z.enum(["X", "Y"]).nullable().optional(),
+    papelGrafico: z.enum(["X", "Y", "D"]).nullable().optional(),
     unidade: z.string().max(20).nullable().optional(),
     completarDatas: z.boolean().optional(),
   });
@@ -302,7 +302,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     verbos: z.string().max(4_000).nullable().optional(),
     resolucaoNomeAbrev: z.boolean().optional(),
     ordemExibicao: z.number().int().min(-1).max(999).nullable().optional(),
-    papelGrafico: z.enum(["X", "Y"]).nullable().optional(),
+    papelGrafico: z.enum(["X", "Y", "D"]).nullable().optional(),
     unidade: z.string().max(20).nullable().optional(),
     completarDatas: z.boolean().optional(),
     isActive: z.number().int().min(0).max(1).optional(),

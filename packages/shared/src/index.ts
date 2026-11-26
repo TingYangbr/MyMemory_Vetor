@@ -681,8 +681,8 @@ export interface MemoContextCampo {
   verbos?: string | null;
   /** Ordem da coluna na tabela das respostas: 1, 2…; null = depois, na ordem do campo; -1 = só se a pergunta citar. */
   ordemExibicao?: number | null;
-  /** Papel no gráfico das respostas: X = rótulos, Y = valor (barra; vários Y = várias cores); null = só se a pergunta citar. */
-  papelGrafico?: "X" | "Y" | null;
+  /** Papel no gráfico das respostas: X = rótulos, Y = valor (barra; vários Y = várias cores), D = só na dica (tooltip) da barra; null = só se a pergunta citar. */
+  papelGrafico?: "X" | "Y" | "D" | null;
   /** Unidade do valor (kg, %, cm, R$…): título da coluna e legenda do gráfico; % vai para o eixo da direita. */
   unidade?: string | null;
   /** Campo de data: a tabela e o gráfico das respostas mostram também os dias sem registro. */
@@ -1250,7 +1250,7 @@ export interface PerguntaResultadoEstruturado {
   /** Categoria da tabela (para gravar a ordem das colunas arrastadas na resposta). */
   categoria?: string;
   /** Gráfico pela categoria (papel de cada campo): coluna de rótulos (x) e colunas de valor (y; uma cor cada). */
-  grafico?: { x?: string; y: string[] };
+  grafico?: { x?: string; y: string[]; /** Colunas mostradas só na dica (tooltip) de cada barra. */ dica?: string[] };
   /** Unidade de cada coluna que é campo com unidade (título da tabela, legenda e eixos do gráfico). */
   unidades?: Record<string, string>;
   /** Consulta que gerou a tabela (aplica a configuração das colunas dela). */

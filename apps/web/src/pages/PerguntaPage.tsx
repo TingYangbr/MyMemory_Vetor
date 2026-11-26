@@ -375,6 +375,8 @@ interface DadosGrafico {
   unidades?: Record<string, string>;
   /** Nome de exibição de cada série (configurado na consulta). */
   rotulos?: Record<string, string>;
+  /** Há campos de papel D (texto extra na dica de cada barra, em rows[i].__dica). */
+  temDica?: boolean;
 }
 
 /**
@@ -461,6 +463,15 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
     const label = formatDateCell(raw) ?? raw;
     const row = somas.get(label) ?? { label, _raw: raw };
     for (const col of valueCols) row[col] = Number(row[col] ?? 0) + (numeroDaCelula(linha[col]) ?? 0);
+    // Papel D: campos de texto que aparecem só na dica da barra ("Obs: iniciei dieta do leite")
+    for (const col of g.dica ?? []) {
+      const v = String(linha[col] ?? "").trim();
+      if (!v) continue;
+      const nome = dados.rotulos?.[col] ?? COLUNA_LABELS[col] ?? col;
+      const linhaDica = `${nome}: ${v}`;
+      const atuais = String(row.__dica ?? "").split("\n").filter(Boolean);
+      if (!atuais.includes(linhaDica)) row.__dica = [...atuais, linhaDica].join("\n");
+    }
     somas.set(label, row);
   }
   let rows = [...somas.values()];
@@ -477,7 +488,15 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
           .slice(0, CHART_MAX_ROTULOS_EIXO_X)
           .sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   }
-  return { valueCols, rows, temporal, direita: seriesPercentuais(valueCols, dados.unidades), unidades: dados.unidades, rotulos: dados.rotulos };
+  return {
+    valueCols,
+    rows,
+    temporal,
+    direita: seriesPercentuais(valueCols, dados.unidades),
+    unidades: dados.unidades,
+    rotulos: dados.rotulos,
+    temDica: rows.some((r) => !!r.__dica),
+  };
 }
 
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string, manterOrdem = false): DadosGrafico | null {
@@ -577,7 +596,24 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const compacto = (v: number) => v.toLocaleString("pt-BR", { notation: "compact" });
   const legenda = dados.valueCols.length > 1 ? <Legend wrapperStyle={{ fontSize: 11 }} /> : null;
   const grade = <CartesianGrid strokeDasharray="3 3" stroke="var(--mm-border, #e2e8f0)" />;
-  const tooltip = <Tooltip formatter={formatoValor} cursor={{ fill: "var(--mm-primary-faint, #eef8f7)" }} />;
+  // Dica da barra: além dos valores, os campos de papel D da mesma data/rótulo (ex.: Obs)
+  const rotuloDica = (label: unknown, payload: ReadonlyArray<{ payload?: Record<string, unknown> }> | undefined) => {
+    const extra = String(payload?.[0]?.payload?.__dica ?? "");
+    if (!extra) return String(label ?? "");
+    return (
+      <>
+        {String(label ?? "")}
+        <span style={{ display: "block", whiteSpace: "pre-line", fontWeight: 400, maxWidth: 260, marginTop: 2 }}>{extra}</span>
+      </>
+    );
+  };
+  const tooltip = (
+    <Tooltip
+      formatter={formatoValor}
+      {...(dados.temDica ? { labelFormatter: rotuloDica } : {})}
+      cursor={{ fill: "var(--mm-primary-faint, #eef8f7)" }}
+    />
+  );
   // Dois eixos de valor: unidade à esquerda (ou embaixo, na barra deitada) e % à direita (ou em cima).
   // Só com séries dos dois tipos; se todas forem %, um eixo só, com %.
   const direita = new Set(dados.direita ?? []);

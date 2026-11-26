@@ -450,6 +450,7 @@ Na edição do campo, **Papel no gráfico**:
 | **X** | Rótulos: eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada) — ex.: Cliente, Mês, Produto |
 | **Y** | Valor: tamanho da barra — ex.: Valor, Quantidade. **Com mais de um Y, cada um vira uma barra de cor diferente** (cor automática) |
 | **Unidade** (caixa ao lado) | kg, %, cm, R$… — aparece no título da coluna ("Peso (kg)") e na legenda. No gráfico, **% fica no eixo da direita** e as demais unidades juntas no da esquerda, com elas no título do eixo ("kg · cm"). Sem unidade configurada, coluna com "%" ou "perc" no nome vai para a direita |
+| **Dica** | Não vira barra: o valor aparece na caixinha (dica) ao passar o mouse na barra daquele rótulo/data — ex.: campo Obs da Antropometria ("iniciei dieta do leite por 7 dias"). Vários registros na mesma data mostram todas as anotações, sem repetir. Só aparece quando o gráfico tem algum Y |
 | vazio | Não entra no gráfico, a não ser que a pergunta cite o campo (número vira Y; texto vira X, se ainda não houver X) |
 - O eixo de cada Y é automático pela unidade: % no eixo da direita, as demais no da esquerda (não há opção de escolher o eixo).
 - Pergunta que cita só alguns campos Y (pelo nome ou rótulo, singular ou plural; basta uma palavra própria do nome, ex.: "peso" cita "Peso Kg"): a tabela e o gráfico mostram só esses. Ex.: em Antropometria, "pesos e IGC de novembro" mostra Peso e IGC; "medidas de novembro" (nenhum citado) mostra todos.
