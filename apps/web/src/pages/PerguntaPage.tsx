@@ -481,6 +481,9 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
 }
 
 function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string, manterOrdem = false): DadosGrafico | null {
+  // Uma linha só ("Foi pago o condomínio este mês?", "quanto gastei?"): o texto e a tabela já dizem tudo; um
+  // gráfico de uma barra (ou de colunas repetidas do mesmo registro) só ocupa espaço
+  if ((dados.linhasCompletas ?? dados.linhas).length <= 1 && (dados.totalLinhas ?? dados.linhas.length) <= 1) return null;
   // Categoria com papel no gráfico (X/Y) em algum campo: segue esses papéis
   if (dados.grafico?.y.length) return graficoPelosPapeis(dados, manterOrdem);
   if (!dados.linhas.length || dados.colunas.length < 2) return null;

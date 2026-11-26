@@ -494,6 +494,7 @@ Se a parte estruturada falhar (ex.: erro de SQL), a resposta sai com a parte dos
 - No máximo 3 séries (as colunas mais relevantes para a pergunta).
 - Datas aparecem no formato curto dd/mm/aaaa.
 - Com mais de 20 rótulos distintos no eixo X o gráfico é omitido (ficaria ilegível) e só a tabela é exibida.
+- Com uma linha só no resultado ("Foi pago o condomínio este mês?", "quanto gastei em outubro?") não há gráfico: o texto e a tabela já respondem. Vale também para o PDF.
 ## Salvar pergunta
 Clicar no ícone de salvar do card (balão de conversa com +) guarda a pergunta em "Perguntas salvas".
 - Se a resposta não tem parâmetros trocáveis, salva direto, como texto.
