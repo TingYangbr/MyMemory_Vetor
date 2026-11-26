@@ -113,6 +113,8 @@ export interface RestricaoMemos {
   escopoAutor?: { categorias: string[]; userId: number };
   /** Só memos de conhecimento importado (manuais), para dúvidas de uso do sistema. */
   soConhecimento?: boolean;
+  /** Sem os memos de conhecimento importado: pergunta sobre os DADOS do grupo ("mostre as contestações"). */
+  semConhecimento?: boolean;
 }
 
 /** Marca gravada em mediaMetadata dos trechos de conhecimento (REVIEW_FLOW_CONHECIMENTO em memoService). */
@@ -139,6 +141,9 @@ export function condicoesRestricao(r: RestricaoMemos | undefined): { where: stri
   }
   if (r.soConhecimento) {
     conds.push("m.mediametadata LIKE ?");
+    vals.push(MARCA_CONHECIMENTO_LIKE);
+  } else if (r.semConhecimento) {
+    conds.push("(m.mediametadata IS NULL OR m.mediametadata NOT LIKE ?)");
     vals.push(MARCA_CONHECIMENTO_LIKE);
   }
   return { where: conds.length ? " AND " + conds.join(" AND ") : "", vals };

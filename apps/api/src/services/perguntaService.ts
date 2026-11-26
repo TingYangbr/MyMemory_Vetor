@@ -838,6 +838,12 @@ export async function perguntarMemory(input: {
       restricaoSemAutor = restrito ? { ...restricao, escopoAutor: undefined } : undefined;
     }
   }
+  // Pergunta sobre os dados ("mostre as contestações"): os trechos do manual importado não entram na busca — senão
+  // a busca ampliada traz o manual quando o assunto não aparece nos memos. Só entram se a pergunta cita o manual.
+  if (classificacao.alvo !== "uso_do_sistema" && !classificacao.categorias.some((n) => /manual/i.test(n))) {
+    restricao = { ...(restricao ?? {}), semConhecimento: true };
+    if (restricaoSemAutor) restricaoSemAutor = { ...restricaoSemAutor, semConhecimento: true };
+  }
   /** Executa o pipe escolhido com um escopo; `vazio` = nenhum memo nem linha encontrada. */
   const rodar = async (
     restricao: RestricaoMemos | undefined,
