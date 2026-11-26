@@ -347,10 +347,56 @@ export function parseJsonLoose(raw: string): Record<string, unknown> {
     const i = t.indexOf("{");
     const j = t.lastIndexOf("}");
     if (i >= 0 && j > i) {
-      return JSON.parse(t.slice(i, j + 1)) as Record<string, unknown>;
+      try {
+        return JSON.parse(t.slice(i, j + 1)) as Record<string, unknown>;
+      } catch (e) {
+        // A IA às vezes devolve dois objetos seguidos ou uma chave a mais no fim ("Unexpected non-whitespace
+        // character after JSON"): lê cada objeto de topo e junta (o primeiro valor de cada campo vale)
+        const objs = objetosJsonDeTopo(t);
+        if (!objs.length) throw e;
+        const junto: Record<string, unknown> = {};
+        for (const o of objs) for (const [k, v] of Object.entries(o)) if (!(k in junto)) junto[k] = v;
+        return junto;
+      }
     }
     throw new Error("invalid_json_from_model");
   }
+}
+
+/** Objetos JSON de topo dentro do texto, na ordem; trechos que não são JSON válido são ignorados. */
+export function objetosJsonDeTopo(t: string): Record<string, unknown>[] {
+  const out: Record<string, unknown>[] = [];
+  let ini = -1;
+  let nivel = 0;
+  let emString = false;
+  let escape = false;
+  for (let k = 0; k < t.length; k++) {
+    const ch = t[k];
+    if (emString) {
+      if (escape) escape = false;
+      else if (ch === "\\") escape = true;
+      else if (ch === '"') emString = false;
+      continue;
+    }
+    if (ch === '"') {
+      if (nivel > 0) emString = true;
+    } else if (ch === "{") {
+      if (nivel === 0) ini = k;
+      nivel++;
+    } else if (ch === "}" && nivel > 0) {
+      nivel--;
+      if (nivel === 0 && ini >= 0) {
+        try {
+          const o = JSON.parse(t.slice(ini, k + 1));
+          if (o && typeof o === "object" && !Array.isArray(o)) out.push(o as Record<string, unknown>);
+        } catch {
+          /* trecho inválido: ignora */
+        }
+        ini = -1;
+      }
+    }
+  }
+  return out;
 }
 
 function str(v: unknown): string {
