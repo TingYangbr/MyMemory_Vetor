@@ -8,6 +8,7 @@ A descrição de cada campo é enviada à IA na extração dos memos e no planej
 - A IA copia nomes, endereços e números como estão no texto (não "corrige" uma rua por outra), grava tempos sempre com unidade ("2 horas") e não mistura duração do evento com antecedência do aviso.
 - "Eu", "me", "meu" no texto referem-se ao autor do memo (quem está catalogando): campos de pessoa que se refiram a ele recebem o nome ou e-mail do autor.
 - Quando dois campos podem ser confundidos, diga na descrição de cada um quem é quem. Exemplo na Agenda — Dono Agenda: "Pessoa dona da agenda, que vai cumprir o compromisso. Em 'agendar para X' ou 'agenda do X', X é o dono. Em primeira pessoa ou sem indicação, use o autor do memo." Com quem: "Outras pessoas ou empresas que participam do compromisso, a contraparte do dono (ex.: 'reunião com Maria', 'reunião com a Petrobras'). Nunca a pessoa depois de 'agendar para'."
+- Dois campos de pessoa ou parte (ex.: Com quem e Contraparte) nunca recebem o mesmo nome. Em texto escrito em primeira pessoa (e-mail, reclamação, carta assinada por você), uma das partes é o autor do memo, e a outra é a quem ele escreve. Diga na descrição de cada campo qual lado ele guarda (ex.: Contraparte: "a empresa ou pessoa do outro lado; nunca o autor").
 
 Perguntas que este trecho responde:
 - O que é descrição do campo em Categorias?
