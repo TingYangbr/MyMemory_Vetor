@@ -377,7 +377,7 @@ export async function loadMemoContextStructure(
         normalizedTerms: (r.normalizedTerms as string) ?? null,
         verbos: (r.verbos as string | null) ?? null,
         ordemExibicao: r.ordemExibicao == null ? null : Number(r.ordemExibicao),
-        papelGrafico: r.papelGrafico === "X" ? "X" : r.papelGrafico === "Y" || r.papelGrafico === "P" ? "Y" : null,
+        papelGrafico: r.papelGrafico === "X" ? "X" : r.papelGrafico === "Y" || r.papelGrafico === "P" ? "Y" : r.papelGrafico === "D" ? "D" : null,
         unidade: (r.unidade as string | null)?.trim() || null,
         completarDatas: Number(r.completarDatas ?? 0) === 1,
         resolucaoNomeAbrev: !!(r.resolucaoNomeAbrev as number),
@@ -865,7 +865,7 @@ const TIPOS_CAMPO = ["text", "date", "number", "lista", "status"];
 export async function createCampo(
   userId: number,
   categoryId: number,
-  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null; unidade?: string | null; completarDatas?: boolean }
+  input: { name: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | "D" | null; unidade?: string | null; completarDatas?: boolean }
 ): Promise<number> {
   await assertCategoryInAccessibleGroup(userId, categoryId);
   const tipo = input.tipo && TIPOS_CAMPO.includes(input.tipo) ? input.tipo : "text";
@@ -880,7 +880,7 @@ export async function createCampo(
 export async function updateCampo(
   userId: number,
   campoId: number,
-  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | null; unidade?: string | null; completarDatas?: boolean; isActive?: number }
+  patch: { name?: string; description?: string | null; tipo?: string; normalizedTerms?: string | null; verbos?: string | null; resolucaoNomeAbrev?: boolean; ordemExibicao?: number | null; papelGrafico?: "X" | "Y" | "D" | null; unidade?: string | null; completarDatas?: boolean; isActive?: number }
 ): Promise<{ renomeado?: { de: string; para: string; memos: number; queries: number } }> {
   const isAdmin = await getUserAdminFlag(userId);
   const [rows] = await pool.query<RowDataPacket[]>(

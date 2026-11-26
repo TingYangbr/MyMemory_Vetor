@@ -793,7 +793,13 @@ function CamposCategoria({ cat, podeEditar, recarregar }: { cat: MemoContextCate
                 <span
                   className={`${s.tag} ${s.tagOk}`}
                   style={{ marginLeft: 4 }}
-                  title={c.papelGrafico === "X" ? "Gráfico: rótulos (eixo das categorias)" : "Gráfico: valor (tamanho da barra)"}
+                  title={
+                    c.papelGrafico === "X"
+                      ? "Gráfico: rótulos (eixo das categorias)"
+                      : c.papelGrafico === "D"
+                        ? "Gráfico: aparece na dica da barra"
+                        : "Gráfico: valor (tamanho da barra)"
+                  }
                 >
                   {c.papelGrafico}
                 </span>
@@ -901,7 +907,7 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
   const [verbos, setVerbos] = useState(campo?.verbos ?? "");
   const [nomeErp, setNomeErp] = useState(campo?.resolucaoNomeAbrev ?? false);
   const [ordemTabela, setOrdemTabela] = useState(campo?.ordemExibicao != null ? String(campo.ordemExibicao) : "");
-  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y">(campo?.papelGrafico ?? "");
+  const [papelGrafico, setPapelGrafico] = useState<"" | "X" | "Y" | "D">(campo?.papelGrafico ?? "");
   const [unidade, setUnidade] = useState(campo?.unidade ?? "");
   const [completarDatas, setCompletarDatas] = useState(!!campo?.completarDatas);
   const [busy, setBusy] = useState(false);
@@ -1041,17 +1047,19 @@ function CampoModal({ categoryId, campo, onFechar, onSalvo }: { categoryId: numb
             id="cp-grafico"
             className={`mm-field ${s.selectSm}`}
             value={papelGrafico}
-            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y")}
+            onChange={(e) => setPapelGrafico(e.target.value as "" | "X" | "Y" | "D")}
           >
             <option value="">— (só se a pergunta citar)</option>
             <option value="X">X — rótulos (cliente, mês, produto…)</option>
             <option value="Y">Y — valor (eixo pela unidade: % à direita)</option>
+            <option value="D">Dica — aparece ao passar o mouse na barra (ex.: Obs)</option>
 
           </select>
         </div>
         <p className={s.help}>
           X fica no eixo das categorias (embaixo na barra em pé, à esquerda na barra deitada); Y é o tamanho da barra. Com mais de
-          um Y, cada um vira uma barra de cor diferente. Sem papel, o campo não entra no gráfico, a não ser que a pergunta o cite.
+          um Y, cada um vira uma barra de cor diferente. Dica: o valor do campo aparece na caixinha ao passar o mouse na barra
+          daquela data. Sem papel, o campo não entra no gráfico, a não ser que a pergunta o cite.
           Categoria sem nenhum papel definido escolhe sozinha, como antes.
         </p>
         <div className={s.row} style={{ marginTop: 10, fontSize: 13.5 }}>
