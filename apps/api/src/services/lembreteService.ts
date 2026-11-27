@@ -659,3 +659,123 @@ export async function compromissosDoUsuario(userId: number, email: string, dias 
   }
   return out.sort((a, b) => a.momento.getTime() - b.momento.getTime());
 }
+
+// ── Resultado da reunião: compromissos que já passaram, sem resultado registrado ──
+
+export type PerguntaResultado = "sempre" | "com_pessoas" | "quando_pedir" | "nunca";
+
+export type ReuniaoSemResultado = {
+  memoId: number;
+  categoria: string;
+  grupo: string | null;
+  groupId: number;
+  momento: Date;
+  hora: string;
+};
+
+/** Depois do fim: 1 h após a hora marcada. Some sozinho 7 dias depois, sem insistir. */
+const RESULTADO_DEPOIS_MIN = 60;
+const RESULTADO_DIAS = 7;
+
+/** Campo do memo que diz com quem é o compromisso (para a preferência "só reuniões com outras pessoas"). */
+/** Campo opcional da agenda que pede (sim) ou dispensa (não) a pergunta do resultado: manda mais que a preferência. */
+const RE_CAMPO_RESULTADO = /\b(registrar|lembrar|pedir|perguntar)\b.*\bresultado\b|^resultado\?$/;
+const RE_CAMPO_PESSOAS = /^(com quem|participantes?|pessoas?|contatos?|convidados?|cliente|com)$/;
+
+/**
+ * Compromissos das categorias com lembrete (ex.: Agenda) em que o usuário é destinatário, que terminaram entre
+ * 7 dias atrás e 1 hora atrás, e ainda não têm memo de resultado ligado. Não muda a situação da agenda: a agenda
+ * pode estar Concluída/Caducada e mesmo assim aparecer aqui. Fica de fora: cancelado, compromisso registrado
+ * depois de acontecer (já é o próprio registro), o que o usuário dispensou ("Não precisa").
+ */
+export async function reunioesSemResultado(
+  userId: number,
+  email: string,
+  pref: PerguntaResultado,
+  /** Pela fala ("resultado da reunião com Carlos"): a pessoa pediu — ignora preferência, campo e "Não precisa". */
+  opts: { paraFala?: boolean; dias?: number } = {}
+): Promise<ReuniaoSemResultado[]> {
+  const alvo = email.trim().toLowerCase();
+  const paraFala = !!opts.paraFala;
+  const dias = opts.dias ?? RESULTADO_DIAS;
+  if (!alvo || (pref === "nunca" && !paraFala)) return [];
+  const [regras] = await pool.query<RowDataPacket[]>(`SELECT r.id FROM lembrete_regras r WHERE r.ativo = 1 AND r.origem = 'memos'`);
+  const agora = Date.now();
+  const desde = agora - dias * 86_400_000;
+  // Pela fala vale logo depois da hora marcada (a reunião pode ter acabado mais cedo)
+  const ate = agora - (paraFala ? 0 : RESULTADO_DEPOIS_MIN) * 60_000;
+  const candidatos: (ReuniaoSemResultado & { pessoas: boolean })[] = [];
+  const vistos = new Set<number>();
+  for (const { id } of regras as { id: number }[]) {
+    const regra = await obterRegra(id);
+    if (!regra || !regra.ativo || !regra.campoData) continue;
+    const ctx = await carregarContexto(regra);
+    if (!ctx) continue;
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT id, userid, dadosespecificosjson, createdat, data_alvo FROM (
+         SELECT m.id, m.userid, m.dadosespecificosjson, m.createdat,
+                to_char(mymemory_parse_date(NULLIF(m.dadosespecificosjson, '')::jsonb->>?), 'YYYY-MM-DD') AS data_alvo
+         FROM memos m
+         WHERE m.isactive = 1 AND m.category = ? AND m.groupid = ? AND NULLIF(m.dadosespecificosjson, '') IS NOT NULL
+       ) x
+       WHERE data_alvo IS NOT NULL
+         AND data_alvo::date BETWEEN (NOW() AT TIME ZONE 'America/Sao_Paulo')::date - ${dias + 1}
+                                 AND (NOW() AT TIME ZONE 'America/Sao_Paulo')::date`,
+      [regra.campoData, ctx.categoria, ctx.groupId]
+    );
+    const horarioPadrao = parseHorario(regra.horarioPadrao) ?? { hh: 8, mm: 0 };
+    for (const r of rows) {
+      const memoId = Number(r.id);
+      if (vistos.has(memoId)) continue;
+      const dados = lerJson(r.dadosEspecificosJson ?? r.dadosespecificosjson);
+      // Cancelado não pede resultado (Concluído/Caducado pede: é justamente depois de acontecer)
+      if (ctx.campoSituacao) {
+        const k = Object.keys(dados).find((x) => semAcento(x) === semAcento(ctx.campoSituacao!));
+        if (k && semAcento(String(dados[k] ?? "")).startsWith("cancel")) continue;
+      }
+      const horario = parseHorario(campoTexto(dados, regra.campoHorario)) ?? horarioPadrao;
+      const momento = momentoSP(String(r.data_alvo), horario);
+      const t = momento.getTime();
+      if (t < desde || t > ate) continue;
+      // Registrado depois de acontecer ("tive reunião ontem"): o próprio memo já é o registro
+      if (new Date(r.createdAt as Date).getTime() > t) continue;
+      const dest = resolverDestinatarios(ctx, Number(r.userId), campoTexto(dados, regra.campoDestinatario));
+      if (!dest.emails.some((d) => d.trim().toLowerCase() === alvo)) continue;
+      const pessoas =
+        !!campoTexto(dados, regra.campoDestinatario) ||
+        Object.entries(dados).some(([k, v]) => RE_CAMPO_PESSOAS.test(semAcento(k)) && String(v ?? "").trim() !== "");
+      // Campo "Registrar resultado" da agenda: sim = pergunta sempre; não = nunca; vazio = preferência do usuário
+      const kRes = Object.keys(dados).find((k) => RE_CAMPO_RESULTADO.test(semAcento(k)));
+      const pedido = kRes ? querLembrete(String(dados[kRes] ?? "")) : null;
+      if (pedido === false && !paraFala) continue;
+      if (pedido !== true && !paraFala) {
+        if (pref === "quando_pedir") continue;
+        if (pref === "com_pessoas" && !pessoas) continue;
+      }
+      vistos.add(memoId);
+      candidatos.push({
+        memoId, categoria: ctx.categoria, grupo: null, groupId: ctx.groupId, momento,
+        hora: `${dois(horario.hh)}:${dois(horario.mm)}`, pessoas,
+      });
+    }
+  }
+  const filtrados = candidatos;
+  if (!filtrados.length) return [];
+  const ids = filtrados.map((c) => c.memoId);
+  // Já tem resultado ligado, ou o usuário disse "Não precisa"
+  const [fora] = await pool.query<RowDataPacket[]>(
+    `SELECT destino_id AS id FROM memo_relacoes WHERE isactive = 1 AND tipo = 'resultado' AND destino_id = ANY(?::int[])
+     UNION SELECT memoid AS id FROM reuniao_resultado_dispensa
+       WHERE userid = ? AND memoid = ANY(?::int[]) AND NOT ?::boolean`,
+    [ids, userId, ids, paraFala]
+  );
+  const excluir = new Set(fora.map((f) => Number(f.id)));
+  const out = filtrados.filter((c) => !excluir.has(c.memoId)).map(({ pessoas: _p, ...c }) => c);
+  const gids = [...new Set(out.map((c) => c.groupId))];
+  if (gids.length) {
+    const [gs] = await pool.query<RowDataPacket[]>(`SELECT id, name FROM groups WHERE id = ANY(?::int[])`, [gids]);
+    const nomes = new Map(gs.map((g) => [Number(g.id), String(g.name)]));
+    for (const c of out) c.grupo = nomes.get(c.groupId) ?? null;
+  }
+  return out.sort((a, b) => b.momento.getTime() - a.momento.getTime());
+}

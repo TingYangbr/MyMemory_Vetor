@@ -23,6 +23,7 @@ import MemoProcessOverlay, {
 import memoProcessOverlayStyles from "./MemoProcessOverlay.module.css";
 import IaTextoLevelFieldset from "./IaTextoLevelFieldset";
 import MediaCaptureConfirmModal from "./MediaCaptureConfirmModal";
+import { CHAVE_CATALOGAR_TEXTO } from "./ResultadoReuniaoCartao";
 import styles from "./MemoRegisterPanel.module.css";
 import { IconCamera, IconClipboard, IconDownload, IconLink, IconMic, IconServer, IconText, IconVideo } from "./icons";
 
@@ -231,6 +232,26 @@ export default function MemoRegisterPanel({
   const [textOpen, setTextOpen] = useState(false);
   const [textValue, setTextValue] = useState("");
   const [textIaUseLevel, setTextIaUseLevel] = useState<UserIaUseLevel>("basico");
+
+  // Texto trazido do Fale comigo ("Resultado da reunião com Carlos: …"): abre a caixa de texto já preenchida
+  useEffect(() => {
+    const aplicar = () => {
+      try {
+        const raw = sessionStorage.getItem(CHAVE_CATALOGAR_TEXTO);
+        if (!raw) return;
+        sessionStorage.removeItem(CHAVE_CATALOGAR_TEXTO);
+        const p = JSON.parse(raw) as { texto?: string; quando?: number };
+        if (!p.texto || Date.now() - Number(p.quando ?? 0) > 10 * 60 * 1000) return;
+        setTextValue(p.texto);
+        setTextOpen(true);
+      } catch {
+        /* sem sessionStorage */
+      }
+    };
+    aplicar();
+    window.addEventListener("mm:abrir-catalogar", aplicar);
+    return () => window.removeEventListener("mm:abrir-catalogar", aplicar);
+  }, []);
   const [urlOpen, setUrlOpen] = useState(false);
   const [urlValue, setUrlValue] = useState("");
   const [urlIaUseLevel, setUrlIaUseLevel] = useState<UserIaUseLevel>("basico");
