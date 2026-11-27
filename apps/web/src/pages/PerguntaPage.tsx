@@ -441,10 +441,12 @@ const CHART_MAX_ROTULOS_EIXO_X = 20;
 /** Linha do tempo (datas): até ~2 meses de dias no eixo X; passando disso, ficam os mais recentes. */
 const CHART_MAX_ROTULOS_TEMPORAL = 62;
 /**
- * Linha do tempo vira gráfico de LINHA quando o total de barras (datas × medidas) passa disto: barras finas demais
- * não se leem. 1 medida: até 62 datas em barras; 2 medidas: 31; 4 medidas: 15.
+ * Linha do tempo vira gráfico de LINHA quando o total de barras (datas × medidas) passa do limite: barras finas
+ * demais não se leem. 1 medida: até 62 datas em barras. Várias medidas: até 31 barras no total (ex.: 2 medidas ×
+ * 15 datas); acima disso as linhas de cores diferentes se leem melhor.
  */
 const CHART_MAX_BARRAS_TEMPO = 62;
+const CHART_MAX_BARRAS_TEMPO_VARIAS = 31;
 
 /**
  * Gráfico pelos papéis dos campos da categoria (X = rótulos, Y = valores; vários Y = várias cores).
@@ -642,7 +644,8 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
 
   // Muitas datas (ex.: peso dia a dia de 2 meses): linha com pontos pequenos, em vez de barras finas demais
   // Dia sem valor (campo com "mostrar dias sem registro") interrompe a linha: a falta fica à vista
-  if (dados.temporal && dados.rows.length * Math.max(1, dados.valueCols.length) > CHART_MAX_BARRAS_TEMPO) {
+  const series = Math.max(1, dados.valueCols.length);
+  if (dados.temporal && dados.rows.length * series > (series > 1 ? CHART_MAX_BARRAS_TEMPO_VARIAS : CHART_MAX_BARRAS_TEMPO)) {
     return (
       <ResponsiveContainer width="100%" height={280}>
         <LineChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
