@@ -505,7 +505,10 @@ LIMIT 200`,
       "Rendimento da CARTEIRA = soma de rendimento; % da carteira = soma de rendimento / soma de base × 100 (NUNCA some nem tire " +
       "média de rendimento_pct). data_ini/data_fin = período (sem data: do dia 1º do mês atual até hoje; 'mês passado' = 1º ao " +
       "último dia do mês anterior). Papel sem preço no início ou no fim vem com valor e rendimento vazios (diga isso; sem fechamento " +
-      "da B3 importado para a data). Preços não ajustados por desdobramento.",
+      "da B3 importado para a data). Preços não ajustados por desdobramento. SÓ papéis da B3 (Brasil, em reais): investimentos " +
+      "no EXTERIOR (mercado 'exterior', ex.: AAPL na Avenue) NÃO têm rendimento calculado aqui — com mercado = exterior a " +
+      "consulta volta vazia; diga que o rendimento no exterior não está disponível e NUNCA apresente os papéis do Brasil como " +
+      "se fossem do exterior.",
     sql: `WITH per AS (
   SELECT COALESCE(:data_ini, ${INI_MES}) AS ini, LEAST(COALESCE(:data_fin, ${HOJE}), ${HOJE}) AS fim
 ),
@@ -549,6 +552,8 @@ r AS (
     AND (qi.qtd <> 0 OR qf.qtd <> 0 OR mv.compras <> 0 OR op.vendas <> 0 OR op.proventos <> 0)
     AND (:papel IS NULL OR c.papel ILIKE :papel OR c.nome ILIKE :papel)
     AND (:corretora IS NULL OR cr.nome ILIKE :corretora)
+    AND COALESCE(c.mercado, 'local') = 'local'
+    AND (:mercado IS NULL OR NOT (:mercado ILIKE '%exter%' OR :mercado ILIKE '%fora%' OR :mercado ILIKE '%internac%' OR :mercado ILIKE '%eua%' OR :mercado ILIKE '%estados unidos%'))
 )
 SELECT papel, corretora, data_ini, data_fin, qtd_ini, preco_ini, preco_ini_em,
   CASE WHEN qtd_ini = 0 THEN 0 ELSE ROUND(qtd_ini * preco_ini, 2) END AS valor_ini,
@@ -567,6 +572,7 @@ LIMIT 200`,
       { campo: "data_fin", tipo: "date", operadorSql: "<=" },
       { campo: "papel", tipo: "string", operadorSql: "LIKE" },
       { campo: "corretora", tipo: "string", operadorSql: "LIKE" },
+      { campo: "mercado", tipo: "string", operadorSql: "=" },
     ],
   },
   {
