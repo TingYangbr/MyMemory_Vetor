@@ -638,6 +638,7 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const tituloDir = doisEixos ? "%" : "";
 
   // Muitas datas (ex.: peso dia a dia de 2 meses): linha com pontos pequenos, em vez de barras finas demais
+  // Dia sem valor (campo com "mostrar dias sem registro") interrompe a linha: a falta fica à vista
   if (dados.temporal && dados.rows.length > CHART_LINHA_A_PARTIR) {
     return (
       <ResponsiveContainer width="100%" height={280}>
@@ -676,7 +677,7 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
               strokeWidth={2}
               dot={{ r: 2 }}
               activeDot={{ r: 4 }}
-              connectNulls
+              connectNulls={false}
             />
           ))}
         </LineChart>
