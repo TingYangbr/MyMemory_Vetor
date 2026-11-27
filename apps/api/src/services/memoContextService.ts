@@ -477,7 +477,8 @@ export async function loadStructureForGroup(
 /** Gera a Query padrão com o nome e os campos ativos atuais da categoria (null se inativa/inexistente). */
 async function gerarQueryPadraoDaCategoria(categoryId: number) {
   const [catRows] = await pool.query<RowDataPacket[]>(
-    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao", campo_encerra_data AS "campoEncerraData" FROM categories WHERE id = ? LIMIT 1`,
+    `SELECT name, isactive, atualizavel, campo_situacao AS "campoSituacao", campo_encerra_data AS "campoEncerraData",
+            pede_resultado AS "pedeResultado" FROM categories WHERE id = ? LIMIT 1`,
     [categoryId]
   );
   const cat = catRows[0];
@@ -490,7 +491,8 @@ async function gerarQueryPadraoDaCategoria(categoryId: number) {
     [categoryId]
   );
   const nome = String(cat.name);
-  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao, campoEncerraData }) };
+  const pedeResultado = Number(cat.pedeResultado ?? 0) === 1;
+  return { nome, ...gerarQueryPadraoMemos(nome, campoRows as unknown as QueryPadraoCampo[], { campoSituacao, campoEncerraData, pedeResultado }) };
 }
 
 /** Grava o SQL gerado como atual + "último gerado" e troca os parâmetros pelos gerados. */
@@ -754,7 +756,13 @@ export async function updateCategory(
   }
   // O nome da categoria entra no SQL (m.category = '...'); reativar também pede query em dia;
   // atualizável muda o filtro de situação da Query padrão
-  if (patch.name !== undefined || patch.isActive === 1 || patch.atualizavel !== undefined || patch.campoEncerraData !== undefined) {
+  if (
+    patch.name !== undefined ||
+    patch.isActive === 1 ||
+    patch.atualizavel !== undefined ||
+    patch.campoEncerraData !== undefined ||
+    patch.pedeResultado !== undefined
+  ) {
     await sincronizarQueryPadrao(categoryId);
   }
 }

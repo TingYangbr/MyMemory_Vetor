@@ -76,7 +76,7 @@ export async function criarRelacao(input: {
   tipo: string;
   /** Marca o destino como Concluído (ex.: reunião que acabou de ter o resultado registrado). */
   concluirDestino?: boolean;
-}): Promise<{ id: number; concluido: boolean }> {
+}): Promise<{ id: number; concluido: boolean; destino: { categoria: string | null; resumo: string } }> {
   if (input.origemId === input.destinoId) throw new Error("mesmo_memo");
   const [o, d] = await Promise.all([carregar(input.origemId), carregar(input.destinoId)]);
   if (!o || !d) throw new Error("not_found");
@@ -107,7 +107,12 @@ export async function criarRelacao(input: {
       // Destino não atualizável ou sem permissão de alterar: a ligação fica, só não conclui
     }
   }
-  return { id: Number(rows[0]?.id), concluido };
+  return {
+    id: Number(rows[0]?.id),
+    concluido,
+    // Para a confirmação na tela: "Ligado à Agenda: Reunião com Carlos…"
+    destino: { categoria: d.category, resumo: d.texto.replace(/\s+/g, " ").trim().slice(0, 90) },
+  };
 }
 
 export async function listarRelacoes(userId: number, isAdmin: boolean, memoId: number): Promise<MemoRelacaoItem[]> {

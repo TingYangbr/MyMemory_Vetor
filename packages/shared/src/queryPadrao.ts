@@ -152,7 +152,15 @@ export function gerarQueryPadraoMemos(
   categoriaNome: string,
   campos: QueryPadraoCampo[],
   /** Categoria atualizável: sem filtro de situação na pergunta, esconde Concluído e Cancelado. */
-  opts: { campoSituacao?: string | null; campoEncerraData?: string | null } = {}
+  opts: {
+    campoSituacao?: string | null;
+    campoEncerraData?: string | null;
+    /**
+     * Categoria com "Pedir o resultado depois da data": coluna resultado (memo ligado como resultado) e o parâmetro
+     * tem_resultado — "resultados das agendas com Carlos" traz só as que têm resultado, inclusive concluídas e passadas.
+     */
+    pedeResultado?: boolean;
+  } = {}
 ): { sql: string; params: QueryPadraoParam[] } {
   const activeCampos = campos.filter((c) => c.isActive === 1);
   const catNameSafe = categoriaNome.replace(/'/g, "''");
@@ -166,6 +174,13 @@ export function gerarQueryPadraoMemos(
     "  )",
   ];
 
+  // Pergunta sobre resultado: as que têm resultado já estão concluídas e no passado — não esconde por situação/data
+  const RES = opts.pedeResultado ? ":tem_resultado IS NOT NULL OR " : "";
+  const temResultado =
+    "EXISTS (SELECT 1 FROM memo_relacoes r JOIN memos o ON o.id = r.origem_id AND o.isactive = 1 " +
+    "WHERE r.destino_id = m.id AND r.isactive = 1 AND r.tipo = 'resultado')";
+  if (opts.pedeResultado) whereParts.push(`  AND (:tem_resultado IS NULL OR ${temResultado})`);
+
   for (const campo of activeCampos) {
     const p = toParamName(campo.name);
     if (!p) continue;
@@ -173,13 +188,13 @@ export function gerarQueryPadraoMemos(
     whereParts.push(`  AND (:${p} IS NULL OR ${jsonExpr} ILIKE :${p})`);
     if (opts.campoSituacao && campo.name === opts.campoSituacao) {
       whereParts.push(
-        `  AND (:${p} IS NOT NULL OR NOT (lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'conclu%' OR lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'cancel%'))`
+        `  AND (${RES}:${p} IS NOT NULL OR NOT (lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'conclu%' OR lower(unaccent(COALESCE(${jsonExpr}, ''))) LIKE 'cancel%'))`
       );
     }
     // "Encerra pela data": sem filtro de data na pergunta, esconde o que já passou (ex.: reunião de ontem)
     if (campo.tipo === "date" && opts.campoEncerraData && campo.name === opts.campoEncerraData) {
       whereParts.push(
-        `  AND (:${p} IS NOT NULL OR :${p}_ini IS NOT NULL OR :${p}_fin IS NOT NULL OR mymemory_parse_date(${jsonExpr}) IS NULL OR mymemory_parse_date(${jsonExpr}) >= CURRENT_DATE)`
+        `  AND (${RES}:${p} IS NOT NULL OR :${p}_ini IS NOT NULL OR :${p}_fin IS NOT NULL OR mymemory_parse_date(${jsonExpr}) IS NULL OR mymemory_parse_date(${jsonExpr}) >= CURRENT_DATE)`
       );
     }
     if (campo.tipo === "date") {
@@ -211,6 +226,13 @@ export function gerarQueryPadraoMemos(
     "  m.keywords,",
     "  m.category,",
     ...(campoSelects ? [campoSelects] : []),
+    ...(opts.pedeResultado
+      ? [
+          "  (SELECT string_agg('#' || o.id || ' ' || LEFT(regexp_replace(COALESCE(o.mediatext, ''), '\\s+', ' ', 'g'), 140), ' | ' ORDER BY r.criado_em)",
+          "     FROM memo_relacoes r JOIN memos o ON o.id = r.origem_id AND o.isactive = 1",
+          "     WHERE r.destino_id = m.id AND r.isactive = 1 AND r.tipo = 'resultado') AS resultado,",
+        ]
+      : []),
     "  m.createdat",
     "FROM memos m",
     "WHERE",
@@ -248,5 +270,9 @@ export function gerarQueryPadraoMemos(
     }
   }
 
+  if (opts.pedeResultado) {
+    // "sim" quando a pergunta é sobre resultado (o planejador preenche pela descrição da consulta)
+    params.push({ campo: "tem_resultado", tipo: "string", obrigatorio: 0, operadorSql: "=", normalizar: 0, ordem: paramOrdem++ });
+  }
   return { sql, params };
 }
