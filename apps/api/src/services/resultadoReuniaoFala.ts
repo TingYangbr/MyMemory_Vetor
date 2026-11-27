@@ -11,11 +11,11 @@ import { reunioesSemResultado } from "./lembreteService.js";
 const semAcento = (s: string) => s.normalize("NFD").replace(/\p{Mn}/gu, "").toLowerCase();
 
 const RE_PEDIDO =
-  /^\s*(?:o\s+|registr\w*\s+(?:o\s+)?)?resultados?\s+d[aoe]s?\s+(?:minha\s+|nossa\s+|ultima\s+)?(reuniao|compromisso|visita|consulta|encontro|call|agenda|conversa)\b(.*)$/i;
+  /^\s*(?:o\s+|registr\w*\s+(?:o\s+)?)?resultados?\s+d[aoe]s?\s+(?:minha\s+|nossa\s+|ultima\s+)?(reuniao|compromisso|visita|consulta|encontro|call|agenda|conversa|tarefa|entrega|pendencia|atividade)\b(.*)$/i;
 
 const VAZIAS = new Set([
   "com", "para", "pra", "hoje", "ontem", "anteontem", "dia", "que", "foi", "dos", "das", "nos", "nas", "uma", "sobre",
-  "sobre", "ultima", "manha", "tarde", "noite", "semana", "passada", "esta", "essa", "aquela", "reuniao",
+  "sobre", "ultima", "manha", "tarde", "noite", "semana", "passada", "esta", "essa", "aquela", "reuniao", "tarefa", "consulta", "visita",
 ]);
 
 export function pedeResultadoReuniao(pergunta: string): { alvo: string } | null {
@@ -43,7 +43,7 @@ export async function ofertaResultadoReuniao(input: {
     return {
       ...base,
       mensagem:
-        "Não achei reunião dos últimos 14 dias esperando o resultado. Posso guardar o texto pelo Catalogar, sem ligar a uma reunião.",
+        "Não achei reunião ou tarefa dos últimos 14 dias esperando o resultado. Posso guardar o texto pelo Catalogar, sem ligar a uma reunião.",
       opcoes: [],
     };
   }

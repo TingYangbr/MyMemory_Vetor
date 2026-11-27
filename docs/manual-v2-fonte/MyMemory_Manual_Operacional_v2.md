@@ -781,16 +781,16 @@ Cada aviso aparece num cartão.
 ## Aba Lembretes
 Os compromissos dos próximos 7 dias em que você é destinatário do lembrete (o mesmo que o sino mostra), com data, hora (ou "dia todo"), categoria e a situação do envio. O botão "Mais: ver os próximos 7 dias" no fim da lista carrega mais uma semana a cada toque. "Abrir o memo" abre o compromisso.
 NOTA: A lista é só de leitura. Quem decide quais categorias mandam lembrete, e com quanta antecedência, é o dono do grupo (Seção 18).
-## Resultado da reunião (sino → Reuniões)
-Depois que um compromisso termina (1 hora após a hora marcada), o sino pergunta se você quer registrar o resultado. Vale para as categorias com lembrete (ex.: Agenda), nas reuniões em que você é destinatário do lembrete.
-- A aba **Reuniões · N** do sino lista cada reunião que terminou nos últimos 7 dias e ainda não tem resultado ligado: "Terminou: Reunião com Carlos — hoje, 15:00 · Registrar o resultado?".
-- **📝 Registrar**: abre o Catalogar. Ao salvar o memo, ele fica ligado à reunião como resultado e a reunião é marcada como concluída.
-- **Não precisa**: a reunião sai da lista e não é perguntada de novo.
-- Sem resposta, a pergunta some sozinha 7 dias depois. A agenda não ganha estado novo: pode estar Concluída ou Caducada e mesmo assim aparecer aqui até ter resultado.
-- Ficam de fora: compromisso cancelado, compromisso registrado depois de acontecer (ele já é o registro) e o que já tem resultado ligado.
-- **Preferência** (no rodapé do sino, "Perguntar o resultado das reuniões"): **sempre** (padrão), **só com outras pessoas** (a agenda tem "Com quem"/participantes), **só quando a agenda pedir** ou **nunca**.
-- **Campo opcional na agenda**: um campo chamado, por exemplo, **"Registrar resultado"** (sim/não) manda mais que a preferência: **sim** pergunta sempre; **não** nunca pergunta; vazio segue a preferência. Ao marcar a reunião, basta dizer "…e quero registrar o resultado".
-- **Pela fala, sem procurar a agenda**: no Fale comigo, "Resultado da reunião com Carlos: fechamos o orçamento em 12 mil" acha a reunião que já passou (até 14 dias, sem resultado) e mostra um botão com ela; um toque abre o Catalogar já com o texto, ligado à reunião. Se houver mais de uma possível, escolha na lista; "Guardar sem ligar a uma reunião" guarda só o texto. Funciona também com consulta, visita, compromisso e encontro ("Resultado da consulta com o Dr. Paulo: exames normais").
+## Resultado depois da data (sino → Resultados)
+Depois que passa a data de um registro (reunião da Agenda, prazo de uma tarefa…), o sino pergunta se você quer registrar o resultado. Vale para as categorias com a opção **"Pedir o resultado depois da data"** ligada (configuração da categoria, pelo dono do grupo; a Agenda já vem ligada).
+- Uma aba só no sino, **Resultados · N**, com os itens de todas essas categorias e a etiqueta da categoria (e do grupo): "Agenda: Reunião com Carlos — Terminou hoje, 15:00 · Registrar o resultado?"; "To-do List: Mandar orçamento — A data passou (qua 25/11) · Registrar o resultado?".
+- Quando aparece: registro com hora, 1 hora depois da hora; só com data (prazo), no dia seguinte. Fica até 7 dias e some sozinho, sem insistir.
+- Para quem: com lembrete na categoria, os destinatários do lembrete; sem lembrete, quem registrou.
+- **📝 Registrar**: abre o Catalogar. Ao salvar o memo, ele fica ligado ao registro como resultado e o registro é marcado como concluído. **Não precisa**: sai da lista e não é perguntado de novo.
+- O registro não ganha estado novo: pode estar Concluído ou Caducado e mesmo assim aparecer até ter resultado. Ficam de fora: cancelado, registro feito depois da data (ele já é o registro) e o que já tem resultado ligado.
+- **Preferência de cada pessoa** (Meus avisos e lembretes → aba Lembretes, "Perguntar o resultado depois da data"): **sempre** (padrão), **só quando há outras pessoas** (o registro tem "Com quem"/participantes), **só quando o registro pedir** ou **nunca**.
+- **Campo opcional no registro**: um campo chamado, por exemplo, **"Registrar resultado"** (sim/não) manda mais que a preferência: **sim** pergunta sempre; **não** nunca; vazio segue a preferência. Ao marcar, basta dizer "…e quero registrar o resultado".
+- **Pela fala, sem procurar o registro**: no Fale comigo, "Resultado da reunião com Carlos: fechamos o orçamento em 12 mil" acha o registro que já passou (até 14 dias, sem resultado) e mostra um botão com ele; um toque abre o Catalogar já com o texto, ligado a ele. Com mais de um possível, escolha na lista; "Guardar sem ligar a uma reunião" guarda só o texto. Vale também para consulta, visita, encontro, tarefa e entrega ("Resultado da tarefa do orçamento: enviado ao Joaquim").
 ## Erros frequentes
 | Mensagem / Sintoma | Causa e solução |
 |---|---|

@@ -1142,6 +1142,7 @@ function EditarCategoriaModal({
   const [registroUnico, setRegistroUnico] = useState<string[]>(
     (cat.registroUnicoPor ?? "").split(",").map((x) => x.trim()).filter(Boolean)
   );
+  const [pedeResultado, setPedeResultado] = useState(!!cat.pedeResultado);
   const [revisaoSempre, setRevisaoSempre] = useState(!!cat.revisaoSempre);
   const [revisaoMinPct, setRevisaoMinPct] = useState(typeof cat.revisaoMinPct === "number" ? cat.revisaoMinPct : 80);
   const [busy, setBusy] = useState(false);
@@ -1165,6 +1166,7 @@ function EditarCategoriaModal({
         ...(atualizavel ? { situacaoTipo, rotuloConcluido: situacaoTipo === "afazer" ? rotuloConcluido.trim() || null : null } : {}),
         listaAbertaPor: atualizavel && campos.some((c) => c.tipo === "lista") ? listaAbertaPor || null : null,
         registroUnicoPor: registroUnico.length ? registroUnico.join(", ") : null,
+        pedeResultado: campos.some((c) => c.tipo === "date") ? pedeResultado : false,
         revisaoSempre,
         revisaoMinPct,
       });
@@ -1303,6 +1305,20 @@ function EditarCategoriaModal({
                 </select>
               </div>
             ) : null}
+          </div>
+        ) : null}
+        {campos.some((c) => c.tipo === "date") ? (
+          // Depois da data (reunião, prazo), o sino pergunta "Registrar o resultado?" — aba Resultados
+          <div style={{ padding: "0 0 10px 16px" }}>
+            <label style={{ display: "flex", gap: 6, alignItems: "flex-start", fontSize: 13.5 }}>
+              <input type="checkbox" checked={pedeResultado} onChange={(e) => setPedeResultado(e.target.checked)} />
+              <span>
+                Pedir o resultado depois da data
+                <span className="mm-muted" style={{ display: "block", fontSize: 12.5 }}>
+                  Passada a data (e a hora, se houver) do registro, o sino pergunta "Registrar o resultado?" (aba Resultados). Ex.: Agenda, To-do List.
+                </span>
+              </span>
+            </label>
           </div>
         ) : null}
         {campos.some((c) => c.tipo !== "lista") ? (
