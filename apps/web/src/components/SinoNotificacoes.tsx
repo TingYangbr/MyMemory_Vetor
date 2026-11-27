@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { apiGet, apiPostJson, apiPutJson } from "../api";
+import { apiGet, apiPostJson } from "../api";
 import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "./RelacaoAposSalvar";
 import { IconBell, IconCalendar } from "./icons";
 import styles from "./SinoNotificacoes.module.css";
@@ -26,6 +26,8 @@ type SinoResultado = {
   titulo: string | null;
   texto: string | null;
   momento: string;
+  /** "" = só data (prazo da tarefa): "a data passou" em vez de "terminou". */
+  hora?: string;
 };
 type PerguntaResultado = "sempre" | "com_pessoas" | "quando_pedir" | "nunca";
 type SinoResponse = {
@@ -140,13 +142,6 @@ export function SinoNotificacoes() {
     apiPostJson(`/api/sino/resultado/${memoId}/dispensar`, {}).catch(() => carregar());
   };
 
-  const mudarPreferencia = (valor: PerguntaResultado) => {
-    setDados((cur) => (cur ? { ...cur, perguntaResultado: valor } : cur));
-    apiPutJson("/api/sino/pergunta-resultado", { valor })
-      .then(() => carregar())
-      .catch(() => carregar());
-  };
-
   const abrir = () => {
     if (aberto) {
       setAberto(false);
@@ -214,7 +209,7 @@ export function SinoNotificacoes() {
                 className={`${styles.tab} ${aba === "resultados" ? styles.tabOn : ""}`}
                 onClick={() => setAba("resultados")}
               >
-                Reuniões · {resultados.length}
+                Resultados · {resultados.length}
               </button>
             ) : null}
           </div>
@@ -229,8 +224,13 @@ export function SinoNotificacoes() {
                     </span>
                     <span className={styles.corpo}>
                       {r.grupo ? <span className={styles.grupo} title={`Do grupo ${r.grupo}`}>{r.grupo}</span> : null}
-                      <b>Terminou: {r.titulo ?? (r.texto ?? "").slice(0, 60)}</b>
-                      <p>{quandoCompromisso(r.momento)} · Registrar o resultado?</p>
+                      <b>{r.categoria ? `${r.categoria}: ` : ""}{r.titulo ?? (r.texto ?? "").slice(0, 60)}</b>
+                      <p>
+                        {r.hora
+                          ? `Terminou ${quandoCompromisso(r.momento)}`
+                          : `A data passou (${new Date(r.momento).toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "2-digit" })})`}
+                        {" · Registrar o resultado?"}
+                      </p>
                       <span style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
                         <button type="button" className="mm-btn mm-btn--primary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => registrarResultado(r.memoId)}>
                           📝 Registrar
@@ -243,7 +243,7 @@ export function SinoNotificacoes() {
                   </div>
                 ))
               ) : (
-                <p className={styles.vazio}>Nenhuma reunião esperando o resultado.</p>
+                <p className={styles.vazio}>Nada esperando o resultado.</p>
               )
             ) : aba === "avisos" ? (
               dados?.avisos.length ? (
@@ -287,21 +287,6 @@ export function SinoNotificacoes() {
             )}
           </div>
 
-          <div className={styles.rodape} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-            <label htmlFor="sino-pergunta-resultado" style={{ fontSize: 12.5 }}>Perguntar o resultado das reuniões:</label>
-            <select
-              id="sino-pergunta-resultado"
-              className="mm-field"
-              style={{ fontSize: 12.5, padding: "2px 6px", width: "auto" }}
-              value={dados?.perguntaResultado ?? "sempre"}
-              onChange={(e) => mudarPreferencia(e.target.value as PerguntaResultado)}
-            >
-              <option value="sempre">sempre</option>
-              <option value="com_pessoas">só com outras pessoas</option>
-              <option value="quando_pedir">só quando a agenda pedir</option>
-              <option value="nunca">nunca</option>
-            </select>
-          </div>
           <Link to="/avisos" className={styles.rodape}>
             Abrir "Meus avisos e lembretes" para configurar
           </Link>

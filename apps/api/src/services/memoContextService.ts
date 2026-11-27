@@ -277,7 +277,7 @@ export async function loadMemoContextStructure(
             campo_encerra_data AS "campoEncerraData",
             situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido",
             lista_aberta_por AS "listaAbertaPor", registro_unico_por AS "registroUnicoPor",
-            revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct"
+            revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct", pede_resultado AS "pedeResultado"
      FROM categories WHERE groupId IS NOT DISTINCT FROM ? AND isActive = 1`;
   const params: unknown[] = [scopeGroupId];
   if (filterMediaType != null) {
@@ -452,6 +452,7 @@ export async function loadMemoContextStructure(
     rotuloConcluido: (r.rotuloConcluido as string | null) ?? null,
     listaAbertaPor: (r.listaAbertaPor as string | null) ?? null,
     registroUnicoPor: (r.registroUnicoPor as string | null) ?? null,
+    pedeResultado: Number(r.pedeResultado ?? 0) === 1,
     revisaoSempre: Number(r.revisaoSempre ?? 0) === 1,
     revisaoMinPct: r.revisaoMinPct != null ? Number(r.revisaoMinPct) : 80,
     createdAt: ts(r.createdAt),
@@ -658,6 +659,7 @@ export async function updateCategory(
     rotuloConcluido?: string | null;
     listaAbertaPor?: string | null;
     registroUnicoPor?: string | null;
+    pedeResultado?: boolean;
     revisaoSempre?: boolean;
     revisaoMinPct?: number;
   }
@@ -721,6 +723,10 @@ export async function updateCategory(
   if (patch.listaAbertaPor !== undefined) {
     sets.push("lista_aberta_por = ?");
     vals.push(patch.listaAbertaPor?.trim().slice(0, 120) || null);
+  }
+  if (patch.pedeResultado !== undefined) {
+    sets.push("pede_resultado = ?");
+    vals.push(patch.pedeResultado ? 1 : 0);
   }
   if (patch.registroUnicoPor !== undefined) {
     sets.push("registro_unico_por = ?");
@@ -1426,7 +1432,7 @@ export async function copiarCategoriaParaGrupo(
             campo_situacao AS "campoSituacao", revisao_sempre AS "revisaoSempre", revisao_min_pct AS "revisaoMinPct",
             confirmar_alteracao AS "confirmarAlteracao", campo_encerra_data AS "campoEncerraData",
             situacao_tipo AS "situacaoTipo", rotulo_concluido AS "rotuloConcluido", lista_aberta_por AS "listaAbertaPor",
-            registro_unico_por AS "registroUnicoPor"
+            registro_unico_por AS "registroUnicoPor", pede_resultado AS "pedeResultado"
      FROM categories WHERE id = ? AND isactive = 1 LIMIT 1`,
     [categoryId]
   );
@@ -1453,8 +1459,8 @@ export async function copiarCategoriaParaGrupo(
     const [ins] = await conn.query<{ id: number }[]>(
       `INSERT INTO categories (groupid, mediatype, name, description, isactive, meus_por_padrao, campo_dono, atualizavel,
          campo_situacao, revisao_sempre, revisao_min_pct, confirmar_alteracao, campo_encerra_data, situacao_tipo, rotulo_concluido,
-         lista_aberta_por, registro_unico_por)
-       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+         lista_aberta_por, registro_unico_por, pede_resultado)
+       VALUES (?, ?, ?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`,
       [
         targetGroupId,
         cat.mediaType ?? null,
@@ -1472,6 +1478,7 @@ export async function copiarCategoriaParaGrupo(
         cat.rotuloConcluido ?? null,
         cat.listaAbertaPor ?? null,
         cat.registroUnicoPor ?? null,
+        Number(cat.pedeResultado ?? 0),
       ]
     );
     novoId = Number(ins[0]?.id);
