@@ -186,7 +186,12 @@ SELECT l.id, l.data, to_char(date_trunc('month', l.data), 'YYYY-MM') AS mes, l.d
   (CASE WHEN o.tipo = 'receita' THEN l.valor WHEN d.tipo = 'receita' THEN -l.valor ELSE 0 END)
     - (CASE WHEN d.tipo = 'despesa' THEN l.valor WHEN o.tipo = 'despesa' THEN -l.valor ELSE 0 END) AS resultado,
   l.moeda, l.valor_moeda, l.quantidade, l.preco,
-  ti.descricao AS titulo, ti.vencimento AS titulo_vencimento, l.tituloid AS titulo_id, l.fatura
+  ti.descricao AS titulo, ti.vencimento AS titulo_vencimento, l.tituloid AS titulo_id, l.fatura,
+  -- Papel (ticker): compra/venda = a conta do papel; provento/evento = a operação do mesmo lote. Demais: vazio.
+  UPPER(COALESCE(
+    CASE WHEN d.tipo = 'investimento' THEN d.papel WHEN o.tipo = 'investimento' THEN o.papel END,
+    CASE WHEN l.lote IS NOT NULL THEN (SELECT oi.ticker FROM fin_operacoes_inv oi WHERE oi.lote = l.lote AND oi.ticker IS NOT NULL LIMIT 1) END
+  )) AS papel
 FROM fin_lancamentos l
 JOIN fin_contas o ON o.id = l.conta_origemid
 JOIN fin_contas d ON d.id = l.conta_destinoid
@@ -258,7 +263,8 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
     descricao:
       ORIGEM +
       "O PASSADO: quanto gastei ou recebi, gastos por grupo (alimentação, moradia, transporte…), receitas, quanto sobrou ou faltou no mês, " +
-      "comparar meses, quanto saiu ou entrou de uma conta ou cartão, extrato, lançamentos, para quem paguei, maiores gastos.",
+      "comparar meses, quanto saiu ou entrou de uma conta ou cartão, extrato, lançamentos, para quem paguei, maiores gastos, " +
+      "dividendos, JCP e rendimentos de FII recebidos (por papel, por mês).",
     resumo: "Quanto gastou e recebeu, por grupo e por mês, o que sobrou, e o extrato de cada conta e cartão.",
     exemplos: ["Quanto gastei com alimentação em outubro?", "Sobrou dinheiro em outubro?", "Quanto saiu do Itaú este mês?", "O que paguei para a Michelle?", "Quais foram meus maiores gastos no mês?"].join("\n"),
     consultas: ["Financeiro — Lançamentos"],
@@ -353,13 +359,17 @@ LIMIT 500`,
       "quantidade e preco (investimento), titulo e titulo_vencimento (conta a pagar/receber que o lançamento pagou; " +
       "'lançamentos do título X', 'o que já paguei do aluguel de dezembro' → parâmetro titulo), fatura (vencimento da fatura do " +
       "cartão em que a compra caiu; 'o que tem na fatura de dezembro do Itaú' → fatura = '2026-12' e conta = Itaú; compra no " +
-      "cartão é gasto na data da compra). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
+      "cartão é gasto na data da compra), papel (ticker do investimento: compra, venda e provento; vazio nos demais). PROVENTOS " +
+      "(dividendos, JCP, rendimentos de FII) são receita nos grupos Dividendos, JCP e Rendimentos: 'dividendos' = grupo " +
+      "Dividendos, 'JCP' = grupo JCP, 'rendimentos do FII' = grupo Rendimentos; 'proventos' (todos) = tipo receita agrupado " +
+      "por grupo e papel; 'por papel' = agrupar " +
+      "pela coluna papel ('dividendos mensais por papel' = group_by mes e papel, soma de receita). Gasto = soma de despesa; recebido = soma de receita; sobra/falta = soma de " +
       "resultado; quanto SAIU de uma conta = soma de valor com saiu_de = conta; quanto ENTROU = soma de valor com " +
       "foi_para = conta; para quem paguei = foi_para. Para série mensal ('mensal', 'mês a mês', 'por mês') sem período " +
       "citado, use data_ini = 1º de janeiro do ano atual e data_fin = hoje. tipo: despesa/gasto, receita, transferencia, " +
       "investimento ('pagamentos', 'pagamentos efetuados', 'o que paguei', 'compras' = despesa, igual a gastos). Sem datas: o mês atual. Competência: compra no cartão conta no mês da compra. lancamento_id: só identifica a linha (vira o ✎ de corrigir na tela); nunca some, agrupe nem cite.",
     sql: `SELECT id AS lancamento_id, data, mes, descricao, valor, saiu_de, tipo_saida, foi_para, tipo_entrada, grupo, tipo, conta,
-  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento, fatura
+  receita, despesa, resultado, moeda, valor_moeda, quantidade, preco, titulo, titulo_vencimento, fatura, papel
 FROM fin_v_lancamentos
 WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM_MES})
   AND (:tipo IS NULL
@@ -376,6 +386,7 @@ WHERE data BETWEEN COALESCE(:data_ini, ${INI_MES}) AND COALESCE(:data_fin, ${FIM
   AND (:valor_max IS NULL OR valor <= :valor_max)
   AND (:titulo IS NULL OR titulo ILIKE '%' || :titulo || '%')
   AND (:fatura IS NULL OR to_char(fatura, 'YYYY-MM') = left(:fatura, 7))
+  AND (:papel IS NULL OR papel ILIKE :papel)
 ORDER BY data, id`,
     params: [
       ...periodo(""),
@@ -389,6 +400,7 @@ ORDER BY data, id`,
       { campo: "valor_max", tipo: "number", operadorSql: "<=" },
       { campo: "titulo", tipo: "string", operadorSql: "LIKE" },
       { campo: "fatura", tipo: "string", operadorSql: "=" },
+      { campo: "papel", tipo: "string", operadorSql: "LIKE" },
     ],
   },
   {
@@ -508,7 +520,8 @@ LIMIT 200`,
       "da B3 importado para a data). Preços não ajustados por desdobramento. SÓ papéis da B3 (Brasil, em reais): investimentos " +
       "no EXTERIOR (mercado 'exterior', ex.: AAPL na Avenue) NÃO têm rendimento calculado aqui — com mercado = exterior a " +
       "consulta volta vazia; diga que o rendimento no exterior não está disponível e NUNCA apresente os papéis do Brasil como " +
-      "se fossem do exterior.",
+      "se fossem do exterior. NÃO use para listar dividendos/JCP/proventos recebidos (por papel, por mês): eles estão nos " +
+      "Lançamentos (grupos Dividendos, JCP, Rendimentos; coluna papel).",
     sql: `WITH per AS (
   SELECT COALESCE(:data_ini, ${INI_MES}) AS ini, LEAST(COALESCE(:data_fin, ${HOJE}), ${HOJE}) AS fim
 ),
