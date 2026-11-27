@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { pegarPerguntaAgora } from "../lib/perguntarAgora";
-import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Bar, BarChart, CartesianGrid, Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import type {
   MeResponse,
   MemoContextCategory,
@@ -440,6 +440,8 @@ function isRotuloTemporal(raw: string): boolean {
 const CHART_MAX_ROTULOS_EIXO_X = 20;
 /** Linha do tempo (datas): até ~2 meses de dias no eixo X; passando disso, ficam os mais recentes. */
 const CHART_MAX_ROTULOS_TEMPORAL = 62;
+/** Linha do tempo com mais datas que isto vira gráfico de LINHA (barras finas demais não se leem): ~1 mês de dias. */
+const CHART_LINHA_A_PARTIR = 31;
 
 /**
  * Gráfico pelos papéis dos campos da categoria (X = rótulos, Y = valores; vários Y = várias cores).
@@ -462,7 +464,11 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
     const raw = String(linha[labelCol] ?? "");
     const label = formatDateCell(raw) ?? raw;
     const row = somas.get(label) ?? { label, _raw: raw };
-    for (const col of valueCols) row[col] = Number(row[col] ?? 0) + (numeroDaCelula(linha[col]) ?? 0);
+    // Dia sem valor (ex.: "mostrar dias sem registro") fica vazio, não 0: na linha, não despenca para zero
+    for (const col of valueCols) {
+      const v = numeroDaCelula(linha[col]);
+      if (v != null) row[col] = Number(row[col] ?? 0) + v;
+    }
     // Papel D: campos de texto que aparecem só na dica da barra ("Obs: iniciei dieta do leite")
     for (const col of g.dica ?? []) {
       const v = String(linha[col] ?? "").trim();
@@ -484,7 +490,7 @@ function graficoPelosPapeis(dados: PerguntaResultadoEstruturado, manterOrdem = f
       ? rows.slice(-CHART_MAX_ROTULOS_TEMPORAL)
       : rows
           .slice()
-          .sort((a, b) => Number(b[valueCols[0]!]) - Number(a[valueCols[0]!]))
+          .sort((a, b) => Number(b[valueCols[0]!] ?? 0) - Number(a[valueCols[0]!] ?? 0))
           .slice(0, CHART_MAX_ROTULOS_EIXO_X)
           .sort((a, b) => compararRotulos(String(a._raw), String(b._raw)));
   }
@@ -630,6 +636,53 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   // Títulos dos eixos: as unidades de cada lado ("kg · cm" à esquerda, "%" à direita)
   const tituloEsq = [...new Set(dados.valueCols.filter((c) => !doisEixos || !direita.has(c)).map(unidadeDe).filter(Boolean))].join(" · ");
   const tituloDir = doisEixos ? "%" : "";
+
+  // Muitas datas (ex.: peso dia a dia de 2 meses): linha com pontos pequenos, em vez de barras finas demais
+  if (dados.temporal && dados.rows.length > CHART_LINHA_A_PARTIR) {
+    return (
+      <ResponsiveContainer width="100%" height={280}>
+        <LineChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
+          {grade}
+          <XAxis dataKey="label" tick={{ fontSize: 11 }} interval="preserveStartEnd" minTickGap={24} angle={-25} textAnchor="end" height={50} />
+          <YAxis
+            yAxisId="esq"
+            tick={{ fontSize: 11 }}
+            width={60}
+            domain={["auto", "auto"]}
+            tickFormatter={soPercent ? pct : compacto}
+            label={tituloEsq && !soPercent ? { value: tituloEsq, angle: -90, position: "insideLeft", fontSize: 11 } : undefined}
+          />
+          {doisEixos ? (
+            <YAxis
+              yAxisId="dir"
+              orientation="right"
+              tick={{ fontSize: 11 }}
+              width={48}
+              domain={["auto", "auto"]}
+              tickFormatter={pct}
+              label={{ value: tituloDir, angle: 90, position: "insideRight", fontSize: 11 }}
+            />
+          ) : null}
+          <Tooltip formatter={formatoValor} {...(dados.temDica ? { labelFormatter: rotuloDica } : {})} />
+          {legenda}
+          {dados.valueCols.map((col, idx) => (
+            <Line
+              key={col}
+              type="monotone"
+              yAxisId={eixoDe(col)}
+              dataKey={col}
+              name={nomeSerie(col)}
+              stroke={CHART_BAR_COLORS[idx % CHART_BAR_COLORS.length]}
+              strokeWidth={2}
+              dot={{ r: 2 }}
+              activeDot={{ r: 4 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    );
+  }
 
   if (dados.temporal) {
     return (
