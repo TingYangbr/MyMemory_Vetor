@@ -27,6 +27,19 @@ import {
   type RevisaoTipo,
 } from "../lib/revisaoNova";
 import s from "./catalogarNovo.module.css";
+import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "../components/RelacaoAposSalvar";
+
+/** O memo veio de "Concluir e registrar resultado" (pedido de ligação de resultado com menos de 1 hora). */
+function ehRegistroDeResultado(): boolean {
+  try {
+    const raw = sessionStorage.getItem(CHAVE_RELACAO_PENDENTE);
+    if (!raw) return false;
+    const p = JSON.parse(raw) as RelacaoPendente;
+    return p?.tipo === "resultado" && Date.now() - Number(p.quando) <= 60 * 60 * 1000;
+  } catch {
+    return false;
+  }
+}
 
 /** Rota antiga de onde a revisão veio (/revisao/memo-*). */
 export type RotaRevisao = "texto" | "imagem" | "audio" | "video" | "documento";
@@ -93,6 +106,8 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
   const [keywords, setKeywords] = useState("");
   const [campos, setCampos] = useState<DadoCampo[]>([]);
   const [categoryId, setCategoryId] = useState<number | null>(null);
+  /** "Sem categoria" escolhido (ou resultado de compromisso): não troca pela categoria sugerida pela IA. */
+  const semCategoria = useRef(false);
   const [assunto, setAssunto] = useState("");
   const assuntoMexido = useRef(false);
   const [custoExtra, setCustoExtra] = useState(0);
@@ -191,17 +206,23 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
     if (!dados) return;
     setResumo(dados.suggestedMediaText);
     setKeywords(dedupeMemoKeywordsCommaSeparated(dados.suggestedKeywords));
-    const c = parseDadosEntries(dados.dadosEspecificosJson);
+    // Resultado de um compromisso ("Concluir e registrar resultado"): começa sem categoria — o texto fica
+    // ligado ao compromisso; a pessoa escolhe uma categoria só se quiser
+    const resultado = ehRegistroDeResultado();
+    semCategoria.current = resultado;
+    const c = resultado ? [] : parseDadosEntries(dados.dadosEspecificosJson);
+    const cat = resultado ? null : dados.matchedCategoryId ?? null;
+    if (resultado) setOriginais(null);
     setCampos(c);
-    setCategoryId(dados.matchedCategoryId ?? null);
-    setCatDosCampos(dados.matchedCategoryId ?? null);
-    camposIniciais.current = { cat: dados.matchedCategoryId ?? null, campos: c };
+    setCategoryId(cat);
+    setCatDosCampos(cat);
+    camposIniciais.current = { cat, campos: c };
     setFormPronto(true);
   }, [dados]);
 
   // Categoria pelo nome quando o processamento não trouxe o id
   useEffect(() => {
-    if (!dados || categoryId != null || !categorias || !dados.category) return;
+    if (!dados || categoryId != null || !categorias || !dados.category || semCategoria.current) return;
     const m = categorias.find((c) => c.name === dados.category);
     if (m) {
       setCategoryId(m.id);
@@ -243,7 +264,7 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
   // Regra da categoria: gravar direto, perguntar (abaixo do %) ou abrir a revisão
   useEffect(() => {
     if (fase !== "decidindo" || !dados || !categorias || !formPronto || decidiu.current) return;
-    if (dados.matchedCategoryId == null && dados.category && categoryId == null && categorias.some((c) => c.name === dados.category)) return; // espera achar pelo nome
+    if (!semCategoria.current && dados.matchedCategoryId == null && dados.category && categoryId == null && categorias.some((c) => c.name === dados.category)) return; // espera achar pelo nome
     decidiu.current = true;
     let catSel = categorias.find((c) => c.id === categoryId) ?? null;
     const ehFinanca = (c: { name: string; soConsulta: boolean } | null) => !!c && c.soConsulta && /^finan[cç]as pessoais/i.test(c.name);
@@ -320,6 +341,8 @@ export default function RevisarMemoPage({ rota }: { rota: RotaRevisao }) {
   }, []);
 
   const trocarCategoria = (id: number | null) => {
+    // Escolha da pessoa vale, inclusive "Sem categoria" (não volta para a sugerida pela IA)
+    semCategoria.current = id == null;
     setCategoryId(id);
     setErroReextr(null);
     const nova = categorias?.find((c) => c.id === id) ?? null;

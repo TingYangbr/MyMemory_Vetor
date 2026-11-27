@@ -1801,7 +1801,9 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
 
   let planoExec = {
     ...plano,
-    queries: executableQueries.map((t) => listaSemSoma(periodoPadraoSerie(t, input.queriesDisponiveis), input.pergunta)),
+    queries: executableQueries.map((t) =>
+      comResultado(listaSemSoma(periodoPadraoSerie(t, input.queriesDisponiveis), input.pergunta), input.pergunta, input.queriesDisponiveis)
+    ),
   };
   let { agregado, porQuery, avisos } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
     plano: planoExec,
@@ -1900,6 +1902,8 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
       }
     }
   }
+
+  await anexarResultados(input.pergunta, agregado, porQuery);
 
   // Comparação simples entre dois períodos: contas feitas em código (null = consulta comum, fluxo inalterado)
   const comparacao = detectarComparacaoPeriodos(planoExec, porQuery);
@@ -2086,6 +2090,69 @@ export async function sugerirValoresParam(input: {
  * lista (quais/liste/mostre) sem quanto/total/soma/média/"por <algo>" e o plano somou tudo numa linha (medida sem
  * agrupamento), tira a soma e mantém só a ordenação.
  */
+/** Pergunta sobre o resultado de registros ("resultados das agendas com Carlos", "o que foi decidido…"). */
+function perguntaPedeResultado(pergunta: string): boolean {
+  const t = pergunta.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return /\b(resultad\w*|decidid\w*|decis\w*|combinad\w*)\b/.test(t);
+}
+
+/**
+ * Pergunta sobre resultado numa consulta que tem tem_resultado: preenche "sim" sem depender da IA
+ * (sem ele, as concluídas e passadas ficam escondidas e a resposta vem vazia ou com outras).
+ */
+function comResultado(task: PlanoQuery, pergunta: string, queries: QueryDisponivel[]): PlanoQuery {
+  if (!perguntaPedeResultado(pergunta)) return task;
+  const q = queries.find((x) => x.query_id === task.query_id);
+  const def = q?.params.find((p) => p.nome === "tem_resultado");
+  if (!def) return task;
+  const atual = task.parametros.find((p) => p.nome === "tem_resultado");
+  if (atual && atual.valor != null && String(atual.valor).trim() !== "") return task;
+  const novo: PlanoParam = {
+    nome: "tem_resultado",
+    termo_usuario: "resultado",
+    valor: "sim",
+    tipo: def.tipo,
+    operador_sugerido: "=",
+    obrigatorio: false,
+    precisa_normalizacao: false,
+  };
+  return {
+    ...task,
+    parametros: atual ? task.parametros.map((p) => (p.nome === "tem_resultado" ? novo : p)) : [...task.parametros, novo],
+  };
+}
+
+/**
+ * Pergunta sobre resultado e a tabela não trouxe a coluna resultado (consulta editada à mão ou de antes de
+ * "Pedir o resultado"): busca os memos ligados como resultado pelo id de cada linha e acrescenta a coluna.
+ * Só acrescenta quando alguma linha tem resultado.
+ */
+async function anexarResultados(pergunta: string, agregado: PerguntaResultadoEstruturado, porQuery: QueryExecResultado[]): Promise<void> {
+  if (!perguntaPedeResultado(pergunta) || agregado.colunas.includes("resultado")) return;
+  // Só linhas de memo (id + category/mediatype): id de tabela do ERP não é id de memo
+  const deMemo = (l: Record<string, unknown>) => "id" in l && ("category" in l || "mediatype" in l);
+  const todas = [...agregado.linhas, ...(agregado.linhasCompletas ?? []), ...porQuery.flatMap((r) => r.linhas)].filter(deMemo);
+  const ids = [...new Set(todas.map((l) => Number(l.id)).filter((n) => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return;
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT r.destino_id AS "destinoId",
+              string_agg('#' || o.id || ' ' || LEFT(regexp_replace(COALESCE(o.mediatext, ''), '\\s+', ' ', 'g'), 140), ' | ' ORDER BY r.criado_em) AS "texto"
+         FROM memo_relacoes r JOIN memos o ON o.id = r.origem_id AND o.isactive = 1
+        WHERE r.destino_id = ANY(?::int[]) AND r.isactive = 1 AND r.tipo = 'resultado'
+        GROUP BY r.destino_id`,
+      [ids]
+    );
+    if (!rows.length) return;
+    const porId = new Map(rows.map((r) => [Number(r.destinoId), String(r.texto ?? "")]));
+    for (const l of todas) if (l.id != null) l.resultado = porId.get(Number(l.id)) ?? null;
+    agregado.colunas = [...agregado.colunas, "resultado"];
+    for (const r of porQuery) if (!r.colunas.includes("resultado") && r.linhas.some((l) => "id" in l)) r.colunas = [...r.colunas, "resultado"];
+  } catch (err) {
+    console.warn("[pipe2] resultado:", err instanceof Error ? err.message : err);
+  }
+}
+
 function listaSemSoma(task: PlanoQuery, pergunta: string): PlanoQuery {
   const ag = task.agregacao;
   if (!ag || ag.group_by.length > 0 || (!ag.medida && !(ag.medidas?.length))) return task;
