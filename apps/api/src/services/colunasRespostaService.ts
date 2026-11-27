@@ -55,11 +55,29 @@ function siglaPorExtenso(sigla: string, palavras: string[]): boolean {
  * Medidas (campos Y do gráfico) que a pergunta NÃO citou, quando ela cita pelo menos uma: "pesos e IGC de novembro"
  * mostra só Peso e IGC na tabela e no gráfico. Sem citar nenhuma ("medidas de novembro"), todas aparecem.
  */
-function medidasNaoCitadas(ys: { col: string; nomes: (string | null | undefined)[] }[], pergunta: string): Set<string> {
+function medidasNaoCitadas(
+  ys: { col: string; nomes: (string | null | undefined)[] }[],
+  pergunta: string,
+  escolhidasIa?: Set<string>
+): Set<string> {
   const cita = citaFlex(pergunta);
-  const citadas = ys.filter((y) => cita(...y.nomes));
-  if (!citadas.length || citadas.length === ys.length) return new Set();
-  return new Set(ys.filter((y) => !citadas.includes(y)).map((y) => y.col));
+  // Pedidas = citadas pelo nome OU escolhidas pela IA para a resposta ("quanto rendeu" → rendimento: a IA entende,
+  // a comparação de palavras não). Nenhuma das duas: todas aparecem.
+  const pedidas = ys.filter((y) => cita(...y.nomes) || !!escolhidasIa?.has(y.col.toLowerCase()));
+  if (!pedidas.length || pedidas.length === ys.length) return new Set();
+  return new Set(ys.filter((y) => !pedidas.includes(y)).map((y) => y.col));
+}
+
+/**
+ * Colunas que a IA escolheu para a resposta (colunas_exibir), quando ela escolheu um pedaço do resultado; senão
+ * undefined (sem escolha, ou a lista é o resultado inteiro).
+ */
+function escolhaDaIa(dados: PerguntaResultadoEstruturado, chavesLinha: string[]): Set<string> | undefined {
+  const sem = (c: string) => !TECNICAS.has(c.toLowerCase()) && c.toLowerCase() !== "id" && c !== "lancamento_id";
+  const escolhidas = dados.colunas.filter(sem);
+  const todas = chavesLinha.filter(sem);
+  if (!escolhidas.length || escolhidas.length >= todas.length) return undefined;
+  return new Set(escolhidas.map((c) => c.toLowerCase()));
 }
 
 /**
@@ -177,7 +195,8 @@ function aplicarConfigConsulta(
   const colReal = (nome: string) => chavesLinha.find((c) => c.toLowerCase() === nome.toLowerCase());
   const semCitar = medidasNaoCitadas(
     cfg.filter((c) => c.papel === "Y" && colReal(c.coluna)).map((c) => ({ col: colReal(c.coluna)!, nomes: [c.coluna, c.rotulo] })),
-    pergunta
+    pergunta,
+    escolhaDaIa(dados, chavesLinha)
   );
   const visiveis = base.filter((c) => !(de(c)?.c.ordem === -1 && !citada(c)) && !semCitar.has(c));
   const ordenadas = visiveis
@@ -233,7 +252,8 @@ function ordenarUm(
       .filter((f) => f.papelGrafico === "Y")
       .map((f) => ({ col: colsBase.find((c) => c.toLowerCase() === toParamName(f.name).toLowerCase()), nomes: [f.name] }))
       .filter((y): y is { col: string; nomes: string[] } => !!y.col),
-    pergunta
+    pergunta,
+    escolhaDaIa(dadosOriginais, colsBase)
   );
   const ysVisiveis = campos
     .filter((f) => f.papelGrafico === "Y")
