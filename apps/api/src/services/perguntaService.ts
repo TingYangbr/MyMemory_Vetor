@@ -32,6 +32,7 @@ import { prepararCriacao } from "./comandoCriacaoService.js";
 import { detectarRepetirLista, prepararRepeticaoLista } from "./repetirListaService.js";
 import { consultasRestantes, melhorCategoriaAlternativa } from "./refazerService.js";
 import { juntarEmListaAberta } from "./listaAbertaService.js";
+import { ofertaResultadoReuniao, pedeResultadoReuniao } from "./resultadoReuniaoFala.js";
 import { atualizarRegistroUnico } from "./registroUnicoService.js";
 import { montarPropostaFin } from "./finComandoService.js";
 import { correcaoPelaFrase, fraseDeCorrecao } from "./finCorrecaoService.js";
@@ -315,6 +316,7 @@ export async function perguntarMemory(input: {
   finComando?: import("@mymemory/shared").FinComandoProposta;
   finCorrecao?: import("@mymemory/shared").FinCorrecaoEscolha;
   acaoConfig?: import("@mymemory/shared").AcaoConfig;
+  resultadoReuniao?: import("@mymemory/shared").ResultadoReuniaoOferta;
   limiarInicial?: number;
   limiarUsado?: number;
   limiarMinimo?: number;
@@ -382,6 +384,38 @@ export async function perguntarMemory(input: {
         },
         apiCost: r.costUsd,
       };
+    }
+  }
+
+  // "Resultado da reunião com Carlos: fechamos…": acha a reunião que já passou e oferece registrar o texto como
+  // resultado dela (Catalogar com o texto, ligado à reunião). Regra, sem IA. Só pela tela do usuário.
+  if (!input.forcePipe && !input.forceAlvo && input.permitirComandos) {
+    const pedido = pedeResultadoReuniao(input.pergunta);
+    if (pedido) {
+      const oferta = await ofertaResultadoReuniao({ userId: input.userId, pergunta: input.pergunta, alvo: pedido.alvo }).catch(() => null);
+      if (oferta) {
+        return {
+          resposta: {
+            resposta: oferta.mensagem,
+            tipo_resposta: "semantica",
+            dados_usados: [],
+            limitacoes: [],
+            confianca_estimada: 1,
+          },
+          classificacao: {
+            pipe: "semantica",
+            categorias: oferta.opcoes[0]?.categoria ? [oferta.opcoes[0].categoria] : [],
+            multi_categoria: false,
+            intencao: "outro",
+            contexto: "nova",
+            escopo_sugerido: "global",
+            justificativa: "resultado de reunião (regra)",
+            acao: "criar",
+          },
+          apiCost: 0,
+          resultadoReuniao: oferta,
+        };
+      }
     }
   }
 

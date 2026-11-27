@@ -1361,6 +1361,16 @@ export interface PerguntaResponse {
   finCorrecao?: import("./financeiro.js").FinCorrecaoEscolha;
   /** Pergunta sobre configuração da conta ("como desligo o autofalante?"): a mudança oferecida (Sim/Não). */
   acaoConfig?: AcaoConfig;
+  /** "Resultado da reunião com Carlos: …": a(s) reunião(ões) passada(s) para registrar o texto como resultado. */
+  resultadoReuniao?: ResultadoReuniaoOferta;
+}
+
+/** Oferta de registrar o texto falado como resultado de uma reunião que já passou. */
+export interface ResultadoReuniaoOferta {
+  /** Texto a levar para o Catalogar. */
+  texto: string;
+  mensagem: string;
+  opcoes: { memoId: number; categoria: string | null; titulo: string; quando: string }[];
 }
 
 /** Mudança de preferência oferecida pelo Fale comigo; só muda com o toque no botão. */

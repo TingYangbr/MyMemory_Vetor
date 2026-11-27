@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { apiGet, apiPostJson } from "../api";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { apiGet, apiPostJson, apiPutJson } from "../api";
+import { CHAVE_RELACAO_PENDENTE, type RelacaoPendente } from "./RelacaoAposSalvar";
 import { IconBell, IconCalendar } from "./icons";
 import styles from "./SinoNotificacoes.module.css";
 
@@ -17,8 +18,20 @@ type SinoLembrete = {
   /** Já no prazo do lembrete (conta no número do sino). */
   noPrazo?: boolean;
 };
+/** Compromisso que já terminou sem memo de resultado ligado. */
+type SinoResultado = {
+  memoId: number;
+  categoria: string | null;
+  grupo?: string | null;
+  titulo: string | null;
+  texto: string | null;
+  momento: string;
+};
+type PerguntaResultado = "sempre" | "com_pessoas" | "quando_pedir" | "nunca";
 type SinoResponse = {
   total: number;
+  resultados?: SinoResultado[];
+  perguntaResultado?: PerguntaResultado;
   avisosNaoLidos: number;
   lembretesAtivos: number;
   /** Todos os compromissos com lembrete dos próximos 7 dias. */
@@ -64,9 +77,11 @@ function quandoCompromisso(isoStr: string): string {
 export function SinoNotificacoes() {
   const [dados, setDados] = useState<SinoResponse | null>(null);
   const [aberto, setAberto] = useState(false);
-  const [aba, setAba] = useState<"avisos" | "lembretes">("avisos");
+  const [aba, setAba] = useState<"avisos" | "lembretes" | "resultados">("avisos");
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const location = useLocation();
+  const navigate = useNavigate();
+  const resultados = dados?.resultados ?? [];
 
   const carregar = useCallback(() => {
     apiGet<SinoResponse>("/api/sino")
@@ -100,6 +115,38 @@ export function SinoNotificacoes() {
     };
   }, [aberto]);
 
+  /** "Registrar": abre o Catalogar já ligado ao compromisso (ao salvar, liga e conclui). */
+  const registrarResultado = (memoId: number) => {
+    const pendente: RelacaoPendente = { destinoId: memoId, tipo: "resultado", concluir: true, quando: Date.now() };
+    try {
+      sessionStorage.setItem(CHAVE_RELACAO_PENDENTE, JSON.stringify(pendente));
+    } catch {
+      /* sem sessionStorage: o Catalogar abre sem a ligação */
+    }
+    setAberto(false);
+    navigate("/?tab=registrar");
+    window.dispatchEvent(new CustomEvent("mm:abrir-catalogar"));
+    // Sai da lista na hora; ao salvar, a ligação o remove de vez (se desistir, volta na próxima leitura)
+    setDados((cur) =>
+      cur ? { ...cur, total: Math.max(0, cur.total - 1), resultados: (cur.resultados ?? []).filter((r) => r.memoId !== memoId) } : cur
+    );
+  };
+
+  /** "Não precisa": não pergunta mais por este compromisso. */
+  const dispensarResultado = (memoId: number) => {
+    setDados((cur) =>
+      cur ? { ...cur, total: Math.max(0, cur.total - 1), resultados: (cur.resultados ?? []).filter((r) => r.memoId !== memoId) } : cur
+    );
+    apiPostJson(`/api/sino/resultado/${memoId}/dispensar`, {}).catch(() => carregar());
+  };
+
+  const mudarPreferencia = (valor: PerguntaResultado) => {
+    setDados((cur) => (cur ? { ...cur, perguntaResultado: valor } : cur));
+    apiPutJson("/api/sino/pergunta-resultado", { valor })
+      .then(() => carregar())
+      .catch(() => carregar());
+  };
+
   const abrir = () => {
     if (aberto) {
       setAberto(false);
@@ -107,13 +154,14 @@ export function SinoNotificacoes() {
     }
     setAberto(true);
     // Abre na aba que tem novidade
-    if (dados && dados.avisosNaoLidos === 0 && (dados.lembretesProximos ?? dados.lembretesAtivos) > 0) setAba("lembretes");
+    if (dados && dados.avisosNaoLidos === 0 && (dados.resultados?.length ?? 0) > 0) setAba("resultados");
+    else if (dados && dados.avisosNaoLidos === 0 && (dados.lembretesProximos ?? dados.lembretesAtivos) > 0) setAba("lembretes");
     else setAba("avisos");
     // Abrir o painel zera os avisos (os itens continuam destacados enquanto o painel estiver aberto)
     if (dados && dados.avisosNaoLidos > 0) {
       apiPostJson("/api/sino/lido", {})
         .then(() =>
-          setDados((cur) => (cur ? { ...cur, total: cur.lembretesAtivos, avisosNaoLidos: 0 } : cur))
+          setDados((cur) => (cur ? { ...cur, total: cur.lembretesAtivos + (cur.resultados?.length ?? 0), avisosNaoLidos: 0 } : cur))
         )
         .catch(() => {});
     }
@@ -158,10 +206,46 @@ export function SinoNotificacoes() {
             >
               Lembretes{dados?.lembretes.length ? ` · ${dados.lembretes.length}` : ""}
             </button>
+            {resultados.length ? (
+              <button
+                type="button"
+                role="tab"
+                aria-selected={aba === "resultados"}
+                className={`${styles.tab} ${aba === "resultados" ? styles.tabOn : ""}`}
+                onClick={() => setAba("resultados")}
+              >
+                Reuniões · {resultados.length}
+              </button>
+            ) : null}
           </div>
 
           <div className={styles.lista}>
-            {aba === "avisos" ? (
+            {aba === "resultados" ? (
+              resultados.length ? (
+                resultados.map((r) => (
+                  <div key={r.memoId} className={`${styles.item} ${styles.naoLido}`}>
+                    <span className={`${styles.ic} ${styles.icLembrete}`} aria-hidden>
+                      <IconCalendar size={16} />
+                    </span>
+                    <span className={styles.corpo}>
+                      {r.grupo ? <span className={styles.grupo} title={`Do grupo ${r.grupo}`}>{r.grupo}</span> : null}
+                      <b>Terminou: {r.titulo ?? (r.texto ?? "").slice(0, 60)}</b>
+                      <p>{quandoCompromisso(r.momento)} · Registrar o resultado?</p>
+                      <span style={{ display: "flex", gap: 6, marginTop: 6, flexWrap: "wrap" }}>
+                        <button type="button" className="mm-btn mm-btn--primary" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => registrarResultado(r.memoId)}>
+                          📝 Registrar
+                        </button>
+                        <button type="button" className="mm-btn mm-btn--ghost" style={{ padding: "4px 10px", fontSize: 13 }} onClick={() => dispensarResultado(r.memoId)}>
+                          Não precisa
+                        </button>
+                      </span>
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <p className={styles.vazio}>Nenhuma reunião esperando o resultado.</p>
+              )
+            ) : aba === "avisos" ? (
               dados?.avisos.length ? (
                 dados.avisos.map((a) => (
                   <Link key={a.id} to="/avisos" className={`${styles.item} ${a.lido ? "" : styles.naoLido}`}>
@@ -203,6 +287,21 @@ export function SinoNotificacoes() {
             )}
           </div>
 
+          <div className={styles.rodape} style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <label htmlFor="sino-pergunta-resultado" style={{ fontSize: 12.5 }}>Perguntar o resultado das reuniões:</label>
+            <select
+              id="sino-pergunta-resultado"
+              className="mm-field"
+              style={{ fontSize: 12.5, padding: "2px 6px", width: "auto" }}
+              value={dados?.perguntaResultado ?? "sempre"}
+              onChange={(e) => mudarPreferencia(e.target.value as PerguntaResultado)}
+            >
+              <option value="sempre">sempre</option>
+              <option value="com_pessoas">só com outras pessoas</option>
+              <option value="quando_pedir">só quando a agenda pedir</option>
+              <option value="nunca">nunca</option>
+            </select>
+          </div>
           <Link to="/avisos" className={styles.rodape}>
             Abrir "Meus avisos e lembretes" para configurar
           </Link>
