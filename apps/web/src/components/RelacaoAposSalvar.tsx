@@ -21,6 +21,16 @@ interface Sugestao {
   motivo: string;
 }
 
+type Ligado = { id: number; concluido: boolean; destino?: { categoria: string | null; resumo: string } };
+
+/** "Ligado à Agenda: Reunião com Carlos do Global pet… — marcada como concluída." */
+function textoLigado(r: Ligado, destinoId: number): string {
+  const qual = r.destino?.resumo
+    ? `${r.destino.categoria ? `${r.destino.categoria}: ` : ""}${r.destino.resumo}`
+    : `compromisso #${destinoId}`;
+  return `✓ Resultado ligado a ${qual}${r.concluido ? " — marcado como concluído" : ""}.`;
+}
+
 function lerPendente(): RelacaoPendente | null {
   try {
     const raw = sessionStorage.getItem(CHAVE_RELACAO_PENDENTE);
@@ -52,13 +62,17 @@ export function RelacaoAposSalvar({ memoId, onFim }: { memoId: number; onFim: ()
     const pendente = lerPendente();
     if (pendente) {
       sessionStorage.removeItem(CHAVE_RELACAO_PENDENTE);
-      apiPostJson<{ id: number; concluido: boolean }>(`/api/memos/${memoId}/relacoes`, {
+      apiPostJson<Ligado>(`/api/memos/${memoId}/relacoes`, {
         destinoId: pendente.destinoId,
         tipo: pendente.tipo,
         concluirDestino: pendente.concluir,
       })
-        .then((r) => vivo && setMsg(`Ligado ao compromisso #${pendente.destinoId}${r.concluido ? " e marcado como concluído" : ""}.`))
-        .catch(() => vivo && setMsg("Não foi possível ligar ao compromisso."));
+        .then((r) => vivo && setMsg(textoLigado(r, pendente.destinoId)))
+        .catch(
+          () =>
+            vivo &&
+            setMsg("Não consegui ligar este memo ao compromisso. Abra o compromisso (✎) e use \"Concluir e registrar resultado\" de novo.")
+        );
       return () => {
         vivo = false;
       };
@@ -77,7 +91,8 @@ export function RelacaoAposSalvar({ memoId, onFim }: { memoId: number; onFim: ()
 
   useEffect(() => {
     if (!msg) return;
-    const t = window.setTimeout(onFim, 4000);
+    // Tempo para ler a confirmação (some sozinha; um toque fecha antes)
+    const t = window.setTimeout(onFim, 8000);
     return () => window.clearTimeout(t);
   }, [msg, onFim]);
 
@@ -85,13 +100,13 @@ export function RelacaoAposSalvar({ memoId, onFim }: { memoId: number; onFim: ()
     if (!sugestao) return;
     setBusy(true);
     try {
-      const r = await apiPostJson<{ id: number; concluido: boolean }>(`/api/memos/${memoId}/relacoes`, {
+      const r = await apiPostJson<Ligado>(`/api/memos/${memoId}/relacoes`, {
         destinoId: sugestao.destinoId,
         tipo: sugestao.tipo,
         concluirDestino: concluir,
       });
       setSugestao(null);
-      setMsg(`Ligado ao compromisso #${sugestao.destinoId}${r.concluido ? " e marcado como concluído" : ""}.`);
+      setMsg(textoLigado(r, sugestao.destinoId));
     } catch {
       setMsg("Não foi possível ligar.");
     } finally {
@@ -120,7 +135,9 @@ export function RelacaoAposSalvar({ memoId, onFim }: { memoId: number; onFim: ()
       }}
     >
       {msg ? (
-        <span>{msg}</span>
+        <span onClick={onFim} style={{ cursor: "pointer" }} title="Fechar">
+          {msg}
+        </span>
       ) : sugestao ? (
         <>
           <div style={{ fontWeight: 700, marginBottom: 4 }}>Este memo parece ser o resultado de:</div>

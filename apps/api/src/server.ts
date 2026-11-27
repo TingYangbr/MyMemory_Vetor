@@ -8,6 +8,8 @@ import fastifyStatic from "@fastify/static";
 import { assertMediaStorageEnv, config } from "./config.js";
 import { uploadsAbsolutePath } from "./paths.js";
 import { AppDataSource } from "./data-source.js";
+import { pool } from "./db.js";
+import { sincronizarQueryPadrao } from "./services/memoContextService.js";
 import { InitialSchema1700000000000 } from "./migrations/1700000000000-InitialSchema.js";
 import { SeedDev1700000000001 } from "./migrations/1700000000001-SeedDev.js";
 import { CategoryCampoPatternsAndDadosEspecificos1700000000025 } from "./migrations/1700000000025-CategoryCampoPatternsAndDadosEspecificos.js";
@@ -135,6 +137,7 @@ import { FinRendimentoCarteira1700000000220 } from "./migrations/1700000000220-F
 import { FinRendimentoSoBrasil1700000000221 } from "./migrations/1700000000221-FinRendimentoSoBrasil.js";
 import { ResultadoReuniao1700000000222 } from "./migrations/1700000000222-ResultadoReuniao.js";
 import { CategoriaPedeResultado1700000000223 } from "./migrations/1700000000223-CategoriaPedeResultado.js";
+import { ResultadoNaConsulta1700000000224 } from "./migrations/1700000000224-ResultadoNaConsulta.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -319,6 +322,7 @@ assertMediaStorageEnv();
       FinRendimentoSoBrasil1700000000221,
       ResultadoReuniao1700000000222,
       CategoriaPedeResultado1700000000223,
+      ResultadoNaConsulta1700000000224,
     ],
   });
   const ds = await AppDataSource.initialize();
@@ -430,6 +434,11 @@ iniciarAutomacaoScheduler();
 
 try {
   await app.listen({ port: config.port, host: "0.0.0.0" });
+  // Consulta padrão em dia com "Pedir o resultado" (coluna resultado): regera só a automática e só se mudou
+  void (async () => {
+    const [cs] = await pool.query<{ id: number }[]>(`SELECT id FROM categories WHERE isactive = 1 AND pede_resultado = 1`);
+    for (const c of cs) await sincronizarQueryPadrao(Number(c.id));
+  })().catch((e) => app.log.warn(e, "[queryPadrao] resultado"));
   app.log.info(
     {
       port: config.port,

@@ -275,6 +275,8 @@ function ordenarUm(
   };
   const visiveis = base.filter((c) => {
     if (semCitar.has(c)) return false;
+    // Coluna resultado (memo ligado como resultado): só quando a pergunta fala em resultado/decidido
+    if (c.toLowerCase() === "resultado" && !porParam.has("resultado") && !/\b(resultad|decidid|decis|combinad|ata)/.test(p)) return false;
     const info = porParam.get(c.toLowerCase());
     return !(info && info.f.ordemExibicao === -1 && !citada(info.f.name));
   });
