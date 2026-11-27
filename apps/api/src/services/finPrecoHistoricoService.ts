@@ -245,6 +245,74 @@ export async function situacaoHistorico(): Promise<{
   };
 }
 
+// ── Papel novo: busca o passado sozinho ─────────────────────────────────────
+
+/** Até quantos anos para trás a busca automática volta (a carga de anos mais antigos continua pelo Admin). */
+const ANOS_MAX_BUSCA = 5;
+
+/**
+ * Papéis em carteira sem fechamento guardado desde a 1ª operação (papel cadastrado depois da carga dos anos, ex.:
+ * SLCE3) e os anos que faltam a cada um. Cada (papel, ano) é tentado uma vez só (fin_precos_importacoes
+ * "B:<papel>:<ano>"), para não baixar os mesmos ~90 MB toda noite quando a B3 não tem o papel.
+ */
+export async function papeisSemHistorico(): Promise<Map<number, Set<string>>> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    `SELECT t.ticker AS "ticker", to_char(t.primeira, 'YYYY-MM-DD') AS "primeira"
+     FROM (
+       SELECT UPPER(c.papel) AS ticker, MIN(l.data) AS primeira
+       FROM fin_contas c
+       JOIN fin_lancamentos l ON l.conta_destinoid = c.id OR l.conta_origemid = c.id
+       WHERE c.tipo = 'investimento' AND c.papel IS NOT NULL AND c.moeda = 'BRL'
+       GROUP BY 1
+     ) t
+     WHERE NOT EXISTS (
+       SELECT 1 FROM fin_precos_historico h WHERE h.ticker = t.ticker AND h.data <= t.primeira + 7
+     )`
+  );
+  const anoAtual = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric" }).format(new Date()));
+  const [feitos] = await pool.query<RowDataPacket[]>(
+    `SELECT arquivo FROM fin_precos_importacoes WHERE arquivo LIKE 'B:%' AND situacao <> 'erro'`
+  );
+  const ja = new Set(feitos.map((f) => String(f.arquivo)));
+  const porAno = new Map<number, Set<string>>();
+  for (const r of rows) {
+    const ticker = String(r.ticker);
+    if (!ticker || ticker.length > 12) continue;
+    const ini = Math.max(Number(String(r.primeira).slice(0, 4)), anoAtual - ANOS_MAX_BUSCA);
+    for (let a = ini; a <= anoAtual; a++) {
+      if (ja.has(`B:${ticker}:${a}`)) continue;
+      if (!porAno.has(a)) porAno.set(a, new Set());
+      porAno.get(a)!.add(ticker);
+    }
+  }
+  return porAno;
+}
+
+/** Baixa os arquivos anuais que faltam e grava só os papéis novos (um arquivo por ano, para todos eles). */
+export async function buscarHistoricoPapeisNovos(): Promise<number> {
+  const porAno = await papeisSemHistorico();
+  let total = 0;
+  for (const [ano, tickers] of [...porAno].sort((a, b) => a[0] - b[0])) {
+    let situacao = "ok";
+    let n = 0;
+    let msg: string | null = null;
+    try {
+      const zip = await baixar(`${BASE}/COTAHIST_A${ano}.ZIP`);
+      if (!zip) situacao = "sem_arquivo";
+      else n = await importarZip(zip, tickers);
+    } catch (err) {
+      situacao = "erro";
+      msg = (err instanceof Error ? err.message : String(err)).slice(0, 500);
+    }
+    // Erro (rede, B3 fora): fica como erro e tenta de novo na próxima noite. Arquivo lido (mesmo sem o papel): não repete.
+    for (const t of tickers) {
+      await registrar(`B:${t}:${ano}`, situacao, 0, situacao === "ok" ? `Papel novo: ano ${ano} buscado (${n} pregões para ${tickers.size} papel(is)).` : msg);
+    }
+    total += n;
+  }
+  return total;
+}
+
 // ── Robô: fechamento de cada dia ────────────────────────────────────────────
 
 let ultimaVerificacao = 0;
@@ -271,5 +339,11 @@ export async function executarHistoricoDiario(): Promise<void> {
     const nome = `D${iso.slice(8, 10)}${iso.slice(5, 7)}${iso.slice(0, 4)}`;
     if (ja.has(nome)) continue;
     await importarArquivo(nome);
+  }
+  // Papel novo (cadastrado depois da carga dos anos): busca o passado dele, sem ninguém precisar lembrar
+  try {
+    await buscarHistoricoPapeisNovos();
+  } catch (err) {
+    console.warn("[precos] busca de papéis novos:", err instanceof Error ? err.message : err);
   }
 }
