@@ -61,9 +61,11 @@ function medidasNaoCitadas(
   escolhidasIa?: Set<string>
 ): Set<string> {
   const cita = citaFlex(pergunta);
-  // Pedidas = citadas pelo nome OU escolhidas pela IA para a resposta ("quanto rendeu" → rendimento: a IA entende,
-  // a comparação de palavras não). Nenhuma das duas: todas aparecem.
-  const pedidas = ys.filter((y) => cita(...y.nomes) || !!escolhidasIa?.has(y.col.toLowerCase()));
+  // Pedidas = as citadas pelo nome ("peso de novembro" → só Peso, mesmo que a IA tenha escolhido mais). Sem nenhuma
+  // citada, as escolhidas pela IA para a resposta ("quanto rendeu" → rendimento: a IA entende, a comparação de
+  // palavras não). Nenhuma das duas: todas aparecem.
+  const citadas = ys.filter((y) => cita(...y.nomes));
+  const pedidas = citadas.length ? citadas : ys.filter((y) => !!escolhidasIa?.has(y.col.toLowerCase()));
   if (!pedidas.length || pedidas.length === ys.length) return new Set();
   return new Set(ys.filter((y) => !pedidas.includes(y)).map((y) => y.col));
 }
