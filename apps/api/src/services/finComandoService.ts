@@ -304,7 +304,13 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
     proposta.grupoId = null;
     duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
   }
-  const cAmb = escolhaAmbigua(proposta.contaId, contas, input.texto);
+  // Provento: a conta é a corretora onde o papel está (não a conta citada no texto)
+  const cAmb = tipo === "provento" ? null : escolhaAmbigua(proposta.contaId, contas, input.texto);
+  if (tipo === "provento" && !proposta.investimento?.papelContaId && proposta.investimento?.ticker) {
+    const tk = proposta.investimento.ticker;
+    const onde = papeis.filter((x) => x.ticker === tk).map((x) => x.corretoraNome).filter(Boolean);
+    if (onde.length > 1) duvidas.push(`${tk} está em mais de uma corretora (${onde.join(", ")}): escolha o papel`);
+  }
   // Transferência entre moedas diferentes é câmbio
   if (tipo === "transferencia" || tipo === "cambio") {
     const mO = contas.find((c) => c.id === proposta.contaId)?.moeda;

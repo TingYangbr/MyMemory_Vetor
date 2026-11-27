@@ -513,6 +513,10 @@ export default function FinComandoCartao({
                 <option key={x.id} value={x.id}>{x.ticker}{x.corretoraNome ? ` · ${x.corretoraNome}` : ""}</option>
               ))}
             </select>
+            {/* O provento cai no caixa da corretora onde o papel está */}
+            {papelItem?.corretoraNome ? (
+              <small style={{ color: "var(--mm-muted)" }}>O dinheiro entra na {papelItem.corretoraNome}.</small>
+            ) : null}
           </label>
           <label style={rot}>
             <span>Tipo</span>

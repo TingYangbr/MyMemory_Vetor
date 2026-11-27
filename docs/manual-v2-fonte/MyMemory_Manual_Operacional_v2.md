@@ -1342,6 +1342,9 @@ Admin → Sistema → **Histórico de preços (B3)** guarda o fechamento de cada
 
 NOTA: Os preços não são ajustados por desdobramento, grupamento ou proventos. Num desdobramento, o preço "cai" no dia do evento.
 
+## Provento (dividendo, JCP, rendimento)
+"Recebi 367 de dividendos do BBDC4" abre o cartão de provento. O dinheiro entra no caixa da **corretora onde o papel está**: o cartão mostra "O dinheiro entra na Conta XP" embaixo do Papel. Para mudar a conta, escolha o papel da outra corretora (ex.: "BBDC4 · Conta Itaú"). Se o papel está em mais de uma corretora e a fala não diz qual, o cartão pede para escolher o papel. O provento não muda o preço médio.
+
 ## Rendimento da carteira
 "Qual foi o rendimento da carteira de ações no mês passado?" usa a consulta **Financeiro — Rendimento da carteira** (Saldos e investimentos), por papel da B3 em reais:
 - **Valor no início:** quantidade × fechamento do último pregão antes do período. **Valor no fim:** quantidade × fechamento do último pregão do período (se o período vai até hoje, a cotação atual, quando houver).
