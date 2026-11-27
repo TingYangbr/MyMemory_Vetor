@@ -269,11 +269,10 @@ export const FIN_CATEGORIAS: FinCategoriaDef[] = [
       ORIGEM +
       "A POSIÇÃO de hoje (ou de uma data): saldo de banco e de corretora, quanto tenho, quanto devo no cartão de crédito, " +
       "contas a receber e a pagar em aberto (total), dólar e outras moedas e quanto valem hoje, " +
-      "investimentos (ações, fundos, Tesouro): quantidade, preço médio, quanto investi em cada papel, rendimento da carteira, " +
-      "dividendos, JCP e rendimentos de FII recebidos (por papel, por mês).",
+      "investimentos (ações, fundos, Tesouro): quantidade, preço médio, quanto investi em cada papel.",
     resumo: "Quanto tem em cada conta, quanto deve no cartão, quanto vale o dólar guardado e a posição dos investimentos.",
     exemplos: ["Quanto tenho no banco?", "Quanto devo no cartão?", "Quanto vale meu dólar hoje?", "Quantas PETR4 tenho e a que preço médio?", "Quanto tenho investido?"].join("\n"),
-    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas", "Financeiro — Histórico de preços", "Financeiro — Rendimento da carteira", "Financeiro — Proventos recebidos"],
+    consultas: ["Financeiro — Saldos", "Financeiro — Posição de investimentos", "Financeiro — Contas cadastradas", "Financeiro — Histórico de preços", "Financeiro — Rendimento da carteira"],
   },
 ];
 
@@ -509,8 +508,7 @@ LIMIT 200`,
       "da B3 importado para a data). Preços não ajustados por desdobramento. SÓ papéis da B3 (Brasil, em reais): investimentos " +
       "no EXTERIOR (mercado 'exterior', ex.: AAPL na Avenue) NÃO têm rendimento calculado aqui — com mercado = exterior a " +
       "consulta volta vazia; diga que o rendimento no exterior não está disponível e NUNCA apresente os papéis do Brasil como " +
-      "se fossem do exterior. NÃO use para listar dividendos/JCP/proventos recebidos (por papel, por mês): para isso use " +
-      "Financeiro — Proventos recebidos.",
+      "se fossem do exterior.",
     sql: `WITH per AS (
   SELECT COALESCE(:data_ini, ${INI_MES}) AS ini, LEAST(COALESCE(:data_fin, ${HOJE}), ${HOJE}) AS fim
 ),
@@ -575,37 +573,6 @@ LIMIT 200`,
       { campo: "papel", tipo: "string", operadorSql: "LIKE" },
       { campo: "corretora", tipo: "string", operadorSql: "LIKE" },
       { campo: "mercado", tipo: "string", operadorSql: "=" },
-    ],
-  },
-  {
-    nome: "Financeiro — Proventos recebidos",
-    descricao:
-      "Detalhe: UMA LINHA POR PROVENTO recebido dos investimentos (dividendo, JCP, rendimento de FII, juros). Colunas: data, " +
-      "mes (AAAA-MM), papel (ticker), tipo (dividendo, jcp, rendimento, juros), corretora (conta onde o dinheiro entrou), " +
-      "valor (líquido recebido), valor_bruto e ir_retido (JCP, quando informados). Use para: dividendos/proventos recebidos, " +
-      "quanto recebi de dividendos, dividendos por papel, por mês, mensais, de um papel, de uma corretora. Totais pela " +
-      "agregação: soma de valor por papel, por mes, por mes e papel. Lista simples ('listar', 'quais') sem 'por': uma linha por " +
-      "provento. 'Dividendos' na fala comum inclui JCP e rendimentos: preencha tipo só quando a pergunta separa ('só JCP', " +
-      "'rendimentos dos FIIs'). data_ini/data_fin = período (sem data: de 1º de janeiro do ano atual até hoje; 'em 2026' = " +
-      "2026-01-01 a 2026-12-31).",
-    sql: `SELECT o.data, to_char(o.data, 'YYYY-MM') AS mes, o.ticker AS papel, o.subtipo AS tipo, cr.nome AS corretora,
-  o.valor_total AS valor, o.valor_bruto, o.ir_retido
-FROM fin_operacoes_inv o
-LEFT JOIN fin_contas cr ON cr.id = o.corretora_contaid
-WHERE o.operacao = 'provento'
-  AND o.data BETWEEN COALESCE(:data_ini, date_trunc('year', now() AT TIME ZONE 'America/Sao_Paulo')::date) AND COALESCE(:data_fin, ${HOJE})
-  AND (:papel IS NULL OR o.ticker ILIKE :papel)
-  AND (:corretora IS NULL OR cr.nome ILIKE :corretora)
-  AND (:tipo IS NULL OR o.subtipo ILIKE '%' || :tipo || '%'
-       OR (:tipo ILIKE '%fii%' AND o.subtipo = 'rendimento') OR (:tipo ILIKE '%dividend%' AND o.subtipo = 'dividendo'))
-ORDER BY o.data, o.id
-LIMIT 2000`,
-    params: [
-      { campo: "data_ini", tipo: "date", operadorSql: ">=" },
-      { campo: "data_fin", tipo: "date", operadorSql: "<=" },
-      { campo: "papel", tipo: "string", operadorSql: "LIKE" },
-      { campo: "corretora", tipo: "string", operadorSql: "LIKE" },
-      { campo: "tipo", tipo: "string", operadorSql: "LIKE" },
     ],
   },
   {
