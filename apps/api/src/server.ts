@@ -133,6 +133,7 @@ import { UserExemplosFaleComigo1700000000218 } from "./migrations/1700000000218-
 import { FinLancamentoIdNaConsulta1700000000219 } from "./migrations/1700000000219-FinLancamentoIdNaConsulta.js";
 import { FinRendimentoCarteira1700000000220 } from "./migrations/1700000000220-FinRendimentoCarteira.js";
 import { FinRendimentoSoBrasil1700000000221 } from "./migrations/1700000000221-FinRendimentoSoBrasil.js";
+import { ResultadoReuniao1700000000222 } from "./migrations/1700000000222-ResultadoReuniao.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -315,6 +316,7 @@ assertMediaStorageEnv();
       FinLancamentoIdNaConsulta1700000000219,
       FinRendimentoCarteira1700000000220,
       FinRendimentoSoBrasil1700000000221,
+      ResultadoReuniao1700000000222,
     ],
   });
   const ds = await AppDataSource.initialize();

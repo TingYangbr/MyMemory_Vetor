@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from "fastify";
 import { pool } from "../db.js";
 import { resolveUserId } from "../lib/userContext.js";
-import { compromissosDoUsuario } from "../services/lembreteService.js";
+import { z } from "zod";
+import { compromissosDoUsuario, reunioesSemResultado, type PerguntaResultado } from "../services/lembreteService.js";
 import { lembretesFinanceiroDoUsuario } from "../services/finLembreteService.js";
 
 /**
@@ -9,8 +10,12 @@ import { lembretesFinanceiroDoUsuario } from "../services/finLembreteService.js"
  * - Aviso: pergunta monitorada cuja resposta mudou (aviso_historico) depois da última abertura do painel.
  * - Lembrete: compromisso (próximos 7 dias) de categoria com lembrete ligado em que o usuário é destinatário;
  *   conta no número quando entra no prazo do primeiro lembrete (ex.: 1 dia antes), mesmo que o e-mail ainda não tenha saído.
- * Número do sino = avisos não lidos + lembretes do período. Abrir o painel zera só os avisos.
+ * - Resultado: compromisso que já terminou (até 7 dias) sem memo de resultado ligado — "Registrar" ou "Não precisa".
+ * Número do sino = avisos não lidos + lembretes do período + resultados pendentes. Abrir o painel zera só os avisos.
  */
+
+const PREFS: PerguntaResultado[] = ["sempre", "com_pessoas", "quando_pedir", "nunca"];
+const lerPref = (v: unknown): PerguntaResultado => (PREFS.includes(v as PerguntaResultado) ? (v as PerguntaResultado) : "sempre");
 
 type AvisoRow = { id: number; avisoId: number; descricao: string; texto: string; quando: Date | string; lido: boolean };
 type LembreteRow = {
@@ -47,9 +52,14 @@ const plugin: FastifyPluginAsync = async (app) => {
 
     // Compromissos com lembrete ativo para este usuário nos próximos 7 dias (inclui agendas catalogadas antes).
     // Contam no número só os que já entraram no prazo do lembrete (ex.: 1 dia antes).
-    const [uRows] = await pool.query<{ email: string | null }[]>(`SELECT email FROM users WHERE id = ?`, [userId]);
+    const [uRows] = await pool.query<{ email: string | null; pref: string | null }[]>(
+      `SELECT email, pergunta_resultado AS "pref" FROM users WHERE id = ?`,
+      [userId]
+    );
     const compromissos = await compromissosDoUsuario(userId, uRows[0]?.email ?? "", 7);
-    const ids = [...new Set(compromissos.map((c) => c.memoId))];
+    const pref = lerPref(uRows[0]?.pref);
+    const reunioes = await reunioesSemResultado(userId, uRows[0]?.email ?? "", pref).catch(() => []);
+    const ids = [...new Set([...compromissos.map((c) => c.memoId), ...reunioes.map((r) => r.memoId)])];
     const infoMemo = new Map<number, { titulo: string | null; texto: string | null }>();
     if (ids.length) {
       const [mRows] = await pool.query<{ id: number; titulo: string | null; texto: string | null }[]>(
@@ -86,8 +96,18 @@ const plugin: FastifyPluginAsync = async (app) => {
     const lembretesNoPrazo = lembretes.filter((l) => l.noPrazo).length;
 
     const avisosNaoLidos = avisos.filter((a) => !a.lido).length;
+    const resultados = reunioes.slice(0, 20).map((r) => ({
+      memoId: r.memoId,
+      categoria: r.categoria,
+      grupo: r.grupo,
+      titulo: infoMemo.get(r.memoId)?.titulo ?? null,
+      texto: infoMemo.get(r.memoId)?.texto ?? null,
+      momento: iso(r.momento),
+    }));
     return reply.send({
-      total: avisosNaoLidos + lembretesNoPrazo,
+      total: avisosNaoLidos + lembretesNoPrazo + resultados.length,
+      perguntaResultado: pref,
+      resultados,
       avisosNaoLidos,
       lembretesAtivos: lembretesNoPrazo,
       lembretesProximos: lembretes.length,
@@ -145,6 +165,29 @@ const plugin: FastifyPluginAsync = async (app) => {
         envios: c.envios.map((e) => ({ enviarEm: iso(e.enviarEm), situacao: e.situacao })),
       })),
     });
+  });
+
+  // POST /api/sino/resultado/:memoId/dispensar — "Não precisa": não pergunta mais o resultado deste compromisso
+  app.post("/api/sino/resultado/:memoId/dispensar", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const memoId = z.coerce.number().int().positive().safeParse((req.params as { memoId: string }).memoId);
+    if (!memoId.success) return reply.code(400).send({ error: "invalid" });
+    await pool.query(
+      `INSERT INTO reuniao_resultado_dispensa (userid, memoid) VALUES (?, ?) ON CONFLICT DO NOTHING`,
+      [userId, memoId.data]
+    );
+    return reply.send({ ok: true });
+  });
+
+  // PUT /api/sino/pergunta-resultado — sempre | com_pessoas | nunca
+  app.put("/api/sino/pergunta-resultado", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const b = z.object({ valor: z.enum(["sempre", "com_pessoas", "quando_pedir", "nunca"]) }).safeParse(req.body);
+    if (!b.success) return reply.code(400).send({ error: "invalid_body" });
+    await pool.query(`UPDATE users SET pergunta_resultado = ? WHERE id = ?`, [b.data.valor, userId]);
+    return reply.send({ ok: true });
   });
 
   app.post("/api/sino/lido", async (req, reply) => {

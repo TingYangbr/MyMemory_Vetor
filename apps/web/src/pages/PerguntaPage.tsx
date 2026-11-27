@@ -22,6 +22,7 @@ import type { ComandoAlteracao, ComandoCriacao, MemoAlteracaoResponse } from "@m
 import FinComandoCartao from "../components/FinComandoCartao";
 import { FinCorrecaoEscolher, FinCorrecaoLapis } from "../components/FinCorrecao";
 import { AcaoConfigCartao } from "../components/AcaoConfigCartao";
+import { ResultadoReuniaoCartao } from "../components/ResultadoReuniaoCartao";
 import { apiDeleteJson, apiGet, apiGetOptional, apiPatchJson, apiPostJson, apiPutJson, avisos as avisosApi } from "../api";
 import Header from "../components/Header";
 import { useCategoryOptions } from "../hooks/useCategoryOptions";
@@ -3814,6 +3815,7 @@ export default function PerguntaPage({ embedded = false }: { embedded?: boolean 
                   <CriacaoBotao criacao={r.criacao} />
                   {r.finComando ? <FinComandoCartao proposta={r.finComando} /> : null}
                   {r.finCorrecao ? <FinCorrecaoEscolher escolha={r.finCorrecao} /> : null}
+                  {r.resultadoReuniao ? <ResultadoReuniaoCartao oferta={r.resultadoReuniao} /> : null}
                   {r.acaoConfig ? (
                     <AcaoConfigCartao
                       acao={r.acaoConfig}
