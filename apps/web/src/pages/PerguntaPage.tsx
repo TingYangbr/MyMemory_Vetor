@@ -601,6 +601,20 @@ function buildDadosGrafico(dados: PerguntaResultadoEstruturado, pergunta: string
   };
 }
 
+/**
+ * Barras em pé: linha do tempo (datas) ou poucos rótulos curtos (ex.: 4 papéis, Top 5 clientes) — mais elegante.
+ * Muitos rótulos ou nomes longos: barras deitadas, com o nome inteiro à esquerda.
+ */
+const CHART_EM_PE_MAX_ROTULOS = 8;
+const CHART_EM_PE_MAX_LETRAS = 12;
+function barrasEmPe(dados: DadosGrafico): boolean {
+  if (dados.temporal) return true;
+  return (
+    dados.rows.length <= CHART_EM_PE_MAX_ROTULOS &&
+    dados.rows.every((r) => String(r.label ?? "").length <= CHART_EM_PE_MAX_LETRAS)
+  );
+}
+
 function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
   const formatoValor = (value: unknown) =>
     Number(value ?? 0).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -691,7 +705,7 @@ function GraficoBarrasEstruturado({ dados }: { dados: DadosGrafico }) {
     );
   }
 
-  if (dados.temporal) {
+  if (barrasEmPe(dados)) {
     return (
       <ResponsiveContainer width="100%" height={280}>
         <BarChart data={dados.rows} margin={{ top: 8, right: doisEixos ? 0 : 8, left: 0, bottom: 24 }}>
@@ -828,7 +842,7 @@ function EstruturadoComGrafico(props: TabelaEstruturadaProps) {
   // Senão, um embaixo do outro, primeiro o que ocupa menos: barras em pé (linha do tempo) = gráfico e depois a
   // tabela; barras deitadas (ranking, que crescem para baixo) = tabela e depois o gráfico.
   const ladoALado = grafico.rows.length <= 5;
-  const graficoPrimeiro = grafico.temporal || ladoALado;
+  const graficoPrimeiro = barrasEmPe(grafico) || ladoALado;
   return (
     <div className={ladoALado ? styles.chartTableRow : styles.chartTableStack}>
       {graficoPrimeiro ? graficoEl : tabelaEl}
