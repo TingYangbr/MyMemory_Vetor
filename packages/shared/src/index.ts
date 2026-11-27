@@ -643,6 +643,8 @@ export interface MemoContextCategory {
   listaAbertaPor?: string | null;
   /** Registro único: campos da chave separados por vírgula (ex.: "Dono, Data, Período"); repetir a chave atualiza o memo. */
   registroUnicoPor?: string | null;
+  /** Depois da data do registro (reunião, prazo da tarefa), o sino pergunta "Registrar o resultado?". */
+  pedeResultado?: boolean;
   /** Revisão antes de salvar: a revisão sempre abre nesta categoria (categorias críticas). */
   revisaoSempre?: boolean;
   /** % mínimo de campos preenchidos pela IA para gravar direto, sem revisão (padrão 80). */

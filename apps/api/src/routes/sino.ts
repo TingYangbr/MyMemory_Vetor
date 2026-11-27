@@ -10,7 +10,8 @@ import { lembretesFinanceiroDoUsuario } from "../services/finLembreteService.js"
  * - Aviso: pergunta monitorada cuja resposta mudou (aviso_historico) depois da última abertura do painel.
  * - Lembrete: compromisso (próximos 7 dias) de categoria com lembrete ligado em que o usuário é destinatário;
  *   conta no número quando entra no prazo do primeiro lembrete (ex.: 1 dia antes), mesmo que o e-mail ainda não tenha saído.
- * - Resultado: compromisso que já terminou (até 7 dias) sem memo de resultado ligado — "Registrar" ou "Não precisa".
+ * - Resultado: registro de categoria com "Pedir o resultado depois da data" (Agenda, To-do…) cuja data passou (até 7
+ *   dias) sem memo de resultado ligado — "Registrar" ou "Não precisa". Uma aba só, com a etiqueta da categoria.
  * Número do sino = avisos não lidos + lembretes do período + resultados pendentes. Abrir o painel zera só os avisos.
  */
 
@@ -103,6 +104,8 @@ const plugin: FastifyPluginAsync = async (app) => {
       titulo: infoMemo.get(r.memoId)?.titulo ?? null,
       texto: infoMemo.get(r.memoId)?.texto ?? null,
       momento: iso(r.momento),
+      /** "" = só data (prazo): "a data passou" em vez de "terminou". */
+      hora: r.hora,
     }));
     return reply.send({
       total: avisosNaoLidos + lembretesNoPrazo + resultados.length,
@@ -180,7 +183,15 @@ const plugin: FastifyPluginAsync = async (app) => {
     return reply.send({ ok: true });
   });
 
-  // PUT /api/sino/pergunta-resultado — sempre | com_pessoas | nunca
+  // GET /api/sino/pergunta-resultado — a preferência (tela Meus avisos e lembretes)
+  app.get("/api/sino/pergunta-resultado", async (req, reply) => {
+    const userId = await resolveUserId(req);
+    if (!userId) return reply.code(401).send({ error: "unauthorized" });
+    const [rows] = await pool.query<{ pref: string | null }[]>(`SELECT pergunta_resultado AS "pref" FROM users WHERE id = ?`, [userId]);
+    return reply.send({ valor: lerPref(rows[0]?.pref) });
+  });
+
+  // PUT /api/sino/pergunta-resultado — sempre | com_pessoas | quando_pedir | nunca
   app.put("/api/sino/pergunta-resultado", async (req, reply) => {
     const userId = await resolveUserId(req);
     if (!userId) return reply.code(401).send({ error: "unauthorized" });

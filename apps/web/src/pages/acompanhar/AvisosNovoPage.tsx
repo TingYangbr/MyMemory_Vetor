@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { MeResponse } from "@mymemory/shared";
-import { apiGet, apiGetOptional, avisos as avisosApi } from "../../api";
+import { apiGet, apiGetOptional, apiPutJson, avisos as avisosApi } from "../../api";
 import Header from "../../components/Header";
 import {
   IconArrowLeft,
@@ -245,6 +245,50 @@ function AvisoPainel(props: { aviso: AvisoRow; onFechar: () => void; onSalvo: (a
   );
 }
 
+// ─── Preferência: pedir o resultado depois da data ──────────────────────────
+
+type PerguntaResultado = "sempre" | "com_pessoas" | "quando_pedir" | "nunca";
+
+/**
+ * Nas categorias com "Pedir o resultado depois da data" (Agenda, To-do…), o sino pergunta "Registrar o resultado?"
+ * na aba Resultados. Aqui cada pessoa escolhe quando quer ser perguntada.
+ */
+function PreferenciaResultado() {
+  const [valor, setValor] = useState<PerguntaResultado | null>(null);
+  const [salvo, setSalvo] = useState(false);
+  useEffect(() => {
+    apiGet<{ valor: PerguntaResultado }>("/api/sino/pergunta-resultado")
+      .then((r) => setValor(r.valor))
+      .catch(() => setValor("sempre"));
+  }, []);
+  if (!valor) return null;
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", margin: "0 0 14px", fontSize: 14 }}>
+      <label htmlFor="pref-resultado">Perguntar o resultado depois da data (reuniões, tarefas):</label>
+      <select
+        id="pref-resultado"
+        className="mm-field"
+        style={{ width: "auto" }}
+        value={valor}
+        onChange={(e) => {
+          const v = e.target.value as PerguntaResultado;
+          setValor(v);
+          setSalvo(false);
+          apiPutJson("/api/sino/pergunta-resultado", { valor: v })
+            .then(() => setSalvo(true))
+            .catch(() => setSalvo(false));
+        }}
+      >
+        <option value="sempre">sempre</option>
+        <option value="com_pessoas">só quando há outras pessoas</option>
+        <option value="quando_pedir">só quando o registro pedir</option>
+        <option value="nunca">nunca</option>
+      </select>
+      {salvo ? <span className="mm-muted" style={{ fontSize: 12.5 }}>Salvo.</span> : null}
+    </div>
+  );
+}
+
 // ─── Aba Lembretes ───────────────────────────────────────────────────────────
 
 const DIA_SEMANA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
@@ -443,7 +487,12 @@ export default function AvisosNovoPage() {
         {erro ? <p className="mm-error">{erro}</p> : null}
 
         {aba === "lembretes" ? (
-          me ? <AbaLembretes onTotal={onTotalLembretes} /> : null
+          me ? (
+            <>
+              <PreferenciaResultado />
+              <AbaLembretes onTotal={onTotalLembretes} />
+            </>
+          ) : null
         ) : avisos === null ? (
           <p className={styles.muted}>Carregando…</p>
         ) : avisos.length === 0 ? (

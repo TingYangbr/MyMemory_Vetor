@@ -198,6 +198,7 @@ const plugin: FastifyPluginAsync = async (app) => {
     rotuloConcluido: z.string().max(40).nullable().optional(),
     listaAbertaPor: z.string().max(120).nullable().optional(),
     registroUnicoPor: z.string().max(500).nullable().optional(),
+    pedeResultado: z.boolean().optional(),
     revisaoSempre: z.boolean().optional(),
     revisaoMinPct: z.number().int().min(0).max(100).optional(),
   });
@@ -241,6 +242,7 @@ const plugin: FastifyPluginAsync = async (app) => {
         ...(parsed.data.rotuloConcluido !== undefined ? { rotuloConcluido: parsed.data.rotuloConcluido } : {}),
         ...(parsed.data.listaAbertaPor !== undefined ? { listaAbertaPor: parsed.data.listaAbertaPor } : {}),
         ...(parsed.data.registroUnicoPor !== undefined ? { registroUnicoPor: parsed.data.registroUnicoPor } : {}),
+        ...(parsed.data.pedeResultado !== undefined ? { pedeResultado: parsed.data.pedeResultado } : {}),
         ...(parsed.data.revisaoSempre !== undefined ? { revisaoSempre: parsed.data.revisaoSempre } : {}),
         ...(parsed.data.revisaoMinPct !== undefined ? { revisaoMinPct: parsed.data.revisaoMinPct } : {}),
       });
