@@ -138,6 +138,7 @@ import { FinRendimentoSoBrasil1700000000221 } from "./migrations/1700000000221-F
 import { ResultadoReuniao1700000000222 } from "./migrations/1700000000222-ResultadoReuniao.js";
 import { CategoriaPedeResultado1700000000223 } from "./migrations/1700000000223-CategoriaPedeResultado.js";
 import { ResultadoNaConsulta1700000000224 } from "./migrations/1700000000224-ResultadoNaConsulta.js";
+import { FinLancamentoPapel1700000000225 } from "./migrations/1700000000225-FinLancamentoPapel.js";
 import authRoutes from "./routes/auth.js";
 import meRoutes from "./routes/me.js";
 import adminDocumentAiRoutes from "./routes/adminDocumentAi.js";
@@ -323,6 +324,7 @@ assertMediaStorageEnv();
       ResultadoReuniao1700000000222,
       CategoriaPedeResultado1700000000223,
       ResultadoNaConsulta1700000000224,
+      FinLancamentoPapel1700000000225,
     ],
   });
   const ds = await AppDataSource.initialize();
