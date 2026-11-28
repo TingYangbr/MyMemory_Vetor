@@ -337,19 +337,26 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
       );
     }
   }
-  // Mesma descrição já lançada antes: usa o grupo daquela vez — salvo se a frase diz o nome de um grupo
-  if (["gasto", "receita", "conta", "fixa"].includes(tipo)) {
-    const f = palavras(input.texto);
-    const grupoDito = grupos.some((g) => [...palavras(g.nome)].every((w) => f.has(w)));
-    if (!grupoDito) {
-      const hist = await grupoDoHistorico(e, proposta.descricao, sentido === "pagar" ? "despesa" : "receita");
-      if (hist != null && grupos.some((g) => g.id === hist)) proposta.grupoId = hist;
-    }
-  }
   const gAmb = escolhaAmbigua(proposta.grupoId, grupos, input.texto);
+  // A IA decide o grupo. Só na dúvida (não escolheu, ou a frase serve a mais de um) vale o grupo do último
+  // lançamento com a mesma descrição — e, na ambiguidade, só se ele for um dos que combinam.
+  const usaGrupo = ["gasto", "receita", "conta", "fixa"].includes(tipo) && !grupoCitado;
+  const hist =
+    usaGrupo && (gAmb || proposta.grupoId == null)
+      ? await grupoDoHistorico(e, proposta.descricao, sentido === "pagar" ? "despesa" : "receita")
+      : null;
+  const histNome = hist != null ? grupos.find((g) => g.id === hist)?.nome ?? null : null;
   if (gAmb) {
-    proposta.grupoId = null;
-    duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
+    if (histNome && gAmb.includes(histNome)) {
+      proposta.grupoId = hist;
+      duvidas.push(`Grupo ${histNome}, como no último "${proposta.descricao}" (combinavam: ${gAmb.join(", ")})`);
+    } else {
+      proposta.grupoId = null;
+      duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
+    }
+  } else if (proposta.grupoId == null && histNome) {
+    proposta.grupoId = hist;
+    duvidas.push(`Grupo ${histNome}, como no último "${proposta.descricao}"`);
   }
   // Provento: a conta é a corretora onde o papel está (não a conta citada no texto)
   const cAmb = tipo === "provento" ? null : escolhaAmbigua(proposta.contaId, contas, input.texto);
