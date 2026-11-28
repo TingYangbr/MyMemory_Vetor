@@ -8,6 +8,8 @@ import { precosPapeis } from "./finCotacaoPapelService.js";
 import type { FinComandoGravado, FinComandoProposta, FinComandoTipo, FinPapelOpcao, FinPeriodicidade } from "@mymemory/shared";
 import { FIN_PERIODICIDADES } from "@mymemory/shared";
 import { invokeLLM } from "../lib/invokeLlm.js";
+import { pool } from "../db.js";
+import type { RowDataPacket } from "../lib/dbTypes.js";
 import {
   agenda,
   baixar,
@@ -75,8 +77,43 @@ function escolhaAmbigua(id: number | null, lista: { id: number; nome: string }[]
   if (!citadas.length) return null;
   // Rival só quando tem TODAS as palavras do escolhido que a frase cita: "Conta Itau" dito inteiro não é ambíguo
   // com "Conta XP" nem com "Cartão Itau"; "condomínio" sozinho é com "Condomínio Granja" e "Condomínio Butantã".
-  const rivais = lista.filter((x) => x.id !== id && citadas.every((w) => palavras(x.nome).has(w)));
+  // Nome do escolhido dito inteiro ("alimentação" = Alimentação): só é ambíguo com outro também dito inteiro
+  // ("Alimentação fora" tem "fora", que a frase não diz)
+  const inteiro = citadas.length === palavras(esc.nome).size;
+  const rivais = lista.filter(
+    (x) =>
+      x.id !== id &&
+      citadas.every((w) => palavras(x.nome).has(w)) &&
+      (!inteiro || [...palavras(x.nome)].every((w) => f.has(w)))
+  );
   return rivais.length ? [esc, ...rivais].map((x) => x.nome) : null;
+}
+
+/**
+ * Grupo do último lançamento com a mesma descrição ("Mercado"), no mesmo sentido (despesa/receita). Regra fixa, não
+ * aprendizado: a escolha (ou a correção) feita antes vale para o próximo; sem histórico, fica a escolha da IA.
+ */
+async function grupoDoHistorico(e: Espaco, descricao: string, tipoGrupo: "despesa" | "receita"): Promise<number | null> {
+  const d = descricao.trim();
+  if (!d) return null;
+  const esp = e.groupId != null ? { sql: "l.groupid = ?", params: [e.groupId] } : { sql: "l.groupid IS NULL AND l.userid = ?", params: [e.userId] };
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT CASE WHEN d.tipo = ? THEN d.id ELSE o.id END AS "grupoId"
+         FROM fin_lancamentos l
+         JOIN fin_contas o ON o.id = l.conta_origemid
+         JOIN fin_contas d ON d.id = l.conta_destinoid
+        WHERE ${esp.sql}
+          AND (d.tipo = ? OR o.tipo = ?)
+          AND lower(unaccent(btrim(l.descricao))) = lower(unaccent(?))
+        ORDER BY l.data DESC, l.id DESC
+        LIMIT 1`,
+      [tipoGrupo, ...esp.params, tipoGrupo, tipoGrupo, d]
+    );
+    return rows[0] ? Number(rows[0].grupoId) : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function montarPropostaFin(input: {
@@ -159,6 +196,7 @@ Câmbio: contaId = de onde sai, contaDestinoId = para onde vai (uma em reais, ou
 Transferência: contaId = de onde sai, contaDestinoId = para onde vai (ids de contas_bancos_cartoes), grupoId null.
 Compra/venda de papel: contaId = a corretora (conta do tipo corretora citada; "na XP"); papelContaId = id de papeis_cadastrados com esse ticker nessa corretora (senão null e informe ticker, ex.: "Petrobras" = PETR4, "Itaúsa" = ITSA4); quantidade e preco por unidade; valor = valor total só se dito sem preço; taxas só se ditas.
 Regras: data = dia do gasto/receita/pagamento, ou o (primeiro) vencimento da conta/fixa; "hoje"/"ontem"/"dia 10" a partir de hoje (dia já passado no mês = mês que vem, para vencimento). Valor em reais, só o número ("2.500" = 2500; "1,5 mil" = 1500). Para pagamento, alvoChave = a chave do item de em_aberto que corresponde (e o valor, se não for dito, o do item); se a frase cita o mês da conta ou a data do pagamento ("o aluguel de setembro", "paguei em 10/09"), escolha o item desse mês; sem mês nem data, o mais antigo em aberto. contaId e grupoId só de ids da lista; sem certeza, null. Cartão citado ("no Nubank", "no cartão") = a conta do tipo cartao com esse nome; citado pelo final ("final 7803", "••••7803") = a conta cujo nome tem esses dígitos (nenhuma ou mais de uma: null). Se a frase servir para mais de um grupo ou conta (ex.: "condomínio" e existem "Condomínio Granja" e "Condomínio Butantã"), use null: a pessoa escolhe.
+Grupo (grupoId): o grupo cujo nome corresponde ao gasto. Grupo com qualificador no nome ("Alimentação fora", "Saúde plano") só quando o gasto bate com o qualificador: "fora" = restaurante, lanchonete, bar, café, delivery, iFood; mercado, supermercado, feira, açougue, hortifruti, lista de compras/de mercado = compra para casa (o grupo sem "fora": Alimentação, Mercado, Supermercado).
 contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corretora ou grupo que NÃO está nas listas (ex.: "no Nubank" sem conta Nubank), o nome como foi dito ("Nubank"), e o id fica null. Se o citado existe, ou se nada foi citado, null.`;
   const { text, costUsd } = await invokeLLM({ system, user: `${user}\n\n${formato}`, jsonObject: true, temperature: 0, source: "fin_comando" });
   const j = safeJson(text);
@@ -300,9 +338,25 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
     }
   }
   const gAmb = escolhaAmbigua(proposta.grupoId, grupos, input.texto);
+  // A IA decide o grupo. Só na dúvida (não escolheu, ou a frase serve a mais de um) vale o grupo do último
+  // lançamento com a mesma descrição — e, na ambiguidade, só se ele for um dos que combinam.
+  const usaGrupo = ["gasto", "receita", "conta", "fixa"].includes(tipo) && !grupoCitado;
+  const hist =
+    usaGrupo && (gAmb || proposta.grupoId == null)
+      ? await grupoDoHistorico(e, proposta.descricao, sentido === "pagar" ? "despesa" : "receita")
+      : null;
+  const histNome = hist != null ? grupos.find((g) => g.id === hist)?.nome ?? null : null;
   if (gAmb) {
-    proposta.grupoId = null;
-    duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
+    if (histNome && gAmb.includes(histNome)) {
+      proposta.grupoId = hist;
+      duvidas.push(`Grupo ${histNome}, como no último "${proposta.descricao}" (combinavam: ${gAmb.join(", ")})`);
+    } else {
+      proposta.grupoId = null;
+      duvidas.push(`Mais de um grupo combina (${gAmb.join(", ")})`);
+    }
+  } else if (proposta.grupoId == null && histNome) {
+    proposta.grupoId = hist;
+    duvidas.push(`Grupo ${histNome}, como no último "${proposta.descricao}"`);
   }
   // Provento: a conta é a corretora onde o papel está (não a conta citada no texto)
   const cAmb = tipo === "provento" ? null : escolhaAmbigua(proposta.contaId, contas, input.texto);
