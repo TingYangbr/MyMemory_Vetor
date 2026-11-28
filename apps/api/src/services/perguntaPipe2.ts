@@ -1802,7 +1802,10 @@ export async function executarPipe2(input: Pipe2Input): Promise<Pipe2Result> {
   let planoExec = {
     ...plano,
     queries: executableQueries.map((t) =>
-      comResultado(listaSemSoma(periodoPadraoSerie(t, input.queriesDisponiveis), input.pergunta), input.pergunta, input.queriesDisponiveis)
+      somaPorMoeda(
+        comResultado(listaSemSoma(periodoPadraoSerie(t, input.queriesDisponiveis), input.pergunta), input.pergunta, input.queriesDisponiveis),
+        input.queriesDisponiveis
+      )
     ),
   };
   let { agregado, porQuery, avisos } = await withSpan("Execução das queries SQL", () => executarConsultasPlano({
@@ -2175,6 +2178,45 @@ async function anexarResultados(pergunta: string, agregado: PerguntaResultadoEst
   } catch (err) {
     console.warn("[pipe2] resultado:", err instanceof Error ? err.message : err);
   }
+}
+
+/**
+ * Soma numa consulta que tem coluna moeda (investimentos, saldos): valores de moedas diferentes não se somam. Agrupa
+ * pela moeda quando há valor na moeda e, somando a coluna em reais (custo_total_reais, saldo_reais), soma junto a coluna na moeda (custo_moeda,
+ * saldo_moeda) — "quanto investi no exterior" traz R$ e US$. Determinístico: não depende do planejador lembrar.
+ */
+function somaPorMoeda(task: PlanoQuery, queries: QueryDisponivel[]): PlanoQuery {
+  const ag = task.agregacao;
+  if (!ag) return task;
+  const q = queries.find((x) => x.query_id === task.query_id);
+  if (!q) return task;
+  const cols = new Set(extractSelectColumnNames(q.sentencaSql).map((c) => c.toLowerCase()));
+  if (!cols.has("moeda")) return task;
+  const somas: PlanoMedida[] = ag.medidas?.length
+    ? ag.medidas.filter((m) => m.medida === "sum")
+    : ag.medida === "sum" && ag.campo_medida
+      ? [{ medida: "sum", campo: ag.campo_medida, alias: ag.campo_medida }]
+      : [];
+  if (!somas.length) return task;
+  // Par em reais → na moeda
+  const PARES: Record<string, string> = { custo_total_reais: "custo_moeda", saldo_reais: "saldo_moeda" };
+  const extras: PlanoMedida[] = [];
+  for (const m of somas) {
+    const par = PARES[m.campo.toLowerCase()] ?? (m.campo.toLowerCase().endsWith("_reais") ? m.campo.toLowerCase().replace(/_reais$/, "_moeda") : null);
+    if (par && cols.has(par) && !somas.some((x) => x.campo.toLowerCase() === par) && !extras.some((x) => x.campo === par)) {
+      extras.push({ medida: "sum", campo: par, alias: par });
+    }
+  }
+  // Só quando há valor NA moeda envolvido: soma só em reais (despesa dos lançamentos) não se separa por moeda
+  if (!extras.length && !somas.some((m) => /_moeda$/i.test(m.campo))) return task;
+  const group_by = ag.group_by.some((g) => g.toLowerCase() === "moeda") ? ag.group_by : [...ag.group_by, "moeda"];
+  const limit = ag.limit != null && ag.limit < 20 ? 20 : ag.limit;
+  if (ag.medidas?.length) return { ...task, agregacao: { ...ag, medidas: [...ag.medidas, ...extras], group_by, limit } };
+  if (!extras.length) return { ...task, agregacao: { ...ag, group_by, limit } };
+  return {
+    ...task,
+    agregacao: { ...ag, medida: null, campo_medida: null, medidas: [...somas, ...extras], group_by, limit },
+  };
 }
 
 function listaSemSoma(task: PlanoQuery, pergunta: string): PlanoQuery {
