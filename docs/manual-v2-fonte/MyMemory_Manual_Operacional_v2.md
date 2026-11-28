@@ -421,6 +421,8 @@ Documentos enviados pelo **Catalogar** (PDF, imagem, e-mail) seguem a mesma regr
 - Conta ou grupo citado que não existe ("no Nubank" sem conta Nubank): a mensagem diz *Não achei a conta "Nubank": escolha uma ou toque em "+ nova conta"*, e o **+ nova conta** abre com o nome "Nubank" preenchido. Com "Cadastrar conta ou cartão pelo Form" desligado, a mensagem manda cadastrar em Contas a pagar e receber. O mesmo vale para grupo ("+ novo grupo").
 - Grava no **grupo escolhido no topo**. Depois de gravar há **↶ Desfazer** (conta, parcelado, conta fixa e pagamento); gasto/receita avulso se apaga na aba Lançamentos.
 - Os grupos e contas precisam existir (cadastre na tela Contas a pagar e receber).
+- **Grupo:** a IA escolhe pelo sentido da frase; grupo com qualificador ("Alimentação fora") só para o que bate com ele (restaurante, lanchonete, delivery) — mercado, feira e lista de compras vão para o grupo de casa. **Só quando a IA fica em dúvida** (não escolheu, ou a frase serve a mais de um grupo) o Form usa o grupo do último lançamento com a mesma descrição e avisa: *Grupo Alimentação, como no último "Mercado"*. Nesse caso nunca grava direto: você confere. Se a frase diz o nome do grupo, vale o que foi dito.
+- Dizer o nome inteiro de um grupo ("alimentação") não é ambíguo com outro que tem uma palavra a mais ("Alimentação fora").
 
 ### Corrigir um lançamento
 Gasto, receita ou transferência gravado errado (conta, grupo, valor, data ou descrição) se corrige no mesmo Form da confirmação, sem criar outro lançamento:
