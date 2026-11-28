@@ -55,6 +55,14 @@ function lerQtd(t: string): number | null {
 }
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+/** Valor na moeda da conta (US$ 876,00); código desconhecido cai em "XXX 876,00". */
+const naMoeda = (v: number, m: string) => {
+  try {
+    return v.toLocaleString("pt-BR", { style: "currency", currency: m || "BRL" });
+  } catch {
+    return `${m} ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+};
 const dataBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
 export default function FinComandoCartao({
@@ -150,6 +158,8 @@ export default function FinComandoCartao({
   const qtdNum = lerQtd(qtd);
   const precoNum = lerValor(preco);
   const taxasNum = lerValor(taxas) ?? 0;
+  // Compra/venda/posição: o papel fica na moeda da corretora (Avenue em USD → preço e custo em dólar)
+  const moedaInv = ehInv ? contaOrig?.moeda ?? "BRL" : "BRL";
   const totalInv = qtdNum != null && precoNum != null ? Math.round((qtdNum * precoNum + (tipo === "compra" ? taxasNum : -taxasNum)) * 100) / 100 : null;
   const papelFalta = ehInv && !(papelItem || (tipo !== "venda" && papelSel === "novo" && tickerNovo.trim()));
   const vendeMais = tipo === "venda" && papelItem != null && qtdNum != null && qtdNum > papelItem.quantidade + 1e-9;
@@ -210,7 +220,7 @@ export default function FinComandoCartao({
             origem: "falecomigo",
           });
           setDesfazer({ tipo: "operacao", id: r.operacaoId });
-          setFeito(`Posição inicial de ${qtd} ${r.ticker} (custo ${brl(r.custo)}) gravada, sem mexer no caixa da corretora.`);
+          setFeito(`Posição inicial de ${qtd} ${r.ticker} (custo ${naMoeda(r.custo, moedaInv)}) gravada, sem mexer no caixa da corretora.`);
           setEstado("gravado");
           return;
         }
@@ -226,7 +236,7 @@ export default function FinComandoCartao({
           origem: "falecomigo",
         });
         setDesfazer({ tipo: "operacao", id: r.operacaoId });
-        setFeito(`${tipo === "compra" ? "Compra" : "Venda"} de ${qtd} ${r.ticker} (${brl(r.valorTotal)}) gravada.`);
+        setFeito(`${tipo === "compra" ? "Compra" : "Venda"} de ${qtd} ${r.ticker} (${naMoeda(r.valorTotal, moedaInv)}) gravada.`);
         setEstado("gravado");
       } catch (e) {
         setEstado("edicao");
@@ -558,6 +568,7 @@ export default function FinComandoCartao({
           {(() => {
             // Preço atual do papel (só para ver): do papel escolhido, ou o buscado pelo ticker da frase (papel novo)
             const inv = proposta.investimento;
+            if (moedaInv !== "BRL") return null; // cotação é da B3 (em reais): não vale para papel no exterior
             const pa = papelItem?.precoAtual ?? (papelSel === "novo" && inv?.ticker && tickerNovo.trim().toUpperCase() === inv.ticker ? inv.precoAtual : null) ?? null;
             const amarelo: React.CSSProperties = { background: "#fef9c3", color: "#422006", cursor: "default" };
             const quando = pa ? `${pa.em.slice(8, 10)}/${pa.em.slice(5, 7)}/${pa.em.slice(0, 4)} ${pa.em.slice(11)}${pa.fonte === "manual" ? " (digitado)" : ""}` : "";
@@ -597,7 +608,7 @@ export default function FinComandoCartao({
             <input className="mm-field" style={falta(qtdNum == null || vendeMais)} inputMode="decimal" value={qtd} onChange={(e) => setQtd(e.target.value)} />
           </label>
           <label style={rot}>
-            <span>{ehPosicao ? "Preço médio (R$)" : "Preço (R$)"}{marca(precoNum == null)}</span>
+            <span>{ehPosicao ? "Preço médio" : "Preço"} ({moedaInv === "BRL" ? "R$" : moedaInv}){marca(precoNum == null)}</span>
             <input className="mm-field" style={falta(precoNum == null)} inputMode="decimal" value={preco} onChange={(e) => setPreco(e.target.value)} placeholder="0,00" />
           </label>
           {ehPosicao ? null : (
@@ -611,7 +622,7 @@ export default function FinComandoCartao({
             <input className="mm-field" type="date" value={data} onChange={(e) => setData(e.target.value)} />
           </label>
           <span style={{ alignSelf: "center", fontSize: 13 }}>
-            {totalInv != null ? `${tipo === "venda" ? "Líquido" : "Custo"}: ${brl(totalInv)}` : ""}
+            {totalInv != null ? `${tipo === "venda" ? "Líquido" : "Custo"}: ${naMoeda(totalInv, moedaInv)}` : ""}
             {ehPosicao ? <><br /><small style={{ color: "var(--mm-muted)" }}>Vem do saldo inicial: não tira dinheiro da corretora.</small></> : null}
           </span>
         </div>
