@@ -38,6 +38,14 @@ const somarDias = (iso: string, dias: number) => {
 };
 
 const brl = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+/** Valor na moeda da conta (US$ 876,00); código desconhecido cai em "XXX 876,00". */
+const naMoeda = (v: number, m: string | null | undefined) => {
+  try {
+    return v.toLocaleString("pt-BR", { style: "currency", currency: m || "BRL" });
+  } catch {
+    return `${m} ${v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  }
+};
 const dataBr = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}/${iso.slice(0, 4)}`;
 
 function safeJson(text: string): Record<string, unknown> {
@@ -303,8 +311,11 @@ contaCitada/grupoCitado: quando a frase cita pelo nome um banco, cartão, corret
       taxas: num(j.taxas),
       precoAtual: papel?.precoAtual ?? null,
     };
-    // Papel novo (ainda não está em carteira): busca o preço pelo ticker, só para mostrar no card
-    if (!proposta.investimento.precoAtual && proposta.investimento.ticker) {
+    // Papel novo (ainda não está em carteira): busca o preço pelo ticker, só para mostrar no card. A cotação é da B3
+    // (em reais): corretora em outra moeda (Avenue em USD) não mostra preço nenhum, para não confundir AMZN com BDR.
+    const moedaCorretora = proposta.contaId != null ? contas.find((c) => c.id === proposta.contaId)?.moeda ?? "BRL" : "BRL";
+    if (moedaCorretora !== "BRL") proposta.investimento.precoAtual = null;
+    else if (!proposta.investimento.precoAtual && proposta.investimento.ticker) {
       const t = proposta.investimento.ticker;
       proposta.investimento.precoAtual = (await precosPapeis([t]).catch(() => new Map())).get(t) ?? null;
     }
@@ -635,7 +646,8 @@ export function descreverProposta(p: FinComandoProposta): string {
     case "posicao": {
       const i = p.investimento;
       const qtd = i?.quantidade != null ? `${qtdBr(i.quantidade)} ` : "";
-      o = `A posição inicial de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${brl(i.preco)} (preço médio)` : ""} em ${dataBr(p.data)} será registrada${conta ? ` na ${conta}` : ""}, sem mexer no caixa da corretora`;
+      const moeda = p.opcoes.contas.find((c) => c.id === p.contaId)?.moeda;
+      o = `A posição inicial de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${naMoeda(i.preco, moeda)} (preço médio)` : ""} em ${dataBr(p.data)} será registrada${conta ? ` na ${conta}` : ""}, sem mexer no caixa da corretora`;
       falta = !i?.ticker || !i?.quantidade || (!i?.preco && p.valor == null) || !conta;
       break;
     }
@@ -643,7 +655,8 @@ export function descreverProposta(p: FinComandoProposta): string {
     case "venda": {
       const i = p.investimento;
       const qtd = i?.quantidade != null ? `${qtdBr(i.quantidade)} ` : "";
-      o = `A ${p.tipo} de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${brl(i.preco)}` : ""} será registrada${conta ? ` na ${conta}` : ""}` +
+      const moeda = p.opcoes.contas.find((c) => c.id === p.contaId)?.moeda;
+      o = `A ${p.tipo} de ${qtd}${i?.ticker ?? "papel"}${i?.preco != null ? ` a ${naMoeda(i.preco, moeda)}` : ""} será registrada${conta ? ` na ${conta}` : ""}` +
         (p.tipo === "compra" && i && !i.papelContaId && i.ticker ? " (papel novo nesta corretora: será cadastrado)" : "");
       falta = !i?.ticker || !i?.quantidade || (!i?.preco && p.valor == null) || !conta || (p.tipo === "venda" && !!i?.ticker && !i.papelContaId);
       break;
