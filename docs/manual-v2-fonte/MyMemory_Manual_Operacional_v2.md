@@ -1344,6 +1344,11 @@ Admin → Sistema → **Histórico de preços (B3)** guarda o fechamento de cada
 
 NOTA: Os preços não são ajustados por desdobramento, grupamento ou proventos. Num desdobramento, o preço "cai" no dia do evento.
 
+## Ação no exterior (Avenue, Nomad)
+O papel fica sempre na **moeda da corretora**. Para ações americanas (AMZN, AAPL), cadastre antes a corretora em **Contas → + Conta**: Tipo **Corretora**, Moeda **USD**, Mercado **Exterior**. Depois "Comprei 5 AMZN a 876 dólares na Avenue" cria o AMZN em dólar e no exterior; o cartão mostra **Preço (USD)** e o custo em US$, e não mostra cotação (a cotação do sistema é da B3, em reais). Para o caixa da corretora em dólar ficar certo, registre também o câmbio ("mandei 25 mil do Itaú para a Avenue e chegaram 4.600 dólares").
+
+NOTA: A moeda de uma conta não muda depois de criada; **Marcar como exterior** muda só o mercado. Compra lançada numa corretora em reais fica em reais: exclua o lançamento "Compra … AMZN" na aba **Lançamentos** (a operação some junto), desative o papel e a corretora em reais e registre de novo na corretora em USD. Sem isso, "Qual é o valor investido no exterior?" volta vazio.
+
 ## Provento (dividendo, JCP, rendimento)
 "Recebi 367 de dividendos do BBDC4" abre o cartão de provento. O dinheiro entra no caixa da **corretora onde o papel está**: o cartão mostra "O dinheiro entra na Conta XP" embaixo do Papel. Para mudar a conta, escolha o papel da outra corretora (ex.: "BBDC4 · Conta Itaú"). Se o papel está em mais de uma corretora e a fala não diz qual, o cartão pede para escolher o papel. O provento não muda o preço médio.
 
